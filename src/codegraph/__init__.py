@@ -2,19 +2,29 @@
 
 Provides Pydantic models for Nodes (File, Namespace, Compound, Member, Parameter),
 edge definitions (CodebaseEdge), and constants (kinds, layers, predicates,
-schema DDL).
+schema DDL, language specializations, semantic groupings).
 """
 
 from codegraph.constants import (
     COMPOUND_KINDS,
     CONSTRAINTS_AND_INDEXES,
+    DEFAULT_PREDICATES,
+    LANGUAGE_SPECIALIZATIONS,
     LAYERS,
     MEMBER_KINDS,
     NAMESPACE_KINDS,
+    NODE_KIND_KEYS,
     NODE_KINDS,
     PREDICATES,
     PREDICATE_TO_REL_TYPE,
+    SOURCE_TYPE_KEYS,
+    SOURCE_TYPES,
+    SUPPORTED_LANGUAGES,
+    TYPE_KINDS,
+    UNCLASSIFIED_KINDS,
+    VALUE_KINDS,
     VISIBILITY_CHOICES,
+    valid_specializations,
 )
 from codegraph.edges import CodebaseEdge
 from codegraph.nodes import (
@@ -38,10 +48,20 @@ __all__ = [
     # Constants
     "COMPOUND_KINDS",
     "CONSTRAINTS_AND_INDEXES",
+    "DEFAULT_PREDICATES",
+    "LANGUAGE_SPECIALIZATIONS",
     "LAYERS",
     "MEMBER_KINDS",
     "NAMESPACE_KINDS",
+    "NODE_KIND_KEYS",
     "NODE_KINDS",
     "PREDICATE_TO_REL_TYPE",
+    "SOURCE_TYPE_KEYS",
+    "SOURCE_TYPES",
+    "SUPPORTED_LANGUAGES",
+    "TYPE_KINDS",
+    "UNCLASSIFIED_KINDS",
+    "VALUE_KINDS",
     "VISIBILITY_CHOICES",
+    "valid_specializations",
 ]
