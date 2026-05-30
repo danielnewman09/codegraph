@@ -222,7 +222,6 @@ class TestMemberNode:
         assert m.layer == "design"
         assert m.refid == ""
         assert m.compound_refid == ""
-        assert m.description == ""
         assert m.brief_description == ""
         assert m.detailed_description == ""
         assert m.type_signature == ""
@@ -247,7 +246,6 @@ class TestMemberNode:
             layer="as-built",
             refid="classcalc_1_1Calculator_1a123",
             compound_refid="classcalc_1_1Calculator",
-            description="Add two numbers",
             brief_description="Addition operation",
             detailed_description="Adds two integers and returns the result.",
             type_signature="int",
@@ -308,7 +306,6 @@ class TestMemberNode:
             layer="as-built",
             refid="ref123",
             compound_refid="compound_ref456",
-            description="desc",
             brief_description="brief",
             detailed_description="detailed",
             type_signature="int",

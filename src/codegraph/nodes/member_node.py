@@ -41,9 +41,6 @@ class MemberNode(BaseModel):
     #: the parent CompoundNode via a COMPOSES edge.
     compound_refid: str = ""
 
-    #: Full description (plain text or Markdown).
-    description: str = ""
-
     #: One-line summary description.
     brief_description: str = ""
 
