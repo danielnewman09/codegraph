@@ -58,7 +58,7 @@ class CompoundNode(BaseModel):
 
     qualified_name: str
     name: str = ""
-    kind: Literal["class", "struct", "template_class", "interface", "abstract_class", "enum", "enum_class"]
+    kind: Literal["class", "struct", "template_class", "interface", "abstract_class", "enum", "enum_class", "union"]
     layer: Literal["design", "as-built", "dependency"] = "design"
     refid: str = ""
     description: str = ""
@@ -78,13 +78,13 @@ class CompoundNode(BaseModel):
 class MemberNode(BaseModel):
     """A member entity in the codebase graph (:Member in Neo4j).
 
-    Members are owned by compounds — methods and attributes on classes,
-    values inside enums, constants inside namespaces.
+    Members are owned by compounds — methods and variables on classes,
+    values inside enums, defines inside namespaces.
     """
 
     qualified_name: str
     name: str = ""
-    kind: Literal["method", "attribute", "constant", "enum_value", "function"]
+    kind: Literal["method", "variable", "define", "enumvalue", "function"]
     layer: Literal["design", "as-built", "dependency"] = "design"
     refid: str = ""
     compound_refid: str = ""

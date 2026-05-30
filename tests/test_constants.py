@@ -20,13 +20,14 @@ class TestKinds:
         assert "abstract_class" in COMPOUND_KINDS
         assert "enum" in COMPOUND_KINDS
         assert "enum_class" in COMPOUND_KINDS
-        assert len(COMPOUND_KINDS) == 7
+        assert "union" in COMPOUND_KINDS
+        assert len(COMPOUND_KINDS) == 8
 
     def test_member_kinds_contains_expected(self):
         assert "method" in MEMBER_KINDS
-        assert "attribute" in MEMBER_KINDS
-        assert "constant" in MEMBER_KINDS
-        assert "enum_value" in MEMBER_KINDS
+        assert "variable" in MEMBER_KINDS
+        assert "define" in MEMBER_KINDS
+        assert "enumvalue" in MEMBER_KINDS
         assert "function" in MEMBER_KINDS
         assert len(MEMBER_KINDS) == 5
 

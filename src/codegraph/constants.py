@@ -16,13 +16,14 @@ COMPOUND_KINDS: list[str] = [
     "abstract_class",
     "enum",
     "enum_class",
+    "union",
 ]
 
 MEMBER_KINDS: list[str] = [
     "method",
-    "attribute",
-    "constant",
-    "enum_value",
+    "variable",
+    "define",
+    "enumvalue",
     "function",
 ]
 

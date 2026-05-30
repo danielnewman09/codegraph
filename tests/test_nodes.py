@@ -190,7 +190,7 @@ class TestCompoundNode:
             CompoundNode(qualified_name="calc::Calculator", kind="class", layer="bogus")
 
     def test_allowed_kinds(self):
-        for kind in ["class", "struct", "template_class", "interface", "abstract_class", "enum", "enum_class"]:
+        for kind in ["class", "struct", "template_class", "interface", "abstract_class", "enum", "enum_class", "union"]:
             c = CompoundNode(qualified_name="calc::Foo", kind=kind)
             assert c.kind == kind
 
@@ -295,7 +295,7 @@ class TestMemberNode:
             MemberNode(qualified_name="calc::Calculator::add", kind="not_a_kind")
 
     def test_allowed_kinds(self):
-        for kind in ["method", "attribute", "constant", "enum_value", "function"]:
+        for kind in ["method", "variable", "define", "enumvalue", "function"]:
             m = MemberNode(qualified_name="calc::foo", kind=kind)
             assert m.kind == kind
 
