@@ -43,6 +43,11 @@ class CompoundNode(BaseModel):
     #: * ``"dependency"`` — external library / third-party
     layer: Literal["design", "as-built", "dependency"] = "design"
 
+    #: Foreign key to the owning ticketing-system component (set by
+    #: external consumers such as the ticketing agent). ``None`` when
+    #: not yet assigned.
+    component_id: int | None = None
+
     #: Doxygen reference-id for as-built/dependency nodes. Empty string
     #: for design-layer compounds.
     refid: str = ""

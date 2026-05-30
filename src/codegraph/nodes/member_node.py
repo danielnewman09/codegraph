@@ -33,6 +33,10 @@ class MemberNode(BaseModel):
     #: * ``"dependency"`` — external library / third-party
     layer: Literal["design", "as-built", "dependency"] = "design"
 
+    #: Foreign key to the owning ticketing-system component. ``None``
+    #: when not yet assigned.
+    component_id: int | None = None
+
     #: Doxygen reference-id for as-built/dependency nodes. Empty string
     #: for design-layer members.
     refid: str = ""
