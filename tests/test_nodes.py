@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from codegraph.nodes import FileNode
+from codegraph.nodes import FileNode, NamespaceNode
 
 
 class TestFileNode:
@@ -54,3 +54,69 @@ class TestFileNode:
         assert data["path"] == ""
         assert data["language"] == ""
         assert data["source"] == ""
+
+
+class TestNamespaceNode:
+    def test_minimal_creation(self):
+        n = NamespaceNode(qualified_name="std")
+        assert n.qualified_name == "std"
+        assert n.name == ""
+        assert n.kind == "namespace"
+        assert n.layer == "design"
+        assert n.refid == ""
+        assert n.description == ""
+        assert n.source == ""
+
+    def test_full_creation(self):
+        n = NamespaceNode(
+            qualified_name="std::chrono",
+            name="chrono",
+            kind="namespace",
+            layer="dependency",
+            refid="namespacestd_1_1chrono",
+            description="C++ chrono library",
+            source="stdlib",
+        )
+        assert n.qualified_name == "std::chrono"
+        assert n.name == "chrono"
+        assert n.kind == "namespace"
+        assert n.layer == "dependency"
+        assert n.refid == "namespacestd_1_1chrono"
+        assert n.description == "C++ chrono library"
+        assert n.source == "stdlib"
+
+    def test_qualified_name_required(self):
+        with pytest.raises(ValidationError):
+            NamespaceNode()
+
+    def test_invalid_kind_rejected(self):
+        with pytest.raises(ValidationError):
+            NamespaceNode(qualified_name="std", kind="invalid_kind")
+
+    def test_invalid_layer_rejected(self):
+        with pytest.raises(ValidationError):
+            NamespaceNode(qualified_name="std", layer="unknown_layer")
+
+    def test_allowed_kinds(self):
+        for kind in ["namespace", "package", "module"]:
+            n = NamespaceNode(qualified_name="std", kind=kind)
+            assert n.kind == kind
+
+    def test_allowed_layers(self):
+        for layer in ["design", "as-built", "dependency"]:
+            n = NamespaceNode(qualified_name="std", layer=layer)
+            assert n.layer == layer
+
+    def test_model_dump_roundtrip(self):
+        n = NamespaceNode(
+            qualified_name="std::chrono",
+            name="chrono",
+            kind="namespace",
+            layer="dependency",
+            refid="ref123",
+            description="desc",
+            source="stdlib",
+        )
+        data = n.model_dump()
+        n2 = NamespaceNode.model_validate(data)
+        assert n == n2
