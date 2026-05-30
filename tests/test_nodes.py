@@ -130,14 +130,12 @@ class TestCompoundNode:
         assert c.kind == "class"
         assert c.layer == "design"
         assert c.refid == ""
-        assert c.description == ""
         assert c.brief_description == ""
         assert c.detailed_description == ""
         assert c.base_classes == []
         assert c.file_path == ""
         assert c.line_number is None
         assert c.source == ""
-        assert c.protection == ""
         assert c.is_final is False
         assert c.is_abstract is False
 
@@ -148,28 +146,24 @@ class TestCompoundNode:
             kind="class",
             layer="as-built",
             refid="classcalc_1_1Calculator",
-            description="A simple calculator",
             brief_description="A simple calculator class",
             detailed_description="Performs arithmetic operations with precision tracking.",
             base_classes=["BaseCalc", "IPrintable"],
             file_path="/src/calculator.h",
             line_number=42,
             source="msd",
-            protection="public",
             is_final=True,
             is_abstract=False,
         )
         assert c.name == "Calculator"
         assert c.layer == "as-built"
         assert c.refid == "classcalc_1_1Calculator"
-        assert c.description == "A simple calculator"
         assert c.brief_description == "A simple calculator class"
         assert c.detailed_description == "Performs arithmetic operations with precision tracking."
         assert c.base_classes == ["BaseCalc", "IPrintable"]
         assert c.file_path == "/src/calculator.h"
         assert c.line_number == 42
         assert c.source == "msd"
-        assert c.protection == "public"
         assert c.is_final is True
         assert c.is_abstract is False
 
@@ -205,14 +199,12 @@ class TestCompoundNode:
             kind="class",
             layer="as-built",
             refid="ref123",
-            description="desc",
             brief_description="brief",
             detailed_description="detailed",
             base_classes=["Base"],
             file_path="/src/calc.h",
             line_number=42,
             source="msd",
-            protection="public",
             is_final=False,
             is_abstract=True,
         )

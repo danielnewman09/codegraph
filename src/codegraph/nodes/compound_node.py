@@ -47,9 +47,6 @@ class CompoundNode(BaseModel):
     #: for design-layer compounds.
     refid: str = ""
 
-    #: Full description (plain text or Markdown).
-    description: str = ""
-
     #: One-line summary description. Typically extracted from the first
     #: sentence of a Doxygen ``@brief`` tag.
     brief_description: str = ""
@@ -74,11 +71,6 @@ class CompoundNode(BaseModel):
     #: Provenance label identifying the source of truth (e.g. ``"msd"``,
     #: ``"stdlib"``, ``"agent"``).
     source: str = ""
-
-    #: Access specifier / visibility for the compound's top-level
-    #: declaration context. One of ``"public"``, ``"private"``,
-    #: ``"protected"``, or ``""`` (unknown / default).
-    protection: Literal["public", "private", "protected", ""] = ""
 
     #: ``True`` if the class/struct is declared ``final`` (cannot be
     #: inherited from).
