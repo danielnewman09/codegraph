@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from codegraph.nodes import CompoundNode, FileNode, NamespaceNode
+from codegraph.nodes import CompoundNode, FileNode, MemberNode, NamespaceNode, ParameterNode
 
 
 class TestFileNode:
@@ -219,3 +219,164 @@ class TestCompoundNode:
         data = c.model_dump()
         c2 = CompoundNode.model_validate(data)
         assert c == c2
+
+
+class TestMemberNode:
+    def test_minimal_creation(self):
+        m = MemberNode(qualified_name="calc::Calculator::add", kind="method")
+        assert m.qualified_name == "calc::Calculator::add"
+        assert m.name == ""
+        assert m.kind == "method"
+        assert m.layer == "design"
+        assert m.refid == ""
+        assert m.compound_refid == ""
+        assert m.description == ""
+        assert m.brief_description == ""
+        assert m.detailed_description == ""
+        assert m.type_signature == ""
+        assert m.definition == ""
+        assert m.argsstring == ""
+        assert m.file_path == ""
+        assert m.line_number is None
+        assert m.source == ""
+        assert m.protection == ""
+        assert m.is_static is False
+        assert m.is_const is False
+        assert m.is_constexpr is False
+        assert m.is_virtual is False
+        assert m.is_inline is False
+        assert m.is_explicit is False
+
+    def test_full_creation(self):
+        m = MemberNode(
+            qualified_name="calc::Calculator::add",
+            name="add",
+            kind="method",
+            layer="as-built",
+            refid="classcalc_1_1Calculator_1a123",
+            compound_refid="classcalc_1_1Calculator",
+            description="Add two numbers",
+            brief_description="Addition operation",
+            detailed_description="Adds two integers and returns the result.",
+            type_signature="int",
+            definition="int Calculator::add(int a, int b)",
+            argsstring="(int a, int b)",
+            file_path="/src/calculator.cpp",
+            line_number=15,
+            source="msd",
+            protection="public",
+            is_static=False,
+            is_const=True,
+            is_constexpr=False,
+            is_virtual=False,
+            is_inline=True,
+            is_explicit=False,
+        )
+        assert m.name == "add"
+        assert m.layer == "as-built"
+        assert m.type_signature == "int"
+        assert m.definition == "int Calculator::add(int a, int b)"
+        assert m.argsstring == "(int a, int b)"
+        assert m.compound_refid == "classcalc_1_1Calculator"
+        assert m.protection == "public"
+        assert m.is_const is True
+        assert m.is_inline is True
+
+    def test_qualified_name_required(self):
+        with pytest.raises(ValidationError):
+            MemberNode(kind="method")
+
+    def test_kind_required(self):
+        with pytest.raises(ValidationError):
+            MemberNode(qualified_name="calc::Calculator::add")
+
+    def test_invalid_kind_rejected(self):
+        with pytest.raises(ValidationError):
+            MemberNode(qualified_name="calc::Calculator::add", kind="not_a_kind")
+
+    def test_allowed_kinds(self):
+        for kind in ["method", "attribute", "constant", "enum_value", "function"]:
+            m = MemberNode(qualified_name="calc::foo", kind=kind)
+            assert m.kind == kind
+
+    def test_boolean_flags_default_false(self):
+        m = MemberNode(qualified_name="calc::Calculator::add", kind="method")
+        assert m.is_static is False
+        assert m.is_const is False
+        assert m.is_constexpr is False
+        assert m.is_virtual is False
+        assert m.is_inline is False
+        assert m.is_explicit is False
+
+    def test_model_dump_roundtrip(self):
+        m = MemberNode(
+            qualified_name="calc::Calculator::add",
+            name="add",
+            kind="method",
+            layer="as-built",
+            refid="ref123",
+            compound_refid="compound_ref456",
+            description="desc",
+            brief_description="brief",
+            detailed_description="detailed",
+            type_signature="int",
+            definition="def",
+            argsstring="(int a)",
+            file_path="/src/calc.cpp",
+            line_number=15,
+            source="msd",
+            protection="public",
+            is_static=False,
+            is_const=True,
+            is_constexpr=False,
+            is_virtual=False,
+            is_inline=True,
+            is_explicit=False,
+        )
+        data = m.model_dump()
+        m2 = MemberNode.model_validate(data)
+        assert m == m2
+
+
+class TestParameterNode:
+    def test_minimal_creation(self):
+        p = ParameterNode(position=0, name="x")
+        assert p.position == 0
+        assert p.name == "x"
+        assert p.type == ""
+        assert p.default_value == ""
+        assert p.member_refid == ""
+
+    def test_full_creation(self):
+        p = ParameterNode(
+            position=1,
+            name="epsilon",
+            type="double",
+            default_value="1e-6",
+            member_refid="method_ref_123",
+        )
+        assert p.position == 1
+        assert p.name == "epsilon"
+        assert p.type == "double"
+        assert p.default_value == "1e-6"
+        assert p.member_refid == "method_ref_123"
+
+    def test_position_required(self):
+        with pytest.raises(ValidationError):
+            ParameterNode(name="x")
+
+    def test_name_required(self):
+        with pytest.raises(ValidationError):
+            ParameterNode(position=0)
+
+    def test_model_dump_roundtrip(self):
+        p = ParameterNode(
+            position=0,
+            name="x",
+            type="int",
+            default_value="0",
+            member_refid="ref123",
+        )
+        data = p.model_dump()
+        p2 = ParameterNode.model_validate(data)
+        assert p == p2

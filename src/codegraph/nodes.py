@@ -73,3 +73,51 @@ class CompoundNode(BaseModel):
     is_abstract: bool = False
 
     model_config = {"from_attributes": True}
+
+
+class MemberNode(BaseModel):
+    """A member entity in the codebase graph (:Member in Neo4j).
+
+    Members are owned by compounds — methods and attributes on classes,
+    values inside enums, constants inside namespaces.
+    """
+
+    qualified_name: str
+    name: str = ""
+    kind: Literal["method", "attribute", "constant", "enum_value", "function"]
+    layer: Literal["design", "as-built", "dependency"] = "design"
+    refid: str = ""
+    compound_refid: str = ""
+    description: str = ""
+    brief_description: str = ""
+    detailed_description: str = ""
+    type_signature: str = ""
+    definition: str = ""
+    argsstring: str = ""
+    file_path: str = ""
+    line_number: int | None = None
+    source: str = ""
+    protection: Literal["public", "private", "protected", ""] = ""
+    is_static: bool = False
+    is_const: bool = False
+    is_constexpr: bool = False
+    is_virtual: bool = False
+    is_inline: bool = False
+    is_explicit: bool = False
+
+    model_config = {"from_attributes": True}
+
+
+class ParameterNode(BaseModel):
+    """A function/method parameter (:Parameter in Neo4j).
+
+    Connected to its owning member via HAS_PARAMETER edge.
+    """
+
+    position: int
+    name: str
+    type: str = ""
+    default_value: str = ""
+    member_refid: str = ""
+
+    model_config = {"from_attributes": True}
