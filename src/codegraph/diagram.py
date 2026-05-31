@@ -12,6 +12,24 @@ from codegraph.models.compound import ClassNode, InterfaceNode, EnumNode
 
 
 @dataclass
+class Association:
+    """A relationship between two named entities in a ClassDiagram.
+
+    This is the LLM-facing shape — not a neomodel node. The mapper
+    and repository translate these into neomodel relationships.
+    """
+
+    subject: str
+    predicate: str
+    object: str
+    requirement_ids: list[str] = field(default_factory=list)
+    mechanism: str = ""
+    position: int | None = None
+    name: str = ""
+    display_name: str = ""
+
+
+@dataclass
 class ClassDiagram:
     """Complete class diagram for a query scope.
 
@@ -23,6 +41,7 @@ class ClassDiagram:
     classes: list[ClassNode] = field(default_factory=list)
     interfaces: list[InterfaceNode] = field(default_factory=list)
     enums: list[EnumNode] = field(default_factory=list)
+    associations: list[Association] = field(default_factory=list)
 
     _entity_index: dict[str, ClassNode | InterfaceNode | EnumNode] = field(
         default_factory=dict, init=False, repr=False,

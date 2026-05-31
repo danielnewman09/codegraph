@@ -29,7 +29,7 @@ from codegraph.constants import (
     VISIBILITY_CHOICES,
     valid_specializations,
 )
-from codegraph.diagram import ClassDiagram
+from codegraph.diagram import ClassDiagram, Association
 from codegraph.graph import CompoundGraph, GraphEdge, NamespaceGraph, OntologyGraph
 from codegraph.models import (
     ClassNode,
@@ -62,6 +62,7 @@ __all__ = [
     "NamespaceNode",
     "FileNode",
     "ParameterNode",
+    "Association",
     # ClassDiagram
     "ClassDiagram",
     # Graph containers

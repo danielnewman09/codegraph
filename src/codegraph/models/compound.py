@@ -69,6 +69,12 @@ class ClassNode(_CompoundMixin):
     attributes = RelationshipTo('codegraph.models.member.AttributeNode', 'COMPOSES')
     base = RelationshipTo('ClassNode', 'GENERALIZES')
     derived = RelationshipFrom('ClassNode', 'GENERALIZES')
+    depends_on = RelationshipTo('ClassNode', 'DEPENDS_ON')
+    references = RelationshipTo('ClassNode', 'REFERENCES')
+    realizes = RelationshipTo('InterfaceNode', 'REALIZES')
+    template_params = RelationshipTo('ClassNode', 'TEMPLATE_PARAM')
+    depended_on_by = RelationshipFrom('ClassNode', 'DEPENDS_ON')
+    referred_by = RelationshipFrom('ClassNode', 'REFERENCES')
 
 
 # --- Stubs for Tasks 3-5 (will be fleshed out with their own fields) ---
@@ -84,6 +90,8 @@ class InterfaceNode(_CompoundMixin):
 
     # Relationships — methods only, no attributes
     methods = RelationshipTo('codegraph.models.member.MethodNode', 'COMPOSES')
+    generalizes = RelationshipTo('InterfaceNode', 'GENERALIZES')
+    dependencies = RelationshipTo('ClassNode', 'DEPENDS_ON')
 
 
 class EnumNode(_CompoundMixin):
@@ -117,3 +125,15 @@ class ModuleNode(_CompoundMixin):
     kind = StringProperty(default="module")
 
     _llm_fields = {"qualified_name", "name", "kind", "brief_description"}
+
+
+# ---------------------------------------------------------------------------
+# Old-label compatibility — write to :Compound/:Member/:Namespace labels
+# until schema migration renames them to the atomized labels.
+# Remove these overrides after the Neo4j schema migration.
+# ---------------------------------------------------------------------------
+ClassNode.__label__ = "Compound"
+InterfaceNode.__label__ = "Compound"
+EnumNode.__label__ = "Compound"
+UnionNode.__label__ = "Compound"
+ModuleNode.__label__ = "Compound"

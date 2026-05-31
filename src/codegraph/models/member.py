@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from neomodel import (
     StructuredNode, StringProperty, IntegerProperty, BooleanProperty,
-    UniqueIdProperty, RelationshipFrom,
+    UniqueIdProperty, RelationshipTo, RelationshipFrom,
 )
 
 from codegraph.models.tags import LlmSerializable
@@ -78,6 +78,9 @@ class MethodNode(_MemberMixin):
     # Relationships — a method can be composed from a ClassNode or InterfaceNode
     parent_compound = RelationshipFrom('codegraph.models.compound.ClassNode', 'COMPOSES')
     parent_interface = RelationshipFrom('codegraph.models.compound.InterfaceNode', 'COMPOSES')
+    has_argument = RelationshipTo('codegraph.models.compound.ClassNode', 'HAS_ARGUMENT')
+    returns = RelationshipTo('codegraph.models.compound.ClassNode', 'RETURNS')
+    invokes = RelationshipTo('MethodNode', 'INVOKES')
 
 
 class AttributeNode(_MemberMixin):
@@ -128,3 +131,14 @@ class DefineNode(_MemberMixin):
     kind = StringProperty(default="define")
 
     _llm_fields = {"qualified_name", "name", "kind", "brief_description"}
+
+
+# ---------------------------------------------------------------------------
+# Old-label compatibility — write to :Member label until schema migration.
+# Remove these overrides after the Neo4j schema migration.
+# ---------------------------------------------------------------------------
+MethodNode.__label__ = "Member"
+AttributeNode.__label__ = "Member"
+EnumValueNode.__label__ = "Member"
+FunctionNode.__label__ = "Member"
+DefineNode.__label__ = "Member"
