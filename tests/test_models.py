@@ -1,106 +1,67 @@
-"""Tests for neomodel node models."""
+"""Tests for atomized neomodel models."""
 import pytest
-from neomodel import DoesNotExist, RequiredProperty, UniqueProperty
+from neomodel import RequiredProperty, UniqueProperty
 
-from codegraph.models.compound import CompoundNode
-from codegraph.models.member import MemberNode
+from codegraph.models.compound import ClassNode, InterfaceNode, EnumNode, UnionNode, ModuleNode
+from codegraph.models.member import MethodNode, AttributeNode, EnumValueNode, FunctionNode, DefineNode
 from codegraph.models.namespace import NamespaceNode
 from codegraph.models.file import FileNode
 from codegraph.models.parameter import ParameterNode
 
 
-class TestCompoundNode:
-    def test_create_and_save(self):
-        c = CompoundNode(qualified_name="calc::Calculator", kind="class")
+class TestCompoundMixin:
+    """Common behavior shared by all compound types."""
+
+    def test_common_fields_present_on_class(self):
+        c = ClassNode(qualified_name="calc::Calculator", kind="class")
         c.save()
-        retrieved = CompoundNode.nodes.get(qualified_name="calc::Calculator")
-        assert retrieved.qualified_name == "calc::Calculator"
-        assert retrieved.kind == "class"
+        retrieved = ClassNode.nodes.get(qualified_name="calc::Calculator")
         assert retrieved.name == ""
         assert retrieved.layer == "design"
-        assert retrieved.is_final is False
+        assert retrieved.brief_description == ""
+        assert retrieved.detailed_description == ""
+        assert retrieved.file_path == ""
+        assert retrieved.line_number is None
+        assert retrieved.source == ""
 
-    def test_unique_id_enforced(self):
-        c1 = CompoundNode(qualified_name="calc::Calc", kind="class").save()
-        c2 = CompoundNode(qualified_name="calc::Calc", kind="struct")
+    def test_qualified_name_is_unique_across_kinds(self):
+        ClassNode(qualified_name="calc::Foo", kind="class").save()
         with pytest.raises(UniqueProperty):
-            c2.save()
+            InterfaceNode(qualified_name="calc::Foo", kind="interface").save()
 
-    def test_kind_required(self):
-        with pytest.raises(RequiredProperty):
-            CompoundNode().save()
+    def test_kind_defaults_to_class(self):
+        """ClassNode.kind defaults to 'class' — can construct without specifying."""
+        c = ClassNode(qualified_name="calc::Auto").save()
+        assert c.kind == "class"
 
-    def test_full_creation(self):
-        c = CompoundNode(
-            qualified_name="calc::Calculator",
-            name="Calculator",
-            kind="class",
-            layer="as-built",
-            refid="classcalc_1_1Calculator",
-            brief_description="A simple calculator",
-            detailed_description="Performs arithmetic.",
-            base_classes=["BaseCalc"],
-            file_path="/src/calculator.h",
-            line_number=42,
-            source="msd",
-            is_final=True,
-            is_abstract=False,
-        ).save()
-        retrieved = CompoundNode.nodes.get(qualified_name="calc::Calculator")
-        assert retrieved.name == "Calculator"
-        assert retrieved.brief_description == "A simple calculator"
-        assert retrieved.base_classes == ["BaseCalc"]
-        assert retrieved.file_path == "/src/calculator.h"
-        assert retrieved.line_number == 42
-        assert retrieved.is_final is True
+    def test_serialize_filters_to_llm_fields(self):
+        c = ClassNode(
+            qualified_name="calc::Calc", name="Calc", kind="class",
+            brief_description="A calculator", file_path="/src/calc.h",
+            line_number=42, source="msd",
+        )
+        result = c.serialize()
+        assert "qualified_name" in result
+        assert "name" in result
+        assert "kind" in result
+        assert "brief_description" in result
+        assert "file_path" not in result
+        assert "line_number" not in result
+        assert "source" not in result
 
-    def test_base_classes_default(self):
-        c = CompoundNode(qualified_name="calc::Foo", kind="class").save()
-        retrieved = CompoundNode.nodes.get(qualified_name="calc::Foo")
-        assert retrieved.base_classes == []
-
-
-class TestMemberNode:
-    def test_create_and_save(self):
-        m = MemberNode(qualified_name="calc::Calculator::add", kind="method")
-        m.save()
-        retrieved = MemberNode.nodes.get(qualified_name="calc::Calculator::add")
-        assert retrieved.kind == "method"
-        assert retrieved.is_static is False
-
-    def test_kind_required(self):
-        with pytest.raises(RequiredProperty):
-            MemberNode().save()
-
-    def test_full_creation(self):
-        m = MemberNode(
-            qualified_name="calc::Calculator::add",
-            name="add",
-            kind="method",
-            layer="as-built",
-            type_signature="int",
-            argsstring="(int a, int b)",
-            protection="public",
-            is_const=True,
-            is_virtual=False,
-            is_inline=True,
-        ).save()
-        retrieved = MemberNode.nodes.get(qualified_name="calc::Calculator::add")
-        assert retrieved.type_signature == "int"
-        assert retrieved.argsstring == "(int a, int b)"
-        assert retrieved.protection == "public"
-        assert retrieved.is_const is True
-        assert retrieved.is_inline is True
-
-    def test_all_boolean_flags_default_false(self):
-        m = MemberNode(qualified_name="calc::Foo::bar", kind="method").save()
-        retrieved = MemberNode.nodes.get(qualified_name="calc::Foo::bar")
-        assert retrieved.is_static is False
-        assert retrieved.is_const is False
-        assert retrieved.is_constexpr is False
-        assert retrieved.is_virtual is False
-        assert retrieved.is_inline is False
-        assert retrieved.is_explicit is False
+    def test_deserialize_ignores_extra_keys(self):
+        data = {
+            "qualified_name": "calc::Calc",
+            "name": "Calc",
+            "kind": "class",
+            "layer": "design",
+            "alien_field": "should be dropped",
+        }
+        node = ClassNode.deserialize(data)
+        assert node.qualified_name == "calc::Calc"
+        assert node.name == "Calc"
+        assert node.kind == "class"
+        assert not hasattr(node, "alien_field")
 
 
 class TestNamespaceNode:

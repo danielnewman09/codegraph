@@ -18,5 +18,5 @@ class NamespaceNode(StructuredNode):
     description = StringProperty(default="")
     source = StringProperty(default="")
 
-    # Relationships
-    compounds = RelationshipTo('codegraph.models.compound.CompoundNode', 'COMPOSES')
+    # Relationships — atomized in later tasks; uses ClassNode as representative target
+    compounds = RelationshipTo('codegraph.models.compound.ClassNode', 'COMPOSES')

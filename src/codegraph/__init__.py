@@ -1,6 +1,7 @@
 """Codegraph — shared Neo4j codebase graph data model.
 
-Provides neomodel Node models (File, Namespace, Compound, Member, Parameter),
+Provides atomized neomodel Node models (Class, Interface, Enum, Union, Module,
+Method, Attribute, EnumValue, Function, Define, Namespace, File, Parameter),
 edge definitions (CodebaseEdge), and constants (kinds, layers, predicates,
 schema DDL, language specializations, semantic groupings).
 """
@@ -30,19 +31,35 @@ from codegraph.constants import (
 from codegraph.edges import CodebaseEdge
 from codegraph.graph import CompoundGraph, GraphEdge, NamespaceGraph, OntologyGraph
 from codegraph.models import (
-    CompoundNode,
-    FileNode,
-    MemberNode,
+    ClassNode,
+    InterfaceNode,
+    EnumNode,
+    UnionNode,
+    ModuleNode,
+    MethodNode,
+    AttributeNode,
+    EnumValueNode,
+    FunctionNode,
+    DefineNode,
     NamespaceNode,
+    FileNode,
     ParameterNode,
 )
 
 __all__ = [
-    # Nodes (neomodel)
-    "CompoundNode",
-    "FileNode",
-    "MemberNode",
+    # Nodes (neomodel, atomized)
+    "ClassNode",
+    "InterfaceNode",
+    "EnumNode",
+    "UnionNode",
+    "ModuleNode",
+    "MethodNode",
+    "AttributeNode",
+    "EnumValueNode",
+    "FunctionNode",
+    "DefineNode",
     "NamespaceNode",
+    "FileNode",
     "ParameterNode",
     # Edges
     "CodebaseEdge",

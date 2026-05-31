@@ -1,36 +1,33 @@
-"""Member node model (:Member label in Neo4j)."""
+"""Member node models — stubs for compound relationship imports."""
 
-from neomodel import (
-    StructuredNode, StringProperty, IntegerProperty, BooleanProperty,
-    UniqueIdProperty, RelationshipFrom,
-)
+from neomodel import StructuredNode, StringProperty, UniqueIdProperty
 
 
-class MemberNode(StructuredNode):
-    """A member entity — method, variable, define, enumvalue, function."""
-
+class MethodNode(StructuredNode):
     qualified_name = UniqueIdProperty()
     name = StringProperty(default="")
-    kind = StringProperty(required=True)
-    layer = StringProperty(default="design")
-    component_id = IntegerProperty()
-    refid = StringProperty(default="")
-    compound_refid = StringProperty(default="")
-    brief_description = StringProperty(default="")
-    detailed_description = StringProperty(default="")
-    type_signature = StringProperty(default="")
-    definition = StringProperty(default="")
-    argsstring = StringProperty(default="")
-    file_path = StringProperty(default="")
-    line_number = IntegerProperty()
-    source = StringProperty(default="")
-    protection = StringProperty(default="")
-    is_static = BooleanProperty(default=False)
-    is_const = BooleanProperty(default=False)
-    is_constexpr = BooleanProperty(default=False)
-    is_virtual = BooleanProperty(default=False)
-    is_inline = BooleanProperty(default=False)
-    is_explicit = BooleanProperty(default=False)
+    kind = StringProperty(default="method")
 
-    # Relationships
-    parent_compound = RelationshipFrom('codegraph.models.compound.CompoundNode', 'COMPOSES')
+
+class AttributeNode(StructuredNode):
+    qualified_name = UniqueIdProperty()
+    name = StringProperty(default="")
+    kind = StringProperty(default="attribute")
+
+
+class EnumValueNode(StructuredNode):
+    qualified_name = UniqueIdProperty()
+    name = StringProperty(default="")
+    kind = StringProperty(default="enumvalue")
+
+
+class FunctionNode(StructuredNode):
+    qualified_name = UniqueIdProperty()
+    name = StringProperty(default="")
+    kind = StringProperty(default="function")
+
+
+class DefineNode(StructuredNode):
+    qualified_name = UniqueIdProperty()
+    name = StringProperty(default="")
+    kind = StringProperty(default="define")

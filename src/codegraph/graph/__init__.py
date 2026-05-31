@@ -8,7 +8,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from codegraph.models import CompoundNode, MemberNode, NamespaceNode
+from codegraph.models.compound import ClassNode, InterfaceNode, EnumNode, UnionNode
+from codegraph.models.member import MethodNode, AttributeNode, EnumValueNode
+from codegraph.models.namespace import NamespaceNode
+
+# Union type for any compound node
+CompoundNodeType = ClassNode | InterfaceNode | EnumNode | UnionNode
+# Union type for any member node
+MemberNodeType = MethodNode | AttributeNode | EnumValueNode
 
 
 @dataclass
@@ -33,8 +40,8 @@ class CompoundGraph:
     edges in and out.
     """
 
-    node: CompoundNode
-    members: list[MemberNode] = field(default_factory=list)
+    node: CompoundNodeType
+    members: list[MemberNodeType] = field(default_factory=list)
     nested: list[CompoundGraph] = field(default_factory=list)
     edges_out: list[GraphEdge] = field(default_factory=list)
     edges_in: list[GraphEdge] = field(default_factory=list)
