@@ -292,6 +292,7 @@ class ClassDiagram:
             "enums": len(self.enums),
             "attributes": attributes_count,
             "methods": methods_count,
+            "associations": len(self.associations),
         }
 
     def to_verification_dicts(self) -> list[dict]:
