@@ -25,6 +25,7 @@ classifiers = [
 dependencies = [
     "pydantic>=2.0",
     "neo4j",
+    "neomodel>=5.0",
 ]
 
 [project.optional-dependencies]
