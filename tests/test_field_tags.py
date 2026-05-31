@@ -1,36 +1,35 @@
-"""Test FieldTags annotation and field filtering."""
+"""Tests for LlmSerializable — serialize/deserialize contract."""
 import pytest
-from typing import Annotated, get_type_hints
-from pydantic import BaseModel
-from codegraph.designs.tags import FieldTags, get_fields_by_tags
+from abc import abstractmethod
+from codegraph.models.tags import LlmSerializable
 
 
-class SampleModel(BaseModel):
-    name: Annotated[str, FieldTags("llm", "neo4j")]
-    file_path: Annotated[str, FieldTags("neo4j")]
-    internal: str = ""  # no tags
+class TestLlmSerializable:
+    def test_serialize_must_be_implemented(self):
+        """Subclasses that don't implement serialize() can't be instantiated."""
 
+        class BadNode(LlmSerializable):
+            pass
 
-def test_field_tags_are_inspectable():
-    hints = get_type_hints(SampleModel, include_extras=True)
-    assert hints["name"].__metadata__[0].tags == frozenset({"llm", "neo4j"})
-    assert hints["file_path"].__metadata__[0].tags == frozenset({"neo4j"})
+        with pytest.raises(TypeError):
+            BadNode()  # Missing abstract method serialize
 
+    def test_deserialize_must_be_implemented(self):
+        """Subclasses that don't implement deserialize() can't be instantiated."""
 
-def test_get_fields_by_tags_llm():
-    fields = get_fields_by_tags(SampleModel, {"llm"})
-    assert "name" in fields
-    assert "file_path" not in fields
-    assert "internal" not in fields
+        class BadNode(LlmSerializable):
+            def serialize(self) -> dict:
+                return {}
 
+        with pytest.raises(TypeError):
+            BadNode()  # Missing abstract method deserialize
 
-def test_get_fields_by_tags_neo4j():
-    fields = get_fields_by_tags(SampleModel, {"neo4j"})
-    assert "name" in fields
-    assert "file_path" in fields
-    assert "internal" not in fields
+    def test_metaclass_is_node_meta_subclass(self):
+        """The combined metaclass is a subclass of NodeMeta so neomodel works."""
+        from neomodel.sync_.node import NodeMeta
+        assert issubclass(type(LlmSerializable), NodeMeta)
 
-
-def test_untagged_fields_excluded():
-    fields = get_fields_by_tags(SampleModel, {"llm", "neo4j"})
-    assert "internal" not in fields
+    def test_metaclass_is_abc_meta_subclass(self):
+        """The combined metaclass is a subclass of ABCMeta for @abstractmethod."""
+        from abc import ABCMeta
+        assert issubclass(type(LlmSerializable), ABCMeta)
