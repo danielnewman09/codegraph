@@ -74,8 +74,16 @@ class ClassNode(_CompoundMixin):
 # --- Stubs for Tasks 3-5 (will be fleshed out with their own fields) ---
 
 class InterfaceNode(_CompoundMixin):
-    """Interface stub — full implementation in Task 3."""
+    """Interface or abstract base — Neo4j label ``:Interface``."""
+
     kind = StringProperty(default="interface")
+    module = StringProperty(default="")
+    is_abstract = BooleanProperty(default=True)
+
+    _llm_fields = {"qualified_name", "name", "kind", "brief_description"}
+
+    # Relationships — methods only, no attributes
+    methods = RelationshipTo('codegraph.models.member.MethodNode', 'COMPOSES')
 
 
 class EnumNode(_CompoundMixin):

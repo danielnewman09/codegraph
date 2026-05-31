@@ -107,6 +107,52 @@ class TestFileNode:
         assert retrieved.path == "/src/main.cpp"
 
 
+class TestInterfaceNode:
+    def test_create_and_save(self):
+        iface = InterfaceNode(
+            qualified_name="io::IPrintable",
+            name="IPrintable",
+            kind="interface",
+            module="io",
+            brief_description="Printable contract",
+            is_abstract=True,
+        )
+        iface.save()
+        retrieved = InterfaceNode.nodes.get(qualified_name="io::IPrintable")
+        assert retrieved.kind == "interface"
+        assert retrieved.name == "IPrintable"
+        assert retrieved.module == "io"
+        assert retrieved.is_abstract is True
+
+    def test_has_no_attributes_relationship(self):
+        """InterfaceNode should NOT have an 'attributes' descriptor."""
+        iface = InterfaceNode(qualified_name="io::IFoo", kind="interface").save()
+        assert not hasattr(iface, "attributes")
+
+    def test_has_methods_relationship(self):
+        """InterfaceNode has a 'methods' descriptor for MethodNodes."""
+        iface = InterfaceNode(qualified_name="io::IBar", kind="interface").save()
+        assert hasattr(iface, "methods")
+
+    def test_default_module_empty(self):
+        iface = InterfaceNode(qualified_name="io::IBaz", kind="interface").save()
+        assert iface.module == ""
+
+    def test_serialize_only_llm_fields(self):
+        iface = InterfaceNode(
+            qualified_name="io::IPrintable", name="IPrintable", kind="interface",
+            brief_description="Printable", module="io", file_path="/src/io.h",
+            line_number=10,
+        )
+        result = iface.serialize()
+        assert result == {
+            "qualified_name": "io::IPrintable",
+            "name": "IPrintable",
+            "kind": "interface",
+            "brief_description": "Printable",
+        }
+
+
 class TestParameterNode:
     def test_create_and_save(self):
         p = ParameterNode(position=0, name="x")
