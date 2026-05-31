@@ -76,8 +76,26 @@ class ClassDiagram:
         """Validate a dict produced by the LLM into a ClassDiagram.
 
         The LLM produces flat dicts with simple fields. Neomodel node
-        construction happens in the mapper (map_to_ontology.py), not here.
+        construction happens here — LLM field names are mapped to
+        neomodel property names.
         """
+        def _map_llm_fields(d: dict) -> dict:
+            """Map LLM field names to neomodel property names."""
+            out = dict(d)
+            if "description" in out:
+                out.setdefault("brief_description", out.pop("description"))
+            if "visibility" in out:
+                out.setdefault("protection", out.pop("visibility"))
+            if "inherits_from" in out:
+                out.setdefault("base_classes", out.pop("inherits_from"))
+            # Map realizes_interfaces to realizes (LLM may use either name)
+            if "realizes_interfaces" in out:
+                out.setdefault("realizes", out.pop("realizes_interfaces"))
+            # Drop ticketing-specific fields not on atomized types
+            out.pop("is_intercomponent", None)
+            out.pop("specialization", None)
+            out.pop("requirement_ids", None)
+            return out
         def _to_assoc(a: dict) -> Association:
             return Association(
                 subject=a.get("subject", ""),
@@ -92,9 +110,9 @@ class ClassDiagram:
 
         return cls(
             module_names=data.get("module_names", []),
-            classes=[ClassNode(**c) for c in data.get("classes", [])],
-            interfaces=[InterfaceNode(**i) for i in data.get("interfaces", [])],
-            enums=[EnumNode(**e) for e in data.get("enums", [])],
+            classes=[ClassNode(**_map_llm_fields(c)) for c in data.get("classes", [])],
+            interfaces=[InterfaceNode(**_map_llm_fields(i)) for i in data.get("interfaces", [])],
+            enums=[EnumNode(**_map_llm_fields(e)) for e in data.get("enums", [])],
             associations=[_to_assoc(a) for a in data.get("associations", [])],
         )
 
