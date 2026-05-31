@@ -27,6 +27,7 @@ from codegraph.constants import (
     valid_specializations,
 )
 from codegraph.edges import CodebaseEdge
+from codegraph.graph import CompoundGraph, GraphEdge, NamespaceGraph, OntologyGraph
 from codegraph.nodes import (
     CompoundNode,
     FileNode,
@@ -45,6 +46,11 @@ __all__ = [
     # Edges
     "CodebaseEdge",
     "PREDICATES",
+    # Graph containers
+    "CompoundGraph",
+    "GraphEdge",
+    "NamespaceGraph",
+    "OntologyGraph",
     # Constants
     "COMPOUND_KINDS",
     "CONSTRAINTS_AND_INDEXES",
