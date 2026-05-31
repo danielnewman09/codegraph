@@ -1,10 +1,11 @@
 """Codegraph — shared Neo4j codebase graph data model.
 
-Provides Pydantic models for Nodes (File, Namespace, Compound, Member, Parameter),
+Provides neomodel Node models (File, Namespace, Compound, Member, Parameter),
 edge definitions (CodebaseEdge), and constants (kinds, layers, predicates,
 schema DDL, language specializations, semantic groupings).
 """
 
+from codegraph.config import NEO4J_PASSWORD, NEO4J_URI, NEO4J_USER
 from codegraph.constants import (
     COMPOUND_KINDS,
     CONSTRAINTS_AND_INDEXES,
@@ -28,16 +29,7 @@ from codegraph.constants import (
 )
 from codegraph.edges import CodebaseEdge
 from codegraph.graph import CompoundGraph, GraphEdge, NamespaceGraph, OntologyGraph
-from codegraph.neo4j import (
-    NEO4J_PASSWORD,
-    NEO4J_URI,
-    NEO4J_USER,
-    Neo4jConnection,
-    close_standalone_driver,
-    get_standalone_driver,
-    get_standalone_session,
-)
-from codegraph.nodes import (
+from codegraph.models import (
     CompoundNode,
     FileNode,
     MemberNode,
@@ -46,7 +38,7 @@ from codegraph.nodes import (
 )
 
 __all__ = [
-    # Nodes
+    # Nodes (neomodel)
     "CompoundNode",
     "FileNode",
     "MemberNode",
@@ -60,6 +52,10 @@ __all__ = [
     "GraphEdge",
     "NamespaceGraph",
     "OntologyGraph",
+    # Config
+    "NEO4J_URI",
+    "NEO4J_USER",
+    "NEO4J_PASSWORD",
     # Constants
     "COMPOUND_KINDS",
     "CONSTRAINTS_AND_INDEXES",
@@ -79,12 +75,4 @@ __all__ = [
     "VALUE_KINDS",
     "VISIBILITY_CHOICES",
     "valid_specializations",
-    # Neo4j connection
-    "Neo4jConnection",
-    "NEO4J_URI",
-    "NEO4J_USER",
-    "NEO4J_PASSWORD",
-    "get_standalone_driver",
-    "get_standalone_session",
-    "close_standalone_driver",
 ]

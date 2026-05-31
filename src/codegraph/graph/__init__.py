@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from codegraph.nodes import CompoundNode, MemberNode, NamespaceNode
+from codegraph.models import CompoundNode, MemberNode, NamespaceNode
 
 
 @dataclass

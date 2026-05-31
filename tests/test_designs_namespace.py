@@ -14,4 +14,5 @@ def test_module_node_llm_dump():
     dumped = mod.model_dump(tags={"llm"})
     assert dumped["name"] == "calc"
     assert dumped["qualified_name"] == "calc"
+    assert dumped["kind"] == "module"
     assert "file_path" not in dumped
