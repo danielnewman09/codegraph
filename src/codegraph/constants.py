@@ -234,6 +234,7 @@ CONSTRAINTS_AND_INDEXES: list[str] = [
     "CREATE INDEX file_name IF NOT EXISTS FOR (f:File) ON (f.name)",
     "CREATE INDEX file_path IF NOT EXISTS FOR (f:File) ON (f.path)",
     "CREATE INDEX namespace_name IF NOT EXISTS FOR (n:Namespace) ON (n.name)",
+    "CREATE INDEX namespace_qualified IF NOT EXISTS FOR (n:Namespace) ON (n.qualified_name)",
     "CREATE INDEX compound_name IF NOT EXISTS FOR (c:Compound) ON (c.name)",
     "CREATE INDEX compound_qualified IF NOT EXISTS FOR (c:Compound) ON (c.qualified_name)",
     "CREATE INDEX compound_kind IF NOT EXISTS FOR (c:Compound) ON (c.kind)",
