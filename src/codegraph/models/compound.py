@@ -40,6 +40,9 @@ class _CompoundMixin(StructuredNode, LlmSerializable):
     # --- Definition ---
     definition = StringProperty(default="")
 
+    # --- File relationship ---
+    defined_in = RelationshipTo('codegraph.models.file.FileNode', 'DEFINED_IN')
+
     # --- Serialization contract ---
     _llm_fields: set[str] = {"qualified_name", "name", "kind", "brief_description"}
 
