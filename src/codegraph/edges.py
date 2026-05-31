@@ -27,5 +27,6 @@ class CodebaseEdge(BaseModel):
     position: int | None = None   # Position for type_argument edges (0-based)
     name: str = ""                # Parameter name for template_param edges
     display_name: str = ""        # Alias display name (e.g. "std::string" for std::basic_string)
+    description: str = ""          # Human-readable description of the relationship
 
     model_config = {"from_attributes": True}
