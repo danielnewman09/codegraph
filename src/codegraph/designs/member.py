@@ -14,7 +14,7 @@ class AttributeNode(BaseModel):
 
     name: Annotated[str, FieldTags("llm", "neo4j", "read")] = ""
     qualified_name: Annotated[str, FieldTags("llm", "neo4j", "read")] = ""
-    kind: Literal["attribute"] = "attribute"
+    kind: Annotated[Literal["attribute"], FieldTags("llm", "neo4j", "read")] = "attribute"
     description: Annotated[str, FieldTags("llm", "neo4j", "read")] = ""
     visibility: Annotated[str, FieldTags("llm", "neo4j", "read")] = ""
 
@@ -40,7 +40,7 @@ class MethodNode(BaseModel):
 
     name: Annotated[str, FieldTags("llm", "neo4j", "read")] = ""
     qualified_name: Annotated[str, FieldTags("llm", "neo4j", "read")] = ""
-    kind: Literal["method"] = "method"
+    kind: Annotated[Literal["method"], FieldTags("llm", "neo4j", "read")] = "method"
     description: Annotated[str, FieldTags("llm", "neo4j", "read")] = ""
     visibility: Annotated[str, FieldTags("llm", "neo4j", "read")] = ""
 
@@ -72,7 +72,7 @@ class EnumValueNode(BaseModel):
 
     name: Annotated[str, FieldTags("llm", "neo4j", "read")] = ""
     qualified_name: Annotated[str, FieldTags("llm", "neo4j", "read")] = ""
-    kind: Literal["enum_value"] = "enum_value"
+    kind: Annotated[Literal["enum_value"], FieldTags("llm", "neo4j", "read")] = "enum_value"
     description: Annotated[str, FieldTags("llm", "neo4j", "read")] = ""
     owner: Annotated[str, FieldTags("neo4j", "read")] = ""
 
@@ -90,11 +90,11 @@ def _tagged_model_dump(model: BaseModel, tags: set[str] | None, **kwargs) -> dic
     ``return_type`` (MethodNode).
     """
     if tags is None:
-        return model.__class__.__bases__[0].model_dump(model, **kwargs)
+        return BaseModel.model_dump(model, **kwargs)
 
     allowed_names = get_fields_by_tags(type(model), tags)
     use_alias = "llm" in tags
-    data = model.__class__.__bases__[0].model_dump(model, by_alias=use_alias, **kwargs)
+    data = BaseModel.model_dump(model, by_alias=use_alias, **kwargs)
 
     if use_alias:
         # Map Python field names to their serialization-alias keys
