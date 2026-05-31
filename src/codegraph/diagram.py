@@ -305,7 +305,10 @@ class ClassDiagram:
 
         for cls_node in self.classes:
             attrs = []
-            if hasattr(cls_node, 'attributes'):
+            raw_attrs = getattr(cls_node, 'attributes', None)
+            if raw_attrs is not None:
+                # Handle both neomodel manager and plain list
+                attr_list = raw_attrs.all() if hasattr(raw_attrs, 'all') else raw_attrs
                 attrs = [
                     {
                         "name": a.name,
@@ -315,10 +318,13 @@ class ClassDiagram:
                         "type_signature": a.type_signature or "",
                         "description": a.brief_description or "",
                     }
-                    for a in cls_node.attributes.all()
+                    for a in attr_list
                 ]
             meths = []
-            if hasattr(cls_node, 'methods'):
+            raw_meths = getattr(cls_node, 'methods', None)
+            if raw_meths is not None:
+                # Handle both neomodel manager and plain list
+                meth_list = raw_meths.all() if hasattr(raw_meths, 'all') else raw_meths
                 meths = [
                     {
                         "name": m.name,
@@ -329,7 +335,7 @@ class ClassDiagram:
                         "argsstring": m.argsstring or "",
                         "description": m.brief_description or "",
                     }
-                    for m in cls_node.methods.all()
+                    for m in meth_list
                 ]
             results.append({
                 "qualified_name": cls_node.qualified_name,
@@ -342,7 +348,9 @@ class ClassDiagram:
 
         for iface_node in self.interfaces:
             meths = []
-            if hasattr(iface_node, 'methods'):
+            raw_meths = getattr(iface_node, 'methods', None)
+            if raw_meths is not None:
+                meth_list = raw_meths.all() if hasattr(raw_meths, 'all') else raw_meths
                 meths = [
                     {
                         "name": m.name,
@@ -353,7 +361,7 @@ class ClassDiagram:
                         "argsstring": m.argsstring or "",
                         "description": m.brief_description or "",
                     }
-                    for m in iface_node.methods.all()
+                    for m in meth_list
                 ]
             results.append({
                 "qualified_name": iface_node.qualified_name,
@@ -377,21 +385,27 @@ class ClassDiagram:
                 "source": "draft",
             }
             if hasattr(cls_node, 'attributes'):
-                for a in cls_node.attributes.all():
-                    lookup[a.qualified_name] = {
-                        "qualified_name": a.qualified_name,
-                        "kind": "attribute",
-                        "description": a.brief_description or "",
-                        "source": "draft",
-                    }
+                raw_attrs = getattr(cls_node, 'attributes', None)
+                if raw_attrs is not None:
+                    attr_list = raw_attrs.all() if hasattr(raw_attrs, 'all') else raw_attrs
+                    for a in attr_list:
+                        lookup[a.qualified_name] = {
+                            "qualified_name": a.qualified_name,
+                            "kind": "attribute",
+                            "description": a.brief_description or "",
+                            "source": "draft",
+                        }
             if hasattr(cls_node, 'methods'):
-                for m in cls_node.methods.all():
-                    lookup[m.qualified_name] = {
-                        "qualified_name": m.qualified_name,
-                        "kind": "method",
-                        "description": m.brief_description or "",
-                        "source": "draft",
-                    }
+                raw_meths = getattr(cls_node, 'methods', None)
+                if raw_meths is not None:
+                    meth_list = raw_meths.all() if hasattr(raw_meths, 'all') else raw_meths
+                    for m in meth_list:
+                        lookup[m.qualified_name] = {
+                            "qualified_name": m.qualified_name,
+                            "kind": "method",
+                            "description": m.brief_description or "",
+                            "source": "draft",
+                        }
         for iface_node in self.interfaces:
             lookup[iface_node.qualified_name] = {
                 "qualified_name": iface_node.qualified_name,
@@ -400,13 +414,16 @@ class ClassDiagram:
                 "source": "draft",
             }
             if hasattr(iface_node, 'methods'):
-                for m in iface_node.methods.all():
-                    lookup[m.qualified_name] = {
-                        "qualified_name": m.qualified_name,
-                        "kind": "method",
-                        "description": m.brief_description or "",
-                        "source": "draft",
-                    }
+                raw_meths = getattr(iface_node, 'methods', None)
+                if raw_meths is not None:
+                    meth_list = raw_meths.all() if hasattr(raw_meths, 'all') else raw_meths
+                    for m in meth_list:
+                        lookup[m.qualified_name] = {
+                            "qualified_name": m.qualified_name,
+                            "kind": "method",
+                            "description": m.brief_description or "",
+                            "source": "draft",
+                        }
         for enum_node in self.enums:
             lookup[enum_node.qualified_name] = {
                 "qualified_name": enum_node.qualified_name,
