@@ -283,8 +283,12 @@ class ClassDiagram:
         for c in self.classes:
             if c.element_id and hasattr(c, 'attributes'):
                 attributes_count += len(c.attributes.all())
+            elif hasattr(c, 'attributes') and isinstance(c.attributes, list):
+                attributes_count += len(c.attributes)
             if c.element_id and hasattr(c, 'methods'):
                 methods_count += len(c.methods.all())
+            elif hasattr(c, 'methods') and isinstance(c.methods, list):
+                methods_count += len(c.methods)
 
         return {
             "classes": len(self.classes),
