@@ -2,8 +2,9 @@
 
 Provides atomized neomodel Node models (Class, Interface, Enum, Union, Module,
 Method, Attribute, EnumValue, Function, Define, Namespace, File, Parameter),
-edge definitions (CodebaseEdge), and constants (kinds, layers, predicates,
-schema DDL, language specializations, semantic groupings).
+graph containers (CompoundGraph, NamespaceGraph, OntologyGraph, GraphEdge),
+ClassDiagram, and constants (kinds, layers, predicates,
+schema DDL, language specializations).
 """
 
 from codegraph.config import NEO4J_PASSWORD, NEO4J_URI, NEO4J_USER
@@ -28,7 +29,7 @@ from codegraph.constants import (
     VISIBILITY_CHOICES,
     valid_specializations,
 )
-from codegraph.edges import CodebaseEdge
+from codegraph.diagram import ClassDiagram
 from codegraph.graph import CompoundGraph, GraphEdge, NamespaceGraph, OntologyGraph
 from codegraph.models import (
     ClassNode,
@@ -61,9 +62,8 @@ __all__ = [
     "NamespaceNode",
     "FileNode",
     "ParameterNode",
-    # Edges
-    "CodebaseEdge",
-    "PREDICATES",
+    # ClassDiagram
+    "ClassDiagram",
     # Graph containers
     "CompoundGraph",
     "GraphEdge",
@@ -74,6 +74,7 @@ __all__ = [
     "NEO4J_USER",
     "NEO4J_PASSWORD",
     # Constants
+    "PREDICATES",
     "COMPOUND_KINDS",
     "CONSTRAINTS_AND_INDEXES",
     "DEFAULT_PREDICATES",

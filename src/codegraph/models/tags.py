@@ -30,7 +30,22 @@ class _LlmSerializableMeta(NodeMeta, ABCMeta):
         if not is_neomodel:
             # Pure ABC path — skip NodeMeta initialization
             return ABCMeta.__new__(mcs, name, bases, namespace, **kwargs)
-        return super().__new__(mcs, name, bases, namespace, **kwargs)
+
+        # NodeMeta.__new__ calls type.__new__ directly, bypassing ABCMeta.
+        # We must re-compute __abstractmethods__ so @abstractmethod works.
+        cls = super().__new__(mcs, name, bases, namespace, **kwargs)
+        abstracts: set[str] = set()
+        for base in bases:
+            for attr in getattr(base, "__abstractmethods__", ()):
+                value = namespace.get(attr, getattr(base, attr, None))
+                if getattr(value, "__isabstractmethod__", False):
+                    abstracts.add(attr)
+        for attr, value in namespace.items():
+            if getattr(value, "__isabstractmethod__", False):
+                abstracts.add(attr)
+        if abstracts:
+            cls.__abstractmethods__ = frozenset(abstracts)
+        return cls
 
 
 class LlmSerializable(metaclass=_LlmSerializableMeta):

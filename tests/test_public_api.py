@@ -2,17 +2,25 @@
 
 
 def test_import_nodes():
-    from codegraph import FileNode, NamespaceNode, CompoundNode, MemberNode, ParameterNode
+    from codegraph import FileNode, NamespaceNode, ClassNode, InterfaceNode, EnumNode, MethodNode, AttributeNode, EnumValueNode, ParameterNode
     assert FileNode is not None
     assert NamespaceNode is not None
-    assert CompoundNode is not None
-    assert MemberNode is not None
+    assert ClassNode is not None
+    assert InterfaceNode is not None
+    assert EnumNode is not None
+    assert MethodNode is not None
+    assert AttributeNode is not None
+    assert EnumValueNode is not None
     assert ParameterNode is not None
 
 
+def test_import_classdiagram():
+    from codegraph import ClassDiagram
+    assert ClassDiagram is not None
+
+
 def test_import_edges():
-    from codegraph import CodebaseEdge, PREDICATES
-    assert CodebaseEdge is not None
+    from codegraph import PREDICATES
     assert isinstance(PREDICATES, list)
 
 
