@@ -1,157 +1,74 @@
-"""Test ClassDiagram to_neo4j() / from_neo4j() round-trip."""
-from codegraph.designs import ClassDiagram
-from codegraph.designs.compound import ClassNode, InterfaceNode, EnumNode
-from codegraph.designs.member import AttributeNode, MethodNode, EnumValueNode
-from codegraph.designs.edges import Association
-from codegraph.repositories.compound import CompoundRepository
-from codegraph.repositories.member import MemberRepository
+"""Tests for ClassDiagram dataclass container."""
+import pytest
+
+from codegraph.diagram import ClassDiagram
+from codegraph.models.compound import ClassNode, InterfaceNode, EnumNode
 
 
-def make_sample_diagram() -> ClassDiagram:
-    return ClassDiagram(
-        classes=[
-            ClassNode(
-                name="Calculator",
-                qualified_name="calc::Calculator",
-                kind="class",
-                description="A simple calculator",
-                module="calc",
-                attributes=[
-                    AttributeNode(
-                        name="count", qualified_name="calc::Calculator::count",
-                        type_signature="int", visibility="private",
-                        description="Operation counter",
-                    )
-                ],
-                methods=[
-                    MethodNode(
-                        name="add", qualified_name="calc::Calculator::add",
-                        type_signature="int", argsstring="(int a, int b)",
-                        visibility="public", description="Add two numbers",
-                    )
-                ],
-            )
-        ],
-        interfaces=[
-            InterfaceNode(
-                name="IPrintable", qualified_name="calc::IPrintable",
-                kind="interface", module="calc",
-                is_abstract=True,
-                methods=[
-                    MethodNode(
-                        name="print", qualified_name="calc::IPrintable::print",
-                        type_signature="void", argsstring="()",
-                        visibility="public", is_virtual=True,
-                    )
-                ],
-            )
-        ],
-        enums=[
-            EnumNode(
-                name="Op", qualified_name="calc::Op",
-                kind="enum", module="calc",
-                values=[
-                    EnumValueNode(name="ADD", qualified_name="calc::Op::ADD"),
-                    EnumValueNode(name="SUB", qualified_name="calc::Op::SUB"),
-                ],
-            )
-        ],
-        associations=[
-            Association(
-                subject="calc::Calculator",
-                predicate="aggregates",
-                object="calc::Matrix",
-                mechanism="std::vector",
-                description="Internal matrix storage",
-            )
-        ],
-    )
+class TestClassDiagram:
+    def test_init_with_empty_lists(self):
+        diagram = ClassDiagram()
+        assert diagram.module_names == []
+        assert diagram.classes == []
+        assert diagram.interfaces == []
+        assert diagram.enums == []
 
+    def test_init_populates_entity_index(self):
+        c = ClassNode(qualified_name="calc::Calculator", kind="class", name="Calc")
+        iface = InterfaceNode(qualified_name="io::IPrintable", kind="interface", name="IP")
+        enum = EnumNode(qualified_name="color::Color", kind="enum", name="Color")
 
-def test_to_neo4j_persists_internally():
-    """to_neo4j() persists to Neo4j and returns None."""
-    diagram = make_sample_diagram()
-    diagram.to_neo4j()
+        diagram = ClassDiagram(
+            classes=[c], interfaces=[iface], enums=[enum],
+        )
+        assert diagram.get_entity("calc::Calculator") is c
+        assert diagram.get_entity("io::IPrintable") is iface
+        assert diagram.get_entity("color::Color") is enum
+        assert diagram.get_entity("nonexistent") is None
 
-    # Read back via repositories
-    compounds = CompoundRepository().find_by_layer("design")
-    members = MemberRepository().find_by_layer("design")
+    def test_to_summary_counts(self):
+        c1 = ClassNode(qualified_name="a::A", kind="class")
+        c2 = ClassNode(qualified_name="b::B", kind="class")
+        iface = InterfaceNode(qualified_name="c::C", kind="interface")
+        enum = EnumNode(qualified_name="d::D", kind="enum")
 
-    assert len(compounds) == 3
-    compound_map = {c.qualified_name: c for c in compounds}
-    calc = compound_map["calc::Calculator"]
-    assert calc.kind == "class"
-    assert calc.name == "Calculator"
-    assert calc.brief_description == "A simple calculator"
+        diagram = ClassDiagram(
+            classes=[c1, c2], interfaces=[iface], enums=[enum],
+        )
+        summary = diagram.to_summary()
+        assert summary["classes"] == 2
+        assert summary["interfaces"] == 1
+        assert summary["enums"] == 1
 
-    iface = compound_map["calc::IPrintable"]
-    assert iface.kind == "interface"
-    assert iface.is_abstract is True
+    def test_to_class_lookup(self):
+        c = ClassNode(qualified_name="calc::Calculator", kind="class", name="Calculator")
+        diagram = ClassDiagram(classes=[c])
+        lookup = diagram.to_class_lookup()
+        assert lookup == {"Calculator": "calc::Calculator"}
 
-    op = compound_map["calc::Op"]
-    assert op.kind == "enum"
+    def test_classes_in_module(self):
+        c1 = ClassNode(qualified_name="calc::Calc", kind="class", module="calc")
+        c2 = ClassNode(qualified_name="calc::Adder", kind="class", module="calc")
+        c3 = ClassNode(qualified_name="io::Printer", kind="class", module="io")
 
-    assert len(members) == 5
-    member_map = {m.qualified_name: m for m in members}
-    count = member_map["calc::Calculator::count"]
-    assert count.kind == "variable"
-    assert count.type_signature == "int"
+        diagram = ClassDiagram(classes=[c1, c2, c3])
+        calc_classes = diagram.classes_in_module("calc")
+        assert len(calc_classes) == 2
+        assert c3 not in calc_classes
 
-    add_method = member_map["calc::Calculator::add"]
-    assert add_method.kind == "method"
-    assert add_method.type_signature == "int"
+    def test_from_layer_returns_classdiagram(self):
+        """Smoke test: from_layer returns a ClassDiagram."""
+        diagram = ClassDiagram.from_layer("design")
+        assert isinstance(diagram, ClassDiagram)
+        assert hasattr(diagram, "classes")
+        assert hasattr(diagram, "interfaces")
+        assert hasattr(diagram, "enums")
 
-    add_enum = member_map["calc::Op::ADD"]
-    assert add_enum.kind == "enumvalue"
+    def test_from_layer_derives_module_names(self):
+        """module_names is derived from qualified names in from_layer()."""
+        ClassNode(qualified_name="calc::Calculator", kind="class", name="Calculator").save()
+        InterfaceNode(qualified_name="io::IPrintable", kind="interface", name="IPrintable").save()
 
-
-def test_from_neo4j_reconstructs_diagram():
-    """Persist a diagram, then reconstruct it via from_neo4j()."""
-    diagram = make_sample_diagram()
-    diagram.to_neo4j()
-
-    # Read back via from_neo4j() with no args (reads from DB)
-    reconstructed = ClassDiagram.from_neo4j()
-
-    assert len(reconstructed.classes) == 1
-    cls = reconstructed.classes[0]
-    assert cls.qualified_name == "calc::Calculator"
-    assert cls.description == "A simple calculator"
-    assert len(cls.attributes) == 1
-    assert cls.attributes[0].name == "count"
-    assert len(cls.methods) == 1
-    assert cls.methods[0].name == "add"
-
-    assert len(reconstructed.interfaces) == 1
-    assert reconstructed.interfaces[0].qualified_name == "calc::IPrintable"
-    assert len(reconstructed.interfaces[0].methods) == 1
-
-    assert len(reconstructed.enums) == 1
-    assert reconstructed.enums[0].qualified_name == "calc::Op"
-    assert len(reconstructed.enums[0].values) == 2
-
-    # Associations are persisted as Neo4j relationships, not CodebaseEdge rows.
-    # from_neo4j() without explicit edge lists does not reconstruct them yet.
-    # This is tracked as a future enhancement.
-
-    entity = reconstructed.get_entity("calc::Calculator")
-    assert entity is not None
-    assert entity.qualified_name == "calc::Calculator"
-
-
-def test_class_diagram_llm_serialization():
-    diagram = make_sample_diagram()
-    dumped = diagram.model_dump(tags={"llm", "ticketing"})
-
-    cls = dumped["classes"][0]
-    assert cls["name"] == "Calculator"
-    assert cls["qualified_name"] == "calc::Calculator"
-    assert "file_path" not in cls
-    assert "layer" not in cls
-    assert cls["attributes"][0]["type_name"] == "int"
-    assert cls["methods"][0]["return_type"] == "int"
-
-    assoc = dumped["associations"][0]
-    assert assoc["from_class"] == "calc::Calculator"
-    assert assoc["to_class"] == "calc::Matrix"
-    assert assoc["kind"] == "aggregates"
+        diagram = ClassDiagram.from_layer("design")
+        assert "calc" in diagram.module_names
+        assert "io" in diagram.module_names
