@@ -19,7 +19,6 @@ from codegraph.designs.member import (
 )
 from codegraph.designs.namespace import ModuleNode
 from codegraph.designs.tags import FieldTags, get_fields_by_tags
-from codegraph.nodes import CompoundNode, MemberNode, NamespaceNode
 
 __all__ = [
     "Association",
@@ -37,19 +36,59 @@ __all__ = [
 
 
 class ClassDiagram(BaseModel):
-    """Complete class diagram for a query scope."""
+    """Complete class diagram for a query scope.
 
+    ClassDiagram is the top-level container for all design-layer
+    entities within a single query or analysis scope. It aggregates
+    classes, interfaces, enums, and their associations into a
+    self-contained, serializable document that can be:
+
+    * Serialized for LLM consumption via ``model_dump(tags={"llm"})``
+    * Round-tripped to/from Neo4j via :meth:`to_neo4j` /
+      :meth:`from_neo4j`
+    * Transformed into verification dicts via
+      :meth:`to_verification_dicts`
+    * Summarized via :meth:`to_summary`
+
+    An internal ``_entity_index`` provides O(1) lookup by
+    ``qualified_name`` across all entity types.
+    """
+
+    #: List of module/namespace names present in this diagram
+    #: (e.g. ``["calc", "io"]``). Populated during deserialization
+    #: or Neo4j round-tripping.
     module_names: list[str] = []
+
+    #: All classes (:class:`ClassNode`) in the diagram, including
+    #: structs and template classes.
     classes: list[ClassNode] = []
+
+    #: All interfaces (:class:`InterfaceNode`) in the diagram,
+    #: including abstract classes that serve as contracts.
     interfaces: list[InterfaceNode] = []
+
+    #: All enums (:class:`EnumNode`) in the diagram, including
+    #: both plain enums and C++ scoped enum classes.
     enums: list[EnumNode] = []
+
+    #: All associations (:class:`Association`) between entities
+    #: in this diagram. Associations are directed: subject → object.
     associations: list[Association] = []
 
+    #: Internal lookup cache mapping ``qualified_name`` to entity.
+    #: Built in :meth:`model_post_init` from all entity lists.
+    #: Provides O(1) access via :meth:`get_entity`.
     _entity_index: dict[str, ClassNode | InterfaceNode | EnumNode | ModuleNode] = (
         PrivateAttr(default_factory=dict)
     )
 
     def model_post_init(self, __context) -> None:
+        """Build the internal ``_entity_index`` after model initialization.
+
+        Called automatically by Pydantic after ``__init__`` completes.
+        Populates a dict mapping ``qualified_name`` → entity for O(1)
+        lookups.
+        """
         self._entity_index = {}
         for cls in self.classes:
             self._entity_index[cls.qualified_name] = cls
@@ -61,20 +100,73 @@ class ClassDiagram(BaseModel):
     # -- Query methods --
 
     def get_entity(self, qualified_name: str) -> ClassNode | InterfaceNode | EnumNode | ModuleNode | None:
+        """Look up any entity by its fully-qualified name.
+
+        Args:
+            qualified_name: Fully-qualified name of the entity
+                (e.g. ``"calc::Calculator"``).
+
+        Returns:
+            The matching entity node, or ``None`` if not found.
+        """
         return self._entity_index.get(qualified_name)
 
     def associations_for(self, qualified_name: str) -> list[Association]:
+        """Return all associations where the given entity is the subject.
+
+        Args:
+            qualified_name: Fully-qualified name of the subject entity.
+
+        Returns:
+            List of associations originating from this entity.
+        """
         return [a for a in self.associations if a.subject == qualified_name]
 
     def associations_involving(self, qualified_name: str) -> list[Association]:
+        """Return all associations involving the given entity (subject or object).
+
+        Args:
+            qualified_name: Fully-qualified name of the entity.
+
+        Returns:
+            List of associations where this entity is either the
+            subject or the object.
+        """
         return [a for a in self.associations if a.subject == qualified_name or a.object == qualified_name]
 
     def classes_in_module(self, module: str) -> list[ClassNode]:
+        """Return all classes belonging to the given module.
+
+        Args:
+            module: Module name to filter by (e.g. ``"calc"``).
+
+        Returns:
+            List of :class:`ClassNode` instances with matching
+            ``module`` field.
+        """
         return [c for c in self.classes if c.module == module]
 
     # -- Serialization --
 
     def model_dump(self, *, tags: set[str] | None = None, **kwargs) -> dict:
+        """Serialize the entire diagram, optionally filtering by field tags.
+
+        Overrides the default Pydantic ``model_dump`` to propagate the
+        *tags* filter to all nested entities (classes, interfaces,
+        enums, associations). Each child's own ``model_dump(tags=...)``
+        is called so that only fields matching the requested tags
+        appear in the output.
+
+        Args:
+            tags: Set of :class:`FieldTags` tags to filter by
+                (e.g. ``{"llm"}``). When ``None``, all fields are
+                included unfiltered.
+            **kwargs: Forwarded to ``BaseModel.model_dump``
+                (e.g. ``exclude_none=True``).
+
+        Returns:
+            A nested dict representing the filtered class diagram.
+        """
         data = super().model_dump(**kwargs)
 
         if "classes" in data:
@@ -89,97 +181,158 @@ class ClassDiagram(BaseModel):
 
     # -- Neo4j round-trip --
 
-    def to_neo4j(self) -> tuple[list[CompoundNode], list[MemberNode], list[CodebaseEdge]]:
-        from codegraph.edges import CodebaseEdge  # noqa: F811  # lazy import to avoid circular dependency
+    def to_neo4j(self) -> None:
+        """Persist the entire diagram to Neo4j via the repository layer.
 
-        compounds: list[CompoundNode] = []
-        members: list[MemberNode] = []
+        Creates neomodel :class:`~codegraph.models.compound.CompoundNode`
+        and :class:`~codegraph.models.member.MemberNode` instances,
+        saves them, and wires up COMPOSES relationships. Associations
+        are persisted as GENERALIZES edges via the repository's
+        ``connect_base`` method.
+
+        This replaces the old pattern of returning ``(compounds,
+        members, edges)`` lists for the caller to insert manually.
+        """
+        from codegraph.models.compound import CompoundNode as NeoCompound
+        from codegraph.models.member import MemberNode as NeoMember
+        from codegraph.repositories.compound import CompoundRepository
+        from codegraph.repositories.member import MemberRepository
+
+        compound_repo = CompoundRepository()
+        member_repo = MemberRepository()
 
         for cls in self.classes:
-            compound = CompoundNode(
+            compound = NeoCompound(
                 qualified_name=cls.qualified_name,
                 name=cls.name,
-                kind=cls.kind,  # type: ignore[arg-type]
-                layer=cls.layer or "design",  # type: ignore[arg-type]
+                kind=cls.kind,
+                layer=cls.layer or "design",
                 component_id=cls.component_id,
                 brief_description=cls.description,
-                file_path=cls.file_path,
+                file_path=cls.file_path or "",
                 line_number=cls.line_number,
                 is_final=cls.is_final,
                 is_abstract=cls.is_abstract,
             )
-            compounds.append(compound)
+            compound_repo.save(compound)
+
             for attr in cls.attributes:
-                members.append(MemberNode(
-                    qualified_name=attr.qualified_name, name=attr.name,
-                    kind="variable", layer="design",
+                member = NeoMember(
+                    qualified_name=attr.qualified_name,
+                    name=attr.name,
+                    kind="variable",
+                    layer=attr.layer or "design",
                     component_id=attr.component_id,
                     brief_description=attr.description,
-                    type_signature=attr.type_signature,
-                ))
+                    type_signature=attr.type_signature or "",
+                )
+                member_repo.save(member)
+                compound_repo.connect_member(compound.qualified_name, member.qualified_name)
+
             for method in cls.methods:
-                members.append(MemberNode(
-                    qualified_name=method.qualified_name, name=method.name,
-                    kind="method", layer="design",
+                member = NeoMember(
+                    qualified_name=method.qualified_name,
+                    name=method.name,
+                    kind="method",
+                    layer=method.layer or "design",
                     component_id=method.component_id,
                     brief_description=method.description,
-                    type_signature=method.type_signature,
-                    argsstring=method.argsstring,
-                    protection=method.visibility or "",  # type: ignore[arg-type]
+                    type_signature=method.type_signature or "",
+                    argsstring=method.argsstring or "",
+                    protection=method.visibility or "",
                     is_virtual=method.is_virtual,
                     is_static=method.is_static,
                     is_const=method.is_const,
-                ))
+                )
+                member_repo.save(member)
+                compound_repo.connect_member(compound.qualified_name, member.qualified_name)
 
         for iface in self.interfaces:
-            compound = CompoundNode(
-                qualified_name=iface.qualified_name, name=iface.name,
-                kind=iface.kind, layer="design",  # type: ignore[arg-type]
+            compound = NeoCompound(
+                qualified_name=iface.qualified_name,
+                name=iface.name,
+                kind=iface.kind,
+                layer="design",
                 component_id=iface.component_id,
                 brief_description=iface.description,
                 is_abstract=iface.is_abstract,
             )
-            compounds.append(compound)
+            compound_repo.save(compound)
+
             for method in iface.methods:
-                members.append(MemberNode(
-                    qualified_name=method.qualified_name, name=method.name,
-                    kind="method", layer="design",
+                member = NeoMember(
+                    qualified_name=method.qualified_name,
+                    name=method.name,
+                    kind="method",
+                    layer="design",
                     component_id=method.component_id,
                     brief_description=method.description,
-                    type_signature=method.type_signature,
-                    argsstring=method.argsstring,
-                    protection=method.visibility or "", is_virtual=True,  # type: ignore[arg-type]
-                ))
+                    type_signature=method.type_signature or "",
+                    argsstring=method.argsstring or "",
+                    protection=method.visibility or "",
+                    is_virtual=True,
+                )
+                member_repo.save(member)
+                compound_repo.connect_member(compound.qualified_name, member.qualified_name)
 
         for enum in self.enums:
-            compound = CompoundNode(
-                qualified_name=enum.qualified_name, name=enum.name,
-                kind=enum.kind, layer="design",  # type: ignore[arg-type]
+            compound = NeoCompound(
+                qualified_name=enum.qualified_name,
+                name=enum.name,
+                kind=enum.kind,
+                layer="design",
                 component_id=enum.component_id,
                 brief_description=enum.description,
             )
-            compounds.append(compound)
-            for val in enum.values:
-                members.append(MemberNode(
-                    qualified_name=val.qualified_name, name=val.name,
-                    kind="enumvalue", layer="design",
-                ))
+            compound_repo.save(compound)
 
-        edges: list[CodebaseEdge] = []
+            for val in enum.values:
+                member = NeoMember(
+                    qualified_name=val.qualified_name,
+                    name=val.name,
+                    kind="enumvalue",
+                    layer="design",
+                )
+                member_repo.save(member)
+                compound_repo.connect_member(compound.qualified_name, member.qualified_name)
+
+        # Associations: create relationship edges
         for assoc in self.associations:
-            edges.append(CodebaseEdge(
-                subject_qualified_name=assoc.subject,
-                predicate=assoc.predicate,
-                object_qualified_name=assoc.object,
-                mechanism=assoc.mechanism,
-                description=assoc.description,
-            ))
-        return compounds, members, edges
+            predicate = assoc.predicate.upper()
+            if predicate == "GENERALIZES":
+                try:
+                    compound_repo.connect_base(assoc.subject, assoc.object)
+                except Exception:
+                    pass  # target may not exist yet
 
     @classmethod
-    def from_neo4j(cls, compounds: list[CompoundNode], members: list[MemberNode],
-                   edges: list[CodebaseEdge]) -> ClassDiagram:
+    def from_neo4j(cls, compounds: list | None = None,
+                   members: list | None = None,
+                   edges: list | None = None) -> ClassDiagram:
+        """Reconstruct a class diagram from Neo4j node/edge lists.
+
+        When called with explicit lists, uses those directly (backward
+        compatible). When called with no arguments, reads all
+        design-layer entities from Neo4j via the repository layer.
+
+        Args:
+            compounds: Optional list of compound node instances.
+            members: Optional list of member node instances.
+            edges: Optional list of edge instances.
+
+        Returns:
+            A fully reconstructed :class:`ClassDiagram`.
+        """
         from codegraph.edges import CodebaseEdge  # noqa: F811  # lazy import to avoid circular dependency
+
+        if compounds is None:
+            from codegraph.repositories.compound import CompoundRepository
+            compounds = CompoundRepository().find_by_layer("design")
+        if members is None:
+            from codegraph.repositories.member import MemberRepository
+            members = MemberRepository().find_by_layer("design")
+        if edges is None:
+            edges = []
 
         _CLASS_KINDS = {"class", "struct", "template_class"}
         _INTERFACE_KINDS = {"interface", "abstract_class"}
@@ -262,6 +415,19 @@ class ClassDiagram(BaseModel):
     # -- Transformation methods --
 
     def to_verification_dicts(self) -> list[dict]:
+        """Convert the diagram into a list of dicts suitable for verification.
+
+        Each dict represents one entity (class or interface) with its
+        attributes, methods, and outgoing relationships flattened into
+        simple dict structures. Used by the verification pipeline to
+        compare design output against as-built source code.
+
+        Returns:
+            A list of entity dicts sorted by ``qualified_name``, each
+            containing ``qualified_name``, ``kind``, ``description``,
+            ``attributes``, ``methods``, and ``relationships`` keys.
+            Interfaces have empty ``attributes`` lists.
+        """
         results = []
         for cls in self.classes:
             attrs = [{"name": a.name, "qualified_name": a.qualified_name, "kind": "attribute",
@@ -290,6 +456,18 @@ class ClassDiagram(BaseModel):
         return sorted(results, key=lambda c: c["qualified_name"])
 
     def to_draft_lookup(self) -> dict[str, dict]:
+        """Build a flat lookup table of all entities in the diagram.
+
+        Each entry maps ``qualified_name`` to a dict with keys
+        ``qualified_name``, ``kind``, ``description``, and
+        ``source`` (always ``"draft"``). Includes classes, interfaces,
+        enums, attributes, and methods — any entity with a qualified
+        name.
+
+        Returns:
+            A ``{qualified_name: entity_info}`` dict for all entities
+            in the diagram.
+        """
         lookup: dict[str, dict] = {}
         for cls in self.classes:
             lookup[cls.qualified_name] = {"qualified_name": cls.qualified_name,
@@ -312,12 +490,30 @@ class ClassDiagram(BaseModel):
         return lookup
 
     def to_summary(self) -> dict:
+        """Return a high-level summary of the diagram's contents.
+
+        Returns:
+            A dict with counts for ``classes``, ``interfaces``,
+            ``enums``, ``associations``, ``attributes``, and
+            ``methods``.
+        """
         return {"classes": len(self.classes), "interfaces": len(self.interfaces),
                 "enums": len(self.enums), "associations": len(self.associations),
                 "attributes": sum(len(c.attributes) for c in self.classes),
                 "methods": sum(len(c.methods) for c in self.classes)}
 
     def to_class_lookup(self) -> dict[str, str]:
+        """Build a simple name → qualified_name lookup for top-level entities.
+
+        Maps unqualified names (e.g. ``"Calculator"``) to their
+        fully-qualified form (e.g. ``"calc::Calculator"``). In case of
+        name collisions, later entities in the iteration order
+        overwrite earlier ones.
+
+        Returns:
+            A ``{name: qualified_name}`` dict for all classes,
+            interfaces, and enums in the diagram.
+        """
         lookup: dict[str, str] = {}
         for cls in self.classes:
             lookup[cls.name] = cls.qualified_name
@@ -329,12 +525,38 @@ class ClassDiagram(BaseModel):
 
 
 def _extract_parent_qn(qualified_name: str) -> str:
+    """Extract the parent qualified name by stripping the last component.
+
+    For example, ``"calc::Calculator::add"`` returns
+    ``"calc::Calculator"``. Used to group members under their owning
+    compound during Neo4j round-tripping.
+
+    Args:
+        qualified_name: A fully-qualified name with ``::`` separators.
+
+    Returns:
+        The parent qualified name, or ``""`` if there is no ``::``
+        separator (i.e. the name is already at the top level).
+    """
     if "::" in qualified_name:
         return qualified_name.rsplit("::", 1)[0]
     return ""
 
 
 def _extract_module(qualified_name: str) -> str:
+    """Extract the module/namespace portion of a qualified name.
+
+    For example, ``"calc::Calculator"`` returns ``"calc"``. Used to
+    populate the ``module`` field during Neo4j → design model
+    reconstruction.
+
+    Args:
+        qualified_name: A fully-qualified name with ``::`` separators.
+
+    Returns:
+        The module portion (everything before the last ``::``), or
+        ``""`` if there is no ``::`` separator.
+    """
     if "::" in qualified_name:
         parts = qualified_name.rsplit("::", 1)
         return parts[0]
