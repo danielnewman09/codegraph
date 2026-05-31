@@ -80,7 +80,7 @@ class OntologyGraph:
         seen_qns: set[str] = set()
 
         def _add_node(model) -> None:
-            d = model.model_dump()
+            d = dict(model.__properties__)
             qn = d.get("qualified_name", "")
             if qn and qn not in seen_qns:
                 seen_qns.add(qn)
