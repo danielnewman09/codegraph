@@ -99,10 +99,21 @@ class EnumNode(_CompoundMixin):
 
 
 class UnionNode(_CompoundMixin):
-    """Union stub — full implementation in Task 5."""
+    """C/C++ union type — Neo4j label ``:Union``."""
+
     kind = StringProperty(default="union")
+    module = StringProperty(default="")
+
+    _llm_fields = {"qualified_name", "name", "kind", "brief_description"}
 
 
 class ModuleNode(_CompoundMixin):
-    """Module stub — full implementation in Task 5."""
+    """Module or logical namespace — Neo4j label ``:Module``.
+
+    Not a direct member of ClassDiagram; module names are derived
+    from compound qualified names during ``from_layer()``.
+    """
+
     kind = StringProperty(default="module")
+
+    _llm_fields = {"qualified_name", "name", "kind", "brief_description"}

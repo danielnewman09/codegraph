@@ -207,3 +207,31 @@ class TestParameterNode:
         assert results[0].type == "double"
         assert results[0].default_value == "1e-6"
         assert results[0].member_refid == "method_ref_123"
+
+
+class TestUnionNode:
+    def test_create_and_save(self):
+        u = UnionNode(qualified_name="data::Variant", name="Variant",
+                       kind="union", module="data")
+        u.save()
+        retrieved = UnionNode.nodes.get(qualified_name="data::Variant")
+        assert retrieved.kind == "union"
+        assert retrieved.module == "data"
+
+    def test_serialize_only_llm_fields(self):
+        u = UnionNode(qualified_name="data::V", name="V", kind="union",
+                       brief_description="A variant", module="data",
+                       file_path="/src/data.h")
+        result = u.serialize()
+        assert "qualified_name" in result
+        assert "brief_description" in result
+        assert "file_path" not in result
+
+
+class TestModuleNode:
+    def test_create_and_save(self):
+        m = ModuleNode(qualified_name="calc", name="calc", kind="module")
+        m.save()
+        retrieved = ModuleNode.nodes.get(qualified_name="calc")
+        assert retrieved.kind == "module"
+        assert retrieved.name == "calc"
