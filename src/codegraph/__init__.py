@@ -28,6 +28,15 @@ from codegraph.constants import (
 )
 from codegraph.edges import CodebaseEdge
 from codegraph.graph import CompoundGraph, GraphEdge, NamespaceGraph, OntologyGraph
+from codegraph.neo4j import (
+    NEO4J_PASSWORD,
+    NEO4J_URI,
+    NEO4J_USER,
+    Neo4jConnection,
+    close_standalone_driver,
+    get_standalone_driver,
+    get_standalone_session,
+)
 from codegraph.nodes import (
     CompoundNode,
     FileNode,
@@ -70,4 +79,12 @@ __all__ = [
     "VALUE_KINDS",
     "VISIBILITY_CHOICES",
     "valid_specializations",
+    # Neo4j connection
+    "Neo4jConnection",
+    "NEO4J_URI",
+    "NEO4J_USER",
+    "NEO4J_PASSWORD",
+    "get_standalone_driver",
+    "get_standalone_session",
+    "close_standalone_driver",
 ]
