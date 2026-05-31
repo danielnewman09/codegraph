@@ -235,3 +235,81 @@ class TestModuleNode:
         retrieved = ModuleNode.nodes.get(qualified_name="calc")
         assert retrieved.kind == "module"
         assert retrieved.name == "calc"
+
+
+class TestMethodNode:
+    def test_create_and_save(self):
+        m = MethodNode(qualified_name="calc::Calculator::add", kind="method")
+        m.save()
+        retrieved = MethodNode.nodes.get(qualified_name="calc::Calculator::add")
+        assert retrieved.kind == "method"
+        assert retrieved.name == ""
+        assert retrieved.is_static is False
+        assert retrieved.is_virtual is False
+        assert retrieved.is_const is False
+
+    def test_full_creation(self):
+        m = MethodNode(
+            qualified_name="calc::Calculator::add", name="add", kind="method",
+            type_signature="int", argsstring="(int a, int b)",
+            protection="public", is_const=True, is_virtual=False,
+            is_inline=True, brief_description="Adds two numbers",
+            layer="as-built",
+        ).save()
+        retrieved = MethodNode.nodes.get(qualified_name="calc::Calculator::add")
+        assert retrieved.type_signature == "int"
+        assert retrieved.argsstring == "(int a, int b)"
+        assert retrieved.protection == "public"
+        assert retrieved.is_const is True
+        assert retrieved.is_inline is True
+        assert retrieved.brief_description == "Adds two numbers"
+
+    def test_serialize_llm_fields(self):
+        m = MethodNode(
+            qualified_name="calc::Calc::add", name="add", kind="method",
+            type_signature="int", argsstring="(int a, int b)",
+            brief_description="Adds", protection="public", file_path="/src/c.h",
+        )
+        result = m.serialize()
+        assert "qualified_name" in result
+        assert "type_signature" in result
+        assert "argsstring" in result
+        assert "brief_description" in result
+        assert "protection" not in result
+        assert "file_path" not in result
+
+    def test_kind_defaults_to_method(self):
+        """MethodNode.kind defaults to 'method' — can construct without specifying."""
+        m = MethodNode(qualified_name="calc::Default::run").save()
+        assert m.kind == "method"
+
+
+class TestAttributeNode:
+    def test_create_and_save(self):
+        a = AttributeNode(qualified_name="calc::Calculator::count", kind="attribute")
+        a.save()
+        retrieved = AttributeNode.nodes.get(qualified_name="calc::Calculator::count")
+        assert retrieved.kind == "attribute"
+        assert retrieved.is_static is False
+
+    def test_full_creation(self):
+        a = AttributeNode(
+            qualified_name="calc::Calculator::count", name="count",
+            kind="attribute", type_signature="int", protection="private",
+            is_static=True, is_const=False,
+        ).save()
+        retrieved = AttributeNode.nodes.get(qualified_name="calc::Calculator::count")
+        assert retrieved.type_signature == "int"
+        assert retrieved.protection == "private"
+        assert retrieved.is_static is True
+
+    def test_serialize_llm_fields(self):
+        a = AttributeNode(
+            qualified_name="calc::Calc::count", name="count", kind="attribute",
+            type_signature="int", brief_description="Counter", protection="private",
+        )
+        result = a.serialize()
+        assert "qualified_name" in result
+        assert "name" in result
+        assert "type_signature" in result
+        assert "protection" not in result
