@@ -98,21 +98,33 @@ class AttributeNode(_MemberMixin):
     parent_compound = RelationshipFrom('codegraph.models.compound.ClassNode', 'COMPOSES')
 
 
-# --- Stubs for Task 7 (will be fleshed out) ---
+class EnumValueNode(_MemberMixin):
+    """Enum constant value — Neo4j label ``:EnumValue``."""
 
-class EnumValueNode(StructuredNode):
-    qualified_name = UniqueIdProperty()
-    name = StringProperty(default="")
     kind = StringProperty(default="enumvalue")
 
+    _llm_fields = {"qualified_name", "name", "kind", "brief_description"}
 
-class FunctionNode(StructuredNode):
-    qualified_name = UniqueIdProperty()
-    name = StringProperty(default="")
+    # Relationships
+    parent_enum = RelationshipFrom('codegraph.models.compound.EnumNode', 'COMPOSES')
+
+
+class FunctionNode(_MemberMixin):
+    """Free function (not a method) — Neo4j label ``:Function``."""
+
     kind = StringProperty(default="function")
+    type_signature = StringProperty(default="")
+    argsstring = StringProperty(default="")
+
+    _llm_fields = {
+        "qualified_name", "name", "kind", "brief_description",
+        "type_signature", "argsstring",
+    }
 
 
-class DefineNode(StructuredNode):
-    qualified_name = UniqueIdProperty()
-    name = StringProperty(default="")
+class DefineNode(_MemberMixin):
+    """Preprocessor macro / define — Neo4j label ``:Define``."""
+
     kind = StringProperty(default="define")
+
+    _llm_fields = {"qualified_name", "name", "kind", "brief_description"}

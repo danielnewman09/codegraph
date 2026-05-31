@@ -284,6 +284,78 @@ class TestMethodNode:
         assert m.kind == "method"
 
 
+class TestEnumValueNode:
+    def test_create_and_save(self):
+        v = EnumValueNode(qualified_name="color::Color::RED", kind="enumvalue")
+        v.save()
+        retrieved = EnumValueNode.nodes.get(qualified_name="color::Color::RED")
+        assert retrieved.kind == "enumvalue"
+        assert retrieved.name == ""
+
+    def test_serialize_llm_fields(self):
+        v = EnumValueNode(qualified_name="c::C::R", name="RED",
+                           kind="enumvalue", brief_description="Red channel",
+                           file_path="/src/c.h")
+        result = v.serialize()
+        assert "qualified_name" in result
+        assert "name" in result
+        assert "brief_description" in result
+        assert "file_path" not in result
+
+
+class TestFunctionNode:
+    def test_create_and_save(self):
+        f = FunctionNode(qualified_name="util::log", kind="function")
+        f.save()
+        retrieved = FunctionNode.nodes.get(qualified_name="util::log")
+        assert retrieved.kind == "function"
+
+    def test_full_creation(self):
+        f = FunctionNode(
+            qualified_name="util::log", name="log", kind="function",
+            type_signature="void", argsstring="(const char* msg)",
+            file_path="/src/util.h",
+        ).save()
+        retrieved = FunctionNode.nodes.get(qualified_name="util::log")
+        assert retrieved.type_signature == "void"
+        assert retrieved.argsstring == "(const char* msg)"
+
+    def test_serialize_llm_fields(self):
+        f = FunctionNode(qualified_name="util::log", name="log", kind="function",
+                          type_signature="void", argsstring="(const char* msg)",
+                          brief_description="Logs a message", file_path="/src/util.h")
+        result = f.serialize()
+        assert "qualified_name" in result
+        assert "type_signature" in result
+        assert "brief_description" in result
+        assert "file_path" not in result
+
+
+class TestDefineNode:
+    def test_create_and_save(self):
+        d = DefineNode(qualified_name="CONFIG::MAX_SIZE", kind="define")
+        d.save()
+        retrieved = DefineNode.nodes.get(qualified_name="CONFIG::MAX_SIZE")
+        assert retrieved.kind == "define"
+
+    def test_full_creation(self):
+        d = DefineNode(
+            qualified_name="CONFIG::MAX_SIZE", name="MAX_SIZE",
+            kind="define", definition="#define MAX_SIZE 1024",
+        ).save()
+        retrieved = DefineNode.nodes.get(qualified_name="CONFIG::MAX_SIZE")
+        assert retrieved.definition == "#define MAX_SIZE 1024"
+
+    def test_serialize_llm_fields(self):
+        d = DefineNode(qualified_name="C::MAX", name="MAX", kind="define",
+                        brief_description="Max value", definition="#define MAX 100")
+        result = d.serialize()
+        assert "qualified_name" in result
+        assert "name" in result
+        assert "brief_description" in result
+        assert "definition" not in result
+
+
 class TestAttributeNode:
     def test_create_and_save(self):
         a = AttributeNode(qualified_name="calc::Calculator::count", kind="attribute")
