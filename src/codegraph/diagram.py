@@ -2,11 +2,16 @@
 
 Reads atomized neomodel nodes from Neo4j for a given layer and presents
 them as typed lists with O(1) entity lookup.
+
+Provides ``model_validate`` and ``model_json_schema`` classmethods
+for LLM tool-loop compatibility — the LLM outputs flat dicts that
+are validated here; neomodel node construction happens in the mapper.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from codegraph.models.compound import ClassNode, InterfaceNode, EnumNode
 
@@ -29,25 +34,33 @@ class Association:
     display_name: str = ""
 
 
-@dataclass
 class ClassDiagram:
     """Complete class diagram for a query scope.
 
-    A lightweight dataclass container that holds typed lists of neomodel
-    node instances. No persistence — nodes handle their own ``.save()``.
+    Holds typed lists of neomodel node instances. No persistence —
+    nodes handle their own ``.save()``.
+
+    Provides ``model_validate()`` and ``model_json_schema()`` for
+    LLM tool-loop compatibility.
     """
 
-    module_names: list[str] = field(default_factory=list)
-    classes: list[ClassNode] = field(default_factory=list)
-    interfaces: list[InterfaceNode] = field(default_factory=list)
-    enums: list[EnumNode] = field(default_factory=list)
-    associations: list[Association] = field(default_factory=list)
+    def __init__(
+        self,
+        module_names: list[str] | None = None,
+        classes: list[ClassNode] | None = None,
+        interfaces: list[InterfaceNode] | None = None,
+        enums: list[EnumNode] | None = None,
+        associations: list[Association] | None = None,
+    ):
+        self.module_names: list[str] = module_names or []
+        self.classes: list[ClassNode] = classes or []
+        self.interfaces: list[InterfaceNode] = interfaces or []
+        self.enums: list[EnumNode] = enums or []
+        self.associations: list[Association] = associations or []
+        self._entity_index: dict[str, ClassNode | InterfaceNode | EnumNode] = {}
+        self._rebuild_index()
 
-    _entity_index: dict[str, ClassNode | InterfaceNode | EnumNode] = field(
-        default_factory=dict, init=False, repr=False,
-    )
-
-    def __post_init__(self) -> None:
+    def _rebuild_index(self) -> None:
         self._entity_index = {}
         for cls in self.classes:
             self._entity_index[cls.qualified_name] = cls
@@ -55,6 +68,157 @@ class ClassDiagram:
             self._entity_index[iface.qualified_name] = iface
         for enum in self.enums:
             self._entity_index[enum.qualified_name] = enum
+
+    # -- Classmethods for LLM tool-loop compatibility --
+
+    @classmethod
+    def model_validate(cls, data: dict[str, Any]) -> "ClassDiagram":
+        """Validate a dict produced by the LLM into a ClassDiagram.
+
+        The LLM produces flat dicts with simple fields. Neomodel node
+        construction happens in the mapper (map_to_ontology.py), not here.
+        """
+        def _to_assoc(a: dict) -> Association:
+            return Association(
+                subject=a.get("subject", ""),
+                predicate=a.get("predicate", ""),
+                object=a.get("object", ""),
+                requirement_ids=a.get("requirement_ids", []),
+                mechanism=a.get("mechanism", ""),
+                position=a.get("position"),
+                name=a.get("name", ""),
+                display_name=a.get("display_name", ""),
+            )
+
+        return cls(
+            module_names=data.get("module_names", []),
+            classes=[ClassNode(**c) for c in data.get("classes", [])],
+            interfaces=[InterfaceNode(**i) for i in data.get("interfaces", [])],
+            enums=[EnumNode(**e) for e in data.get("enums", [])],
+            associations=[_to_assoc(a) for a in data.get("associations", [])],
+        )
+
+    @classmethod
+    def model_json_schema(cls) -> dict[str, Any]:
+        """Return the JSON schema for LLM tool definitions.
+
+        Describes the shape expected from the LLM — flat dicts with
+        simple field types, not the neomodel node structure.
+        """
+        return {
+            "type": "object",
+            "properties": {
+                "module_names": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Module/namespace names used in the design",
+                },
+                "classes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "module": {"type": "string"},
+                            "brief_description": {"type": "string"},
+                            "kind": {"type": "string"},
+                            "requirement_ids": {"type": "array", "items": {"type": "string"}},
+                            "inherits_from": {"type": "array", "items": {"type": "string"}},
+                            "realizes": {"type": "array", "items": {"type": "string"}},
+                            "is_intercomponent": {"type": "boolean"},
+                            "specialization": {"type": "string"},
+                            "attributes": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {"type": "string"},
+                                        "visibility": {"type": "string"},
+                                        "type_signature": {"type": "string"},
+                                        "brief_description": {"type": "string"},
+                                    },
+                                },
+                            },
+                            "methods": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {"type": "string"},
+                                        "visibility": {"type": "string"},
+                                        "type_signature": {"type": "string"},
+                                        "argsstring": {"type": "string"},
+                                        "brief_description": {"type": "string"},
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                "interfaces": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "module": {"type": "string"},
+                            "brief_description": {"type": "string"},
+                            "requirement_ids": {"type": "array", "items": {"type": "string"}},
+                            "is_intercomponent": {"type": "boolean"},
+                            "specialization": {"type": "string"},
+                            "inherits_from": {"type": "array", "items": {"type": "string"}},
+                            "methods": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {"type": "string"},
+                                        "visibility": {"type": "string"},
+                                        "type_signature": {"type": "string"},
+                                        "argsstring": {"type": "string"},
+                                        "brief_description": {"type": "string"},
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                "enums": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "module": {"type": "string"},
+                            "brief_description": {"type": "string"},
+                            "requirement_ids": {"type": "array", "items": {"type": "string"}},
+                            "values": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {"type": "string"},
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                "associations": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "subject": {"type": "string"},
+                            "predicate": {"type": "string"},
+                            "object": {"type": "string"},
+                            "mechanism": {"type": "string"},
+                            "requirement_ids": {"type": "array", "items": {"type": "string"}},
+                        },
+                    },
+                },
+            },
+        }
 
     # -- Factory --
 
