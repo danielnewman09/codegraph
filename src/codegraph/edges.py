@@ -7,9 +7,12 @@ uppercased (e.g. 'composes' → COMPOSES).
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from pydantic import BaseModel
 
 from codegraph.constants import PREDICATES
+from codegraph.designs.tags import FieldTags
 
 
 class CodebaseEdge(BaseModel):
@@ -20,13 +23,13 @@ class CodebaseEdge(BaseModel):
     predicate + object.
     """
 
-    subject_qualified_name: str
-    predicate: str  # Must be one of PREDICATES
-    object_qualified_name: str
-    mechanism: str = ""           # Container type (e.g. "std::vector" for aggregates)
-    position: int | None = None   # Position for type_argument edges (0-based)
-    name: str = ""                # Parameter name for template_param edges
-    display_name: str = ""        # Alias display name (e.g. "std::string" for std::basic_string)
-    description: str = ""          # Human-readable description of the relationship
+    subject_qualified_name: Annotated[str, FieldTags("llm", "neo4j", "read")]
+    predicate: Annotated[str, FieldTags("llm", "neo4j", "read")]  # Must be one of PREDICATES
+    object_qualified_name: Annotated[str, FieldTags("llm", "neo4j", "read")]
+    mechanism: Annotated[str, FieldTags("llm", "neo4j", "read")] = ""  # Container type (e.g. "std::vector" for aggregates)
+    position: Annotated[int | None, FieldTags("neo4j")] = None  # Position for type_argument edges (0-based)
+    name: Annotated[str, FieldTags("neo4j")] = ""  # Parameter name for template_param edges
+    display_name: Annotated[str, FieldTags("neo4j", "read")] = ""  # Alias display name
+    description: Annotated[str, FieldTags("llm", "neo4j", "read")] = ""  # Human-readable description
 
     model_config = {"from_attributes": True}

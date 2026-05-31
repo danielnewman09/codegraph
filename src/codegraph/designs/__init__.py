@@ -20,7 +20,6 @@ from codegraph.designs.member import (
 from codegraph.designs.namespace import ModuleNode
 from codegraph.designs.tags import FieldTags, get_fields_by_tags
 from codegraph.nodes import CompoundNode, MemberNode, NamespaceNode
-from codegraph.edges import CodebaseEdge
 
 __all__ = [
     "Association",
@@ -91,6 +90,8 @@ class ClassDiagram(BaseModel):
     # -- Neo4j round-trip --
 
     def to_neo4j(self) -> tuple[list[CompoundNode], list[MemberNode], list[CodebaseEdge]]:
+        from codegraph.edges import CodebaseEdge  # noqa: F811  # lazy import to avoid circular dependency
+
         compounds: list[CompoundNode] = []
         members: list[MemberNode] = []
 
@@ -178,6 +179,8 @@ class ClassDiagram(BaseModel):
     @classmethod
     def from_neo4j(cls, compounds: list[CompoundNode], members: list[MemberNode],
                    edges: list[CodebaseEdge]) -> ClassDiagram:
+        from codegraph.edges import CodebaseEdge  # noqa: F811  # lazy import to avoid circular dependency
+
         _CLASS_KINDS = {"class", "struct", "template_class"}
         _INTERFACE_KINDS = {"interface", "abstract_class"}
         _ENUM_KINDS = {"enum", "enum_class"}
