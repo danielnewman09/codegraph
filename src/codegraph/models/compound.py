@@ -87,8 +87,15 @@ class InterfaceNode(_CompoundMixin):
 
 
 class EnumNode(_CompoundMixin):
-    """Enum stub — full implementation in Task 4."""
+    """Enum type — Neo4j label ``:Enum``."""
+
     kind = StringProperty(default="enum")
+    module = StringProperty(default="")
+
+    _llm_fields = {"qualified_name", "name", "kind", "brief_description"}
+
+    # Relationships
+    values = RelationshipTo('codegraph.models.member.EnumValueNode', 'COMPOSES')
 
 
 class UnionNode(_CompoundMixin):

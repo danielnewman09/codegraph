@@ -153,6 +153,39 @@ class TestInterfaceNode:
         }
 
 
+class TestEnumNode:
+    def test_create_and_save(self):
+        enum = EnumNode(
+            qualified_name="color::Color", name="Color", kind="enum",
+            module="color", brief_description="RGB color enum",
+        )
+        enum.save()
+        retrieved = EnumNode.nodes.get(qualified_name="color::Color")
+        assert retrieved.kind == "enum"
+        assert retrieved.name == "Color"
+        assert retrieved.module == "color"
+
+    def test_values_relationship(self):
+        enum = EnumNode(qualified_name="color::RGB", kind="enum").save()
+        assert hasattr(enum, "values")
+
+    def test_no_methods_attributes_on_enum(self):
+        enum = EnumNode(qualified_name="color::X", kind="enum").save()
+        assert not hasattr(enum, "methods")
+        assert not hasattr(enum, "attributes")
+
+    def test_serialize_llm_fields(self):
+        enum = EnumNode(
+            qualified_name="color::Color", name="Color", kind="enum",
+            brief_description="RGB", module="color", file_path="/src/color.h",
+        )
+        result = enum.serialize()
+        assert "qualified_name" in result
+        assert "brief_description" in result
+        assert "file_path" not in result
+        assert "module" not in result
+
+
 class TestParameterNode:
     def test_create_and_save(self):
         p = ParameterNode(position=0, name="x")
