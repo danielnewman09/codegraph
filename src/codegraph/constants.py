@@ -95,7 +95,7 @@ PREDICATE_TO_REL_TYPE: dict[str, str] = {
     "aggregates": "AGGREGATES",
     "composes": "COMPOSES",
     "depends_on": "DEPENDS_ON",
-    "generalizes": "GENERALIZES",
+    "inherits_from": "INHERITS_FROM",
     "realizes": "REALIZES",
     "references": "REFERENCES",
     "invokes": "INVOKES",
@@ -114,7 +114,7 @@ DEFAULT_PREDICATES: list[tuple[str, str]] = [
      "Specify mechanism for container types (e.g., std::vector, std::list)"),
     ("composes", "Strong whole-part relationship where the part is owned by the whole"),
     ("depends_on", "One entity depends on another (e.g., for a header include)"),
-    ("generalizes", "Inheritance / is-a relationship"),
+    ("inherits_from", "Inheritance / is-a relationship"),
     ("realizes", "A class implements/realizes an interface or contract"),
     ("references", "One entity holds a reference or pointer to another. "
      "Specify mechanism (e.g., std::unique_ptr, std::shared_ptr, raw_pointer, reference)"),

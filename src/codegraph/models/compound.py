@@ -29,6 +29,9 @@ class _CompoundMixin(StructuredNode, LlmSerializable):
     source = StringProperty(default="")
     source_type = StringProperty(default="")
 
+    # --- Visibility ---
+    visibility = StringProperty(default="")
+
     # --- Documentation ---
     brief_description = StringProperty(default="")
     detailed_description = StringProperty(default="")
@@ -40,20 +43,31 @@ class _CompoundMixin(StructuredNode, LlmSerializable):
     # --- Definition ---
     definition = StringProperty(default="")
 
-    # --- File relationship ---
+    # --- Relationships -------------------------------------------------------
+    #
+    # Relationship glossary (all compound types inherit these):
+    #
+    #  • DEFINED_IN   — this compound → FileNode
+    #    The source file where this compound is declared/defined.
+    #
+    #  • TEMPLATE_PARAM  — this template → ClassNode
+    #    Declares a template type parameter slot. The target ClassNode represents
+    #    the parameter itself (e.g., a type parameter named "T").
+    #
+    #  • SPECIALIZES  — this specialization → ClassNode (primary template)
+    #    Records that this compound is a template specialization of another.
+    #    Example: ``std::vector<int> -[:SPECIALIZES]-> std::vector<T>``.
+    # --------------------------------------------------------------------------
+
+    # File location
     defined_in = RelationshipTo('codegraph.models.file.FileNode', 'DEFINED_IN')
 
+    # Template machinery (shared by ClassNode, InterfaceNode, etc.)
+    template_params = RelationshipTo('ClassNode', 'TEMPLATE_PARAM')
+    specializes = RelationshipTo('ClassNode', 'SPECIALIZES')
+
     # --- Serialization contract ---
-    _llm_fields: set[str] = {"qualified_name", "name", "kind", "brief_description"}
-
-    def serialize(self) -> dict:
-        props = dict(self.__properties__)
-        return {k: props[k] for k in self._llm_fields if k in props}
-
-    @classmethod
-    def deserialize(cls, data: dict) -> "_CompoundMixin":
-        return cls(**{k: v for k, v in data.items()
-                      if k in cls.defined_properties()})
+    _llm_fields: set[str] = {"qualified_name", "name", "kind", "brief_description", "visibility"}
 
 
 class ClassNode(_CompoundMixin):
@@ -65,19 +79,58 @@ class ClassNode(_CompoundMixin):
     is_final = BooleanProperty(default=False)
     is_abstract = BooleanProperty(default=False)
 
-    _llm_fields = {"qualified_name", "name", "kind", "brief_description", "base_classes"}
+    _llm_fields = {"qualified_name", "name", "kind", "brief_description", "base_classes", "visibility"}
 
-    # Relationships
+    # --- ClassNode relationships ---------------------------------------------
+    #
+    # Each relationship is documented as:  descriptor → target  (predicate)
+    # Semantics, direction, and concrete examples are included.
+    #
+    #  ── Composition ──
+    #  • COMPOSES  — ClassNode → MethodNode | AttributeNode
+    #    Strong ownership. The class owns its methods and attributes.
+    #    Destroying the class destroys these members.
+    #
+    #  ── Inheritance ──
+    #  • INHERITS_FROM  — ClassNode(derived) → ClassNode(base)
+    #    Inheritance / "is-a". The source (derived class) inherits from the
+    #    target (base class).  Example:  ``Dog -[:INHERITS_FROM]-> Animal``.
+    #
+    #  ── Dependency ──
+    #  • DEPENDS_ON  — ClassNode(dependent) → ClassNode(dependency)
+    #    The source depends on the target (e.g., includes its header, calls its
+    #    methods).  Loose coupling — the target is not owned.
+    #
+    #  ── Reference ──
+    #  • REFERENCES  — ClassNode(referrer) → ClassNode(referent)
+    #    The source holds a pointer, reference, or smart-pointer to the target.
+    #    Use the ``mechanism`` property (on the edge) to specify how:
+    #    raw_pointer, std::unique_ptr, std::shared_ptr, reference, etc.
+    #
+    #  ── Interface realization ──
+    #  • REALIZES  — ClassNode → InterfaceNode
+    #    The class implements (realizes) the interface contract.
+    #    Example:  ``Printer -[:REALIZES]-> IPrintable``.
+    # --------------------------------------------------------------------------
+
+    # Composition (outgoing)
     methods = RelationshipTo('codegraph.models.member.MethodNode', 'COMPOSES')
     attributes = RelationshipTo('codegraph.models.member.AttributeNode', 'COMPOSES')
-    base = RelationshipTo('ClassNode', 'GENERALIZES')
-    derived = RelationshipFrom('ClassNode', 'GENERALIZES')
+
+    # Inheritance (outgoing + incoming)
+    base = RelationshipTo('ClassNode', 'INHERITS_FROM')
+    derived = RelationshipFrom('ClassNode', 'INHERITS_FROM')
+
+    # Dependency (outgoing + incoming)
     depends_on = RelationshipTo('ClassNode', 'DEPENDS_ON')
-    references = RelationshipTo('ClassNode', 'REFERENCES')
-    realizes = RelationshipTo('InterfaceNode', 'REALIZES')
-    template_params = RelationshipTo('ClassNode', 'TEMPLATE_PARAM')
     depended_on_by = RelationshipFrom('ClassNode', 'DEPENDS_ON')
+
+    # Reference (outgoing + incoming)
+    references = RelationshipTo('ClassNode', 'REFERENCES')
     referred_by = RelationshipFrom('ClassNode', 'REFERENCES')
+
+    # Interface realization (outgoing)
+    realizes = RelationshipTo('InterfaceNode', 'REALIZES')
 
 
 # --- Stubs for Tasks 3-5 (will be fleshed out with their own fields) ---
@@ -89,11 +142,23 @@ class InterfaceNode(_CompoundMixin):
     module = StringProperty(default="")
     is_abstract = BooleanProperty(default=True)
 
-    _llm_fields = {"qualified_name", "name", "kind", "brief_description"}
+    _llm_fields = {"qualified_name", "name", "kind", "brief_description", "visibility"}
 
-    # Relationships — methods only, no attributes
+    # --- InterfaceNode relationships -----------------------------------------
+    #
+    #  • COMPOSES  — InterfaceNode → MethodNode
+    #    The interface declares these methods.  Interfaces have no attributes.
+    #
+    #  • INHERITS_FROM  — InterfaceNode(derived) → InterfaceNode(base)
+    #    Interface inheritance.  The source extends the target interface.
+    #    Example:  ``ISerializable -[:INHERITS_FROM]-> IPrintable``.
+    #
+    #  • DEPENDS_ON  — InterfaceNode → ClassNode
+    #    The interface depends on a concrete class (rare; usually the reverse).
+    # --------------------------------------------------------------------------
+
     methods = RelationshipTo('codegraph.models.member.MethodNode', 'COMPOSES')
-    generalizes = RelationshipTo('InterfaceNode', 'GENERALIZES')
+    inherits_from = RelationshipTo('InterfaceNode', 'INHERITS_FROM')
     dependencies = RelationshipTo('ClassNode', 'DEPENDS_ON')
 
 
@@ -103,9 +168,15 @@ class EnumNode(_CompoundMixin):
     kind = StringProperty(default="enum")
     module = StringProperty(default="")
 
-    _llm_fields = {"qualified_name", "name", "kind", "brief_description"}
+    _llm_fields = {"qualified_name", "name", "kind", "brief_description", "visibility"}
 
-    # Relationships
+    # --- EnumNode relationships ----------------------------------------------
+    #
+    #  • COMPOSES  — EnumNode → EnumValueNode
+    #    The enum owns these constant values.  Enums have no methods, attributes,
+    #    or inheritance.
+    # --------------------------------------------------------------------------
+
     values = RelationshipTo('codegraph.models.member.EnumValueNode', 'COMPOSES')
 
 
@@ -115,7 +186,7 @@ class UnionNode(_CompoundMixin):
     kind = StringProperty(default="union")
     module = StringProperty(default="")
 
-    _llm_fields = {"qualified_name", "name", "kind", "brief_description"}
+    _llm_fields = {"qualified_name", "name", "kind", "brief_description", "visibility"}
 
 
 class ModuleNode(_CompoundMixin):
@@ -127,16 +198,5 @@ class ModuleNode(_CompoundMixin):
 
     kind = StringProperty(default="module")
 
-    _llm_fields = {"qualified_name", "name", "kind", "brief_description"}
+    _llm_fields = {"qualified_name", "name", "kind", "brief_description", "visibility"}
 
-
-# ---------------------------------------------------------------------------
-# Old-label compatibility — write to :Compound/:Member/:Namespace labels
-# until schema migration renames them to the atomized labels.
-# Remove these overrides after the Neo4j schema migration.
-# ---------------------------------------------------------------------------
-ClassNode.__label__ = "Compound"
-InterfaceNode.__label__ = "Compound"
-EnumNode.__label__ = "Compound"
-UnionNode.__label__ = "Compound"
-ModuleNode.__label__ = "Compound"

@@ -1,0 +1,558 @@
+{
+  "nodes": [
+    {
+      "qualified_name": "calc",
+      "name": "calc",
+      "kind": "module",
+      "brief_description": "Calculation engine module",
+      "layer": "design"
+    },
+    {
+      "qualified_name": "ui",
+      "name": "ui",
+      "kind": "module",
+      "brief_description": "User interface module",
+      "layer": "design"
+    },
+    {
+      "qualified_name": "calc::ICalculator",
+      "name": "ICalculator",
+      "kind": "interface",
+      "brief_description": "Calculator interface contract defining the core calculation operation.",
+      "layer": "design",
+      "module": "calc",
+      "visibility": "",
+      "is_abstract": true
+    },
+    {
+      "qualified_name": "calc::ICalculator::calculate",
+      "name": "calculate",
+      "kind": "method",
+      "brief_description": "Perform a calculation with the given operation and operands.",
+      "layer": "design",
+      "visibility": "public",
+      "type_signature": "CalculatorResult",
+      "argsstring": "(Operation op, double a, double b)"
+    },
+    {
+      "qualified_name": "calc::CalculatorEngine",
+      "name": "CalculatorEngine",
+      "kind": "class",
+      "brief_description": "The core calculator engine class that performs arithmetic operations (addition, subtraction, multiplication, division) with input validation and error handling.",
+      "layer": "design",
+      "module": "calc",
+      "visibility": "",
+      "base_classes": [],
+      "is_abstract": false,
+      "is_final": false
+    },
+    {
+      "qualified_name": "calc::CalculatorEngine::add",
+      "name": "add",
+      "kind": "method",
+      "brief_description": "Calculates the sum of two valid numeric operands.",
+      "layer": "design",
+      "visibility": "public",
+      "type_signature": "CalculatorResult",
+      "argsstring": "(double a, double b)"
+    },
+    {
+      "qualified_name": "calc::CalculatorEngine::subtract",
+      "name": "subtract",
+      "kind": "method",
+      "brief_description": "Calculates the difference of two valid numeric operands.",
+      "layer": "design",
+      "visibility": "public",
+      "type_signature": "CalculatorResult",
+      "argsstring": "(double a, double b)"
+    },
+    {
+      "qualified_name": "calc::CalculatorEngine::multiply",
+      "name": "multiply",
+      "kind": "method",
+      "brief_description": "Calculates the product of two valid numeric operands.",
+      "layer": "design",
+      "visibility": "public",
+      "type_signature": "CalculatorResult",
+      "argsstring": "(double a, double b)"
+    },
+    {
+      "qualified_name": "calc::CalculatorEngine::divide",
+      "name": "divide",
+      "kind": "method",
+      "brief_description": "Calculates the quotient of two valid numeric operands where the divisor is not zero.",
+      "layer": "design",
+      "visibility": "public",
+      "type_signature": "CalculatorResult",
+      "argsstring": "(double a, double b)"
+    },
+    {
+      "qualified_name": "calc::CalculatorEngine::validateInput",
+      "name": "validateInput",
+      "kind": "method",
+      "brief_description": "Validates that the inputs are valid numbers and rejects invalid syntax.",
+      "layer": "design",
+      "visibility": "public",
+      "type_signature": "bool",
+      "argsstring": "(string input)"
+    },
+    {
+      "qualified_name": "calc::CalculatorEngine::precision",
+      "name": "precision",
+      "kind": "attribute",
+      "brief_description": "The number of decimal places for result precision.",
+      "layer": "design",
+      "visibility": "public",
+      "type_signature": "int"
+    },
+    {
+      "qualified_name": "calc::CalculatorResult",
+      "name": "CalculatorResult",
+      "kind": "class",
+      "brief_description": "A result wrapper class that holds the outcome of a calculator operation, including success/failure status, the computed value, and error messages.",
+      "layer": "design",
+      "module": "calc",
+      "visibility": "",
+      "base_classes": [],
+      "is_abstract": false,
+      "is_final": false
+    },
+    {
+      "qualified_name": "calc::CalculatorResult::value",
+      "name": "value",
+      "kind": "attribute",
+      "brief_description": "The computed numeric result.",
+      "layer": "design",
+      "visibility": "public",
+      "type_signature": "double"
+    },
+    {
+      "qualified_name": "calc::CalculatorResult::is_success",
+      "name": "is_success",
+      "kind": "attribute",
+      "brief_description": "Indicates whether the operation succeeded.",
+      "layer": "design",
+      "visibility": "public",
+      "type_signature": "bool"
+    },
+    {
+      "qualified_name": "calc::CalculatorResult::error_message",
+      "name": "error_message",
+      "kind": "attribute",
+      "brief_description": "Error message if the operation failed.",
+      "layer": "design",
+      "visibility": "public",
+      "type_signature": "string"
+    },
+    {
+      "qualified_name": "calc::CalculatorResult::get_value",
+      "name": "get_value",
+      "kind": "method",
+      "brief_description": "Returns the computed value.",
+      "layer": "design",
+      "visibility": "public",
+      "type_signature": "double",
+      "argsstring": ""
+    },
+    {
+      "qualified_name": "calc::CalculatorResult::get_error",
+      "name": "get_error",
+      "kind": "method",
+      "brief_description": "Returns the error message if the operation failed.",
+      "layer": "design",
+      "visibility": "public",
+      "type_signature": "string",
+      "argsstring": ""
+    },
+    {
+      "qualified_name": "calc::CalculatorResult::is_error",
+      "name": "is_error",
+      "kind": "method",
+      "brief_description": "Returns true if the operation resulted in an error.",
+      "layer": "design",
+      "visibility": "public",
+      "type_signature": "bool",
+      "argsstring": ""
+    },
+    {
+      "qualified_name": "calc::Operation",
+      "name": "Operation",
+      "kind": "enum",
+      "brief_description": "An enumeration of supported arithmetic operations: ADD, SUBTRACT, MULTIPLY, and DIVIDE.",
+      "layer": "design",
+      "module": "calc",
+      "visibility": ""
+    },
+    {
+      "qualified_name": "calc::Operation::ADD",
+      "name": "ADD",
+      "kind": "enumvalue",
+      "brief_description": "Represents addition.",
+      "layer": "design"
+    },
+    {
+      "qualified_name": "calc::Operation::SUBTRACT",
+      "name": "SUBTRACT",
+      "kind": "enumvalue",
+      "brief_description": "Represents subtraction.",
+      "layer": "design"
+    },
+    {
+      "qualified_name": "calc::Operation::MULTIPLY",
+      "name": "MULTIPLY",
+      "kind": "enumvalue",
+      "brief_description": "Represents multiplication.",
+      "layer": "design"
+    },
+    {
+      "qualified_name": "calc::Operation::DIVIDE",
+      "name": "DIVIDE",
+      "kind": "enumvalue",
+      "brief_description": "Represents division.",
+      "layer": "design"
+    },
+    {
+      "qualified_name": "ui::BaseWindow",
+      "name": "BaseWindow",
+      "kind": "class",
+      "brief_description": "Abstract base window class providing common window operations.",
+      "layer": "design",
+      "module": "ui",
+      "visibility": "",
+      "base_classes": [],
+      "is_abstract": true,
+      "is_final": false
+    },
+    {
+      "qualified_name": "ui::BaseWindow::show",
+      "name": "show",
+      "kind": "method",
+      "brief_description": "Shows the window on screen.",
+      "layer": "design",
+      "visibility": "public",
+      "type_signature": "void",
+      "argsstring": ""
+    },
+    {
+      "qualified_name": "ui::BaseWindow::hide",
+      "name": "hide",
+      "kind": "method",
+      "brief_description": "Hides the window from the screen.",
+      "layer": "design",
+      "visibility": "public",
+      "type_signature": "void",
+      "argsstring": ""
+    },
+    {
+      "qualified_name": "ui::BaseWindow::resize",
+      "name": "resize",
+      "kind": "method",
+      "brief_description": "Resizes the window to the specified dimensions.",
+      "layer": "design",
+      "visibility": "public",
+      "type_signature": "void",
+      "argsstring": "(int width, int height)"
+    },
+    {
+      "qualified_name": "ui::CalculatorWindow",
+      "name": "CalculatorWindow",
+      "kind": "class",
+      "brief_description": "The main application window for the calculator. Provides a GUI with a numeric display and all required buttons.",
+      "layer": "design",
+      "module": "ui",
+      "visibility": "",
+      "base_classes": [],
+      "is_abstract": false,
+      "is_final": false
+    },
+    {
+      "qualified_name": "ui::CalculatorWindow::display",
+      "name": "display",
+      "kind": "attribute",
+      "brief_description": "The numeric display area showing input and results.",
+      "layer": "design",
+      "visibility": "private",
+      "type_signature": "string"
+    },
+    {
+      "qualified_name": "ui::CalculatorWindow::currentInput",
+      "name": "currentInput",
+      "kind": "attribute",
+      "brief_description": "The current input string being built by the user.",
+      "layer": "design",
+      "visibility": "private",
+      "type_signature": "string"
+    },
+    {
+      "qualified_name": "ui::CalculatorWindow::lastResult",
+      "name": "lastResult",
+      "kind": "attribute",
+      "brief_description": "The last computed result to display.",
+      "layer": "design",
+      "visibility": "private",
+      "type_signature": "string"
+    },
+    {
+      "qualified_name": "ui::CalculatorWindow::handleDigitInput",
+      "name": "handleDigitInput",
+      "kind": "method",
+      "brief_description": "Callback for digit button clicks. Appends the digit to the current input and updates the display.",
+      "layer": "design",
+      "visibility": "private",
+      "type_signature": "void",
+      "argsstring": "(int digit)"
+    },
+    {
+      "qualified_name": "ui::CalculatorWindow::handleOperatorInput",
+      "name": "handleOperatorInput",
+      "kind": "method",
+      "brief_description": "Callback for operator button clicks. Stores the operator and prepares for the next operand.",
+      "layer": "design",
+      "visibility": "private",
+      "type_signature": "void",
+      "argsstring": "(string op)"
+    },
+    {
+      "qualified_name": "ui::CalculatorWindow::handleEquals",
+      "name": "handleEquals",
+      "kind": "method",
+      "brief_description": "Callback for the equals button. Triggers calculation and displays the result.",
+      "layer": "design",
+      "visibility": "private",
+      "type_signature": "void",
+      "argsstring": ""
+    },
+    {
+      "qualified_name": "ui::CalculatorWindow::handleClear",
+      "name": "handleClear",
+      "kind": "method",
+      "brief_description": "Callback for the clear button. Resets the calculator state and clears the display.",
+      "layer": "design",
+      "visibility": "private",
+      "type_signature": "void",
+      "argsstring": ""
+    },
+    {
+      "qualified_name": "ui::CalculatorWindow::performCalculation",
+      "name": "performCalculation",
+      "kind": "method",
+      "brief_description": "Invokes the calculation engine to compute the result based on the stored operands and operator.",
+      "layer": "design",
+      "visibility": "private",
+      "type_signature": "void",
+      "argsstring": ""
+    },
+    {
+      "qualified_name": "ui::CalculatorWindow::updateDisplay",
+      "name": "updateDisplay",
+      "kind": "method",
+      "brief_description": "Updates the display widget with the current input or result string.",
+      "layer": "design",
+      "visibility": "private",
+      "type_signature": "void",
+      "argsstring": "(string text)"
+    }
+  ],
+  "edges": [
+    {
+      "source": "calc",
+      "target": "calc::CalculatorEngine",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "calc",
+      "target": "calc::CalculatorResult",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "calc",
+      "target": "calc::Operation",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "calc",
+      "target": "calc::ICalculator",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "ui",
+      "target": "ui::BaseWindow",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "ui",
+      "target": "ui::CalculatorWindow",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "calc::CalculatorEngine",
+      "target": "calc::ICalculator",
+      "predicate": "REALIZES"
+    },
+    {
+      "source": "calc::CalculatorEngine",
+      "target": "calc::CalculatorResult",
+      "predicate": "DEPENDS_ON"
+    },
+    {
+      "source": "calc::CalculatorEngine",
+      "target": "calc::Operation",
+      "predicate": "DEPENDS_ON"
+    },
+    {
+      "source": "calc::ICalculator",
+      "target": "calc::ICalculator::calculate",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "calc::CalculatorEngine",
+      "target": "calc::CalculatorEngine::add",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "calc::CalculatorEngine",
+      "target": "calc::CalculatorEngine::subtract",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "calc::CalculatorEngine",
+      "target": "calc::CalculatorEngine::multiply",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "calc::CalculatorEngine",
+      "target": "calc::CalculatorEngine::divide",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "calc::CalculatorEngine",
+      "target": "calc::CalculatorEngine::validateInput",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "calc::CalculatorEngine",
+      "target": "calc::CalculatorEngine::precision",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "calc::Operation",
+      "target": "calc::Operation::ADD",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "calc::Operation",
+      "target": "calc::Operation::SUBTRACT",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "calc::Operation",
+      "target": "calc::Operation::MULTIPLY",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "calc::Operation",
+      "target": "calc::Operation::DIVIDE",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "calc::CalculatorResult",
+      "target": "calc::CalculatorResult::value",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "calc::CalculatorResult",
+      "target": "calc::CalculatorResult::is_success",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "calc::CalculatorResult",
+      "target": "calc::CalculatorResult::error_message",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "calc::CalculatorResult",
+      "target": "calc::CalculatorResult::get_value",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "calc::CalculatorResult",
+      "target": "calc::CalculatorResult::get_error",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "calc::CalculatorResult",
+      "target": "calc::CalculatorResult::is_error",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "ui::BaseWindow",
+      "target": "ui::BaseWindow::show",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "ui::BaseWindow",
+      "target": "ui::BaseWindow::hide",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "ui::BaseWindow",
+      "target": "ui::BaseWindow::resize",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "ui::CalculatorWindow",
+      "target": "ui::BaseWindow",
+      "predicate": "INHERITS_FROM"
+    },
+    {
+      "source": "ui::CalculatorWindow",
+      "target": "calc::CalculatorEngine",
+      "predicate": "AGGREGATES"
+    },
+    {
+      "source": "ui::CalculatorWindow",
+      "target": "ui::CalculatorWindow::display",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "ui::CalculatorWindow",
+      "target": "ui::CalculatorWindow::currentInput",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "ui::CalculatorWindow",
+      "target": "ui::CalculatorWindow::lastResult",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "ui::CalculatorWindow",
+      "target": "ui::CalculatorWindow::handleDigitInput",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "ui::CalculatorWindow",
+      "target": "ui::CalculatorWindow::handleOperatorInput",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "ui::CalculatorWindow",
+      "target": "ui::CalculatorWindow::handleEquals",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "ui::CalculatorWindow",
+      "target": "ui::CalculatorWindow::handleClear",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "ui::CalculatorWindow",
+      "target": "ui::CalculatorWindow::performCalculation",
+      "predicate": "COMPOSES"
+    },
+    {
+      "source": "ui::CalculatorWindow",
+      "target": "ui::CalculatorWindow::updateDisplay",
+      "predicate": "COMPOSES"
+    }
+  ]
+}

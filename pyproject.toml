@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "codegraph"
-version = "0.1.0"
+version = "0.2.0"
 description = "Shared Neo4j codebase graph data model — Pydantic models for File, Namespace, Compound, Member, and Parameter nodes"
 readme = "README.md"
 license = "MIT"

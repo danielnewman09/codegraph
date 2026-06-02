@@ -1,4 +1,8 @@
-"""Parameter node model (:Parameter label in Neo4j)."""
+"""Parameter node model (:Parameter label in Neo4j).
+
+Parameters have no outgoing relationships of their own.
+They are identified by a composite of (position, member_refid) rather than
+a single unique property."""
 
 from neomodel import StructuredNode, StringProperty, IntegerProperty
 

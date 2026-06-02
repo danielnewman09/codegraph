@@ -29,6 +29,9 @@ class _MemberMixin(StructuredNode, LlmSerializable):
     compound_refid = StringProperty(default="")
     source = StringProperty(default="")
 
+    # --- Visibility ---
+    visibility = StringProperty(default="")
+
     # --- Documentation ---
     brief_description = StringProperty(default="")
     detailed_description = StringProperty(default="")
@@ -40,23 +43,22 @@ class _MemberMixin(StructuredNode, LlmSerializable):
     # --- Definition ---
     definition = StringProperty(default="")
 
-    # --- File relationship ---
+    # --- Relationships -------------------------------------------------------
+    #
+    # Relationship glossary (all member types inherit this):
+    #
+    #  • DEFINED_IN  — this member → FileNode
+    #    The source file where this member is declared/defined.
+    # --------------------------------------------------------------------------
+
+    # File location
     defined_in = RelationshipTo('codegraph.models.file.FileNode', 'DEFINED_IN')
 
-    # --- Serialization ---
+    # --- Serialization contract ---
     _llm_fields: set[str] = {
         "qualified_name", "name", "kind", "brief_description",
-        "type_signature",
+        "type_signature", "visibility",
     }
-
-    def serialize(self) -> dict:
-        props = dict(self.__properties__)
-        return {k: props[k] for k in self._llm_fields if k in props}
-
-    @classmethod
-    def deserialize(cls, data: dict) -> "_MemberMixin":
-        return cls(**{k: v for k, v in data.items()
-                      if k in cls.defined_properties()})
 
 
 class MethodNode(_MemberMixin):
@@ -65,7 +67,6 @@ class MethodNode(_MemberMixin):
     kind = StringProperty(default="method")
     type_signature = StringProperty(default="")
     argsstring = StringProperty(default="")
-    protection = StringProperty(default="")
     is_static = BooleanProperty(default=False)
     is_const = BooleanProperty(default=False)
     is_constexpr = BooleanProperty(default=False)
@@ -75,15 +76,37 @@ class MethodNode(_MemberMixin):
 
     _llm_fields = {
         "qualified_name", "name", "kind", "brief_description",
-        "type_signature", "argsstring",
+        "type_signature", "argsstring", "visibility",
     }
 
-    # Relationships — a method can be composed from a ClassNode or InterfaceNode
+    # --- MethodNode relationships -------------------------------------------
+    #
+    #  • COMPOSES (incoming)  — ClassNode | InterfaceNode → MethodNode
+    #    The parent compound declares/owns this method.
+    #    Traversed via ``parent_compound`` (ClassNode) or ``parent_interface``.
+    #
+    #  • INVOKES  — MethodNode(caller) → MethodNode(callee)
+    #    Call-callee relationship.  The source method invokes the target method.
+    #
+    #  • HAS_ARGUMENT  — MethodNode → ClassNode
+    #    The method accepts a parameter whose type is the target class.
+    #    Example: ``void draw(Canvas c)``  →  ``draw -[:HAS_ARGUMENT]-> Canvas``.
+    #
+    #  • RETURNS  — MethodNode → ClassNode
+    #    The method's return type is the target class.
+    #    Example: ``Canvas create()``  →  ``create -[:RETURNS]-> Canvas``.
+    # --------------------------------------------------------------------------
+
+    # Owned by (incoming COMPOSES from parent compound)
     parent_compound = RelationshipFrom('codegraph.models.compound.ClassNode', 'COMPOSES')
     parent_interface = RelationshipFrom('codegraph.models.compound.InterfaceNode', 'COMPOSES')
+
+    # Call-callee
+    invokes = RelationshipTo('MethodNode', 'INVOKES')
+
+    # Type relationships
     has_argument = RelationshipTo('codegraph.models.compound.ClassNode', 'HAS_ARGUMENT')
     returns = RelationshipTo('codegraph.models.compound.ClassNode', 'RETURNS')
-    invokes = RelationshipTo('MethodNode', 'INVOKES')
 
 
 class AttributeNode(_MemberMixin):
@@ -91,16 +114,22 @@ class AttributeNode(_MemberMixin):
 
     kind = StringProperty(default="attribute")
     type_signature = StringProperty(default="")
-    protection = StringProperty(default="")
     is_static = BooleanProperty(default=False)
     is_const = BooleanProperty(default=False)
 
     _llm_fields = {
         "qualified_name", "name", "kind", "brief_description",
-        "type_signature",
+        "type_signature", "visibility",
     }
 
-    # Relationships — an attribute is owned by a ClassNode
+    # --- AttributeNode relationships ----------------------------------------
+    #
+    #  • COMPOSES (incoming)  — ClassNode → AttributeNode
+    #    The parent class declares/owns this attribute.
+    #    Traversed via ``parent_compound``.
+    # --------------------------------------------------------------------------
+
+    # Owned by (incoming COMPOSES from parent ClassNode)
     parent_compound = RelationshipFrom('codegraph.models.compound.ClassNode', 'COMPOSES')
 
 
@@ -109,9 +138,16 @@ class EnumValueNode(_MemberMixin):
 
     kind = StringProperty(default="enumvalue")
 
-    _llm_fields = {"qualified_name", "name", "kind", "brief_description"}
+    _llm_fields = {"qualified_name", "name", "kind", "brief_description", "visibility"}
 
-    # Relationships
+    # --- EnumValueNode relationships ----------------------------------------
+    #
+    #  • COMPOSES (incoming)  — EnumNode → EnumValueNode
+    #    The parent enum owns this constant value.
+    #    Traversed via ``parent_enum``.
+    # --------------------------------------------------------------------------
+
+    # Owned by (incoming COMPOSES from parent EnumNode)
     parent_enum = RelationshipFrom('codegraph.models.compound.EnumNode', 'COMPOSES')
 
 
@@ -124,7 +160,7 @@ class FunctionNode(_MemberMixin):
 
     _llm_fields = {
         "qualified_name", "name", "kind", "brief_description",
-        "type_signature", "argsstring",
+        "type_signature", "argsstring", "visibility",
     }
 
 
@@ -133,15 +169,5 @@ class DefineNode(_MemberMixin):
 
     kind = StringProperty(default="define")
 
-    _llm_fields = {"qualified_name", "name", "kind", "brief_description"}
+    _llm_fields = {"qualified_name", "name", "kind", "brief_description", "visibility"}
 
-
-# ---------------------------------------------------------------------------
-# Old-label compatibility — write to :Member label until schema migration.
-# Remove these overrides after the Neo4j schema migration.
-# ---------------------------------------------------------------------------
-MethodNode.__label__ = "Member"
-AttributeNode.__label__ = "Member"
-EnumValueNode.__label__ = "Member"
-FunctionNode.__label__ = "Member"
-DefineNode.__label__ = "Member"

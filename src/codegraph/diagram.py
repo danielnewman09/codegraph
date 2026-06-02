@@ -16,6 +16,49 @@ from typing import Any
 from codegraph.models.compound import ClassNode, InterfaceNode, EnumNode
 
 
+def _ensure_list(parent, attr_name: str) -> list:
+    """Return the list stored at *attr_name* on *parent*, creating it if needed.
+
+    Works with both neomodel relationship descriptors (when connected to Neo4j)
+    and plain Python lists (for in-memory / fixture-driven construction).
+
+    For unsaved nodes (no element_id), the neomodel RelationshipManager is
+    replaced with a plain Python list so that members can be attached without
+    a database connection.
+    """
+    raw = getattr(parent, attr_name, None)
+    if raw is None:
+        result: list = []
+        setattr(parent, attr_name, result)
+        return result
+    if hasattr(raw, "all"):
+        # neomodel RelationshipManager — only query DB if the node is saved
+        if parent.element_id is None:
+            # Node not yet saved: replace manager with plain list
+            result: list = []
+            setattr(parent, attr_name, result)
+            return result
+        result = list(raw.all())
+        setattr(parent, attr_name, result)
+        return result
+    if isinstance(raw, list):
+        return raw
+    result = []
+    setattr(parent, attr_name, result)
+    return result
+
+
+def _is_relationship_property(prop) -> bool:
+    """Return True if *prop* is a neomodel relationship descriptor.
+
+    RelationshipTo and RelationshipFrom are NOT subclasses of
+    neomodel.properties.Property; they extend RelationshipDefinition.
+    This helper distinguishes them from scalar properties.
+    """
+    from neomodel.properties import Property
+    return not isinstance(prop, Property)
+
+
 @dataclass
 class Association:
     """A relationship between two named entities in a ClassDiagram.
@@ -84,8 +127,6 @@ class ClassDiagram:
             out = dict(d)
             if "description" in out:
                 out.setdefault("brief_description", out.pop("description"))
-            if "visibility" in out:
-                out.setdefault("protection", out.pop("visibility"))
             if "inherits_from" in out:
                 out.setdefault("base_classes", out.pop("inherits_from"))
             # Map realizes_interfaces to realizes (LLM may use either name)
@@ -314,7 +355,7 @@ class ClassDiagram:
                         "name": a.name,
                         "qualified_name": a.qualified_name,
                         "kind": "attribute",
-                        "visibility": a.protection or "",
+                        "visibility": a.visibility or "",
                         "type_signature": a.type_signature or "",
                         "description": a.brief_description or "",
                     }
@@ -330,7 +371,7 @@ class ClassDiagram:
                         "name": m.name,
                         "qualified_name": m.qualified_name,
                         "kind": "method",
-                        "visibility": m.protection or "",
+                        "visibility": m.visibility or "",
                         "type_signature": m.type_signature or "",
                         "argsstring": m.argsstring or "",
                         "description": m.brief_description or "",
@@ -340,6 +381,7 @@ class ClassDiagram:
             results.append({
                 "qualified_name": cls_node.qualified_name,
                 "kind": cls_node.kind,
+                "visibility": cls_node.visibility or "",
                 "description": cls_node.brief_description or "",
                 "attributes": sorted(attrs, key=lambda x: x["name"]),
                 "methods": sorted(meths, key=lambda x: x["name"]),
@@ -356,7 +398,7 @@ class ClassDiagram:
                         "name": m.name,
                         "qualified_name": m.qualified_name,
                         "kind": "method",
-                        "visibility": m.protection or "",
+                        "visibility": m.visibility or "",
                         "type_signature": m.type_signature or "",
                         "argsstring": m.argsstring or "",
                         "description": m.brief_description or "",
@@ -366,6 +408,7 @@ class ClassDiagram:
             results.append({
                 "qualified_name": iface_node.qualified_name,
                 "kind": iface_node.kind,
+                "visibility": iface_node.visibility or "",
                 "description": iface_node.brief_description or "",
                 "attributes": [],
                 "methods": sorted(meths, key=lambda x: x["name"]),
@@ -443,3 +486,186 @@ class ClassDiagram:
         for enum_node in self.enums:
             lookup[enum_node.name] = enum_node.qualified_name
         return lookup
+
+    # -- Graph serialization (round-trip JSON) --
+
+    def to_graph_dict(self) -> dict[str, list[dict]]:
+        """Serialize the complete diagram to a graph dict with nodes and edges.
+
+        Returns ``{"nodes": [...], "edges": [...]}`` where each node is a flat
+        dict of properties and each edge has ``source``, ``target``, and
+        ``predicate`` keys.
+
+        Member nodes (methods, attributes, enum values) attached via COMPOSES
+        are included, as well as module→compound COMPOSES, inter-compound
+        associations, and INHERITS_FROM / REALIZES / DEPENDS_ON / AGGREGATES
+        edges.
+        """
+        nodes: list[dict] = []
+        edges: list[dict] = []
+        seen_qnames: set[str] = set()
+
+        def _add_node(model) -> None:
+            # Emit only scalar neomodel properties. Relationship descriptors
+            # (RelationshipTo, RelationshipFrom) are excluded — those are
+            # handled separately as edges in the graph output.
+            valid_keys = {
+                k for k, prop in model.defined_properties().items()
+                if not _is_relationship_property(prop)
+            }
+            d = {k: v for k, v in dict(model.__properties__).items() if k in valid_keys}
+            qn = d.get("qualified_name", "")
+            if qn and qn not in seen_qnames:
+                seen_qnames.add(qn)
+                nodes.append(d)
+
+        def _add_edge(source: str, target: str, predicate: str) -> None:
+            edges.append({"source": source, "target": target, "predicate": predicate})
+
+        def _get_member_list(parent, attr_name: str) -> list:
+            """Return members from *parent* using the module-level _ensure_list."""
+            return _ensure_list(parent, attr_name)
+
+        def _walk_compound(compound, *, emit_module_edge: bool = True) -> None:
+            _add_node(compound)
+            if emit_module_edge and compound.module:
+                _add_edge(compound.module, compound.qualified_name, "COMPOSES")
+            for m in _get_member_list(compound, "methods"):
+                _add_node(m)
+                _add_edge(compound.qualified_name, m.qualified_name, "COMPOSES")
+            for a in _get_member_list(compound, "attributes"):
+                _add_node(a)
+                _add_edge(compound.qualified_name, a.qualified_name, "COMPOSES")
+            for v in _get_member_list(compound, "values"):
+                _add_node(v)
+                _add_edge(compound.qualified_name, v.qualified_name, "COMPOSES")
+
+        for cls_node in self.classes:
+            _walk_compound(cls_node)
+        for iface_node in self.interfaces:
+            _walk_compound(iface_node)
+        for enum_node in self.enums:
+            _walk_compound(enum_node)
+
+        # Module nodes
+        for mod_name in self.module_names:
+            qn = mod_name
+            if qn not in seen_qnames:
+                seen_qnames.add(qn)
+                nodes.append({
+                    "qualified_name": mod_name,
+                    "name": mod_name,
+                    "kind": "module",
+                    "layer": "design",
+                    "brief_description": "",
+                    "visibility": "",
+                })
+
+        # Associations → edges
+        for assoc in self.associations:
+            _add_edge(assoc.subject, assoc.object, assoc.predicate)
+
+        return {"nodes": nodes, "edges": edges}
+
+    @classmethod
+    def from_graph_dict(cls, data: dict[str, Any]) -> "ClassDiagram":
+        """Build a ClassDiagram from a graph dict with nodes and edges.
+
+        Accepts ``{"nodes": [...], "edges": [...]}``. Each node must have
+        at least ``qualified_name`` and ``kind``. Edges have ``source``,
+        ``target``, and ``predicate``.
+
+        COMPOSES edges where the target is a member node (method, attribute,
+        enumvalue) result in the member being attached to its parent compound
+        via a plain Python list stored on the parent. Other edges become
+        ``Association`` objects.
+        """
+        from codegraph.models.compound import ModuleNode
+        from codegraph.models.member import MethodNode, AttributeNode, EnumValueNode
+
+        nodes_by_qname: dict[str, Any] = {}
+        classes: list[ClassNode] = []
+        interfaces: list[InterfaceNode] = []
+        enums: list[EnumNode] = []
+        seen_modules: set[str] = set()
+
+        # Phase 1: create all nodes from the flat node list
+        for node_data in data.get("nodes", []):
+            kind = node_data.get("kind", "")
+            qname = node_data.get("qualified_name", "")
+            if not qname:
+                continue
+            # Extract only properties known to the target node type
+            node_props = dict(node_data)
+            node_props.pop("kind", None)  # kind is set via defaults on the class
+
+            if kind == "class":
+                c = ClassNode(**node_props)
+                classes.append(c)
+                nodes_by_qname[qname] = c
+            elif kind == "interface":
+                i = InterfaceNode(**node_props)
+                interfaces.append(i)
+                nodes_by_qname[qname] = i
+            elif kind == "enum":
+                e = EnumNode(**node_props)
+                enums.append(e)
+                nodes_by_qname[qname] = e
+            elif kind == "module":
+                m = ModuleNode(**node_props)
+                seen_modules.add(m.name)
+                nodes_by_qname[qname] = m
+            elif kind == "method":
+                m = MethodNode(**node_props)
+                nodes_by_qname[qname] = m
+            elif kind == "attribute":
+                a = AttributeNode(**node_props)
+                nodes_by_qname[qname] = a
+            elif kind == "enumvalue":
+                ev = EnumValueNode(**node_props)
+                nodes_by_qname[qname] = ev
+
+        # Phase 2: process edges — attach members to parents, create associations
+        associations: list[Association] = []
+
+        for edge in data.get("edges", []):
+            src_qname = edge.get("source", "")
+            tgt_qname = edge.get("target", "")
+            predicate = edge.get("predicate", "")
+
+            src_node = nodes_by_qname.get(src_qname)
+            tgt_node = nodes_by_qname.get(tgt_qname)
+
+            if predicate == "COMPOSES" and src_node is not None and tgt_node is not None:
+                # Attach member to parent compound/module
+                if isinstance(tgt_node, MethodNode):
+                    _ensure_list(src_node, "methods").append(tgt_node)
+                elif isinstance(tgt_node, AttributeNode):
+                    _ensure_list(src_node, "attributes").append(tgt_node)
+                elif isinstance(tgt_node, EnumValueNode):
+                    _ensure_list(src_node, "values").append(tgt_node)
+                # Module→compound COMPOSES: the module field on compound
+                # already captures this; no extra storage needed.
+            else:
+                # Non-COMPOSES edge → Association
+                associations.append(Association(
+                    subject=src_qname,
+                    predicate=predicate,
+                    object=tgt_qname,
+                ))
+
+        # Derive module_names from module nodes plus compound module fields
+        module_names = sorted(seen_modules)
+        for node in (*classes, *interfaces, *enums):
+            mod = getattr(node, "module", "")
+            if mod and mod not in seen_modules:
+                seen_modules.add(mod)
+                module_names.append(mod)
+
+        return cls(
+            module_names=module_names,
+            classes=classes,
+            interfaces=interfaces,
+            enums=enums,
+            associations=associations,
+        )

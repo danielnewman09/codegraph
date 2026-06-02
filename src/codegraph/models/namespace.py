@@ -18,5 +18,11 @@ class NamespaceNode(StructuredNode):
     description = StringProperty(default="")
     source = StringProperty(default="")
 
-    # Relationships — atomized in later tasks; uses ClassNode as representative target
+    # --- NamespaceNode relationships ----------------------------------------
+    #
+    #  • COMPOSES  — NamespaceNode → ClassNode
+    #    The namespace owns/contains these compounds.  Uses ClassNode as the
+    #    representative target type (applies to all compound kinds).
+    # --------------------------------------------------------------------------
+
     compounds = RelationshipTo('codegraph.models.compound.ClassNode', 'COMPOSES')
