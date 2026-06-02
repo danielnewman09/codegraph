@@ -11,7 +11,7 @@ from pathlib import Path
 from codegraph.models.member import AttributeNode
 from codegraph.models.tags import LlmSerializable
 
-FIXTURE_DIR = Path(__file__).resolve().parent.parent / "unit_test_data"
+FIXTURE_DIR = Path(__file__).resolve().parent.parent.parent / "unit_test_data"
 
 
 def test_attribute_node_roundtrip():

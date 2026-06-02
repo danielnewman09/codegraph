@@ -1,0 +1,48 @@
+"""Unit test: MethodNode full deserialization from committed JSON fixture.
+
+Reads every property from tests/data/method_node_full.json,
+deserializes into a MethodNode, and asserts all fields match.
+No Neo4j required.
+"""
+
+import json
+from pathlib import Path
+
+from codegraph.models.member import MethodNode
+from codegraph.models.tags import LlmSerializable
+
+DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+FIXTURE = DATA_DIR / "method_node_full.json"
+
+# Properties that are auto-generated (UniqueIdProperty) or relationships
+# — these are not asserted field-by-field.
+SKIP_FIELDS = {"qualified_name", "edges", "type"}
+
+
+def test_method_node_full_deserialization():
+    with open(FIXTURE) as f:
+        data = json.load(f)
+
+    # Deserialize via the registry so type discrimination is exercised
+    node = LlmSerializable.from_json(data)
+
+    # Correct subclass
+    assert isinstance(node, MethodNode)
+    assert data["type"] == "MethodNode"
+
+    # The qualified_name is auto-generated on creation,
+    # so we just assert it exists and is non-empty
+    assert node.qualified_name, "qualified_name should be auto-generated"
+
+    # Every other property in the JSON file must match the node exactly
+    for field, expected in data.items():
+        if field in SKIP_FIELDS:
+            continue
+        actual = getattr(node, field, None)
+        assert actual == expected, (
+            f"Field mismatch on '{field}': expected {expected!r}, got {actual!r}"
+        )
+
+
+if __name__ == "__main__":
+    test_method_node_full_deserialization()

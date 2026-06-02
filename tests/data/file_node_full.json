@@ -1,0 +1,9 @@
+{
+    "type": "FileNode",
+    "refid": "file_widget_h_9b3c7e1a",
+    "name": "widget.h",
+    "path": "/src/widget.h",
+    "language": "cpp",
+    "source": "#ifndef WIDGET_H\n#define WIDGET_H\n\nclass Widget {\npublic:\n    void draw(Canvas c);\n    int width() const;\n};\n\n#endif // WIDGET_H",
+    "edges": []
+}
