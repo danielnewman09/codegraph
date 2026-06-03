@@ -1,7 +1,7 @@
 """Pytest fixtures for neomodel tests.
 
 Loads Neo4j credentials from the project .env file, then configures
-neomodel and clears the database between tests.
+neomodel and clears the database once before the test session.
 """
 
 import os
@@ -13,7 +13,9 @@ from neomodel import db, get_config
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_neomodel():
-    """Configure neomodel for the test session and ensure labels exist."""
+    """Configure neomodel, install labels, and clear the database once
+    before the test session starts.
+    """
     load_dotenv()
 
     uri = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
@@ -26,3 +28,6 @@ def setup_neomodel():
 
     # Install labels (creates constraints/indexes)
     db.install_all_labels()
+
+    # Wipe the database once before the session
+    db.cypher_query("MATCH (n) DETACH DELETE n")
