@@ -12,11 +12,9 @@ class NamespaceNode(StructuredNode, CodeGraphNode):
     """A namespace entity — namespace, package, or module."""
 
     qualified_name = UniqueIdProperty()
-    name = StringProperty(default="")
     kind = StringProperty(default="namespace")
     layer = StringProperty(default="design")
     component_id = IntegerProperty()
-    refid = StringProperty(default="")
     description = StringProperty(default="")
 
     # --- NamespaceNode relationships ----------------------------------------

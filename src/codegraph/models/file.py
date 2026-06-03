@@ -17,11 +17,11 @@ class FileNode(StructuredNode, CodeGraphNode):
 
     Fields
     ------
-    refid : UniqueIdProperty
+    refid : UniqueIdProperty (overrides CodeGraphNode.refid)
         Auto-generated unique identifier. Acts as the primary key
         for looking up files in Neo4j and as the ``target_uid`` in
         DEFINED_IN edges from compounds and members.
-    name : StringProperty
+    name : StringProperty (inherited from CodeGraphNode)
         The basename of the file (e.g. ``"widget.h"``, ``"main.cpp"``).
     path : StringProperty
         The absolute or project-relative path to the file
@@ -38,7 +38,6 @@ class FileNode(StructuredNode, CodeGraphNode):
     refid = UniqueIdProperty()
 
     # --- File metadata ---
-    name = StringProperty(default="")
     path = StringProperty(default="")
     language = StringProperty(default="")
 

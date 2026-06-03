@@ -73,6 +73,17 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
 
     _llm_fields: set[str] = set()
 
+    # ── Identity ────────────────────────────────────────────────────────────
+    name = StringProperty(
+        default="",
+        help_text="Short name of the node (e.g. 'Widget', 'draw', 'widget.h').",
+    )
+    refid = StringProperty(
+        default="",
+        help_text="External reference ID from the source system "
+        "(e.g. Doxygen refid). FileNode overrides this as UniqueIdProperty.",
+    )
+
     # ── Provenance ──────────────────────────────────────────────────────────
     source = StringProperty(
         default="",

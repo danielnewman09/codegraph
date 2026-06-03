@@ -19,13 +19,11 @@ class _MemberMixin(StructuredNode, CodeGraphNode):
 
     # --- Identity ---
     qualified_name = UniqueIdProperty()
-    name = StringProperty(default="")
     kind = StringProperty(required=True)
 
     # --- Layer & provenance ---
     layer = StringProperty(default="design")
     component_id = IntegerProperty()
-    refid = StringProperty(default="")
     compound_refid = StringProperty(default="")
 
     # --- Visibility ---
