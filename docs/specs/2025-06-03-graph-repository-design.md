@@ -81,8 +81,9 @@ neomodel node instances (seeds) and produces a fully-populated `LayerGraph`.
    `node.serialize_edges()` to discover connected node UIDs and types. Fetch
    each neighbor from Neo4j if not already in the dict.
 3. **Collect edges** — walk each seed's `serialize_edges()` results,
-   recording `(source_key, relation_type, target_key, target_type)` for every
-   edge where both endpoints are in the dict.
+   recording a dict `{source_key, relation_type, target_key, target_type}`
+   for every edge where both endpoints are in the dict. This matches the
+   dict format used by `LayerGraph.from_json()`.
 4. **Derive layer** — infer from the first seed node that has a `layer`
    property (fallback: `"design"`).
 5. **Return `LayerGraph(layer=layer, nodes=nodes, edges=edges)`**.
@@ -147,7 +148,8 @@ seeds = [ns] + list(ns.compounds.all())
 return self._build_layer_graph(seeds)
 ```
 
-Raises `NamespaceNode.DoesNotExist` if the namespace is not found.
+Returns an empty `LayerGraph(layer="design")` if the namespace is not
+found, consistent with `get_by_compound` and `get_by_neighbourhood`.
 
 ### `get_by_compound(qualified_name: str) -> LayerGraph`
 
