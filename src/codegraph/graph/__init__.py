@@ -1,134 +1,164 @@
-"""Typed graph containers for the ontology visualization.
+"""LayerGraph — layer-aware graph container for codebase views.
 
-Each container is self-contained: one Cypher query fills all fields.
-No secondary queries are needed to resolve members, edges, or nested objects.
+A Python-only container that holds all nodes and edges in a design view,
+keyed by a stable local identifier. Supports deserialization from JSON,
+persistence to Neo4j, and querying from Neo4j by layer.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from codegraph.models.compound import ClassNode, InterfaceNode, EnumNode, UnionNode
-from codegraph.models.member import MethodNode, AttributeNode, EnumValueNode
-from codegraph.models.namespace import NamespaceNode
-
-# Union type for any compound node
-CompoundNodeType = ClassNode | InterfaceNode | EnumNode | UnionNode
-# Union type for any member node
-MemberNodeType = MethodNode | AttributeNode | EnumValueNode
+from codegraph.models.tags import CodeGraphNode
 
 
 @dataclass
-class GraphEdge:
-    """A directed relationship between two nodes in a subgraph."""
+class LayerGraph:
+    """A Python-only container for all nodes in a design view, filtered by layer.
 
-    source_qualified_name: str
-    target_qualified_name: str
-    predicate: str  # UPPERCASE Neo4j rel type
-    mechanism: str = ""
-    position: int | None = None
-    name: str = ""
-    display_name: str = ""
-
-
-@dataclass
-class CompoundGraph:
-    """Self-contained payload for one :Compound node.
-
-    One Cypher query returns the compound, all its members (via COMPOSES),
-    nested compounds (via COMPOSES → nested classes), and all non-COMPOSES
-    edges in and out.
+    Nodes are keyed by a stable local identifier (name for most nodes,
+    path for FileNode). Edges are stored as logical tuples for deferred
+    persistence via ``to_neo4j()``.
     """
 
-    node: CompoundNodeType
-    members: list[MemberNodeType] = field(default_factory=list)
-    nested: list[CompoundGraph] = field(default_factory=list)
-    edges_out: list[GraphEdge] = field(default_factory=list)
-    edges_in: list[GraphEdge] = field(default_factory=list)
+    layer: str  # "design" | "as-built" | "dependency"
+    nodes: dict[str, CodeGraphNode] = field(default_factory=dict)
+    edges: list[dict] = field(default_factory=list)
 
+    @staticmethod
+    def _node_key(obj) -> str:
+        """Derive a stable local key from a node instance or raw dict.
 
-@dataclass
-class NamespaceGraph:
-    """Self-contained payload for one :Namespace node and its contents.
-
-    Recursively descends one level. ``compounds`` includes classes,
-    structs, interfaces, and enums owned by this namespace (via
-    COMPOSES from Namespace→Compound).
-    """
-
-    node: NamespaceNode
-    compounds: list[CompoundGraph] = field(default_factory=list)
-    namespaces: list[NamespaceGraph] = field(default_factory=list)
-
-
-@dataclass
-class OntologyGraph:
-    """Top-level graph for the ontology visualization page.
-
-    Contains all namespaces (with their compounds), unparented compounds
-    (no owning namespace), and cross-cutting edges (between namespaces
-    or unparented compounds).
-    """
-
-    namespaces: list[NamespaceGraph] = field(default_factory=list)
-    compounds: list[CompoundGraph] = field(default_factory=list)
-    edges: list[GraphEdge] = field(default_factory=list)
-
-    def to_raw(self) -> dict:
-        """Flatten the typed hierarchy into the raw dict shape consumed by
-        ``format_ontology_graph()``.
-
-        Returns ``{"nodes": [...], "edges": [...]}`` where each node is a
-        flat dict of Neo4j properties and each edge has ``source``,
-        ``target``, and ``type`` keys.
+        For dicts (raw JSON data), uses ``type`` and ``path``/``name``.
+        For CodeGraphNode instances, uses ``path`` for FileNode, ``name``
+        otherwise.
         """
-        nodes: list[dict] = []
+        if isinstance(obj, dict):
+            if obj.get("type") == "FileNode":
+                return obj["path"]
+            return obj["name"]
+        # CodeGraphNode instance
+        if obj.__class__.__name__ == "FileNode":
+            return obj.path
+        return obj.name
+
+    @classmethod
+    def from_json(cls, data: list[dict]) -> "LayerGraph":
+        """Deserialize from a JSON array (as produced by ``to_json()``).
+
+        Pure deserialization — no database interaction. Infers layer from
+        the first node that has a ``layer`` field (fallback: ``"design"``).
+
+        Accepts edges in two formats:
+        - Fixture format: ``target_local_id`` (name or path) + ``target_type``
+        - Serialized format: ``target_uid`` (unique id) + ``target_type``
+        """
+        nodes: dict[str, CodeGraphNode] = {}
+        uid_to_key: dict[str, str] = {}  # uid → node_key lookup
         edges: list[dict] = []
-        seen_qns: set[str] = set()
+        layer = "design"
 
-        def _add_node(model) -> None:
-            d = dict(model.__properties__)
-            qn = d.get("qualified_name", "")
-            if qn and qn not in seen_qns:
-                seen_qns.add(qn)
-                nodes.append(d)
+        for node_data in data:
+            node = CodeGraphNode.from_json(node_data)
+            key = cls._node_key(node_data)
+            nodes[key] = node
 
-        def _add_edge(ge: GraphEdge) -> None:
-            edges.append(
-                {
-                    "source": ge.source_qualified_name,
-                    "target": ge.target_qualified_name,
-                    "type": ge.predicate,
-                    "mechanism": ge.mechanism,
-                    "position": ge.position,
-                    "name": ge.name,
-                    "display_name": ge.display_name,
-                }
+            # Build uid → key mapping for roundtrip format
+            uid = node._uid_value()
+            if uid:
+                uid_to_key[uid] = key
+
+            # Collect logical edges for later persistence
+            for edge in node_data.get("edges", []):
+                # Resolve target key: prefer target_local_id (fixture format),
+                # fall back to target_uid (serialized format)
+                target_key = edge.get("target_local_id")
+                if target_key is None and "target_uid" in edge:
+                    target_key = uid_to_key.get(edge["target_uid"])
+                edges.append({
+                    "source_key": key,
+                    "relation_type": edge["relation_type"],
+                    "target_key": target_key,
+                    "target_type": edge["target_type"],
+                })
+
+            # Infer layer from node data
+            if layer == "design" and "layer" in node_data:
+                layer = node_data["layer"]
+
+        return cls(layer=layer, nodes=nodes, edges=edges)
+
+    def to_neo4j(self) -> None:
+        """Persist all nodes and edges to Neo4j.
+
+        Saves each node, then connects all edges using
+        ``CodeGraphNode.find_relationship_manager()``.
+        """
+        # Phase 1: Save all nodes
+        for node in self.nodes.values():
+            node.save()
+
+        # Phase 2: Connect all edges
+        for edge in self.edges:
+            source = self.nodes[edge["source_key"]]
+            target = self.nodes[edge["target_key"]]
+            manager = CodeGraphNode.find_relationship_manager(
+                source, edge["relation_type"], target
             )
+            manager.connect(target)
 
-        def _walk_namespace(nsg: NamespaceGraph) -> None:
-            _add_node(nsg.node)
-            for cg in nsg.compounds:
-                _walk_compound(cg)
-            for child_ns in nsg.namespaces:
-                _walk_namespace(child_ns)
+    def to_json(self) -> list[dict]:
+        """Serialize all nodes + edges to a JSON-compatible list of dicts.
 
-        def _walk_compound(cg: CompoundGraph) -> None:
-            _add_node(cg.node)
-            for m in cg.members:
-                _add_node(m)
-            for nested in cg.nested:
-                _walk_compound(nested)
-            for ge in cg.edges_out:
-                _add_edge(ge)
-            for ge in cg.edges_in:
-                _add_edge(ge)
+        Each dict includes ``type``, properties, and ``edges``.
+        Calls ``node.serialize()`` on each node (which includes live edges
+        from Neo4j if the node has been saved).
 
-        for nsg in self.namespaces:
-            _walk_namespace(nsg)
-        for cg in self.compounds:
-            _walk_compound(cg)
-        for ge in self.edges:
-            _add_edge(ge)
+        For nodes that have not been persisted to Neo4j, the ``edges``
+        key will be an empty list.
+        """
+        return [node.serialize() for node in self.nodes.values()]
 
-        return {"nodes": nodes, "edges": edges}
+    @classmethod
+    def from_neo4j(cls, layer: str) -> "LayerGraph":
+        """Query Neo4j for all nodes where ``.layer == layer``, plus their
+        first-level neighbors. Collect into a LayerGraph.
+
+        This includes both endpoints of any edge touching a layer-matched
+        node, even if the neighbor's layer is different.
+        """
+        # Fetch all layer-matched nodes
+        matched_nodes = CodeGraphNode.fetch_all_by_layer(layer)
+
+        nodes: dict[str, CodeGraphNode] = {}
+        seen_uids: set[str] = set()
+
+        # Add all layer-matched nodes
+        for node in matched_nodes:
+            key = cls._node_key(node)
+            nodes[key] = node
+            uid = node._uid_value()
+            if uid:
+                seen_uids.add(uid)
+
+        # Expand to first-level neighbors
+        for node in matched_nodes:
+            edges = node.serialize_edges()
+            for edge in edges:
+                target_uid = edge["target_uid"]
+                target_type = edge["target_type"]
+                if target_uid not in seen_uids:
+                    seen_uids.add(target_uid)
+                    # Fetch neighbor from Neo4j by UID
+                    target_cls = CodeGraphNode._registry.get(target_type)
+                    if target_cls:
+                        uid_prop = target_cls._uid_prop()
+                        if uid_prop:
+                            neighbor = target_cls.nodes.get_or_none(
+                                **{uid_prop: target_uid}
+                            )
+                            if neighbor:
+                                neighbor_key = cls._node_key(neighbor)
+                                nodes[neighbor_key] = neighbor
+
+        return cls(layer=layer, nodes=nodes)

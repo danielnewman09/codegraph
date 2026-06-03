@@ -2,8 +2,7 @@
 
 Provides atomized neomodel Node models (Class, Interface, Enum, Union, Module,
 Method, Attribute, EnumValue, Function, Define, Namespace, File, Parameter),
-graph containers (CompoundGraph, NamespaceGraph, OntologyGraph, GraphEdge),
-ClassDiagram, and constants (kinds, layers, predicates,
+LayerGraph container, ClassDiagram, and constants (kinds, layers, predicates,
 schema DDL, language specializations).
 """
 
@@ -30,8 +29,7 @@ from codegraph.constants import (
     valid_specializations,
 )
 from codegraph.diagram import ClassDiagram, Association
-from codegraph.graph import CompoundGraph, GraphEdge, NamespaceGraph, OntologyGraph
-from codegraph.loaders import load_graph
+from codegraph.graph import LayerGraph
 from codegraph.models import (
     ClassNode,
     InterfaceNode,
@@ -63,16 +61,11 @@ __all__ = [
     "NamespaceNode",
     "FileNode",
     "ParameterNode",
-    # Loader
-    "load_graph",
-    "Association",
     # ClassDiagram
+    "Association",
     "ClassDiagram",
-    # Graph containers
-    "CompoundGraph",
-    "GraphEdge",
-    "NamespaceGraph",
-    "OntologyGraph",
+    # Graph container
+    "LayerGraph",
     # Config
     "NEO4J_URI",
     "NEO4J_USER",

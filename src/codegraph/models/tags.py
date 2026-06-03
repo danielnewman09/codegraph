@@ -63,6 +63,9 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
     - ``serialize()`` – property fields, type, and edges as a single dict
     - ``deserialize()`` – instantiate from dict (ignores ``edges`` and ``type``)
     - ``from_json()`` – factory: looks up the correct subclass by ``type``
+    - ``find_relationship_manager()`` – find the neomodel relationship manager
+      matching a relation type and target class
+    - ``fetch_by_layer()`` / ``fetch_all_by_layer()`` – layer-aware Neo4j queries
     - ``serialize_relationships()`` – static schema of relationship descriptors
     - ``serialize_edges()`` – live edges from Neo4j
     - ``_uid_prop()`` / ``_uid_value()`` – unique identifier accessors
@@ -89,6 +92,66 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         default="",
         help_text="Name of the project this node belongs to (e.g. 'codegraph', 'llvm').",
     )
+
+    # ── Relationship introspection ────────────────────────────────────────
+
+    @classmethod
+    def find_relationship_manager(cls, source, relation_type: str, target):
+        """Find the relationship manager on *source* matching both
+        *relation_type* and the class of *target*.
+
+        Needed because some relation types (e.g. COMPOSES) have multiple
+        managers on the same source class pointing at different target types.
+
+        Returns the relationship manager attribute (e.g. ``source.methods``).
+        Raises ``ValueError`` if no matching manager is found.
+        """
+        from neomodel import RelationshipTo, RelationshipFrom
+
+        target_cls = type(target)
+        for klass in type(source).__mro__:
+            for name, val in vars(klass).items():
+                if isinstance(val, (RelationshipTo, RelationshipFrom)):
+                    if val.definition["relation_type"] != relation_type:
+                        continue
+                    rel_target = val.definition.get("model") or val._raw_class
+                    if rel_target == target_cls:
+                        return getattr(source, name)
+                    if isinstance(rel_target, str) and (
+                        rel_target == target_cls.__name__
+                        or rel_target.endswith(f".{target_cls.__name__}")
+                    ):
+                        return getattr(source, name)
+        raise ValueError(
+            f"No '{relation_type}' relationship from "
+            f"{type(source).__name__} to {target_cls.__name__}"
+        )
+
+    # ── Layer-aware queries ───────────────────────────────────────────────
+
+    @classmethod
+    def fetch_by_layer(cls, layer: str) -> list["CodeGraphNode"]:
+        """Fetch all persisted instances of this type matching *layer*.
+
+        Uses neomodel's ``.nodes.filter(layer=layer)``. Returns an empty
+        list for types that don't have a ``layer`` property
+        (e.g. FileNode, ParameterNode).
+        """
+        if "layer" not in cls.defined_properties():
+            return []
+        return list(cls.nodes.filter(layer=layer))
+
+    @classmethod
+    def fetch_all_by_layer(cls, layer: str) -> list["CodeGraphNode"]:
+        """Fetch all nodes across all registered types matching *layer*.
+
+        Iterates :pyattr:`_registry`, calling :pyfunc:`fetch_by_layer` on each
+        concrete subclass. Returns a flat list.
+        """
+        result: list[CodeGraphNode] = []
+        for node_cls in cls._registry.values():
+            result.extend(node_cls.fetch_by_layer(layer))
+        return result
 
     # ── Registry ──────────────────────────────────────────────────────────
     # Every concrete CodeGraphNode subclass registers itself here so that

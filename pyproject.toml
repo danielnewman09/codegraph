@@ -29,10 +29,18 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "pytest-cov>=5.0"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/codegraph"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["codegraph"]
+omit = ["*/type_parser.py", "*/diagram.py"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 75

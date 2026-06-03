@@ -1,7 +1,7 @@
 # LayerGraph Design Spec
 
 **Date:** 2025-06-03  
-**Status:** Draft
+**Status:** Approved
 
 ## Summary
 

@@ -1,8 +1,8 @@
 """Integration test: build the full Calculator graph from design_graph.json.
 
-Uses ``load_graph`` to create all nodes and edges from the JSON fixture,
-serializes the complete graph to a single JSON file, reads it back, and
-asserts the graph roundtrips correctly.
+Uses ``LayerGraph`` to create all nodes and edges from the JSON fixture,
+serialize the complete graph to a single JSON file, read it back, and
+assert the graph roundtrips correctly.
 
 Requires Neo4j (credentials loaded from .env via conftest.py).
 """
@@ -10,7 +10,7 @@ Requires Neo4j (credentials loaded from .env via conftest.py).
 import json
 from pathlib import Path
 
-from codegraph.loaders import load_graph
+from codegraph.graph import LayerGraph
 from codegraph.models.tags import CodeGraphNode
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
@@ -20,32 +20,25 @@ FIXTURE_DIR = Path(__file__).resolve().parent / "unit_test_data"
 SKIP_FIELDS = {"qualified_name", "refid", "edges", "type"}
 
 
-def _node_key(node_data: dict) -> str:
-    if node_data["type"] == "FileNode":
-        return node_data["path"]
-    return node_data["name"]
-
-
 def test_graph_integration():
     with open(FIXTURE) as f:
         nodes_data = json.load(f)
 
-    nodes = load_graph(nodes_data)
+    # Pure deserialization — no DB interaction
+    graph = LayerGraph.from_json(nodes_data)
 
-    assert len(nodes) == len(nodes_data), (
-        f"Expected {len(nodes_data)} nodes, got {len(nodes)}"
+    assert len(graph.nodes) == len(nodes_data), (
+        f"Expected {len(nodes_data)} nodes, got {len(graph.nodes)}"
     )
+
+    # Explicit persistence
+    graph.to_neo4j()
 
     # Serialize the entire graph to a single JSON file
     FIXTURE_DIR.mkdir(exist_ok=True)
     out_path = FIXTURE_DIR / "graph_integration.json"
 
-    graph_serialized = []
-    for node_data in nodes_data:
-        key = _node_key(node_data)
-        saved = nodes[key]
-        graph_serialized.append(saved.serialize())
-
+    graph_serialized = graph.to_json()
     with open(out_path, "w") as f:
         json.dump(graph_serialized, f, indent=2)
 
@@ -56,8 +49,8 @@ def test_graph_integration():
     assert len(loaded) == len(nodes_data)
 
     for original, roundtripped_data in zip(nodes_data, loaded):
-        key = _node_key(original)
-        saved = nodes[key]
+        key = LayerGraph._node_key(original)
+        saved = graph.nodes[key]
 
         assert roundtripped_data["type"] == original["type"], (
             f"{original['type']} {key}: "
@@ -76,11 +69,11 @@ def test_graph_integration():
     # Every fixture edge exists in the live graph
     total_fixture_edges = 0
     for original in nodes_data:
-        key = _node_key(original)
-        saved = nodes[key]
+        key = LayerGraph._node_key(original)
+        saved = graph.nodes[key]
         for edge in original.get("edges", []):
             total_fixture_edges += 1
-            target = nodes[edge["target_local_id"]]
+            target = graph.nodes[edge["target_local_id"]]
             found = [
                 e for e in saved.serialize()["edges"]
                 if e["relation_type"] == edge["relation_type"]
@@ -92,7 +85,7 @@ def test_graph_integration():
             )
 
     total_live_edges = sum(
-        len(n.serialize()["edges"]) for n in nodes.values()
+        len(n.serialize()["edges"]) for n in graph.nodes.values()
     )
     assert total_live_edges >= total_fixture_edges, (
         f"Live edges ({total_live_edges}) < fixture edges ({total_fixture_edges})"

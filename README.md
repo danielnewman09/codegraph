@@ -1,10 +1,13 @@
 # Codegraph
 
-Shared Neo4j codebase graph data model.
+Shared Neo4j codebase graph data model with layer-aware graph containers.
 
-Provides Pydantic models for codebase graph nodes (`File`, `Namespace`,
-`Compound`, `Member`, `Parameter`), edge definitions (`CodebaseEdge`),
-and constants (kinds, layers, predicates, schema DDL).
+Provides atomized neomodel Node models (`ClassNode`, `InterfaceNode`,
+`EnumNode`, `MethodNode`, `AttributeNode`, `FileNode`, `NamespaceNode`,
+`ParameterNode`, etc.), a `LayerGraph` container for loading and persisting
+complete design views, graph visualization containers (`CompoundGraph`,
+`NamespaceGraph`, `OntologyGraph`), a `ClassDiagram` renderer, and constants
+(kinds, layers, predicates, schema DDL).
 
 Used by:
 - [Doxygen Dependency Parser](https://github.com/danielnewman09/Doxygen-Dependency-Parser) — populates `as-built` and `dependency` layers
@@ -16,38 +19,186 @@ Used by:
 pip install codegraph
 ```
 
-## Usage
+For development:
+
+```bash
+pip install codegraph[dev]
+```
+
+## Layers
+
+Nodes are tagged with a `layer` property indicating their origin:
+
+| Layer | Description |
+|---|---|
+| `design` | Intended architecture (from UML, tickets, design docs) |
+| `as-built` | Actual implementation (from Doxygen, static analysis) |
+| `dependency` | Compile-time and runtime dependencies |
+
+## Node models
+
+Every node inherits from `CodeGraphNode`, which provides `serialize()`,
+`deserialize()`, `from_json()`, and relationship introspection.
+
+| Category | Node types | UID property |
+|---|---|---|
+| Compound | `ClassNode`, `InterfaceNode`, `EnumNode`, `UnionNode`, `ModuleNode` | `qualified_name` |
+| Member | `MethodNode`, `AttributeNode`, `EnumValueNode`, `FunctionNode`, `DefineNode` | `qualified_name` |
+| Namespace | `NamespaceNode` | `qualified_name` |
+| File | `FileNode` | `refid` |
+| Parameter | `ParameterNode` | `name` |
+
+## LayerGraph
+
+`LayerGraph` is the top-level API for interacting with an entire design view.
+It is a Python-only container (not a Neo4j node) that holds all nodes and
+their edges, keyed by a stable local identifier.
 
 ```python
-from codegraph import CompoundNode, MemberNode, CodebaseEdge
-
-# Create a design-layer class
-calc = CompoundNode(
-    qualified_name="calc::Calculator",
-    name="Calculator",
-    kind="class",
-    layer="design",
-    protection="public",
-)
-
-# Add a method
-add = MemberNode(
-    qualified_name="calc::Calculator::add",
-    name="add",
-    kind="method",
-    layer="design",
-    type_signature="int",
-    argsstring="(int a, int b)",
-    protection="public",
-)
-
-# Define a relationship
-edge = CodebaseEdge(
-    subject_qualified_name="calc::Calculator",
-    predicate="composes",
-    object_qualified_name="calc::Calculator::add",
-)
-
-# Serialize to dict for Neo4j driver
-calc_dict = calc.model_dump()
+from codegraph import LayerGraph
 ```
+
+### Load from JSON
+
+Deserialize a JSON array of node payloads. **No database interaction** —
+pure in-memory construction:
+
+```python
+graph = LayerGraph.from_json(nodes_data)
+
+# Access nodes by name (or path for FileNode)
+calc_engine = graph.nodes["CalculatorEngine"]
+calc_file = graph.nodes["/src/calc/calculator_engine.h"]
+
+# The layer is inferred from the node data (defaults to "design")
+print(graph.layer)  # "design"
+```
+
+### Persist to Neo4j
+
+Explicitly save all nodes and connect all edges:
+
+```python
+graph.to_neo4j()
+```
+
+### Serialize back to JSON
+
+```python
+serialized = graph.to_json()
+# Returns a list of dicts, each with "type", properties, and "edges"
+```
+
+### Query from Neo4j
+
+Fetch all nodes in a layer, plus their first-level neighbors (nodes
+connected by any edge to a layer-matched node):
+
+```python
+design = LayerGraph.from_neo4j("design")
+as_built = LayerGraph.from_neo4j("as-built")
+deps = LayerGraph.from_neo4j("dependency")
+
+# Work with the result
+for key, node in design.nodes.items():
+    print(f"{node.__class__.__name__}: {key}")
+```
+
+### Roundtrip workflow
+
+```python
+# Load → persist → serialize → reload
+graph = LayerGraph.from_json(nodes_data)
+graph.to_neo4j()
+json_data = graph.to_json()
+
+# Write to file
+import json
+with open("my_graph.json", "w") as f:
+    json.dump(json_data, f, indent=2)
+
+# Read back
+with open("my_graph.json") as f:
+    loaded = json.load(f)
+restored = LayerGraph.from_json(loaded)
+```
+
+## JSON format
+
+`LayerGraph.from_json()` accepts a JSON array where each item is a
+serialized node with a `type` discriminator:
+
+```json
+[
+    {
+        "type": "ClassNode",
+        "name": "CalculatorEngine",
+        "kind": "class",
+        "layer": "design",
+        "visibility": "public",
+        "brief_description": "Core calculator engine",
+        "edges": [
+            {
+                "relation_type": "COMPOSES",
+                "target_type": "MethodNode",
+                "target_local_id": "add"
+            }
+        ]
+    },
+    {
+        "type": "MethodNode",
+        "name": "add",
+        "kind": "method",
+        "layer": "design",
+        "visibility": "public",
+        "type_signature": "CalculatorResult",
+        "edges": []
+    }
+]
+```
+
+Each edge has:
+- `relation_type` — Neo4j relationship label (e.g. `COMPOSES`, `INHERITS_FROM`, `DEFINED_IN`)
+- `target_type` — the node class of the target
+- `target_local_id` — the lookup key for the target node (`name` for most
+  nodes, `path` for `FileNode`)
+
+When deserializing output from `to_json()`, edges use `target_uid` (the
+Neo4j unique ID) instead of `target_local_id`. Both formats are accepted.
+
+## CodeGraphNode API
+
+All node types inherit from `CodeGraphNode`, which provides:
+
+| Method | Description |
+|---|---|
+| `serialize()` | Full dict with `type`, properties, and `edges` |
+| `deserialize(data)` | Instantiate from a dict (class method) |
+| `from_json(data)` | Factory: dispatches to the correct subclass by `type` |
+| `serialize_edges()` | Live edges from Neo4j (requires saved node) |
+| `serialize_relationships()` | Static relationship descriptors (no DB call) |
+| `find_relationship_manager(source, relation_type, target)` | Find the neomodel relationship manager matching a relation type and target class |
+| `fetch_by_layer(layer)` | Fetch all persisted nodes of this type matching a layer |
+| `fetch_all_by_layer(layer)` | Fetch all nodes across all registered types matching a layer |
+
+## Testing
+
+```bash
+# Run all tests (requires Neo4j)
+pytest
+
+# Run with coverage
+pytest --cov=codegraph --cov-report=term-missing
+```
+
+Neo4j credentials are loaded from a `.env` file via `python-dotenv`:
+
+```
+NEO4J_URI=bolt://localhost:7687
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=your-password
+```
+
+## License
+
+MIT
