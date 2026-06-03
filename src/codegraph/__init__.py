@@ -31,6 +31,7 @@ from codegraph.constants import (
 )
 from codegraph.diagram import ClassDiagram, Association
 from codegraph.graph import CompoundGraph, GraphEdge, NamespaceGraph, OntologyGraph
+from codegraph.loaders import load_graph
 from codegraph.models import (
     ClassNode,
     InterfaceNode,
@@ -62,6 +63,8 @@ __all__ = [
     "NamespaceNode",
     "FileNode",
     "ParameterNode",
+    # Loader
+    "load_graph",
     "Association",
     # ClassDiagram
     "ClassDiagram",

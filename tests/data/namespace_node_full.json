@@ -1,0 +1,11 @@
+{
+    "type": "NamespaceNode",
+    "qualified_name": "calc",
+    "name": "calc",
+    "kind": "namespace",
+    "layer": "design",
+    "component_id": 9,
+    "description": "Calculation engine namespace.",
+    "source": "calculator",
+    "edges": []
+}

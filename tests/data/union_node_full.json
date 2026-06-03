@@ -1,0 +1,18 @@
+{
+    "type": "UnionNode",
+    "qualified_name": "calc::DataValue",
+    "name": "DataValue",
+    "kind": "union",
+    "layer": "design",
+    "component_id": 5,
+    "source_type": "doxygen",
+    "visibility": "public",
+    "brief_description": "A tagged union for polymorphic data storage.",
+    "detailed_description": "Holds int, float, or string values in a single type.",
+    "file_path": "/src/calc/data_value.h",
+    "line_number": 8,
+    "definition": "union DataValue",
+    "module": "calc",
+    "source": "calculator",
+    "edges": []
+}

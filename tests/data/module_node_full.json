@@ -1,0 +1,17 @@
+{
+    "type": "ModuleNode",
+    "qualified_name": "calc",
+    "name": "calc",
+    "kind": "module",
+    "layer": "design",
+    "component_id": 4,
+    "source_type": "doxygen",
+    "visibility": "public",
+    "brief_description": "Calculation engine module.",
+    "detailed_description": "Contains all calculator-related classes and interfaces.",
+    "file_path": "/src/calc/calc.h",
+    "line_number": 1,
+    "definition": "module calc",
+    "source": "calculator",
+    "edges": []
+}

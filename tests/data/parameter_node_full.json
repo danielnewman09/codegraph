@@ -1,0 +1,9 @@
+{
+    "type": "ParameterNode",
+    "name": "op",
+    "position": 0,
+    "default_value": "",
+    "member_refid": "calc::ICalculator::calculate",
+    "source": "calculator",
+    "edges": []
+}

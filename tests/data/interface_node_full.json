@@ -1,0 +1,19 @@
+{
+    "type": "InterfaceNode",
+    "qualified_name": "calc::ICalculator",
+    "name": "ICalculator",
+    "kind": "interface",
+    "layer": "design",
+    "component_id": 2,
+    "source_type": "doxygen",
+    "visibility": "public",
+    "brief_description": "Calculator interface contract defining the core calculation operation.",
+    "detailed_description": "Defines the core calculation operation that all calculators must implement.",
+    "file_path": "/src/calc/icalculator.h",
+    "line_number": 5,
+    "definition": "class ICalculator",
+    "module": "calc",
+    "is_abstract": true,
+    "source": "calculator",
+    "edges": []
+}

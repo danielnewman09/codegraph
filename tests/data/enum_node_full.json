@@ -1,0 +1,18 @@
+{
+    "type": "EnumNode",
+    "qualified_name": "calc::Operation",
+    "name": "Operation",
+    "kind": "enum",
+    "layer": "design",
+    "component_id": 3,
+    "source_type": "doxygen",
+    "visibility": "public",
+    "brief_description": "An enumeration of supported arithmetic operations.",
+    "detailed_description": "ADD, SUBTRACT, MULTIPLY, and DIVIDE.",
+    "file_path": "/src/calc/operation.h",
+    "line_number": 3,
+    "definition": "enum Operation",
+    "module": "calc",
+    "source": "calculator",
+    "edges": []
+}
