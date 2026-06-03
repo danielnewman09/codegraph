@@ -7,8 +7,8 @@
 
 Introduce a `LayerGraph` Python-only container that serves as the top-level API for
 serializing, deserializing, and querying an entire design view of the codebase graph.
-Push layer-aware query capability and `_node_category` metadata down to `CodeGraphNode`
-so that `LayerGraph` stays thin. Retire the standalone `load_graph()` function in
+Push layer-aware query capability and `find_relationship_manager` down to
+`CodeGraphNode` so that `LayerGraph` stays thin. Retire the standalone `load_graph()` function in
 favor of `LayerGraph.from_json()`. Separate persistence (`to_neo4j()`) from
 deserialization (`from_json()`) so that constructing a `LayerGraph` from JSON has
 no database side-effects.
@@ -24,16 +24,26 @@ interaction. Persistence is a separate, explicit `to_neo4j()` call.
 
 ## Changes
 
-### 1. Add `_node_category` and query methods to `CodeGraphNode`
+### 1. Add query methods and `find_relationship_manager` to `CodeGraphNode`
 
 **File:** `src/codegraph/models/tags.py`
 
-Add a class-level `_node_category` attribute and two query class methods:
+Add three class methods. No `_node_category` attribute — `fetch_by_layer` uses
+`defined_properties()` to check for a `layer` property, and `fetch_all_by_layer`
+iterates `_registry`. This avoids redundant metadata since the class hierarchy
+and registry already encode everything needed.
 
 ```python
 class CodeGraphNode:
-    _node_category: str = ""
-    # Values: "compound" | "member" | "namespace" | "file" | "parameter"
+
+    @classmethod
+    def find_relationship_manager(cls, source, relation_type: str, target):
+        """Find the relationship manager on *source* matching both
+        *relation_type* and the class of *target*.
+
+        Returns the relationship manager attribute (e.g. ``source.methods``).
+        Raises ``ValueError`` if no matching manager is found.
+        """
 
     @classmethod
     def fetch_by_layer(cls, layer: str) -> list["CodeGraphNode"]:
@@ -49,19 +59,9 @@ class CodeGraphNode:
         of all nodes matching the layer across all registered types."""
 ```
 
-Each concrete subclass declares its category:
-
-| Class | `_node_category` |
-|---|---|
-| ClassNode, InterfaceNode, EnumNode, UnionNode, ModuleNode | `"compound"` |
-| MethodNode, AttributeNode, EnumValueNode, FunctionNode, DefineNode | `"member"` |
-| NamespaceNode | `"namespace"` |
-| FileNode | `"file"` |
-| ParameterNode | `"parameter"` |
-
 `fetch_by_layer` uses neomodel's `cls.nodes.filter(layer=layer)` for types that have
-a `layer` property, and returns `[]` for FileNode and ParameterNode (which lack
-`layer`).
+a `layer` property (discovered via `defined_properties()`), and returns `[]` for
+types without one (FileNode, ParameterNode).
 
 `fetch_all_by_layer` iterates `CodeGraphNode._registry`, calls `fetch_by_layer` on
 each, and returns a deduplicated flat list.
@@ -190,12 +190,7 @@ def test_graph_integration():
 
 | File | Action |
 |---|---|
-| `src/codegraph/models/tags.py` | Add `_node_category`, `fetch_by_layer`, `fetch_all_by_layer` |
-| `src/codegraph/models/compound.py` | Add `_node_category = "compound"` to each class |
-| `src/codegraph/models/member.py` | Add `_node_category = "member"` to each class |
-| `src/codegraph/models/namespace.py` | Add `_node_category = "namespace"` |
-| `src/codegraph/models/file.py` | Add `_node_category = "file"` |
-| `src/codegraph/models/parameter.py` | Add `_node_category = "parameter"` |
+| `src/codegraph/models/tags.py` | Add `find_relationship_manager`, `fetch_by_layer`, `fetch_all_by_layer` |
 | `src/codegraph/graph/__init__.py` | Add `LayerGraph` dataclass |
 | `src/codegraph/loaders.py` | Remove or reduce (helpers move to `CodeGraphNode`) |
 | `src/codegraph/__init__.py` | Export `LayerGraph`, update `load_graph` |

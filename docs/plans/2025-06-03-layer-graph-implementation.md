@@ -4,31 +4,22 @@
 
 This plan implements the `LayerGraph` feature as described in
 `docs/specs/2025-06-03-layer-graph-design.md`. Changes are organized into
-7 sequential steps. Each step is self-contained and testable. All 28 existing
+5 sequential steps. Each step is self-contained and testable. All 28 existing
 tests must continue to pass after every step.
 
 **Constraint:** Do NOT commit anything.
 
 ---
 
-## Step 1: Add `_node_category` and `find_relationship_manager` to `CodeGraphNode`
+## Step 1: Add query methods and `find_relationship_manager` to `CodeGraphNode`
 
 **File:** `src/codegraph/models/tags.py`
 
-Add two things to the `CodeGraphNode` class:
+Add three class methods to `CodeGraphNode`. No `_node_category` attribute —
+`fetch_by_layer` uses `defined_properties()` to detect whether a class has a
+`layer` property, and `fetch_all_by_layer` iterates `_registry`.
 
-### 1a. `_node_category` class attribute
-
-```python
-_node_category: str = ""
-# Values: "compound" | "member" | "namespace" | "file" | "parameter"
-```
-
-This is a class-level string. It defaults to `""` so that `CodeGraphNode` itself
-and the mixins (`_CompoundMixin`, `_MemberMixin`) remain blank. Each concrete
-subclass overrides it (done in Step 2).
-
-### 1b. `find_relationship_manager` class method
+### 1a. `find_relationship_manager` class method
 
 Move `_find_relationship_manager()` from `src/codegraph/loaders.py` into
 `CodeGraphNode` as a class method. The logic is identical — it inspects
@@ -66,7 +57,7 @@ def find_relationship_manager(cls, source, relation_type: str, target):
     )
 ```
 
-### 1c. `fetch_by_layer` class method
+### 1b. `fetch_by_layer` class method
 
 ```python
 @classmethod
@@ -81,7 +72,7 @@ def fetch_by_layer(cls, layer: str) -> list["CodeGraphNode"]:
     return list(cls.nodes.filter(layer=layer))
 ```
 
-### 1d. `fetch_all_by_layer` class method
+### 1c. `fetch_all_by_layer` class method
 
 ```python
 @classmethod
@@ -95,47 +86,11 @@ def fetch_all_by_layer(cls, layer: str) -> list["CodeGraphNode"]:
 ```
 
 **Verification:** Run all 28 tests. They should still pass since we're only
-adding new attributes/methods, not changing existing behavior.
+adding new methods, not changing existing behavior.
 
 ---
 
-## Step 2: Add `_node_category` to all concrete node subclasses
-
-Add `_node_category = "..."` to each concrete subclass:
-
-**File:** `src/codegraph/models/compound.py`
-- `ClassNode._node_category = "compound"`
-- `InterfaceNode._node_category = "compound"`
-- `EnumNode._node_category = "compound"`
-- `UnionNode._node_category = "compound"`
-- `ModuleNode._node_category = "compound"`
-
-**File:** `src/codegraph/models/member.py`
-- `MethodNode._node_category = "member"`
-- `AttributeNode._node_category = "member"`
-- `EnumValueNode._node_category = "member"`
-- `FunctionNode._node_category = "member"`
-- `DefineNode._node_category = "member"`
-
-**File:** `src/codegraph/models/namespace.py`
-- `NamespaceNode._node_category = "namespace"`
-
-**File:** `src/codegraph/models/file.py`
-- `FileNode._node_category = "file"`
-
-**File:** `src/codegraph/models/parameter.py`
-- `ParameterNode._node_category = "parameter"`
-
-**Note:** The `_node_category` attribute is set on each *concrete* class
-(e.g. `ClassNode`), NOT on the mixins (`_CompoundMixin`, `_MemberMixin`).
-The mixins are skipped by the registry (their names start with `_`), and
-they shouldn't have a category because they're partial abstractions.
-
-**Verification:** Run all 28 tests. No behavioral change — just metadata.
-
----
-
-## Step 3: Add `LayerGraph` dataclass to `src/codegraph/graph/__init__.py`
+## Step 2: Add `LayerGraph` dataclass to `src/codegraph/graph/__init__.py`
 
 Add the `LayerGraph` dataclass alongside the existing `CompoundGraph`,
 `NamespaceGraph`, and `OntologyGraph`. Add the necessary imports.
@@ -291,20 +246,7 @@ so existing tests should be unaffected.
 
 ---
 
-## Step 4: Update `src/codegraph/__init__.py` exports
-
-Replace the `load_graph` import and export with `LayerGraph`:
-
-- Remove: `from codegraph.loaders import load_graph`
-- Add: `from codegraph.graph import LayerGraph`
-- Update `__all__`: remove `"load_graph"`, add `"LayerGraph"`
-
-**Verification:** Run all 28 tests. The integration test still imports from
-`codegraph.loaders` directly, so it's unaffected by the `__init__.py` change.
-
----
-
-## Step 5: Update `tests/test_graph_integration.py` to use `LayerGraph`
+## Step 3: Update `tests/test_graph_integration.py` to use `LayerGraph`
 
 Replace the `load_graph`-based test with `LayerGraph.from_json()` and
 `LayerGraph.to_neo4j()`:
@@ -421,53 +363,51 @@ if __name__ == "__main__":
 
 ---
 
-## Step 6: Retire `src/codegraph/loaders.py`
+## Step 4: Delete `src/codegraph/loaders.py` and update exports
 
 Since `load_graph()` and its helpers are now superseded by `LayerGraph`, we
 can retire the file. The `find_relationship_manager` logic has moved to
 `CodeGraphNode`, `_node_key` has moved to `LayerGraph._node_key()`, and
 `load_graph`'s logic is now `LayerGraph.from_json()` + `.to_neo4j()`.
 
-Delete `src/codegraph/loaders.py`.
+**Actions:**
+
+1. Delete `src/codegraph/loaders.py`.
+2. Update `src/codegraph/__init__.py`:
+   - Remove `from codegraph.loaders import load_graph`
+   - Add `from codegraph.graph import LayerGraph`
+   - Remove `"load_graph"` from `__all__`, add `"LayerGraph"`
 
 **Verification:** Run all 28 tests. The integration test no longer imports
-from `loaders.py`. No other files import from it.
+from `loaders.py`. Verify `from codegraph import LayerGraph` works.
 
 ---
 
-## Step 7: Clean up `src/codegraph/__init__.py`
+## Step 5: Final cleanup
 
-Remove the `load_graph` import line entirely (it was replaced by `LayerGraph`
-in Step 4). Remove `"load_graph"` from `__all__` if still present.
+- Verify all 28 tests pass
+- Verify `from codegraph import LayerGraph` works without importing `loaders`
+- Remove any stale imports referencing `loaders`
 
-Add a comment grouping for the new export:
-
-```python
-# Graph containers
-"LayerGraph",
-```
-
-**Verification:** Run all 28 tests. Verify that `from codegraph import LayerGraph`
-works without importing `loaders`.
+**Verification:** Full test suite green, clean imports.
 
 ---
 
 ## Risk and Rollback
 
 Each step is reversible by reverting the changed files. The highest-risk
-step is Step 3 (adding `LayerGraph`) because it's the most new code, but
-it doesn't affect existing behavior until Step 5 switches the integration
-test. If Step 5 fails, revert to the old `load_graph`-based test and debug
+step is Step 2 (adding `LayerGraph`) because it's the most new code, but
+it doesn't affect existing behavior until Step 3 switches the integration
+test. If Step 3 fails, revert to the old `load_graph`-based test and debug
 `LayerGraph` independently.
 
 ## Test Coverage
 
-- Steps 1-2: Existing 28 tests continue to pass. No new tests needed
-  (metadata only).
-- Step 3: Existing 28 tests continue to pass. `LayerGraph` is add-only.
-- Step 4: Import change only. 28 tests pass.
-- Step 5: Integration test rewritten. Must pass. Other 27 tests unchanged.
-- Steps 6-7: Cleanup. 28 tests pass.
+- Step 1: Existing 28 tests continue to pass. New methods are add-only.
+- Step 2: Existing 28 tests continue to pass. `LayerGraph` is add-only.
+- Step 3: Integration test rewritten. Must pass. Other 27 tests unchanged.
+- Step 4: Delete loaders.py, update imports. 28 tests must pass.
+- Step 5: Cleanup. 28 tests pass.
 
 Future test coverage for `from_neo4j()` and LayerGraph edge cases can be
 added as separate unit tests after this plan is complete.
