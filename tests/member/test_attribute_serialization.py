@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 
 from codegraph.models.member import AttributeNode
-from codegraph.models.tags import LlmSerializable
+from codegraph.models.tags import CodeGraphNode
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent.parent / "unit_test_data"
 
@@ -33,7 +33,7 @@ def test_attribute_node_roundtrip():
     # 3. Read the JSON file and deserialize via from_json
     with open(out_path) as f:
         data = json.load(f)
-    roundtripped = LlmSerializable.from_json(data)
+    roundtripped = CodeGraphNode.from_json(data)
 
     # 4. Assert type is correct
     assert isinstance(roundtripped, AttributeNode)

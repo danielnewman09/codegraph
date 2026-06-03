@@ -5,8 +5,10 @@ from neomodel import (
     RelationshipTo,
 )
 
+from codegraph.models.tags import CodeGraphNode
 
-class NamespaceNode(StructuredNode):
+
+class NamespaceNode(StructuredNode, CodeGraphNode):
     """A namespace entity — namespace, package, or module."""
 
     qualified_name = UniqueIdProperty()
@@ -16,7 +18,6 @@ class NamespaceNode(StructuredNode):
     component_id = IntegerProperty()
     refid = StringProperty(default="")
     description = StringProperty(default="")
-    source = StringProperty(default="")
 
     # --- NamespaceNode relationships ----------------------------------------
     #
@@ -26,3 +27,6 @@ class NamespaceNode(StructuredNode):
     # --------------------------------------------------------------------------
 
     compounds = RelationshipTo('codegraph.models.compound.ClassNode', 'COMPOSES')
+
+    # --- Serialization contract ---
+    _llm_fields: set[str] = {"qualified_name", "name", "kind", "description"}

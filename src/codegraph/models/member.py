@@ -11,10 +11,10 @@ from neomodel import (
     UniqueIdProperty, RelationshipTo, RelationshipFrom,
 )
 
-from codegraph.models.tags import LlmSerializable
+from codegraph.models.tags import CodeGraphNode
 
 
-class _MemberMixin(StructuredNode, LlmSerializable):
+class _MemberMixin(StructuredNode, CodeGraphNode):
     """Common fields and serialization for all member node types."""
 
     # --- Identity ---
@@ -27,7 +27,6 @@ class _MemberMixin(StructuredNode, LlmSerializable):
     component_id = IntegerProperty()
     refid = StringProperty(default="")
     compound_refid = StringProperty(default="")
-    source = StringProperty(default="")
 
     # --- Visibility ---
     visibility = StringProperty(default="")

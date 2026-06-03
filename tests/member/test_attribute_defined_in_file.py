@@ -12,7 +12,7 @@ from pathlib import Path
 
 from codegraph.models.file import FileNode
 from codegraph.models.member import AttributeNode
-from codegraph.models.tags import LlmSerializable
+from codegraph.models.tags import CodeGraphNode
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent.parent / "unit_test_data"
 
@@ -46,7 +46,7 @@ def test_attribute_defined_in_file():
     with open(out_path) as f:
         data = json.load(f)
 
-    roundtripped = LlmSerializable.from_json(data)
+    roundtripped = CodeGraphNode.from_json(data)
     assert isinstance(roundtripped, AttributeNode)
     assert data["type"] == "AttributeNode"
 

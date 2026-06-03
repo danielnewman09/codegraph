@@ -11,10 +11,10 @@ from neomodel import (
     ArrayProperty, UniqueIdProperty, RelationshipTo, RelationshipFrom,
 )
 
-from codegraph.models.tags import LlmSerializable
+from codegraph.models.tags import CodeGraphNode
 
 
-class _CompoundMixin(StructuredNode, LlmSerializable):
+class _CompoundMixin(StructuredNode, CodeGraphNode):
     """Common fields and serialization for all compound node types."""
 
     # --- Identity ---
@@ -26,7 +26,6 @@ class _CompoundMixin(StructuredNode, LlmSerializable):
     layer = StringProperty(default="design")
     component_id = IntegerProperty()
     refid = StringProperty(default="")
-    source = StringProperty(default="")
     source_type = StringProperty(default="")
 
     # --- Visibility ---

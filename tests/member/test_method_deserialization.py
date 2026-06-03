@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 
 from codegraph.models.member import MethodNode
-from codegraph.models.tags import LlmSerializable
+from codegraph.models.tags import CodeGraphNode
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 FIXTURE = DATA_DIR / "method_node_full.json"
@@ -24,7 +24,7 @@ def test_method_node_full_deserialization():
         data = json.load(f)
 
     # Deserialize via the registry so type discrimination is exercised
-    node = LlmSerializable.from_json(data)
+    node = CodeGraphNode.from_json(data)
 
     # Correct subclass
     assert isinstance(node, MethodNode)

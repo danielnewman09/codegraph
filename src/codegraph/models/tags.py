@@ -1,21 +1,28 @@
-"""LlmSerializable ABC — contract for LLM-facing serialization on neomodel nodes.
+"""CodeGraphNode — base class for all codegraph neomodel nodes.
+
+Provides shared fields (``source``), serialization (``serialize()``,
+``deserialize()``, ``from_json()``), relationship introspection, and a
+registry for type-dispatched deserialization.
 
 Uses a combined metaclass (ABCMeta + NodeMeta) so that subclasses can
-inherit from both StructuredNode and LlmSerializable without metaclass
+inherit from both StructuredNode and CodeGraphNode without metaclass
 conflicts.
 """
 
 from __future__ import annotations
 
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta
+
+from neomodel import StringProperty
 from neomodel.sync_.node import NodeMeta
 
 
-class _LlmSerializableMeta(NodeMeta, ABCMeta):
-    """Combined metaclass: NodeMeta for neomodel properties, ABCMeta for @abstractmethod.
+class _CodeGraphNodeMeta(NodeMeta, ABCMeta):
+    """Combined metaclass: NodeMeta for neomodel properties, ABCMeta for
+    any abstract methods that may be added.
 
     NodeMeta.__new__ is only invoked for subclasses that inherit from
-    ``StructuredNode``. For plain ABC subclasses (including LlmSerializable
+    ``StructuredNode``. For plain ABC subclasses (including CodeGraphNode
     itself), the pure ABCMeta path is used.
     """
 
@@ -32,7 +39,7 @@ class _LlmSerializableMeta(NodeMeta, ABCMeta):
             return ABCMeta.__new__(mcs, name, bases, namespace, **kwargs)
 
         # NodeMeta.__new__ calls type.__new__ directly, bypassing ABCMeta.
-        # We must re-compute __abstractmethods__ so @abstractmethod works.
+        # Re-compute __abstractmethods__ so @abstractmethod works if added.
         cls = super().__new__(mcs, name, bases, namespace, **kwargs)
         abstracts: set[str] = set()
         for base in bases:
@@ -48,27 +55,34 @@ class _LlmSerializableMeta(NodeMeta, ABCMeta):
         return cls
 
 
-class LlmSerializable(metaclass=_LlmSerializableMeta):
-    """Base class for neomodel nodes that serialize for LLM consumption.
-
-    Subclasses must:
-    - Declare ``_llm_fields`` as a class-level ``set[str]`` of field names
+class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
+    """Base class for all codegraph neomodel nodes.
 
     Provides:
+    - ``source`` — project provenance field (inherited by every node)
     - ``serialize()`` – property fields, type, and edges as a single dict
     - ``deserialize()`` – instantiate from dict (ignores ``edges`` and ``type``)
-    - ``from_json()`` – factory: looks up the correct subclass by ``type`` and dispatches
+    - ``from_json()`` – factory: looks up the correct subclass by ``type``
     - ``serialize_relationships()`` – static schema of relationship descriptors
     - ``serialize_edges()`` – live edges from Neo4j
     - ``_uid_prop()`` / ``_uid_value()`` – unique identifier accessors
+
+    Subclasses must:
+    - Declare ``_llm_fields`` as a class-level ``set[str]`` of field names
     """
 
     _llm_fields: set[str] = set()
 
+    # ── Provenance ──────────────────────────────────────────────────────────
+    source = StringProperty(
+        default="",
+        help_text="Name of the project this node belongs to (e.g. 'codegraph', 'llvm').",
+    )
+
     # ── Registry ──────────────────────────────────────────────────────────
-    # Every concrete LlmSerializable subclass registers itself here so that
+    # Every concrete CodeGraphNode subclass registers itself here so that
     # ``from_json()`` can look up the right class by the ``type`` discriminator.
-    _registry: dict[str, type["LlmSerializable"]] = {}
+    _registry: dict[str, type["CodeGraphNode"]] = {}
 
     def __init_subclass__(cls, **kwargs) -> None:
         super().__init_subclass__(**kwargs)
@@ -77,7 +91,7 @@ class LlmSerializable(metaclass=_LlmSerializableMeta):
         # still abstract (they inherit from StructuredNode directly). We skip
         # any class whose name starts with an underscore by convention.
         if not cls.__name__.startswith("_") and cls._llm_fields:
-            LlmSerializable._registry[cls.__name__] = cls
+            CodeGraphNode._registry[cls.__name__] = cls
 
     # ── Serialization ─────────────────────────────────────────────────────
 
@@ -100,7 +114,7 @@ class LlmSerializable(metaclass=_LlmSerializableMeta):
         return result
 
     @classmethod
-    def deserialize(cls, data: dict) -> "LlmSerializable":
+    def deserialize(cls, data: dict) -> "CodeGraphNode":
         """Instantiate a node of *this* class from LLM-provided dict data.
 
         Ignores the ``edges`` and ``type`` keys — edges are resolved
@@ -112,7 +126,7 @@ class LlmSerializable(metaclass=_LlmSerializableMeta):
         return cls(**filtered)
 
     @classmethod
-    def from_json(cls, data: dict) -> "LlmSerializable":
+    def from_json(cls, data: dict) -> "CodeGraphNode":
         """Instantiate the correct subclass from a serialized dict.
 
         Reads the ``type`` key to dispatch to the registered subclass,
@@ -129,7 +143,7 @@ class LlmSerializable(metaclass=_LlmSerializableMeta):
                 f"Registered types: {sorted(cls._registry.keys())}"
             )
         return cls._registry[type_name].deserialize(data)
- 
+
     @classmethod
     def serialize_relationships(cls) -> list[dict]:
         """Return relationship descriptors for this node type.
