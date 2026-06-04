@@ -44,6 +44,31 @@ class TestNodeKey:
         assert result == "Widget"
 
 
+class TestLayerValidation:
+    """Tests for Layer validation — only 'design', 'as-built', 'dependency' allowed."""
+
+    def test_valid_design(self):
+        graph = LayerGraph(layer="design")
+        assert graph.layer == "design"
+
+    def test_valid_as_built(self):
+        graph = LayerGraph(layer="as-built")
+        assert graph.layer == "as-built"
+
+    def test_valid_dependency(self):
+        graph = LayerGraph(layer="dependency")
+        assert graph.layer == "dependency"
+
+    def test_invalid_layer_raises(self):
+        with pytest.raises(ValueError, match="Invalid layer"):
+            LayerGraph(layer="production")
+
+    def test_from_json_invalid_layer_raises(self):
+        data = [{"type": "ClassNode", "name": "X", "kind": "class", "layer": "unknown"}]
+        with pytest.raises(ValueError, match="Invalid layer"):
+            LayerGraph.from_json(data)
+
+
 class TestFromJson:
     """Tests for LayerGraph.from_json() — pure deserialization, no DB."""
 

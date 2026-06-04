@@ -6,6 +6,7 @@ single bulk write method.  Uses neomodel ORM for all queries.
 
 from __future__ import annotations
 
+from codegraph.constants import Layer
 from codegraph.graph import LayerGraph
 from codegraph.models.compound import (
     ClassNode, InterfaceNode, EnumNode, UnionNode, ModuleNode,
@@ -119,21 +120,21 @@ class GraphRepository:
                     })
 
         # Phase 4: derive layer
-        layer = "design"
+        layer: Layer = "design"
         for node in seeds:
             if "layer" in type(node).defined_properties():
-                layer = getattr(node, "layer", "design") or "design"
+                layer = getattr(node, "layer", "design") or "design"  # type: ignore[assignment]
                 break
 
         return LayerGraph(layer=layer, nodes=nodes, edges=edges)
 
     # ── Public: scope-based read methods ──────────────────────────────
 
-    def get_by_layer(self, layer: str) -> LayerGraph:
+    def get_by_layer(self, layer: Layer) -> LayerGraph:
         """Fetch all nodes in a layer plus their 1-hop neighbors.
 
         Args:
-            layer: The layer to query (e.g. "design", "as-built").
+            layer: The layer to query (``"design"``, ``"as-built"``, ``"dependency"``).
 
         Returns:
             A LayerGraph containing all matching nodes and neighbors.
@@ -201,7 +202,7 @@ class GraphRepository:
             return LayerGraph(layer="design")
         return self._build_layer_graph([node])
 
-    def get_by_kind(self, kind: str, layer: str | None = None) -> LayerGraph:
+    def get_by_kind(self, kind: str, layer: Layer | None = None) -> LayerGraph:
         """Fetch all nodes of a given kind, optionally filtered by layer.
 
         Args:

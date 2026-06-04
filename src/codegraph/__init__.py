@@ -26,6 +26,7 @@ from codegraph.constants import (
     UNCLASSIFIED_KINDS,
     VALUE_KINDS,
     VISIBILITY_CHOICES,
+    Layer,
     valid_specializations,
 )
 from codegraph.diagram import ClassDiagram, Association
@@ -80,6 +81,7 @@ __all__ = [
     "DEFAULT_PREDICATES",
     "LANGUAGE_SPECIALIZATIONS",
     "LAYERS",
+    "Layer",
     "MEMBER_KINDS",
     "NAMESPACE_KINDS",
     "NODE_KIND_KEYS",

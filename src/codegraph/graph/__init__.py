@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from codegraph.constants import Layer, LAYERS
 from codegraph.models.tags import CodeGraphNode
 
 
@@ -26,7 +27,14 @@ class LayerGraph:
         edges: List of logical edge dicts for deferred Neo4j persistence.
     """
 
-    layer: str  # "design" | "as-built" | "dependency"
+    layer: Layer  # "design" | "as-built" | "dependency"
+
+    def __post_init__(self) -> None:
+        """Validate that *layer* is one of the allowed values."""
+        if self.layer not in LAYERS:
+            raise ValueError(
+                f"Invalid layer {self.layer!r}; must be one of {LAYERS}"
+            )
     nodes: dict[str, CodeGraphNode] = field(default_factory=dict)
     edges: list[dict] = field(default_factory=list)
 
@@ -75,7 +83,7 @@ class LayerGraph:
         nodes: dict[str, CodeGraphNode] = {}
         uid_to_key: dict[str, str] = {}  # uid → node_key lookup
         edges: list[dict] = []
-        layer = "design"
+        layer: Layer = "design"
 
         for node_data in data:
             node = CodeGraphNode.from_json(node_data)
@@ -103,7 +111,7 @@ class LayerGraph:
 
             # Infer layer from node data
             if layer == "design" and "layer" in node_data:
-                layer = node_data["layer"]
+                layer = node_data["layer"]  # type: ignore[assignment]
 
         return cls(layer=layer, nodes=nodes, edges=edges)
 
@@ -142,7 +150,7 @@ class LayerGraph:
         return [node.serialize() for node in self.nodes.values()]
 
     @classmethod
-    def from_neo4j(cls, layer: str) -> "LayerGraph":
+    def from_neo4j(cls, layer: Layer) -> "LayerGraph":
         """Query Neo4j for all nodes where ``.layer == layer``, plus their
         first-level neighbors. Collect into a LayerGraph.
 
@@ -150,8 +158,8 @@ class LayerGraph:
         node, even if the neighbor's layer is different.
 
         Args:
-            layer: The layer to query for (e.g. "design", "as-built",
-                "dependency").
+            layer: The layer to query for (``"design"``, ``"as-built"``,
+                ``"dependency"``).
 
         Returns:
             A LayerGraph containing all matching nodes and their first-level

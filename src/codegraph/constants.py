@@ -5,6 +5,8 @@ schema DDL, language specializations, and semantic groupings used by
 both the ticketing system and Doxygen parser.
 """
 
+from typing import Literal
+
 # ---------------------------------------------------------------------------
 # Subnode-type lists — source of truth; (key, Display) tuples
 # ---------------------------------------------------------------------------
@@ -75,6 +77,8 @@ SOURCE_TYPE_KEYS: set[str] = {k for k, _ in SOURCE_TYPES}
 # ---------------------------------------------------------------------------
 
 LAYERS: list[str] = ["design", "as-built", "dependency"]
+
+Layer = Literal["design", "as-built", "dependency"]
 
 # ---------------------------------------------------------------------------
 # Visibility / access specifiers
