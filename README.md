@@ -6,7 +6,7 @@ Provides atomized neomodel Node models (`ClassNode`, `InterfaceNode`,
 `EnumNode`, `MethodNode`, `AttributeNode`, `FileNode`, `NamespaceNode`,
 `ParameterNode`, etc.), a `LayerGraph` container for loading and persisting
 complete design views, graph visualization containers (`CompoundGraph`,
-`NamespaceGraph`, `OntologyGraph`), a `ClassDiagram` renderer, and constants
+`NamespaceGraph`, `OntologyGraph`), and constants
 (kinds, layers, predicates, schema DDL).
 
 Used by:

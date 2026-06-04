@@ -33,6 +33,3 @@ API Reference
 
 .. automodule:: codegraph.constants
    :members:
-
-.. automodule:: codegraph.diagram
-   :members:

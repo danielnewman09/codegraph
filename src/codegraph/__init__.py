@@ -2,7 +2,7 @@
 
 Provides atomized neomodel Node models (Class, Interface, Enum, Union, Module,
 Method, Attribute, EnumValue, Function, Define, Namespace, File, Parameter),
-LayerGraph container, ClassDiagram, and constants (kinds, layers, predicates,
+LayerGraph container, and constants (kinds, layers, predicates,
 schema DDL, language specializations).
 """
 
@@ -29,7 +29,6 @@ from codegraph.constants import (
     Layer,
     valid_specializations,
 )
-from codegraph.diagram import ClassDiagram, Association
 from codegraph.graph import LayerGraph
 from codegraph.repository import GraphRepository
 from codegraph.models import (
@@ -63,9 +62,6 @@ __all__ = [
     "NamespaceNode",
     "FileNode",
     "ParameterNode",
-    # ClassDiagram
-    "Association",
-    "ClassDiagram",
     # Graph container
     "LayerGraph",
     # Repository

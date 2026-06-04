@@ -39,7 +39,7 @@ testpaths = ["tests"]
 
 [tool.coverage.run]
 source = ["codegraph"]
-omit = ["*/type_parser.py", "*/diagram.py"]
+omit = ["*/type_parser.py"]
 
 [tool.coverage.report]
 show_missing = true

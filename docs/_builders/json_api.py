@@ -78,7 +78,6 @@ class JsonApiBuilder(Builder):
             "codegraph.graph",
             "codegraph.repository",
             "codegraph.constants",
-            "codegraph.diagram",
         ]
 
         for mod_name in documented_modules:

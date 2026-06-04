@@ -227,8 +227,8 @@ class UnionNode(_CompoundMixin):
 class ModuleNode(_CompoundMixin):
     """Module or logical namespace — Neo4j label ``:Module``.
 
-    Not a direct member of ClassDiagram; module names are derived
-    from compound qualified names during ``from_layer()``.
+    Module names are derived from compound qualified names during
+    ``LayerGraph`` construction.
 
     Attributes:
         kind: Defaults to "module".

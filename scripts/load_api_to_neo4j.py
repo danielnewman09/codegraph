@@ -48,9 +48,7 @@ _CLASS_NAME_TO_NODE_TYPE: dict[str, str] = {
     "FileNode": "FileNode",
     "ParameterNode": "ParameterNode",
     "CodeGraphNode": "ClassNode",  # base class → represented as ClassNode
-    "Association": "ClassNode",    # dataclass → represented as ClassNode
     "LayerGraph": "ClassNode",     # dataclass → represented as ClassNode
-    "ClassDiagram": "ClassNode",   # regular class → represented as ClassNode
     "GraphRepository": "ClassNode",  # regular class → represented as ClassNode
 }
 
