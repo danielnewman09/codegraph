@@ -1,12 +1,12 @@
-The implementation plan has been written to `docs/plans/2026-06-03-sphinx-api-extraction.md`. It covers 8 ordered steps:
+The implementation plan is written to `docs/plans/2025-06-03-nested-composition-layergraph.md`. Here's a summary of the 8 steps in dependency order:
 
-1. **Add sphinx dev dependency** — one line in `pyproject.toml`
-2. **Create `docs/source/conf.py`** — minimal Sphinx config with autodoc, napoleon, typehints, and the custom builder extension
-3. **Create `docs/source/index.rst`** — automodule directives for all 12 public modules
-4. **Implement `docs/_builders/json_api.py`** — the full `JsonApiBuilder` class with neomodel property extraction, relationship extraction, method/signature extraction, and Google-style docstring parsing
-5. **Add `docs/_build/` to `.gitignore`**
-6. **Upgrade docstrings to Google style** — file-by-file breakdown with specific method lists for all 15 source files
-7. **Verify the build** — checklist of 6 assertions to confirm `api_metadata.json` is correct
-8. **Run existing tests** — regression check
+1. **Remove reverse COMPOSES** from member nodes — eliminates the directionality ambiguity at its source
+2. **Add CompositeEntry + redesign LayerGraph fields** — structural foundation (entries replacing nodes/edges)
+3. **Implement from_json** — builds the nested composition structure from JSON
+4. **Implement to_neo4j** — persists from the nested structure, connecting COMPOSES children and references
+5. **Implement to_json + from_neo4j** — serialization and Neo4j query with nesting
+6. **Update GraphRepository** — adapt `_build_layer_graph` and all read methods
+7. **Update package exports** — add CompositeEntry, clean up CodeGraphEdge
+8. **Update all tests** — final validation gate, update every `graph.nodes`/`graph.edges` assertion
 
-16 files are touched in total (5 new, 11 modified).
+Each step is independently testable and builds on the previous one.

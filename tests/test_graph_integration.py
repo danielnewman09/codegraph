@@ -20,6 +20,11 @@ FIXTURE_DIR = Path(__file__).resolve().parent / "unit_test_data"
 SKIP_FIELDS = {"qualified_name", "refid", "edges", "type"}
 
 
+def _count_all_entries(graph: LayerGraph) -> int:
+    """Count all CompositeEntry instances across the entire tree."""
+    return sum(1 for _ in graph._all_entries())
+
+
 def test_graph_integration():
     with open(FIXTURE) as f:
         nodes_data = json.load(f)
@@ -27,8 +32,8 @@ def test_graph_integration():
     # Pure deserialization — no DB interaction
     graph = LayerGraph.from_json(nodes_data)
 
-    assert len(graph.nodes) == len(nodes_data), (
-        f"Expected {len(nodes_data)} nodes, got {len(graph.nodes)}"
+    assert _count_all_entries(graph) == len(nodes_data), (
+        f"Expected {len(nodes_data)} nodes, got {_count_all_entries(graph)}"
     )
 
     # Explicit persistence
@@ -48,9 +53,13 @@ def test_graph_integration():
 
     assert len(loaded) == len(nodes_data)
 
+    flat = graph._flat_index()
+
     for original, roundtripped_data in zip(nodes_data, loaded):
         key = LayerGraph._node_key(original)
-        saved = graph.nodes[key]
+        entry = flat.get(key)
+        assert entry is not None, f"Missing entry for key {key}"
+        saved = entry.node
 
         assert roundtripped_data["type"] == original["type"], (
             f"{original['type']} {key}: "
@@ -70,10 +79,14 @@ def test_graph_integration():
     total_fixture_edges = 0
     for original in nodes_data:
         key = LayerGraph._node_key(original)
-        saved = graph.nodes[key]
+        entry = flat.get(key)
+        assert entry is not None, f"Missing entry for key {key}"
+        saved = entry.node
         for edge in original.get("edges", []):
             total_fixture_edges += 1
-            target = graph.nodes[edge["target_local_id"]]
+            target_entry = flat.get(edge["target_local_id"])
+            assert target_entry is not None, f"Missing target {edge['target_local_id']}"
+            target = target_entry.node
             found = [
                 e for e in saved.serialize()["edges"]
                 if e["relation_type"] == edge["relation_type"]
@@ -85,7 +98,7 @@ def test_graph_integration():
             )
 
     total_live_edges = sum(
-        len(n.serialize()["edges"]) for n in graph.nodes.values()
+        len(entry.node.serialize()["edges"]) for entry in graph._all_entries()
     )
     assert total_live_edges >= total_fixture_edges, (
         f"Live edges ({total_live_edges}) < fixture edges ({total_fixture_edges})"

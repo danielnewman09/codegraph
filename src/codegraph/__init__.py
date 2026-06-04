@@ -29,7 +29,7 @@ from codegraph.constants import (
     Layer,
     valid_specializations,
 )
-from codegraph.graph import LayerGraph
+from codegraph.graph import LayerGraph, CompositeEntry
 from codegraph.repository import GraphRepository
 from codegraph.models import (
     ClassNode,
@@ -64,6 +64,7 @@ __all__ = [
     "ParameterNode",
     # Graph container
     "LayerGraph",
+    "CompositeEntry",
     # Repository
     "GraphRepository",
     # Config

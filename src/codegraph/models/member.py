@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from neomodel import (
     StructuredNode, StringProperty, IntegerProperty, BooleanProperty,
-    UniqueIdProperty, RelationshipTo, RelationshipFrom,
+    UniqueIdProperty, RelationshipTo,
 )
 
 from codegraph.models.tags import CodeGraphNode
@@ -104,10 +104,6 @@ class MethodNode(_MemberMixin):
 
     # --- MethodNode relationships -------------------------------------------
     #
-    #  • COMPOSES (incoming)  — ClassNode | InterfaceNode → MethodNode
-    #    The parent compound declares/owns this method.
-    #    Traversed via ``parent_compound`` (ClassNode) or ``parent_interface``.
-    #
     #  • INVOKES  — MethodNode(caller) → MethodNode(callee)
     #    Call-callee relationship.  The source method invokes the target method.
     #
@@ -118,11 +114,11 @@ class MethodNode(_MemberMixin):
     #  • RETURNS  — MethodNode → ClassNode
     #    The method's return type is the target class.
     #    Example: ``Canvas create()``  →  ``create -[:RETURNS]-> Canvas``.
+    #
+    #  Note: COMPOSES is declared only on parent compound nodes (ClassNode,
+    #  InterfaceNode) as an outgoing relationship. Use ``compound_refid``
+    #  (inherited from ``_MemberMixin``) to look up the parent compound.
     # --------------------------------------------------------------------------
-
-    # Owned by (incoming COMPOSES from parent compound)
-    parent_compound = RelationshipFrom('codegraph.models.compound.ClassNode', 'COMPOSES')
-    parent_interface = RelationshipFrom('codegraph.models.compound.InterfaceNode', 'COMPOSES')
 
     # Call-callee
     invokes = RelationshipTo('MethodNode', 'INVOKES')
@@ -154,13 +150,10 @@ class AttributeNode(_MemberMixin):
 
     # --- AttributeNode relationships ----------------------------------------
     #
-    #  • COMPOSES (incoming)  — ClassNode → AttributeNode
-    #    The parent class declares/owns this attribute.
-    #    Traversed via ``parent_compound``.
+    #  Note: COMPOSES is declared only on parent ClassNode as an outgoing
+    #  relationship. Use ``compound_refid`` (inherited from ``_MemberMixin``)
+    #  to look up the parent compound.
     # --------------------------------------------------------------------------
-
-    # Owned by (incoming COMPOSES from parent ClassNode)
-    parent_compound = RelationshipFrom('codegraph.models.compound.ClassNode', 'COMPOSES')
 
 
 class EnumValueNode(_MemberMixin):
@@ -176,13 +169,10 @@ class EnumValueNode(_MemberMixin):
 
     # --- EnumValueNode relationships ----------------------------------------
     #
-    #  • COMPOSES (incoming)  — EnumNode → EnumValueNode
-    #    The parent enum owns this constant value.
-    #    Traversed via ``parent_enum``.
+    #  Note: COMPOSES is declared only on parent EnumNode as an outgoing
+    #  relationship. Use ``compound_refid`` (inherited from ``_MemberMixin``)
+    #  to look up the parent compound.
     # --------------------------------------------------------------------------
-
-    # Owned by (incoming COMPOSES from parent EnumNode)
-    parent_enum = RelationshipFrom('codegraph.models.compound.EnumNode', 'COMPOSES')
 
 
 class FunctionNode(_MemberMixin):

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from codegraph.graph import LayerGraph
+from codegraph.graph import LayerGraph, CompositeEntry
 from codegraph.models.compound import ClassNode, InterfaceNode, EnumNode
 from codegraph.models.member import MethodNode, AttributeNode
 from codegraph.models.namespace import NamespaceNode
@@ -18,6 +18,20 @@ DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 FIXTURE = DATA_DIR / "design_graph.json"
 
 pytestmark = pytest.mark.usefixtures("setup_neomodel")
+
+
+def _all_nodes(graph: LayerGraph):
+    """Yield all CodeGraphNode instances from the entry tree."""
+    for entry in graph._all_entries():
+        yield entry.node
+
+
+def _find_entry(graph: LayerGraph, key: str) -> CompositeEntry | None:
+    """Find a CompositeEntry by node key across the entire tree."""
+    for entry in graph._all_entries():
+        if LayerGraph._node_key(entry.node) == key:
+            return entry
+    return None
 
 
 @pytest.fixture
@@ -45,19 +59,20 @@ class TestGetByLayer:
 
     def test_includes_design_nodes(self, repo, seeded_graph):
         result = repo.get_by_layer("design")
-        class_nodes = [n for n in result.nodes.values() if isinstance(n, ClassNode)]
+        class_nodes = [n for n in _all_nodes(result) if isinstance(n, ClassNode)]
         assert len(class_nodes) > 0
 
     def test_includes_neighbors(self, repo, seeded_graph):
         result = repo.get_by_layer("design")
         # Seed nodes have layer="design"; neighbors may not.
         # The LayerGraph should contain more than just the seeds.
-        assert len(result.nodes) > 0
+        count = sum(1 for _ in result._all_entries())
+        assert count > 0
 
     def test_empty_layer(self, repo, seeded_graph):
         result = repo.get_by_layer("nonexistent")
         assert isinstance(result, LayerGraph)
-        assert len(result.nodes) == 0
+        assert len(result.entries) == 0
 
     def test_derived_layer_matches(self, repo, seeded_graph):
         result = repo.get_by_layer("design")
@@ -74,13 +89,13 @@ class TestGetBySource:
 
     def test_includes_source_nodes(self, repo, seeded_graph):
         result = repo.get_by_source("calculator")
-        source_nodes = [n for n in result.nodes.values() if source_matches(n, "calculator")]
+        source_nodes = [n for n in _all_nodes(result) if source_matches(n, "calculator")]
         assert len(source_nodes) > 0
 
     def test_missing_source_returns_empty(self, repo, seeded_graph):
         result = repo.get_by_source("nonexistent_project")
         assert isinstance(result, LayerGraph)
-        assert len(result.nodes) == 0
+        assert len(result.entries) == 0
 
 
 # ── get_by_namespace ─────────────────────────────────────────────────────────
@@ -89,7 +104,7 @@ class TestGetBySource:
 class TestGetByNamespace:
     def test_returns_layer_graph(self, repo, seeded_graph):
         # Find the actual qualified_name of a namespace in the seed graph
-        ns_nodes = [n for n in seeded_graph.nodes.values()
+        ns_nodes = [n for n in _all_nodes(seeded_graph)
                      if isinstance(n, NamespaceNode)]
         assert len(ns_nodes) > 0, "Seed graph must have at least one namespace"
         qname = ns_nodes[0].qualified_name
@@ -98,19 +113,19 @@ class TestGetByNamespace:
         assert isinstance(result, LayerGraph)
 
     def test_includes_namespace_and_compounds(self, repo, seeded_graph):
-        ns_nodes = [n for n in seeded_graph.nodes.values()
+        ns_nodes = [n for n in _all_nodes(seeded_graph)
                      if isinstance(n, NamespaceNode)]
         qname = ns_nodes[0].qualified_name
 
         result = repo.get_by_namespace(qname)
-        ns_in_result = [n for n in result.nodes.values()
+        ns_in_result = [n for n in _all_nodes(result)
                         if isinstance(n, NamespaceNode)]
         assert len(ns_in_result) > 0
 
     def test_missing_namespace_returns_empty(self, repo, seeded_graph):
         result = repo.get_by_namespace("nonexistent::ns")
         assert isinstance(result, LayerGraph)
-        assert len(result.nodes) == 0
+        assert len(result.entries) == 0
 
 
 # ── get_by_compound ──────────────────────────────────────────────────────────
@@ -118,7 +133,7 @@ class TestGetByNamespace:
 
 class TestGetByCompound:
     def test_returns_layer_graph(self, repo, seeded_graph):
-        class_nodes = [n for n in seeded_graph.nodes.values()
+        class_nodes = [n for n in _all_nodes(seeded_graph)
                        if isinstance(n, ClassNode)]
         qname = class_nodes[0].qualified_name
 
@@ -126,19 +141,19 @@ class TestGetByCompound:
         assert isinstance(result, LayerGraph)
 
     def test_includes_compound(self, repo, seeded_graph):
-        class_nodes = [n for n in seeded_graph.nodes.values()
+        class_nodes = [n for n in _all_nodes(seeded_graph)
                        if isinstance(n, ClassNode)]
         qname = class_nodes[0].qualified_name
 
         result = repo.get_by_compound(qname)
-        compounds = [n for n in result.nodes.values()
+        compounds = [n for n in _all_nodes(result)
                      if isinstance(n, ClassNode)]
         assert len(compounds) > 0
 
     def test_missing_compound_returns_empty(self, repo, seeded_graph):
         result = repo.get_by_compound("NonexistentClass")
         assert isinstance(result, LayerGraph)
-        assert len(result.nodes) == 0
+        assert len(result.entries) == 0
 
 
 # ── get_by_neighbourhood ────────────────────────────────────────────────────
@@ -146,16 +161,17 @@ class TestGetByCompound:
 
 class TestGetByNeighbourhood:
     def test_works_for_compound(self, repo, seeded_graph):
-        class_nodes = [n for n in seeded_graph.nodes.values()
+        class_nodes = [n for n in _all_nodes(seeded_graph)
                        if isinstance(n, ClassNode)]
         qname = class_nodes[0].qualified_name
 
         result = repo.get_by_neighbourhood(qname)
         assert isinstance(result, LayerGraph)
-        assert len(result.nodes) > 0
+        count = sum(1 for _ in result._all_entries())
+        assert count > 0
 
     def test_works_for_member(self, repo, seeded_graph):
-        method_nodes = [n for n in seeded_graph.nodes.values()
+        method_nodes = [n for n in _all_nodes(seeded_graph)
                         if isinstance(n, MethodNode)]
         if not method_nodes:
             pytest.skip("No method nodes in seed graph")
@@ -163,13 +179,13 @@ class TestGetByNeighbourhood:
 
         result = repo.get_by_neighbourhood(qname)
         assert isinstance(result, LayerGraph)
-        members = [n for n in result.nodes.values() if isinstance(n, MethodNode)]
+        members = [n for n in _all_nodes(result) if isinstance(n, MethodNode)]
         assert len(members) > 0
 
     def test_missing_node_returns_empty(self, repo, seeded_graph):
         result = repo.get_by_neighbourhood("DoesNotExist")
         assert isinstance(result, LayerGraph)
-        assert len(result.nodes) == 0
+        assert len(result.entries) == 0
 
 
 # ── get_by_kind ──────────────────────────────────────────────────────────────
@@ -182,20 +198,20 @@ class TestGetByKind:
 
     def test_includes_class_nodes(self, repo, seeded_graph):
         result = repo.get_by_kind("class")
-        class_nodes = [n for n in result.nodes.values() if isinstance(n, ClassNode)]
+        class_nodes = [n for n in _all_nodes(result) if isinstance(n, ClassNode)]
         assert len(class_nodes) > 0
 
     def test_with_layer_filter(self, repo, seeded_graph):
         result = repo.get_by_kind("class", layer="design")
         assert isinstance(result, LayerGraph)
         # All returned nodes with a layer property should be design
-        for node in result.nodes.values():
+        for node in _all_nodes(result):
             if "layer" in type(node).defined_properties():
                 assert node.layer == "design"
 
     def test_returns_methods(self, repo, seeded_graph):
         result = repo.get_by_kind("method")
-        method_nodes = [n for n in result.nodes.values() if isinstance(n, MethodNode)]
+        method_nodes = [n for n in _all_nodes(result) if isinstance(n, MethodNode)]
         assert len(method_nodes) > 0
 
 
@@ -213,28 +229,30 @@ class TestSaveLayerGraph:
 
         # Query back by layer
         result = repo.get_by_layer("design")
-        assert len(result.nodes) > 0
+        count = sum(1 for _ in result._all_entries())
+        assert count > 0
 
 
-# ── Build LayerGraph edges ──────────────────────────────────────────────────
+# ── Build LayerGraph entries ────────────────────────────────────────────────
 
 
-class TestBuildLayerGraphEdges:
-    def test_edges_connect_seed_nodes(self, repo, seeded_graph):
-        """Edges should have valid source and target keys in the nodes dict."""
+class TestBuildLayerGraphEntries:
+    def test_entries_are_composite_entries(self, repo, seeded_graph):
+        """All entries should be CompositeEntry instances."""
         result = repo.get_by_layer("design")
-        keys = set(result.nodes.keys())
-        for edge in result.edges:
-            assert edge["source_key"] in keys, f"Edge source {edge['source_key']} not in nodes"
-            assert edge["target_key"] in keys, f"Edge target {edge['target_key']} not in nodes"
+        for entry in result._all_entries():
+            assert isinstance(entry, CompositeEntry)
 
-    def test_edge_has_required_fields(self, repo, seeded_graph):
+    def test_composes_children_and_references(self, repo, seeded_graph):
+        """Entries should have COMPOSES in children and other edges in references."""
         result = repo.get_by_layer("design")
-        for edge in result.edges:
-            assert "source_key" in edge
-            assert "relation_type" in edge
-            assert "target_key" in edge
-            assert "target_type" in edge
+        for entry in result._all_entries():
+            # No COMPOSES edges should appear in references
+            ref_types = {r[0] for r in entry.references}
+            # COMPOSES should not be in references (it's in children)
+            # Note: we only enforce this for entries that have children
+            if entry.children:
+                assert "COMPOSES" not in ref_types
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────

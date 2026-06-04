@@ -7,7 +7,7 @@ single bulk write method.  Uses neomodel ORM for all queries.
 from __future__ import annotations
 
 from codegraph.constants import Layer
-from codegraph.graph import LayerGraph
+from codegraph.graph import LayerGraph, CompositeEntry
 from codegraph.models.compound import (
     ClassNode, InterfaceNode, EnumNode, UnionNode, ModuleNode,
 )
@@ -72,7 +72,8 @@ class GraphRepository:
 
         Returns:
             A LayerGraph containing seed nodes and their 1-hop neighbors,
-            with edges where both endpoints are present.
+            with COMPOSES edges creating nesting and other edges as
+            references.
         """
         nodes: dict[str, CodeGraphNode] = {}
         uid_to_key: dict[str, str] = {}
@@ -103,30 +104,52 @@ class GraphRepository:
                                 nodes[neighbor_key] = neighbor
                                 uid_to_key[target_uid] = neighbor_key
 
-        # Phase 3: collect edges where both endpoints are present
-        edges: list[dict] = []
-        keys_present = set(nodes.keys())
+        # Phase 3: build CompositeEntry instances
+        key_to_entry: dict[str, CompositeEntry] = {}
+        for key, node in nodes.items():
+            key_to_entry[key] = CompositeEntry(node=node)
+
+        # Phase 4: walk edges and build nesting / references
+        child_keys: set[str] = set()
         for node in nodes.values():
             source_key = LayerGraph._node_key(node)
-            for edge_info in node.serialize_edges():
-                target_uid = edge_info["target_uid"]
-                target_key = uid_to_key.get(target_uid)
-                if target_key is not None and target_key in keys_present:
-                    edges.append({
-                        "source_key": source_key,
-                        "relation_type": edge_info["relation_type"],
-                        "target_key": target_key,
-                        "target_type": edge_info["target_type"],
-                    })
+            source_entry = key_to_entry[source_key]
 
-        # Phase 4: derive layer
+            for edge_info in node.serialize_edges():
+                relation_type = edge_info["relation_type"]
+                target_uid = edge_info["target_uid"]
+                target_type = edge_info["target_type"]
+                target_key = uid_to_key.get(target_uid)
+
+                if target_key is None or target_key not in key_to_entry:
+                    continue
+
+                if relation_type == "COMPOSES":
+                    target_entry = key_to_entry[target_key]
+                    if target_type not in source_entry.children:
+                        source_entry.children[target_type] = {}
+                    source_entry.children[target_type][target_key] = target_entry
+                    child_keys.add(target_key)
+                else:
+                    source_entry.references.append(
+                        (relation_type, target_key, target_type)
+                    )
+
+        # Phase 5: root entries = nodes not composed by another node
+        root_entries = {
+            key: entry
+            for key, entry in key_to_entry.items()
+            if key not in child_keys
+        }
+
+        # Phase 6: derive layer
         layer: Layer = "design"
         for node in seeds:
             if "layer" in type(node).defined_properties():
                 layer = getattr(node, "layer", "design") or "design"  # type: ignore[assignment]
                 break
 
-        return LayerGraph(layer=layer, nodes=nodes, edges=edges)
+        return LayerGraph(layer=layer, entries=root_entries)
 
     # ── Public: scope-based read methods ──────────────────────────────
 

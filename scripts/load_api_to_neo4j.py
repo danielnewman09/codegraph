@@ -355,8 +355,9 @@ def load_and_persist(nodes_data: list[dict]) -> None:
     from codegraph.graph import LayerGraph
 
     graph = LayerGraph.from_json(nodes_data)
-    print(f"Loaded {len(graph.nodes)} nodes, {len(graph.edges)} edges into LayerGraph")
-    print(f"Layer: {graph.layer}")
+    total = sum(1 for _ in graph._all_entries())
+    print(f"Loaded {total} nodes into LayerGraph (layer={graph.layer})")
+    print(f"Root entries: {len(graph.entries)}")
 
     graph.to_neo4j()
     print("Persisted to Neo4j")

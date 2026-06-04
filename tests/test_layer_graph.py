@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from codegraph.graph import LayerGraph
+from codegraph.graph import LayerGraph, CompositeEntry
 from codegraph.models.compound import ClassNode, EnumNode, InterfaceNode
 from codegraph.models.file import FileNode
 from codegraph.models.member import AttributeNode, EnumValueNode, MethodNode
@@ -16,6 +16,19 @@ from codegraph.models.tags import CodeGraphNode
 DATA_DIR = Path(__file__).resolve().parent / "data"
 FIXTURE = DATA_DIR / "design_graph.json"
 FIXTURE_DIR = Path(__file__).resolve().parent / "unit_test_data"
+
+
+def _count_all_entries(graph: LayerGraph) -> int:
+    """Count all CompositeEntry instances across the entire tree."""
+    return sum(1 for _ in graph._all_entries())
+
+
+def _find_entry(graph: LayerGraph, key: str) -> CompositeEntry | None:
+    """Find a CompositeEntry by node key across the entire tree."""
+    for entry in graph._all_entries():
+        if LayerGraph._node_key(entry.node) == key:
+            return entry
+    return None
 
 
 class TestNodeKey:
@@ -76,28 +89,79 @@ class TestFromJson:
         with open(FIXTURE) as f:
             data = json.load(f)
         graph = LayerGraph.from_json(data)
-        assert len(graph.nodes) == len(data)
+        assert _count_all_entries(graph) == len(data)
         assert graph.layer == "design"
 
     def test_node_types_are_correct(self):
         with open(FIXTURE) as f:
             data = json.load(f)
         graph = LayerGraph.from_json(data)
-        # Spot-check some nodes
-        assert isinstance(graph.nodes["CalculatorEngine"], ClassNode)
-        assert isinstance(graph.nodes["/src/calc/calculator_engine.h"], FileNode)
-        assert isinstance(graph.nodes["ICalculator"], InterfaceNode)
-        assert isinstance(graph.nodes["add"], MethodNode)
+        # Spot-check some nodes by finding them in the tree
+        engine = _find_entry(graph, "CalculatorEngine")
+        assert engine is not None
+        assert isinstance(engine.node, ClassNode)
 
-    def test_edges_are_collected(self):
+        file_entry = _find_entry(graph, "/src/calc/calculator_engine.h")
+        assert file_entry is not None
+        assert isinstance(file_entry.node, FileNode)
+
+        icalc = _find_entry(graph, "ICalculator")
+        assert icalc is not None
+        assert isinstance(icalc.node, InterfaceNode)
+
+        add_entry = _find_entry(graph, "add")
+        assert add_entry is not None
+        assert isinstance(add_entry.node, MethodNode)
+
+    def test_composes_children_nested(self):
+        """COMPOSES edges should create nesting under the parent entry."""
         with open(FIXTURE) as f:
             data = json.load(f)
         graph = LayerGraph.from_json(data)
-        # The fixture has edges (CalculatorEngine COMPOSES add, etc.)
-        assert len(graph.edges) > 0
-        # Check one specific edge
-        engine_edges = [e for e in graph.edges if e["source_key"] == "CalculatorEngine"]
-        assert any(e["relation_type"] == "COMPOSES" for e in engine_edges)
+
+        engine = _find_entry(graph, "CalculatorEngine")
+        assert engine is not None
+        # CalculatorEngine COMPOSES MethodNode (add, validateInput)
+        assert "MethodNode" in engine.children
+        assert "add" in engine.children["MethodNode"]
+        # CalculatorEngine COMPOSES AttributeNode (precision)
+        assert "AttributeNode" in engine.children
+        assert "precision" in engine.children["AttributeNode"]
+
+    def test_non_composes_edges_as_references(self):
+        """Non-COMPOSES edges should be stored as references, not children."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+
+        engine = _find_entry(graph, "CalculatorEngine")
+        assert engine is not None
+        ref_types = {r[0] for r in engine.references}
+        assert "REALIZES" in ref_types
+        assert "DEPENDS_ON" in ref_types
+        assert "DEFINED_IN" in ref_types
+        # COMPOSES should NOT be in references
+        assert "COMPOSES" not in ref_types
+
+    def test_composed_nodes_not_at_root(self):
+        """Nodes composed by another node should not appear as root entries."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+
+        # "add" is composed by CalculatorEngine, so it should not be a root entry
+        assert "add" not in graph.entries
+        assert "precision" not in graph.entries
+        # NamespaceNode "calc" should be a root entry
+        assert "calc" in graph.entries
+
+    def test_layers_are_composite_entries(self):
+        """Root entries should be CompositeEntry instances."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+        for entry in graph.entries.values():
+            assert isinstance(entry, CompositeEntry)
 
     def test_layer_inference_from_data(self):
         data = [
@@ -115,8 +179,7 @@ class TestFromJson:
 
     def test_empty_data(self):
         graph = LayerGraph.from_json([])
-        assert len(graph.nodes) == 0
-        assert len(graph.edges) == 0
+        assert len(graph.entries) == 0
         assert graph.layer == "design"
 
 
@@ -129,7 +192,7 @@ class TestRoundtrip:
 
         # Pure deserialization
         graph = LayerGraph.from_json(data)
-        assert len(graph.nodes) == len(data)
+        assert _count_all_entries(graph) == len(data)
 
         # Persist
         graph.to_neo4j()
@@ -151,10 +214,9 @@ class TestRoundtrip:
         with open(out_path) as f:
             loaded = json.load(f)
 
-        # Deserialize back — from_json handles both target_local_id
-        # (fixture format) and target_uid (serialized format)
+        # Deserialize back
         restored = LayerGraph.from_json(loaded)
-        assert len(restored.nodes) == len(data)
+        assert _count_all_entries(restored) == len(data)
 
     def test_edge_persistence(self):
         """All fixture edges are present after to_neo4j."""
@@ -164,13 +226,19 @@ class TestRoundtrip:
         graph = LayerGraph.from_json(data)
         graph.to_neo4j()
 
+        flat = graph._flat_index()
+
         total_fixture_edges = 0
         for node_data in data:
             key = LayerGraph._node_key(node_data)
-            saved = graph.nodes[key]
+            entry = flat.get(key)
+            assert entry is not None, f"Missing entry for key {key}"
+            saved = entry.node
             for edge in node_data.get("edges", []):
                 total_fixture_edges += 1
-                target = graph.nodes[edge["target_local_id"]]
+                target_entry = flat.get(edge["target_local_id"])
+                assert target_entry is not None, f"Missing target {edge['target_local_id']}"
+                target = target_entry.node
                 found = [
                     e for e in saved.serialize()["edges"]
                     if e["relation_type"] == edge["relation_type"]
@@ -181,7 +249,9 @@ class TestRoundtrip:
                     f"{edge['target_type']} {edge['target_local_id']}"
                 )
 
-        total_live_edges = sum(len(n.serialize()["edges"]) for n in graph.nodes.values())
+        total_live_edges = sum(
+            len(entry.node.serialize()["edges"]) for entry in graph._all_entries()
+        )
         assert total_live_edges >= total_fixture_edges
 
 
@@ -198,12 +268,14 @@ class TestFromNeo4j:
 
         # Now fetch via from_neo4j
         design = LayerGraph.from_neo4j("design")
-        assert len(design.nodes) > 0
+        assert _count_all_entries(design) > 0
         assert design.layer == "design"
 
         # Should include at least the ClassNode we created
-        class_nodes = [n for n in design.nodes.values() if isinstance(n, ClassNode)]
-        assert len(class_nodes) > 0
+        class_entries = [
+            e for e in design._all_entries() if isinstance(e.node, ClassNode)
+        ]
+        assert len(class_entries) > 0
 
     def test_includes_neighbors_of_layer_nodes(self):
         """Neighbors of layer-matched nodes are included even if different layer."""
@@ -214,5 +286,7 @@ class TestFromNeo4j:
 
         design = LayerGraph.from_neo4j("design")
         # FileNodes should appear as neighbors
-        file_nodes = [n for n in design.nodes.values() if isinstance(n, FileNode)]
-        assert len(file_nodes) > 0, "FileNodes should be included as neighbors of design nodes"
+        file_entries = [
+            e for e in design._all_entries() if isinstance(e.node, FileNode)
+        ]
+        assert len(file_entries) > 0, "FileNodes should be included as neighbors of design nodes"
