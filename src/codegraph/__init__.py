@@ -30,6 +30,7 @@ from codegraph.constants import (
 )
 from codegraph.diagram import ClassDiagram, Association
 from codegraph.graph import LayerGraph
+from codegraph.repository import GraphRepository
 from codegraph.models import (
     ClassNode,
     InterfaceNode,
@@ -66,6 +67,8 @@ __all__ = [
     "ClassDiagram",
     # Graph container
     "LayerGraph",
+    # Repository
+    "GraphRepository",
     # Config
     "NEO4J_URI",
     "NEO4J_USER",

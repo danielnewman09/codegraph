@@ -153,6 +153,39 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
             result.extend(node_cls.fetch_by_layer(layer))
         return result
 
+    @classmethod
+    def fetch_all_by_source(cls, source: str) -> list["CodeGraphNode"]:
+        """Fetch all nodes across all registered types matching *source*.
+
+        Iterates ``_registry``, calling ``.nodes.filter(source=source)`` on
+        each type that has a ``source`` property.  Returns a flat list.
+        """
+        result: list[CodeGraphNode] = []
+        for node_cls in cls._registry.values():
+            if "source" in node_cls.defined_properties():
+                result.extend(node_cls.nodes.filter(source=source))
+        return result
+
+    @classmethod
+    def fetch_all_by_kind(cls, kind: str, layer: str | None = None) -> list["CodeGraphNode"]:
+        """Fetch all nodes across all registered types matching *kind*.
+
+        Optionally filter by *layer* as well.  Only types that have a ``kind``
+        property are queried.  Returns a flat list.
+        """
+        result: list[CodeGraphNode] = []
+        for node_cls in cls._registry.values():
+            props = node_cls.defined_properties()
+            if "kind" not in props:
+                continue
+            if layer is not None and "layer" not in props:
+                continue
+            filters: dict = {"kind": kind}
+            if layer is not None and "layer" in props:
+                filters["layer"] = layer
+            result.extend(node_cls.nodes.filter(**filters))
+        return result
+
     # ── Registry ──────────────────────────────────────────────────────────
     # Every concrete CodeGraphNode subclass registers itself here so that
     # ``from_json()`` can look up the right class by the ``type`` discriminator.
