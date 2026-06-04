@@ -1,11 +1,12 @@
-The implementation plan has been written to `docs/plans/2025-06-03-layer-graph-implementation.md`. Here's a summary of the 7 steps:
+The implementation plan has been written to `docs/plans/2026-06-03-sphinx-api-extraction.md`. It covers 8 ordered steps:
 
-1. **Add `_node_category` and query methods to `CodeGraphNode`** — `_node_category` attribute, `find_relationship_manager()`, `fetch_by_layer()`, `fetch_all_by_layer()`
-2. **Add `_node_category` to all concrete subclasses** — compound/member/namespace/file/parameter
-3. **Add `LayerGraph` dataclass** — `from_json()`, `to_neo4j()`, `to_json()`, `from_neo4j()`, `_node_key()` in `graph/__init__.py`
-4. **Update `__init__.py` exports** — swap `load_graph` for `LayerGraph`
-5. **Rewrite integration test** — use `LayerGraph.from_json()` + `.to_neo4j()` instead of `load_graph()`
-6. **Delete `loaders.py`** — all logic moved to `LayerGraph` and `CodeGraphNode`
-7. **Final cleanup** — remove stale imports
+1. **Add sphinx dev dependency** — one line in `pyproject.toml`
+2. **Create `docs/source/conf.py`** — minimal Sphinx config with autodoc, napoleon, typehints, and the custom builder extension
+3. **Create `docs/source/index.rst`** — automodule directives for all 12 public modules
+4. **Implement `docs/_builders/json_api.py`** — the full `JsonApiBuilder` class with neomodel property extraction, relationship extraction, method/signature extraction, and Google-style docstring parsing
+5. **Add `docs/_build/` to `.gitignore`**
+6. **Upgrade docstrings to Google style** — file-by-file breakdown with specific method lists for all 15 source files
+7. **Verify the build** — checklist of 6 assertions to confirm `api_metadata.json` is correct
+8. **Run existing tests** — regression check
 
-Each step is independently testable with the 28 existing tests.
+16 files are touched in total (5 new, 11 modified).

@@ -154,6 +154,13 @@ class ClassDiagram:
         The LLM produces flat dicts with simple fields. Neomodel node
         construction happens here — LLM field names are mapped to
         neomodel property names.
+
+        Args:
+            data: A dict with keys like ``module_names``, ``classes``,
+                ``interfaces``, ``enums``, ``associations``.
+
+        Returns:
+            A populated ClassDiagram instance.
         """
         def _map_llm_fields(d: dict) -> dict:
             """Map LLM field names to neomodel property names."""
@@ -196,6 +203,9 @@ class ClassDiagram:
 
         Describes the shape expected from the LLM — flat dicts with
         simple field types, not the neomodel node structure.
+
+        Returns:
+            A JSON Schema dict describing the ClassDiagram tool input shape.
         """
         return {
             "type": "object",
@@ -316,7 +326,15 @@ class ClassDiagram:
 
     @classmethod
     def from_layer(cls, layer: str) -> "ClassDiagram":
-        """Build a ClassDiagram from all design entities in a given layer."""
+        """Build a ClassDiagram from all design entities in a given layer.
+
+        Args:
+            layer: The layer to query (e.g. ``"design"``).
+
+        Returns:
+            A ClassDiagram populated with classes, interfaces, and enums
+            from the specified layer.
+        """
         classes = list(ClassNode.nodes.filter(layer=layer))
         interfaces = list(InterfaceNode.nodes.filter(layer=layer))
         enums = list(EnumNode.nodes.filter(layer=layer))
@@ -341,17 +359,36 @@ class ClassDiagram:
     # -- Query --
 
     def get_entity(self, qualified_name: str) -> ClassNode | InterfaceNode | EnumNode | None:
-        """Look up any entity by fully-qualified name. O(1)."""
+        """Look up any entity by fully-qualified name. O(1).
+
+        Args:
+            qualified_name: The fully-qualified name of the entity.
+
+        Returns:
+            The matching entity, or None if not found.
+        """
         return self._entity_index.get(qualified_name)
 
     def classes_in_module(self, module: str) -> list[ClassNode]:
-        """Return all classes belonging to the given module."""
+        """Return all classes belonging to the given module.
+
+        Args:
+            module: The module/namespace name to filter by.
+
+        Returns:
+            A list of ClassNode instances in that module.
+        """
         return [c for c in self.classes if c.module == module]
 
     # -- Transformations --
 
     def to_summary(self) -> dict:
-        """Return a high-level summary of the diagram's contents."""
+        """Return a high-level summary of the diagram's contents.
+
+        Returns:
+            A dict with counts of classes, interfaces, enums, attributes,
+            methods, and associations.
+        """
         attributes_count = 0
         methods_count = 0
         for c in self.classes:
@@ -374,7 +411,12 @@ class ClassDiagram:
         }
 
     def to_verification_dicts(self) -> list[dict]:
-        """Convert the diagram into a list of dicts suitable for verification."""
+        """Convert the diagram into a list of dicts suitable for verification.
+
+        Returns:
+            A list of dicts, each representing a class or interface with
+            its attributes, methods, and relationships.
+        """
         results = []
 
         for cls_node in self.classes:
@@ -451,7 +493,11 @@ class ClassDiagram:
         return sorted(results, key=lambda x: x["qualified_name"])
 
     def to_draft_lookup(self) -> dict[str, dict]:
-        """Build a flat lookup table of all entities in the diagram."""
+        """Build a flat lookup table of all entities in the diagram.
+
+        Returns:
+            A dict mapping qualified names to entity summary dicts.
+        """
         lookup: dict[str, dict] = {}
         for cls_node in self.classes:
             lookup[cls_node.qualified_name] = {

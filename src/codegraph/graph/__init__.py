@@ -37,6 +37,13 @@ class LayerGraph:
         For dicts (raw JSON data), uses ``type`` and ``path``/``name``.
         For CodeGraphNode instances, uses ``path`` for FileNode, ``name``
         otherwise.
+
+        Args:
+            obj: A CodeGraphNode instance or a raw dict with ``type``,
+                ``name``, and/or ``path`` keys.
+
+        Returns:
+            The stable local key string for the node.
         """
         if isinstance(obj, dict):
             if obj.get("type") == "FileNode":
@@ -57,6 +64,13 @@ class LayerGraph:
         Accepts edges in two formats:
         - Fixture format: ``target_local_id`` (name or path) + ``target_type``
         - Serialized format: ``target_uid`` (unique id) + ``target_type``
+
+        Args:
+            data: A list of dicts, each a serialized node with ``type``,
+                properties, and ``edges``.
+
+        Returns:
+            A LayerGraph containing the deserialized nodes and edges.
         """
         nodes: dict[str, CodeGraphNode] = {}
         uid_to_key: dict[str, str] = {}  # uid → node_key lookup
