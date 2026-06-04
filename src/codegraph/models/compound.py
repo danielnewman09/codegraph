@@ -15,7 +15,21 @@ from codegraph.models.tags import CodeGraphNode
 
 
 class _CompoundMixin(StructuredNode, CodeGraphNode):
-    """Common fields and serialization for all compound node types."""
+    """Common fields and serialization for all compound node types.
+
+    Attributes:
+        qualified_name: Unique identifier for the compound.
+        kind: Node kind (e.g. "class", "struct", "interface").
+        layer: Origin layer ("design", "as-built", "dependency").
+        component_id: Component identifier for grouping.
+        source_type: Source system type (e.g. "Doxygen").
+        visibility: Access level (e.g. "public", "private").
+        brief_description: Short human-readable description.
+        detailed_description: Full human-readable description.
+        file_path: Source file path where declared.
+        line_number: Source line number where declared.
+        definition: Source code definition text.
+    """
 
     # --- Identity ---
     qualified_name = UniqueIdProperty()
@@ -68,7 +82,15 @@ class _CompoundMixin(StructuredNode, CodeGraphNode):
 
 
 class ClassNode(_CompoundMixin):
-    """Class or struct — Neo4j label ``:Class``."""
+    """Class or struct — Neo4j label ``:Class``.
+
+    Attributes:
+        kind: Defaults to "class".
+        module: Module/namespace the class belongs to.
+        base_classes: List of base class qualified names.
+        is_final: Whether the class is marked final.
+        is_abstract: Whether the class is abstract.
+    """
 
     kind = StringProperty(default="class")
     module = StringProperty(default="")
@@ -133,7 +155,13 @@ class ClassNode(_CompoundMixin):
 # --- Stubs for Tasks 3-5 (will be fleshed out with their own fields) ---
 
 class InterfaceNode(_CompoundMixin):
-    """Interface or abstract base — Neo4j label ``:Interface``."""
+    """Interface or abstract base — Neo4j label ``:Interface``.
+
+    Attributes:
+        kind: Defaults to "interface".
+        module: Module/namespace the interface belongs to.
+        is_abstract: Whether the interface is abstract (defaults to True).
+    """
 
     kind = StringProperty(default="interface")
     module = StringProperty(default="")
@@ -160,7 +188,12 @@ class InterfaceNode(_CompoundMixin):
 
 
 class EnumNode(_CompoundMixin):
-    """Enum type — Neo4j label ``:Enum``."""
+    """Enum type — Neo4j label ``:Enum``.
+
+    Attributes:
+        kind: Defaults to "enum".
+        module: Module/namespace the enum belongs to.
+    """
 
     kind = StringProperty(default="enum")
     module = StringProperty(default="")
@@ -178,7 +211,12 @@ class EnumNode(_CompoundMixin):
 
 
 class UnionNode(_CompoundMixin):
-    """C/C++ union type — Neo4j label ``:Union``."""
+    """C/C++ union type — Neo4j label ``:Union``.
+
+    Attributes:
+        kind: Defaults to "union".
+        module: Module/namespace the union belongs to.
+    """
 
     kind = StringProperty(default="union")
     module = StringProperty(default="")
@@ -191,6 +229,9 @@ class ModuleNode(_CompoundMixin):
 
     Not a direct member of ClassDiagram; module names are derived
     from compound qualified names during ``from_layer()``.
+
+    Attributes:
+        kind: Defaults to "module".
     """
 
     kind = StringProperty(default="module")

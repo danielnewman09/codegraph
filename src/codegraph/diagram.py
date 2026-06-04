@@ -25,6 +25,13 @@ def _ensure_list(parent, attr_name: str) -> list:
     For unsaved nodes (no element_id), the neomodel RelationshipManager is
     replaced with a plain Python list so that members can be attached without
     a database connection.
+
+    Args:
+        parent: The neomodel node or plain object to access.
+        attr_name: The attribute name holding a list or RelationshipManager.
+
+    Returns:
+        A list of items stored at that attribute.
     """
     raw = getattr(parent, attr_name, None)
     if raw is None:
@@ -54,6 +61,13 @@ def _is_relationship_property(prop) -> bool:
     RelationshipTo and RelationshipFrom are NOT subclasses of
     neomodel.properties.Property; they extend RelationshipDefinition.
     This helper distinguishes them from scalar properties.
+
+    Args:
+        prop: The attribute to check.
+
+    Returns:
+        True if prop is a relationship descriptor, False if it is a scalar
+        property.
     """
     from neomodel.properties import Property
     return not isinstance(prop, Property)
@@ -65,6 +79,16 @@ class Association:
 
     This is the LLM-facing shape — not a neomodel node. The mapper
     and repository translate these into neomodel relationships.
+
+    Attributes:
+        subject: Qualified name of the source entity.
+        predicate: Relationship type (e.g. "inherits_from", "realizes").
+        object: Qualified name of the target entity.
+        requirement_ids: Associated requirement IDs.
+        mechanism: How the relationship is implemented (e.g. "std::unique_ptr").
+        position: Positional order, if applicable.
+        name: Short name for the association.
+        display_name: Human-readable display name.
     """
 
     subject: str
@@ -95,6 +119,15 @@ class ClassDiagram:
         enums: list[EnumNode] | None = None,
         associations: list[Association] | None = None,
     ):
+        """Initialize a ClassDiagram.
+
+        Args:
+            module_names: List of module/namespace names in the design.
+            classes: List of ClassNode instances.
+            interfaces: List of InterfaceNode instances.
+            enums: List of EnumNode instances.
+            associations: List of Association instances.
+        """
         self.module_names: list[str] = module_names or []
         self.classes: list[ClassNode] = classes or []
         self.interfaces: list[InterfaceNode] = interfaces or []
@@ -477,7 +510,11 @@ class ClassDiagram:
         return lookup
 
     def to_class_lookup(self) -> dict[str, str]:
-        """Build a simple name → qualified_name lookup."""
+        """Build a simple name to qualified_name lookup.
+
+        Returns:
+            A dict mapping short names to fully-qualified names.
+        """
         lookup: dict[str, str] = {}
         for cls_node in self.classes:
             lookup[cls_node.name] = cls_node.qualified_name
@@ -492,14 +529,17 @@ class ClassDiagram:
     def to_graph_dict(self) -> dict[str, list[dict]]:
         """Serialize the complete diagram to a graph dict with nodes and edges.
 
-        Returns ``{"nodes": [...], "edges": [...]}`` where each node is a flat
-        dict of properties and each edge has ``source``, ``target``, and
+        Returns ``{"nodes": [...], "edges": [...]}`` where each node is a
+        flat dict of properties and each edge has ``source``, ``target``, and
         ``predicate`` keys.
 
         Member nodes (methods, attributes, enum values) attached via COMPOSES
-        are included, as well as module→compound COMPOSES, inter-compound
+        are included, as well as module-to-compound COMPOSES, inter-compound
         associations, and INHERITS_FROM / REALIZES / DEPENDS_ON / AGGREGATES
         edges.
+
+        Returns:
+            A dict with ``nodes`` and ``edges`` lists.
         """
         nodes: list[dict] = []
         edges: list[dict] = []
@@ -579,6 +619,12 @@ class ClassDiagram:
         enumvalue) result in the member being attached to its parent compound
         via a plain Python list stored on the parent. Other edges become
         ``Association`` objects.
+
+        Args:
+            data: A graph dict with ``nodes`` and ``edges`` lists.
+
+        Returns:
+            A ClassDiagram with nodes reconstructed and members attached.
         """
         from codegraph.models.compound import ModuleNode
         from codegraph.models.member import MethodNode, AttributeNode, EnumValueNode

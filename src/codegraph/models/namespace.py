@@ -9,7 +9,15 @@ from codegraph.models.tags import CodeGraphNode
 
 
 class NamespaceNode(StructuredNode, CodeGraphNode):
-    """A namespace entity — namespace, package, or module."""
+    """A namespace entity — namespace, package, or module.
+
+    Attributes:
+        qualified_name: Unique identifier for the namespace.
+        kind: Namespace kind (defaults to "namespace").
+        layer: Origin layer (defaults to "design").
+        component_id: Component identifier for grouping.
+        description: Human-readable description of the namespace.
+    """
 
     qualified_name = UniqueIdProperty()
     kind = StringProperty(default="namespace")

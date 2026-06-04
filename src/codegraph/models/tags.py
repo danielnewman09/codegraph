@@ -58,17 +58,14 @@ class _CodeGraphNodeMeta(NodeMeta, ABCMeta):
 class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
     """Base class for all codegraph neomodel nodes.
 
-    Provides:
-    - ``source`` — project provenance field (inherited by every node)
-    - ``serialize()`` – property fields, type, and edges as a single dict
-    - ``deserialize()`` – instantiate from dict (ignores ``edges`` and ``type``)
-    - ``from_json()`` – factory: looks up the correct subclass by ``type``
-    - ``find_relationship_manager()`` – find the neomodel relationship manager
-      matching a relation type and target class
-    - ``fetch_by_layer()`` / ``fetch_all_by_layer()`` – layer-aware Neo4j queries
-    - ``serialize_relationships()`` – static schema of relationship descriptors
-    - ``serialize_edges()`` – live edges from Neo4j
-    - ``_uid_prop()`` / ``_uid_value()`` – unique identifier accessors
+    Provides shared fields, serialization, relationship introspection,
+    and a registry for type-dispatched deserialization.
+
+    Attributes:
+        name: Short name of the node (e.g. 'Widget', 'draw', 'widget.h').
+        refid: External reference ID from the source system (e.g. Doxygen refid).
+            FileNode overrides this as UniqueIdProperty.
+        source: Name of the project this node belongs to (e.g. 'codegraph', 'llvm').
 
     Subclasses must:
     - Declare ``_llm_fields`` as a class-level ``set[str]`` of field names
@@ -103,8 +100,18 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         Needed because some relation types (e.g. COMPOSES) have multiple
         managers on the same source class pointing at different target types.
 
-        Returns the relationship manager attribute (e.g. ``source.methods``).
-        Raises ``ValueError`` if no matching manager is found.
+        Args:
+            source: The neomodel node instance to search on.
+            relation_type: Neo4j relationship label (e.g. "COMPOSES",
+                "DEFINED_IN").
+            target: The target node instance whose class determines which
+                manager to return.
+
+        Returns:
+            The relationship manager attribute (e.g. ``source.methods``).
+
+        Raises:
+            ValueError: If no matching manager is found.
         """
         from neomodel import RelationshipTo, RelationshipFrom
 
@@ -136,6 +143,13 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         Uses neomodel's ``.nodes.filter(layer=layer)``. Returns an empty
         list for types that don't have a ``layer`` property
         (e.g. FileNode, ParameterNode).
+
+        Args:
+            layer: The layer to filter by (e.g. "design", "as-built",
+                "dependency").
+
+        Returns:
+            A list of CodeGraphNode instances matching the given layer.
         """
         if "layer" not in cls.defined_properties():
             return []
@@ -145,8 +159,16 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
     def fetch_all_by_layer(cls, layer: str) -> list["CodeGraphNode"]:
         """Fetch all nodes across all registered types matching *layer*.
 
-        Iterates :pyattr:`_registry`, calling :pyfunc:`fetch_by_layer` on each
+        Iterates ``_registry``, calling ``fetch_by_layer`` on each
         concrete subclass. Returns a flat list.
+
+        Args:
+            layer: The layer to filter by (e.g. "design", "as-built",
+                "dependency").
+
+        Returns:
+            A flat list of CodeGraphNode instances across all registered
+            types matching the given layer.
         """
         result: list[CodeGraphNode] = []
         for node_cls in cls._registry.values():
@@ -158,7 +180,14 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         """Fetch all nodes across all registered types matching *source*.
 
         Iterates ``_registry``, calling ``.nodes.filter(source=source)`` on
-        each type that has a ``source`` property.  Returns a flat list.
+        each type that has a ``source`` property. Returns a flat list.
+
+        Args:
+            source: The source project name to filter by (e.g. "codegraph",
+                "llvm").
+
+        Returns:
+            A flat list of CodeGraphNode instances matching the given source.
         """
         result: list[CodeGraphNode] = []
         for node_cls in cls._registry.values():
@@ -170,8 +199,17 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
     def fetch_all_by_kind(cls, kind: str, layer: str | None = None) -> list["CodeGraphNode"]:
         """Fetch all nodes across all registered types matching *kind*.
 
-        Optionally filter by *layer* as well.  Only types that have a ``kind``
-        property are queried.  Returns a flat list.
+        Optionally filter by *layer* as well. Only types that have a ``kind``
+        property are queried. Returns a flat list.
+
+        Args:
+            kind: The node kind to filter by (e.g. "class", "method").
+            layer: Optional layer to additionally filter by. When provided,
+                only nodes with both matching kind and layer are returned.
+
+        Returns:
+            A flat list of CodeGraphNode instances matching the given kind
+            (and optionally layer).
         """
         result: list[CodeGraphNode] = []
         for node_cls in cls._registry.values():
@@ -210,6 +248,9 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         of relationship edges from ``serialize_edges()``.
 
         For unsaved nodes the ``edges`` key is an empty list.
+
+        Returns:
+            A dict with ``type``, property fields, and ``edges`` keys.
         """
         props = dict(self.__properties__)
         result = {k: props[k] for k in self._llm_fields if k in props}
@@ -226,6 +267,13 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
 
         Ignores the ``edges`` and ``type`` keys — edges are resolved
         separately via Neo4j after nodes are saved.
+
+        Args:
+            data: A dict of property names to values, as produced by an LLM
+            or deserialized from JSON. Keys ``edges`` and ``type`` are ignored.
+
+        Returns:
+            A new instance of this CodeGraphNode subclass.
         """
         skip = {"edges", "type"}
         filtered = {k: v for k, v in data.items()
@@ -239,7 +287,15 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         Reads the ``type`` key to dispatch to the registered subclass,
         then calls ``deserialize()`` on that class.
 
-        Raises ``KeyError`` if the ``type`` is not in the registry.
+        Args:
+            data: A serialized dict with a ``type`` discriminator key.
+
+        Returns:
+            A new instance of the appropriate CodeGraphNode subclass.
+
+        Raises:
+            ValueError: If the ``type`` key is missing from data.
+            KeyError: If the ``type`` is not in the registry.
         """
         type_name = data.get("type")
         if type_name is None:
@@ -258,11 +314,11 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         Inspects ``RelationshipTo`` / ``RelationshipFrom`` descriptors
         statically — no database call needed.
 
-        Returns a list of dicts, each with keys:
-            attr           – Python attribute name on the node class
-            relation_type  – Neo4j relationship label (e.g. "DEFINED_IN")
-            direction      – "OUTGOING" or "INCOMING"
-            target         – Dotted class path of the target node
+        Returns:
+            A list of dicts, each with keys: ``attr`` (Python attribute name),
+            ``relation_type`` (Neo4j relationship label), ``direction``
+            ("OUTGOING" or "INCOMING"), and ``target`` (dotted class path of
+            the target node).
         """
         from neomodel import RelationshipTo, RelationshipFrom
 
@@ -289,7 +345,12 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
 
     @classmethod
     def _uid_prop(cls) -> str | None:
-        """Return the name of this node type's UniqueIdProperty, or None."""
+        """Return the name of this node type's UniqueIdProperty, or None.
+
+        Returns:
+            The property name string if a UniqueIdProperty exists, otherwise
+            None.
+        """
         from neomodel import UniqueIdProperty
 
         for name, prop in cls.defined_properties().items():
@@ -298,7 +359,12 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         return None
 
     def _uid_value(self) -> str | None:
-        """Return the value of this instance's unique identifier, or None."""
+        """Return the value of this instance's unique identifier, or None.
+
+        Returns:
+            The unique identifier value string if a UniqueIdProperty exists,
+            otherwise None.
+        """
         uid = type(self)._uid_prop()
         if uid is None:
             return None
@@ -315,10 +381,11 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         Requires the node to be saved in Neo4j (the relationship managers
         query the database).
 
-        Returns a list of dicts, each with keys:
-            relation_type  – Neo4j relationship label (e.g. "DEFINED_IN")
-            target_uid     – the connected node's unique id value
-            target_type    – the connected node's class name
+        Returns:
+            A list of dicts, each with keys: ``relation_type`` (Neo4j
+            relationship label), ``target_uid`` (the connected node's
+            unique id value), and ``target_type`` (the connected node's
+            class name).
         """
         from neomodel import RelationshipTo, RelationshipFrom
 

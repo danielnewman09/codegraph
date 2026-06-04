@@ -15,7 +15,21 @@ from codegraph.models.tags import CodeGraphNode
 
 
 class _MemberMixin(StructuredNode, CodeGraphNode):
-    """Common fields and serialization for all member node types."""
+    """Common fields and serialization for all member node types.
+
+    Attributes:
+        qualified_name: Unique identifier for the member.
+        kind: Node kind (e.g. "method", "attribute", "function").
+        layer: Origin layer ("design", "as-built", "dependency").
+        component_id: Component identifier for grouping.
+        compound_refid: Reference ID of the parent compound.
+        visibility: Access level (e.g. "public", "private").
+        brief_description: Short human-readable description.
+        detailed_description: Full human-readable description.
+        file_path: Source file path where declared.
+        line_number: Source line number where declared.
+        definition: Source code definition text.
+    """
 
     # --- Identity ---
     qualified_name = UniqueIdProperty()
@@ -59,7 +73,19 @@ class _MemberMixin(StructuredNode, CodeGraphNode):
 
 
 class MethodNode(_MemberMixin):
-    """Function or method — Neo4j label ``:Method``."""
+    """Function or method — Neo4j label ``:Method``.
+
+    Attributes:
+        kind: Defaults to "method".
+        type_signature: Return type string (e.g. "void", "CalculatorResult").
+        argsstring: Full argument signature string.
+        is_static: Whether the method is static.
+        is_const: Whether the method is const.
+        is_constexpr: Whether the method is constexpr.
+        is_virtual: Whether the method is virtual.
+        is_inline: Whether the method is inline.
+        is_explicit: Whether the method is explicit.
+    """
 
     kind = StringProperty(default="method")
     type_signature = StringProperty(default="")
@@ -107,7 +133,14 @@ class MethodNode(_MemberMixin):
 
 
 class AttributeNode(_MemberMixin):
-    """Member variable / data attribute — Neo4j label ``:Attribute``."""
+    """Member variable / data attribute — Neo4j label ``:Attribute``.
+
+    Attributes:
+        kind: Defaults to "attribute".
+        type_signature: Type string (e.g. "int", "std::string").
+        is_static: Whether the attribute is static.
+        is_const: Whether the attribute is const.
+    """
 
     kind = StringProperty(default="attribute")
     type_signature = StringProperty(default="")
@@ -131,7 +164,11 @@ class AttributeNode(_MemberMixin):
 
 
 class EnumValueNode(_MemberMixin):
-    """Enum constant value — Neo4j label ``:EnumValue``."""
+    """Enum constant value — Neo4j label ``:EnumValue``.
+
+    Attributes:
+        kind: Defaults to "enumvalue".
+    """
 
     kind = StringProperty(default="enumvalue")
 
@@ -149,7 +186,13 @@ class EnumValueNode(_MemberMixin):
 
 
 class FunctionNode(_MemberMixin):
-    """Free function (not a method) — Neo4j label ``:Function``."""
+    """Free function (not a method) — Neo4j label ``:Function``.
+
+    Attributes:
+        kind: Defaults to "function".
+        type_signature: Return type string.
+        argsstring: Full argument signature string.
+    """
 
     kind = StringProperty(default="function")
     type_signature = StringProperty(default="")
@@ -162,7 +205,11 @@ class FunctionNode(_MemberMixin):
 
 
 class DefineNode(_MemberMixin):
-    """Preprocessor macro / define — Neo4j label ``:Define``."""
+    """Preprocessor macro / define — Neo4j label ``:Define``.
+
+    Attributes:
+        kind: Defaults to "define".
+    """
 
     kind = StringProperty(default="define")
 

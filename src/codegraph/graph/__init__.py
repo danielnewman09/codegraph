@@ -19,6 +19,11 @@ class LayerGraph:
     Nodes are keyed by a stable local identifier (name for most nodes,
     path for FileNode). Edges are stored as logical tuples for deferred
     persistence via ``to_neo4j()``.
+
+    Attributes:
+        layer: The design view layer ("design", "as-built", or "dependency").
+        nodes: Dict mapping stable local keys to CodeGraphNode instances.
+        edges: List of logical edge dicts for deferred Neo4j persistence.
     """
 
     layer: str  # "design" | "as-built" | "dependency"
@@ -116,6 +121,9 @@ class LayerGraph:
 
         For nodes that have not been persisted to Neo4j, the ``edges``
         key will be an empty list.
+
+        Returns:
+            A list of serialized node dicts suitable for JSON output.
         """
         return [node.serialize() for node in self.nodes.values()]
 
@@ -126,6 +134,14 @@ class LayerGraph:
 
         This includes both endpoints of any edge touching a layer-matched
         node, even if the neighbor's layer is different.
+
+        Args:
+            layer: The layer to query for (e.g. "design", "as-built",
+                "dependency").
+
+        Returns:
+            A LayerGraph containing all matching nodes and their first-level
+            neighbors.
         """
         # Fetch all layer-matched nodes
         matched_nodes = CodeGraphNode.fetch_all_by_layer(layer)

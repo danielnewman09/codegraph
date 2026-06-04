@@ -34,7 +34,11 @@ class GraphRepository:
     def _get_node_by_qualified_name(qualified_name: str) -> CodeGraphNode | None:
         """Search compound and namespace types by qualified_name.
 
-        Returns first match or None.
+        Args:
+            qualified_name: The fully-qualified name to search for.
+
+        Returns:
+            First matching CodeGraphNode instance, or None if not found.
         """
         for node_cls in _COMPOUND_TYPES + _NAMESPACE_TYPES:
             node = node_cls.nodes.get_or_none(qualified_name=qualified_name)
@@ -46,7 +50,11 @@ class GraphRepository:
     def _get_member_by_qualified_name(qualified_name: str) -> CodeGraphNode | None:
         """Search member types by qualified_name.
 
-        Returns first match or None.
+        Args:
+            qualified_name: The fully-qualified name to search for.
+
+        Returns:
+            First matching CodeGraphNode instance, or None if not found.
         """
         for node_cls in _MEMBER_TYPES:
             node = node_cls.nodes.get_or_none(qualified_name=qualified_name)
@@ -58,10 +66,12 @@ class GraphRepository:
     def _build_layer_graph(seeds: list[CodeGraphNode]) -> LayerGraph:
         """Build a LayerGraph from seed nodes plus 1-hop neighbors.
 
-        1. Collect seed nodes keyed by _node_key.
-        2. Expand 1-hop neighbors via serialize_edges().
-        3. Collect edges where both endpoints are present.
-        4. Infer layer from first seed with a 'layer' property.
+        Args:
+            seeds: List of seed CodeGraphNode instances to start from.
+
+        Returns:
+            A LayerGraph containing seed nodes and their 1-hop neighbors,
+            with edges where both endpoints are present.
         """
         nodes: dict[str, CodeGraphNode] = {}
         uid_to_key: dict[str, str] = {}
@@ -120,17 +130,39 @@ class GraphRepository:
     # ── Public: scope-based read methods ──────────────────────────────
 
     def get_by_layer(self, layer: str) -> LayerGraph:
-        """Fetch all nodes in a layer plus their 1-hop neighbors."""
+        """Fetch all nodes in a layer plus their 1-hop neighbors.
+
+        Args:
+            layer: The layer to query (e.g. "design", "as-built").
+
+        Returns:
+            A LayerGraph containing all matching nodes and neighbors.
+        """
         seeds = CodeGraphNode.fetch_all_by_layer(layer)
         return self._build_layer_graph(seeds)
 
     def get_by_source(self, source: str) -> LayerGraph:
-        """Fetch all nodes from a given source project plus neighbors."""
+        """Fetch all nodes from a given source project plus neighbors.
+
+        Args:
+            source: The source project name (e.g. "codegraph", "llvm").
+
+        Returns:
+            A LayerGraph containing all matching nodes and neighbors.
+        """
         seeds = CodeGraphNode.fetch_all_by_source(source)
         return self._build_layer_graph(seeds)
 
     def get_by_namespace(self, qualified_name: str) -> LayerGraph:
-        """Fetch a namespace, its compounds, and their 1-hop neighbors."""
+        """Fetch a namespace, its compounds, and their 1-hop neighbors.
+
+        Args:
+            qualified_name: The namespace's fully-qualified name.
+
+        Returns:
+            A LayerGraph containing the namespace and related nodes,
+            or an empty LayerGraph if not found.
+        """
         ns = NamespaceNode.nodes.get_or_none(qualified_name=qualified_name)
         if ns is None:
             return LayerGraph(layer="design")
@@ -138,14 +170,30 @@ class GraphRepository:
         return self._build_layer_graph(seeds)
 
     def get_by_compound(self, qualified_name: str) -> LayerGraph:
-        """Fetch a compound node and its 1-hop neighbors."""
+        """Fetch a compound node and its 1-hop neighbors.
+
+        Args:
+            qualified_name: The compound's fully-qualified name.
+
+        Returns:
+            A LayerGraph containing the compound and its neighbors,
+            or an empty LayerGraph if not found.
+        """
         compound = self._get_node_by_qualified_name(qualified_name)
         if compound is None:
             return LayerGraph(layer="design")
         return self._build_layer_graph([compound])
 
     def get_by_neighbourhood(self, qualified_name: str) -> LayerGraph:
-        """Fetch a node of any type and its 1-hop neighbourhood."""
+        """Fetch a node of any type and its 1-hop neighbourhood.
+
+        Args:
+            qualified_name: The node's fully-qualified name.
+
+        Returns:
+            A LayerGraph containing the node and its 1-hop neighbourhood,
+            or an empty LayerGraph if not found.
+        """
         node = self._get_node_by_qualified_name(qualified_name)
         if node is None:
             node = self._get_member_by_qualified_name(qualified_name)
@@ -154,7 +202,15 @@ class GraphRepository:
         return self._build_layer_graph([node])
 
     def get_by_kind(self, kind: str, layer: str | None = None) -> LayerGraph:
-        """Fetch all nodes of a given kind, optionally filtered by layer."""
+        """Fetch all nodes of a given kind, optionally filtered by layer.
+
+        Args:
+            kind: The node kind to filter by (e.g. "class", "method").
+            layer: Optional layer to additionally filter by.
+
+        Returns:
+            A LayerGraph containing all matching nodes and neighbors.
+        """
         seeds = CodeGraphNode.fetch_all_by_kind(kind, layer=layer)
         return self._build_layer_graph(seeds)
 
@@ -162,5 +218,9 @@ class GraphRepository:
 
     @staticmethod
     def save_layer_graph(graph: LayerGraph) -> None:
-        """Persist a LayerGraph to Neo4j. Delegates to LayerGraph.to_neo4j()."""
+        """Persist a LayerGraph to Neo4j. Delegates to LayerGraph.to_neo4j().
+
+        Args:
+            graph: The LayerGraph to persist.
+        """
         graph.to_neo4j()

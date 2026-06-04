@@ -214,7 +214,15 @@ SUPPORTED_LANGUAGES: set[str] = set(LANGUAGE_SPECIALIZATIONS.keys())
 
 
 def valid_specializations(language: str, kind: str) -> set[str]:
-    """Return the set of valid specializations for a language + kind."""
+    """Return the set of valid specializations for a language + kind.
+
+    Args:
+        language: The programming language (e.g. "cpp", "python").
+        kind: The node kind (e.g. "class", "method").
+
+    Returns:
+        A set of valid specialization strings for the given language and kind.
+    """
     lang_spec = LANGUAGE_SPECIALIZATIONS.get(language, {})
     return set(lang_spec.get(kind, []))
 
