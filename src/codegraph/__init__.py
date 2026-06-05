@@ -1,12 +1,14 @@
-"""Codegraph — shared Neo4j codebase graph data model.
+"""Codegraph — shared Neo4j codebase graph data model and connection.
 
 Provides atomized neomodel Node models (Class, Interface, Enum, Union, Module,
 Method, Attribute, EnumValue, Function, Define, Namespace, File, Parameter),
-LayerGraph container, ClassDiagram, and constants (kinds, layers, predicates,
+LayerGraph container, GraphRepository for ORM reads, direct Cypher access
+via get_session() and cypher_query(), and constants (kinds, layers, predicates,
 schema DDL, language specializations).
 """
 
 from codegraph.config import NEO4J_PASSWORD, NEO4J_URI, NEO4J_USER
+from codegraph.connection import cypher_query, get_session, verify_connectivity
 from codegraph.constants import (
     COMPOUND_KINDS,
     CONSTRAINTS_AND_INDEXES,
@@ -26,10 +28,10 @@ from codegraph.constants import (
     UNCLASSIFIED_KINDS,
     VALUE_KINDS,
     VISIBILITY_CHOICES,
+    Layer,
     valid_specializations,
 )
-from codegraph.diagram import ClassDiagram, Association
-from codegraph.graph import LayerGraph
+from codegraph.graph import LayerGraph, CompositeEntry
 from codegraph.repository import GraphRepository
 from codegraph.models import (
     ClassNode,
@@ -62,17 +64,19 @@ __all__ = [
     "NamespaceNode",
     "FileNode",
     "ParameterNode",
-    # ClassDiagram
-    "Association",
-    "ClassDiagram",
     # Graph container
     "LayerGraph",
+    "CompositeEntry",
     # Repository
     "GraphRepository",
     # Config
     "NEO4J_URI",
     "NEO4J_USER",
     "NEO4J_PASSWORD",
+    # Connection
+    "get_session",
+    "cypher_query",
+    "verify_connectivity",
     # Constants
     "PREDICATES",
     "COMPOUND_KINDS",
@@ -80,6 +84,7 @@ __all__ = [
     "DEFAULT_PREDICATES",
     "LANGUAGE_SPECIALIZATIONS",
     "LAYERS",
+    "Layer",
     "MEMBER_KINDS",
     "NAMESPACE_KINDS",
     "NODE_KIND_KEYS",

@@ -20,6 +20,21 @@ FIXTURE_DIR = Path(__file__).resolve().parent / "unit_test_data"
 SKIP_FIELDS = {"qualified_name", "refid", "edges", "type"}
 
 
+def _count_all_entries(graph: LayerGraph) -> int:
+    """Count all CompositeEntry instances across the entire tree."""
+    return sum(1 for _ in graph._all_entries())
+
+
+def _flatten_items(items: list[dict]) -> list[dict]:
+    """Flatten nested composes items into a single list."""
+    result = []
+    for item in items:
+        result.append(item)
+        if "composes" in item:
+            result.extend(_flatten_items(item["composes"]))
+    return result
+
+
 def test_graph_integration():
     with open(FIXTURE) as f:
         nodes_data = json.load(f)
@@ -27,14 +42,14 @@ def test_graph_integration():
     # Pure deserialization — no DB interaction
     graph = LayerGraph.from_json(nodes_data)
 
-    assert len(graph.nodes) == len(nodes_data), (
-        f"Expected {len(nodes_data)} nodes, got {len(graph.nodes)}"
+    assert _count_all_entries(graph) == len(nodes_data), (
+        f"Expected {len(nodes_data)} nodes, got {_count_all_entries(graph)}"
     )
 
     # Explicit persistence
     graph.to_neo4j()
 
-    # Serialize the entire graph to a single JSON file
+    # Serialize the entire graph to a single JSON file (nested format)
     FIXTURE_DIR.mkdir(exist_ok=True)
     out_path = FIXTURE_DIR / "graph_integration.json"
 
@@ -46,11 +61,29 @@ def test_graph_integration():
     with open(out_path) as f:
         loaded = json.load(f)
 
-    assert len(loaded) == len(nodes_data)
+    # Flatten the nested output for total node count comparison
+    flat_loaded = _flatten_items(loaded)
+    assert len(flat_loaded) == len(nodes_data), (
+        f"Expected {len(nodes_data)} total nodes, "
+        f"got {len(flat_loaded)} ({len(loaded)} root + nested)"
+    )
 
-    for original, roundtripped_data in zip(nodes_data, loaded):
+    flat = graph._flat_index()
+
+    # Build a key-based lookup from the flattened output
+    loaded_by_key: dict[str, dict] = {}
+    for item in flat_loaded:
+        k = LayerGraph._node_key(item)
+        loaded_by_key[k] = item
+
+    for original in nodes_data:
         key = LayerGraph._node_key(original)
-        saved = graph.nodes[key]
+        entry = flat.get(key)
+        assert entry is not None, f"Missing entry for key {key}"
+        saved = entry.node
+
+        roundtripped_data = loaded_by_key.get(key)
+        assert roundtripped_data is not None, f"Missing roundtripped entry for key {key}"
 
         assert roundtripped_data["type"] == original["type"], (
             f"{original['type']} {key}: "
@@ -70,10 +103,14 @@ def test_graph_integration():
     total_fixture_edges = 0
     for original in nodes_data:
         key = LayerGraph._node_key(original)
-        saved = graph.nodes[key]
+        entry = flat.get(key)
+        assert entry is not None, f"Missing entry for key {key}"
+        saved = entry.node
         for edge in original.get("edges", []):
             total_fixture_edges += 1
-            target = graph.nodes[edge["target_local_id"]]
+            target_entry = flat.get(edge["target_local_id"])
+            assert target_entry is not None, f"Missing target {edge['target_local_id']}"
+            target = target_entry.node
             found = [
                 e for e in saved.serialize()["edges"]
                 if e["relation_type"] == edge["relation_type"]
@@ -85,7 +122,7 @@ def test_graph_integration():
             )
 
     total_live_edges = sum(
-        len(n.serialize()["edges"]) for n in graph.nodes.values()
+        len(entry.node.serialize()["edges"]) for entry in graph._all_entries()
     )
     assert total_live_edges >= total_fixture_edges, (
         f"Live edges ({total_live_edges}) < fixture edges ({total_fixture_edges})"

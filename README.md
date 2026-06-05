@@ -6,7 +6,7 @@ Provides atomized neomodel Node models (`ClassNode`, `InterfaceNode`,
 `EnumNode`, `MethodNode`, `AttributeNode`, `FileNode`, `NamespaceNode`,
 `ParameterNode`, etc.), a `LayerGraph` container for loading and persisting
 complete design views, graph visualization containers (`CompoundGraph`,
-`NamespaceGraph`, `OntologyGraph`), a `ClassDiagram` renderer, and constants
+`NamespaceGraph`, `OntologyGraph`), and constants
 (kinds, layers, predicates, schema DDL).
 
 Used by:
@@ -51,8 +51,11 @@ Every node inherits from `CodeGraphNode`, which provides `serialize()`,
 ## LayerGraph
 
 `LayerGraph` is the top-level API for interacting with an entire design view.
-It is a Python-only container (not a Neo4j node) that holds all nodes and
-their edges, keyed by a stable local identifier.
+It is a Python-only container (not a Neo4j node) that holds a nested
+composition structure. Root entries are nodes not composed by any other
+node (files, namespaces, orphan compounds). COMPOSES edges create nesting
+— children live inside their parent entry. All other relationship types are
+stored as references on each entry.
 
 ```python
 from codegraph import LayerGraph
@@ -66,9 +69,17 @@ pure in-memory construction:
 ```python
 graph = LayerGraph.from_json(nodes_data)
 
-# Access nodes by name (or path for FileNode)
-calc_engine = graph.nodes["CalculatorEngine"]
-calc_file = graph.nodes["/src/calc/calculator_engine.h"]
+# Access root entries (files, namespaces, orphan compounds)
+calc_ns = graph.entries["calc"]  # NamespaceNode entry
+
+# Navigate the composition tree
+calc_engine = calc_ns.children["ClassNode"]["CalculatorEngine"]
+print(calc_engine.node.name)  # "CalculatorEngine"
+print(calc_engine.children.keys())  # {"MethodNode", "AttributeNode"}
+
+# Non-COMPOSES relationships are stored as references
+for rel_type, target_key, target_type in calc_engine.references:
+    print(f"{rel_type} -> {target_type} {target_key}")
 
 # The layer is inferred from the node data (defaults to "design")
 print(graph.layer)  # "design"
@@ -76,11 +87,14 @@ print(graph.layer)  # "design"
 
 ### Persist to Neo4j
 
-Explicitly save all nodes and connect all edges:
+Explicitly save all nodes and connect all relationships:
 
 ```python
 graph.to_neo4j()
 ```
+
+After persistence, each node owns its live relationships via neomodel.
+Call ``node.serialize()`` to see both COMPOSES children and other edges.
 
 ### Serialize back to JSON
 
@@ -99,9 +113,13 @@ design = LayerGraph.from_neo4j("design")
 as_built = LayerGraph.from_neo4j("as-built")
 deps = LayerGraph.from_neo4j("dependency")
 
-# Work with the result
-for key, node in design.nodes.items():
-    print(f"{node.__class__.__name__}: {key}")
+# Walk all entries depth-first
+for entry in design._all_entries():
+    node = entry.node
+    print(f"{node.__class__.__name__}: {node.name}")
+    for child_type, children in entry.children.items():
+        for child_key, child_entry in children.items():
+            print(f"  COMPOSES {child_type}: {child_key}")
 ```
 
 ### Roundtrip workflow

@@ -15,23 +15,18 @@ from codegraph.models.tags import CodeGraphNode
 class FileNode(StructuredNode, CodeGraphNode):
     """A source file in the codebase.
 
-    Fields
-    ------
-    refid : UniqueIdProperty (overrides CodeGraphNode.refid)
-        Auto-generated unique identifier. Acts as the primary key
-        for looking up files in Neo4j and as the ``target_uid`` in
-        DEFINED_IN edges from compounds and members.
-    name : StringProperty (inherited from CodeGraphNode)
-        The basename of the file (e.g. ``"widget.h"``, ``"main.cpp"``).
-    path : StringProperty
-        The absolute or project-relative path to the file
-        (e.g. ``"/src/widget.h"``).
-    language : StringProperty
-        The programming language of the file as a lowercase string
-        (e.g. ``"cpp"``, ``"python"``, ``"java"``).
-    source : StringProperty (inherited from CodeGraphNode)
-        Name of the project this file belongs to
-        (e.g. ``"codegraph"``, ``"llvm"``).
+    Attributes:
+        refid: Auto-generated unique identifier. Acts as the primary key
+            for looking up files in Neo4j and as the ``target_uid`` in
+            DEFINED_IN edges from compounds and members. Overrides
+            CodeGraphNode.refid as UniqueIdProperty.
+        name: The basename of the file (e.g. ``"widget.h"``).
+        path: The absolute or project-relative path to the file
+            (e.g. ``"/src/widget.h"``).
+        language: The programming language of the file as a lowercase string
+            (e.g. ``"cpp"``, ``"python"``, ``"java"``).
+        source: Name of the project this file belongs to
+            (e.g. ``"codegraph"``, ``"llvm"``). Inherited from CodeGraphNode.
     """
 
     # --- Identity ---

@@ -31,3 +31,14 @@ def setup_neomodel():
 
     # Wipe the database once before the session
     db.cypher_query("MATCH (n) DETACH DELETE n")
+
+
+@pytest.fixture(autouse=True)
+def clear_db():
+    """Clear the Neo4j database before each test.
+
+    Ensures that tests with explicit unique identifiers (refid,
+    qualified_name) don't collide with data from previous tests.
+    """
+    yield
+    db.cypher_query("MATCH (n) DETACH DELETE n")

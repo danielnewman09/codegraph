@@ -3,6 +3,7 @@
         "type": "FileNode",
         "name": "calculator_engine.h",
         "path": "/src/calc/calculator_engine.h",
+        "refid": "file-calc-engine",
         "language": "cpp",
         "source": "calculator",
         "edges": []
@@ -11,6 +12,7 @@
         "type": "FileNode",
         "name": "icalculator.h",
         "path": "/src/calc/icalculator.h",
+        "refid": "file-icalc",
         "language": "cpp",
         "source": "calculator",
         "edges": []
@@ -19,6 +21,7 @@
         "type": "FileNode",
         "name": "operation.h",
         "path": "/src/calc/operation.h",
+        "refid": "file-operation",
         "language": "cpp",
         "source": "calculator",
         "edges": []
@@ -27,6 +30,7 @@
         "type": "FileNode",
         "name": "calculator_result.h",
         "path": "/src/calc/calculator_result.h",
+        "refid": "file-calc-result",
         "language": "cpp",
         "source": "calculator",
         "edges": []
@@ -35,6 +39,7 @@
         "type": "FileNode",
         "name": "base_window.h",
         "path": "/src/ui/base_window.h",
+        "refid": "file-base-window",
         "language": "cpp",
         "source": "calculator",
         "edges": []
@@ -43,6 +48,7 @@
         "type": "FileNode",
         "name": "calculator_window.h",
         "path": "/src/ui/calculator_window.h",
+        "refid": "file-calc-window",
         "language": "cpp",
         "source": "calculator",
         "edges": []
@@ -50,6 +56,7 @@
     {
         "type": "NamespaceNode",
         "name": "calc",
+        "qualified_name": "calc",
         "kind": "namespace",
         "description": "Calculation engine module",
         "source": "calculator",
@@ -57,18 +64,34 @@
             {
                 "relation_type": "COMPOSES",
                 "target_type": "ClassNode",
-                "target_local_id": "CalculatorEngine"
+                "target_local_id": "calc::CalculatorEngine"
             },
             {
                 "relation_type": "COMPOSES",
                 "target_type": "ClassNode",
-                "target_local_id": "CalculatorResult"
+                "target_local_id": "calc::CalculatorResult"
+            },
+            {
+                "relation_type": "COMPOSES",
+                "target_type": "InterfaceNode",
+                "target_local_id": "calc::ICalculator"
+            },
+            {
+                "relation_type": "COMPOSES",
+                "target_type": "EnumNode",
+                "target_local_id": "calc::Operation"
+            },
+            {
+                "relation_type": "COMPOSES",
+                "target_type": "FunctionNode",
+                "target_local_id": "calc::formatResult"
             }
         ]
     },
     {
         "type": "NamespaceNode",
         "name": "ui",
+        "qualified_name": "ui",
         "kind": "namespace",
         "description": "User interface module",
         "source": "calculator",
@@ -76,18 +99,19 @@
             {
                 "relation_type": "COMPOSES",
                 "target_type": "ClassNode",
-                "target_local_id": "BaseWindow"
+                "target_local_id": "ui::BaseWindow"
             },
             {
                 "relation_type": "COMPOSES",
                 "target_type": "ClassNode",
-                "target_local_id": "CalculatorWindow"
+                "target_local_id": "ui::CalculatorWindow"
             }
         ]
     },
     {
         "type": "InterfaceNode",
         "name": "ICalculator",
+        "qualified_name": "calc::ICalculator",
         "kind": "interface",
         "visibility": "public",
         "brief_description": "Calculator interface contract defining the core calculation operation.",
@@ -99,18 +123,19 @@
             {
                 "relation_type": "COMPOSES",
                 "target_type": "MethodNode",
-                "target_local_id": "calculate"
+                "target_local_id": "calc::ICalculator::calculate"
             },
             {
                 "relation_type": "DEFINED_IN",
                 "target_type": "FileNode",
-                "target_local_id": "/src/calc/icalculator.h"
+                "target_local_id": "file-icalc"
             }
         ]
     },
     {
         "type": "ClassNode",
         "name": "CalculatorEngine",
+        "qualified_name": "calc::CalculatorEngine",
         "kind": "class",
         "visibility": "public",
         "brief_description": "The core calculator engine class that performs arithmetic operations.",
@@ -124,38 +149,39 @@
             {
                 "relation_type": "REALIZES",
                 "target_type": "InterfaceNode",
-                "target_local_id": "ICalculator"
+                "target_local_id": "calc::ICalculator"
             },
             {
                 "relation_type": "DEPENDS_ON",
                 "target_type": "ClassNode",
-                "target_local_id": "CalculatorResult"
+                "target_local_id": "calc::CalculatorResult"
             },
             {
                 "relation_type": "COMPOSES",
                 "target_type": "MethodNode",
-                "target_local_id": "add"
+                "target_local_id": "calc::CalculatorEngine::add"
             },
             {
                 "relation_type": "COMPOSES",
                 "target_type": "MethodNode",
-                "target_local_id": "validateInput"
+                "target_local_id": "calc::CalculatorEngine::validateInput"
             },
             {
                 "relation_type": "COMPOSES",
                 "target_type": "AttributeNode",
-                "target_local_id": "precision"
+                "target_local_id": "calc::CalculatorEngine::precision"
             },
             {
                 "relation_type": "DEFINED_IN",
                 "target_type": "FileNode",
-                "target_local_id": "/src/calc/calculator_engine.h"
+                "target_local_id": "file-calc-engine"
             }
         ]
     },
     {
         "type": "ClassNode",
         "name": "CalculatorResult",
+        "qualified_name": "calc::CalculatorResult",
         "kind": "class",
         "visibility": "public",
         "brief_description": "A result wrapper class that holds the outcome of a calculator operation.",
@@ -169,23 +195,24 @@
             {
                 "relation_type": "COMPOSES",
                 "target_type": "AttributeNode",
-                "target_local_id": "value"
+                "target_local_id": "calc::CalculatorResult::value"
             },
             {
                 "relation_type": "COMPOSES",
                 "target_type": "MethodNode",
-                "target_local_id": "get_value"
+                "target_local_id": "calc::CalculatorResult::get_value"
             },
             {
                 "relation_type": "DEFINED_IN",
                 "target_type": "FileNode",
-                "target_local_id": "/src/calc/calculator_result.h"
+                "target_local_id": "file-calc-result"
             }
         ]
     },
     {
         "type": "EnumNode",
         "name": "Operation",
+        "qualified_name": "calc::Operation",
         "kind": "enum",
         "visibility": "public",
         "brief_description": "An enumeration of supported arithmetic operations.",
@@ -196,23 +223,24 @@
             {
                 "relation_type": "COMPOSES",
                 "target_type": "EnumValueNode",
-                "target_local_id": "ADD"
+                "target_local_id": "calc::Operation::ADD"
             },
             {
                 "relation_type": "COMPOSES",
                 "target_type": "EnumValueNode",
-                "target_local_id": "SUBTRACT"
+                "target_local_id": "calc::Operation::SUBTRACT"
             },
             {
                 "relation_type": "DEFINED_IN",
                 "target_type": "FileNode",
-                "target_local_id": "/src/calc/operation.h"
+                "target_local_id": "file-operation"
             }
         ]
     },
     {
         "type": "EnumValueNode",
         "name": "ADD",
+        "qualified_name": "calc::Operation::ADD",
         "kind": "enumvalue",
         "visibility": "public",
         "brief_description": "Represents addition.",
@@ -222,6 +250,7 @@
     {
         "type": "EnumValueNode",
         "name": "SUBTRACT",
+        "qualified_name": "calc::Operation::SUBTRACT",
         "kind": "enumvalue",
         "visibility": "public",
         "brief_description": "Represents subtraction.",
@@ -229,8 +258,27 @@
         "edges": []
     },
     {
+        "type": "FunctionNode",
+        "name": "formatResult",
+        "qualified_name": "calc::formatResult",
+        "kind": "function",
+        "type_signature": "string",
+        "argsstring": "(double value)",
+        "visibility": "public",
+        "brief_description": "Formats a numeric result as a string.",
+        "source": "calculator",
+        "edges": [
+            {
+                "relation_type": "DEFINED_IN",
+                "target_type": "FileNode",
+                "target_local_id": "file-calc-engine"
+            }
+        ]
+    },
+    {
         "type": "ClassNode",
         "name": "BaseWindow",
+        "qualified_name": "ui::BaseWindow",
         "kind": "class",
         "visibility": "public",
         "brief_description": "Abstract base window class providing common window operations.",
@@ -243,18 +291,19 @@
             {
                 "relation_type": "COMPOSES",
                 "target_type": "MethodNode",
-                "target_local_id": "show"
+                "target_local_id": "ui::BaseWindow::show"
             },
             {
                 "relation_type": "DEFINED_IN",
                 "target_type": "FileNode",
-                "target_local_id": "/src/ui/base_window.h"
+                "target_local_id": "file-base-window"
             }
         ]
     },
     {
         "type": "ClassNode",
         "name": "CalculatorWindow",
+        "qualified_name": "ui::CalculatorWindow",
         "kind": "class",
         "visibility": "public",
         "brief_description": "The main application window for the calculator.",
@@ -267,38 +316,39 @@
             {
                 "relation_type": "INHERITS_FROM",
                 "target_type": "ClassNode",
-                "target_local_id": "BaseWindow"
+                "target_local_id": "ui::BaseWindow"
             },
             {
                 "relation_type": "DEPENDS_ON",
                 "target_type": "ClassNode",
-                "target_local_id": "CalculatorEngine"
+                "target_local_id": "calc::CalculatorEngine"
             },
             {
                 "relation_type": "COMPOSES",
                 "target_type": "AttributeNode",
-                "target_local_id": "display"
+                "target_local_id": "ui::CalculatorWindow::display"
             },
             {
                 "relation_type": "COMPOSES",
                 "target_type": "AttributeNode",
-                "target_local_id": "currentInput"
+                "target_local_id": "ui::CalculatorWindow::currentInput"
             },
             {
                 "relation_type": "COMPOSES",
                 "target_type": "MethodNode",
-                "target_local_id": "handleEquals"
+                "target_local_id": "ui::CalculatorWindow::handleEquals"
             },
             {
                 "relation_type": "DEFINED_IN",
                 "target_type": "FileNode",
-                "target_local_id": "/src/ui/calculator_window.h"
+                "target_local_id": "file-calc-window"
             }
         ]
     },
     {
         "type": "MethodNode",
         "name": "calculate",
+        "qualified_name": "calc::ICalculator::calculate",
         "kind": "method",
         "visibility": "public",
         "type_signature": "CalculatorResult",
@@ -309,13 +359,14 @@
             {
                 "relation_type": "DEFINED_IN",
                 "target_type": "FileNode",
-                "target_local_id": "/src/calc/icalculator.h"
+                "target_local_id": "file-icalc"
             }
         ]
     },
     {
         "type": "MethodNode",
         "name": "add",
+        "qualified_name": "calc::CalculatorEngine::add",
         "kind": "method",
         "visibility": "public",
         "type_signature": "CalculatorResult",
@@ -326,13 +377,14 @@
             {
                 "relation_type": "DEFINED_IN",
                 "target_type": "FileNode",
-                "target_local_id": "/src/calc/calculator_engine.h"
+                "target_local_id": "file-calc-engine"
             }
         ]
     },
     {
         "type": "MethodNode",
         "name": "validateInput",
+        "qualified_name": "calc::CalculatorEngine::validateInput",
         "kind": "method",
         "visibility": "public",
         "type_signature": "bool",
@@ -343,13 +395,14 @@
             {
                 "relation_type": "DEFINED_IN",
                 "target_type": "FileNode",
-                "target_local_id": "/src/calc/calculator_engine.h"
+                "target_local_id": "file-calc-engine"
             }
         ]
     },
     {
         "type": "AttributeNode",
         "name": "precision",
+        "qualified_name": "calc::CalculatorEngine::precision",
         "kind": "attribute",
         "visibility": "public",
         "type_signature": "int",
@@ -359,13 +412,14 @@
             {
                 "relation_type": "DEFINED_IN",
                 "target_type": "FileNode",
-                "target_local_id": "/src/calc/calculator_engine.h"
+                "target_local_id": "file-calc-engine"
             }
         ]
     },
     {
         "type": "AttributeNode",
         "name": "value",
+        "qualified_name": "calc::CalculatorResult::value",
         "kind": "attribute",
         "visibility": "public",
         "type_signature": "double",
@@ -375,13 +429,14 @@
             {
                 "relation_type": "DEFINED_IN",
                 "target_type": "FileNode",
-                "target_local_id": "/src/calc/calculator_result.h"
+                "target_local_id": "file-calc-result"
             }
         ]
     },
     {
         "type": "MethodNode",
         "name": "get_value",
+        "qualified_name": "calc::CalculatorResult::get_value",
         "kind": "method",
         "visibility": "public",
         "type_signature": "double",
@@ -392,13 +447,14 @@
             {
                 "relation_type": "DEFINED_IN",
                 "target_type": "FileNode",
-                "target_local_id": "/src/calc/calculator_result.h"
+                "target_local_id": "file-calc-result"
             }
         ]
     },
     {
         "type": "MethodNode",
         "name": "show",
+        "qualified_name": "ui::BaseWindow::show",
         "kind": "method",
         "visibility": "public",
         "type_signature": "void",
@@ -409,13 +465,14 @@
             {
                 "relation_type": "DEFINED_IN",
                 "target_type": "FileNode",
-                "target_local_id": "/src/ui/base_window.h"
+                "target_local_id": "file-base-window"
             }
         ]
     },
     {
         "type": "AttributeNode",
         "name": "display",
+        "qualified_name": "ui::CalculatorWindow::display",
         "kind": "attribute",
         "visibility": "private",
         "type_signature": "string",
@@ -425,13 +482,14 @@
             {
                 "relation_type": "DEFINED_IN",
                 "target_type": "FileNode",
-                "target_local_id": "/src/ui/calculator_window.h"
+                "target_local_id": "file-calc-window"
             }
         ]
     },
     {
         "type": "AttributeNode",
         "name": "currentInput",
+        "qualified_name": "ui::CalculatorWindow::currentInput",
         "kind": "attribute",
         "visibility": "private",
         "type_signature": "string",
@@ -441,13 +499,14 @@
             {
                 "relation_type": "DEFINED_IN",
                 "target_type": "FileNode",
-                "target_local_id": "/src/ui/calculator_window.h"
+                "target_local_id": "file-calc-window"
             }
         ]
     },
     {
         "type": "MethodNode",
         "name": "handleEquals",
+        "qualified_name": "ui::CalculatorWindow::handleEquals",
         "kind": "method",
         "visibility": "private",
         "type_signature": "void",
@@ -458,7 +517,7 @@
             {
                 "relation_type": "DEFINED_IN",
                 "target_type": "FileNode",
-                "target_local_id": "/src/ui/calculator_window.h"
+                "target_local_id": "file-calc-window"
             }
         ]
     }

@@ -5,6 +5,8 @@ schema DDL, language specializations, and semantic groupings used by
 both the ticketing system and Doxygen parser.
 """
 
+from typing import Literal
+
 # ---------------------------------------------------------------------------
 # Subnode-type lists — source of truth; (key, Display) tuples
 # ---------------------------------------------------------------------------
@@ -75,6 +77,8 @@ SOURCE_TYPE_KEYS: set[str] = {k for k, _ in SOURCE_TYPES}
 # ---------------------------------------------------------------------------
 
 LAYERS: list[str] = ["design", "as-built", "dependency"]
+
+Layer = Literal["design", "as-built", "dependency"]
 
 # ---------------------------------------------------------------------------
 # Visibility / access specifiers
@@ -214,7 +218,15 @@ SUPPORTED_LANGUAGES: set[str] = set(LANGUAGE_SPECIALIZATIONS.keys())
 
 
 def valid_specializations(language: str, kind: str) -> set[str]:
-    """Return the set of valid specializations for a language + kind."""
+    """Return the set of valid specializations for a language + kind.
+
+    Args:
+        language: The programming language (e.g. "cpp", "python").
+        kind: The node kind (e.g. "class", "method").
+
+    Returns:
+        A set of valid specialization strings for the given language and kind.
+    """
     lang_spec = LANGUAGE_SPECIALIZATIONS.get(language, {})
     return set(lang_spec.get(kind, []))
 

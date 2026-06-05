@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from codegraph.graph import LayerGraph
+from codegraph.graph import LayerGraph, CompositeEntry
 from codegraph.models.compound import ClassNode, EnumNode, InterfaceNode
 from codegraph.models.file import FileNode
 from codegraph.models.member import AttributeNode, EnumValueNode, MethodNode
@@ -18,30 +18,87 @@ FIXTURE = DATA_DIR / "design_graph.json"
 FIXTURE_DIR = Path(__file__).resolve().parent / "unit_test_data"
 
 
+def _count_all_entries(graph: LayerGraph) -> int:
+    """Count all CompositeEntry instances across the entire tree."""
+    return sum(1 for _ in graph._all_entries())
+
+
+def _find_entry(graph: LayerGraph, key: str) -> CompositeEntry | None:
+    """Find a CompositeEntry by node key across the entire tree."""
+    for entry in graph._all_entries():
+        if LayerGraph._node_key(entry.node) == key:
+            return entry
+    return None
+
+
 class TestNodeKey:
     """Tests for LayerGraph._node_key()."""
 
-    def test_file_node_dict_uses_path(self):
-        result = LayerGraph._node_key({"type": "FileNode", "path": "/src/main.h", "name": "main.h"})
-        assert result == "/src/main.h"
+    def test_file_node_dict_uses_refid(self):
+        result = LayerGraph._node_key({"type": "FileNode", "refid": "file-main", "path": "/src/main.h", "name": "main.h"})
+        assert result == "file-main"
 
-    def test_class_node_dict_uses_name(self):
+    def test_file_node_dict_falls_back_to_name_without_refid(self):
+        result = LayerGraph._node_key({"type": "FileNode", "path": "/src/main.h", "name": "main.h"})
+        assert result == "main.h"
+
+    def test_class_node_dict_uses_qualified_name(self):
+        result = LayerGraph._node_key({"type": "ClassNode", "qualified_name": "ns::Widget", "name": "Widget"})
+        assert result == "ns::Widget"
+
+    def test_class_node_dict_falls_back_to_name_without_qualified_name(self):
         result = LayerGraph._node_key({"type": "ClassNode", "name": "Widget"})
         assert result == "Widget"
 
-    def test_method_node_dict_uses_name(self):
-        result = LayerGraph._node_key({"type": "MethodNode", "name": "draw"})
-        assert result == "draw"
+    def test_method_node_dict_uses_qualified_name(self):
+        result = LayerGraph._node_key({"type": "MethodNode", "qualified_name": "ns::Widget::draw", "name": "draw"})
+        assert result == "ns::Widget::draw"
 
-    def test_file_node_instance_uses_path(self):
-        node = FileNode(name="test.h", path="/src/test.h")
-        result = LayerGraph._node_key(node)
-        assert result == "/src/test.h"
+    def test_namespace_node_dict_uses_qualified_name(self):
+        result = LayerGraph._node_key({"type": "NamespaceNode", "qualified_name": "calc", "name": "calc"})
+        assert result == "calc"
 
-    def test_class_node_instance_uses_name(self):
-        node = ClassNode(name="Widget", kind="class")
+    def test_file_node_instance_uses_refid(self):
+        node = FileNode(name="test.h", path="/src/test.h", refid="file-test-h")
         result = LayerGraph._node_key(node)
-        assert result == "Widget"
+        assert result == "file-test-h"
+
+    def test_class_node_instance_uses_qualified_name(self):
+        node = ClassNode(name="Widget", kind="class", qualified_name="ns::Widget")
+        result = LayerGraph._node_key(node)
+        assert result == "ns::Widget"
+
+    def test_parameter_node_falls_back_to_name(self):
+        """ParameterNode has no UniqueIdProperty, so _node_key falls back to name."""
+        from codegraph.models.parameter import ParameterNode
+        node = ParameterNode(name="argc", position=0, type="int")
+        result = LayerGraph._node_key(node)
+        assert result == "argc"
+
+
+class TestLayerValidation:
+    """Tests for Layer validation — only 'design', 'as-built', 'dependency' allowed."""
+
+    def test_valid_design(self):
+        graph = LayerGraph(layer="design")
+        assert graph.layer == "design"
+
+    def test_valid_as_built(self):
+        graph = LayerGraph(layer="as-built")
+        assert graph.layer == "as-built"
+
+    def test_valid_dependency(self):
+        graph = LayerGraph(layer="dependency")
+        assert graph.layer == "dependency"
+
+    def test_invalid_layer_raises(self):
+        with pytest.raises(ValueError, match="Invalid layer"):
+            LayerGraph(layer="production")
+
+    def test_from_json_invalid_layer_raises(self):
+        data = [{"type": "ClassNode", "name": "X", "kind": "class", "layer": "unknown"}]
+        with pytest.raises(ValueError, match="Invalid layer"):
+            LayerGraph.from_json(data)
 
 
 class TestFromJson:
@@ -51,28 +108,79 @@ class TestFromJson:
         with open(FIXTURE) as f:
             data = json.load(f)
         graph = LayerGraph.from_json(data)
-        assert len(graph.nodes) == len(data)
+        assert _count_all_entries(graph) == len(data)
         assert graph.layer == "design"
 
     def test_node_types_are_correct(self):
         with open(FIXTURE) as f:
             data = json.load(f)
         graph = LayerGraph.from_json(data)
-        # Spot-check some nodes
-        assert isinstance(graph.nodes["CalculatorEngine"], ClassNode)
-        assert isinstance(graph.nodes["/src/calc/calculator_engine.h"], FileNode)
-        assert isinstance(graph.nodes["ICalculator"], InterfaceNode)
-        assert isinstance(graph.nodes["add"], MethodNode)
+        # Spot-check some nodes by finding them in the tree
+        engine = _find_entry(graph, "calc::CalculatorEngine")
+        assert engine is not None
+        assert type(engine.node).__name__ == "ClassNode"
 
-    def test_edges_are_collected(self):
+        file_entry = _find_entry(graph, "file-calc-engine")
+        assert file_entry is not None
+        assert type(file_entry.node).__name__ == "FileNode"
+
+        icalc = _find_entry(graph, "calc::ICalculator")
+        assert icalc is not None
+        assert type(icalc.node).__name__ == "InterfaceNode"
+
+        add_entry = _find_entry(graph, "calc::CalculatorEngine::add")
+        assert add_entry is not None
+        assert type(add_entry.node).__name__ == "MethodNode"
+
+    def test_composes_children_nested(self):
+        """COMPOSES edges should create nesting under the parent entry."""
         with open(FIXTURE) as f:
             data = json.load(f)
         graph = LayerGraph.from_json(data)
-        # The fixture has edges (CalculatorEngine COMPOSES add, etc.)
-        assert len(graph.edges) > 0
-        # Check one specific edge
-        engine_edges = [e for e in graph.edges if e["source_key"] == "CalculatorEngine"]
-        assert any(e["relation_type"] == "COMPOSES" for e in engine_edges)
+
+        engine = _find_entry(graph, "calc::CalculatorEngine")
+        assert engine is not None
+        # CalculatorEngine COMPOSES MethodNode (add, validateInput)
+        assert "MethodNode" in engine.children
+        assert "calc::CalculatorEngine::add" in engine.children["MethodNode"]
+        # CalculatorEngine COMPOSES AttributeNode (precision)
+        assert "AttributeNode" in engine.children
+        assert "calc::CalculatorEngine::precision" in engine.children["AttributeNode"]
+
+    def test_non_composes_edges_as_references(self):
+        """Non-COMPOSES edges should be stored as references, not children."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+
+        engine = _find_entry(graph, "calc::CalculatorEngine")
+        assert engine is not None
+        ref_types = {r[0] for r in engine.references}
+        assert "REALIZES" in ref_types
+        assert "DEPENDS_ON" in ref_types
+        assert "DEFINED_IN" in ref_types
+        # COMPOSES should NOT be in references
+        assert "COMPOSES" not in ref_types
+
+    def test_composed_nodes_not_at_root(self):
+        """Nodes composed by another node should not appear as root entries."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+
+        # "calc::CalculatorEngine::add" is composed by CalculatorEngine, not at root
+        assert "calc::CalculatorEngine::add" not in graph.entries
+        assert "calc::CalculatorEngine::precision" not in graph.entries
+        # NamespaceNode "calc" should be a root entry
+        assert "calc" in graph.entries
+
+    def test_layers_are_composite_entries(self):
+        """Root entries should be CompositeEntry instances."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+        for entry in graph.entries.values():
+            assert isinstance(entry, CompositeEntry)
 
     def test_layer_inference_from_data(self):
         data = [
@@ -90,8 +198,7 @@ class TestFromJson:
 
     def test_empty_data(self):
         graph = LayerGraph.from_json([])
-        assert len(graph.nodes) == 0
-        assert len(graph.edges) == 0
+        assert len(graph.entries) == 0
         assert graph.layer == "design"
 
 
@@ -104,32 +211,40 @@ class TestRoundtrip:
 
         # Pure deserialization
         graph = LayerGraph.from_json(data)
-        assert len(graph.nodes) == len(data)
+        assert _count_all_entries(graph) == len(data)
 
         # Persist
         graph.to_neo4j()
 
-        # Serialize
+        # Serialize (nested format)
         serialized = graph.to_json()
-        assert len(serialized) == len(data)
+        # Root entries only — composed children are nested, not flat
+        assert len(serialized) == len(graph.entries)
 
-        # Every node serialized has the right type
-        types_in_output = {item["type"] for item in serialized}
+        # Every node type present in the nested output
+        def _collect_types(items: list[dict]) -> set[str]:
+            types = set()
+            for item in items:
+                types.add(item["type"])
+                if "composes" in item:
+                    types |= _collect_types(item["composes"])
+            return types
+
+        types_in_output = _collect_types(serialized)
         types_in_input = {item["type"] for item in data}
         assert types_in_output == types_in_input
 
         # Write/read roundtrip via JSON
         FIXTURE_DIR.mkdir(exist_ok=True)
-        out_path = FIXTURE_DIR / "graph_integration.json"
+        out_path = FIXTURE_DIR / "layer_graph_export.json"
         with open(out_path, "w") as f:
             json.dump(serialized, f, indent=2)
         with open(out_path) as f:
             loaded = json.load(f)
 
-        # Deserialize back — from_json handles both target_local_id
-        # (fixture format) and target_uid (serialized format)
+        # Deserialize back
         restored = LayerGraph.from_json(loaded)
-        assert len(restored.nodes) == len(data)
+        assert _count_all_entries(restored) == len(data)
 
     def test_edge_persistence(self):
         """All fixture edges are present after to_neo4j."""
@@ -139,13 +254,19 @@ class TestRoundtrip:
         graph = LayerGraph.from_json(data)
         graph.to_neo4j()
 
+        flat = graph._flat_index()
+
         total_fixture_edges = 0
         for node_data in data:
             key = LayerGraph._node_key(node_data)
-            saved = graph.nodes[key]
+            entry = flat.get(key)
+            assert entry is not None, f"Missing entry for key {key}"
+            saved = entry.node
             for edge in node_data.get("edges", []):
                 total_fixture_edges += 1
-                target = graph.nodes[edge["target_local_id"]]
+                target_entry = flat.get(edge["target_local_id"])
+                assert target_entry is not None, f"Missing target {edge['target_local_id']}"
+                target = target_entry.node
                 found = [
                     e for e in saved.serialize()["edges"]
                     if e["relation_type"] == edge["relation_type"]
@@ -156,7 +277,9 @@ class TestRoundtrip:
                     f"{edge['target_type']} {edge['target_local_id']}"
                 )
 
-        total_live_edges = sum(len(n.serialize()["edges"]) for n in graph.nodes.values())
+        total_live_edges = sum(
+            len(entry.node.serialize()["edges"]) for entry in graph._all_entries()
+        )
         assert total_live_edges >= total_fixture_edges
 
 
@@ -173,12 +296,14 @@ class TestFromNeo4j:
 
         # Now fetch via from_neo4j
         design = LayerGraph.from_neo4j("design")
-        assert len(design.nodes) > 0
+        assert _count_all_entries(design) > 0
         assert design.layer == "design"
 
         # Should include at least the ClassNode we created
-        class_nodes = [n for n in design.nodes.values() if isinstance(n, ClassNode)]
-        assert len(class_nodes) > 0
+        class_entries = [
+            e for e in design._all_entries() if type(e.node).__name__ == "ClassNode"
+        ]
+        assert len(class_entries) > 0
 
     def test_includes_neighbors_of_layer_nodes(self):
         """Neighbors of layer-matched nodes are included even if different layer."""
@@ -189,5 +314,154 @@ class TestFromNeo4j:
 
         design = LayerGraph.from_neo4j("design")
         # FileNodes should appear as neighbors
-        file_nodes = [n for n in design.nodes.values() if isinstance(n, FileNode)]
-        assert len(file_nodes) > 0, "FileNodes should be included as neighbors of design nodes"
+        file_entries = [
+            e for e in design._all_entries() if type(e.node).__name__ == "FileNode"
+        ]
+        assert len(file_entries) > 0, "FileNodes should be included as neighbors of design nodes"
+
+    def test_incoming_composes_nests_child_under_parent(self):
+        """from_neo4j should nest children under parents even when discovered
+        via incoming COMPOSES from the child side."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        LayerGraph.from_json(data).to_neo4j()
+
+        result = LayerGraph.from_neo4j("design")
+        # Methods should be nested under their parent ClassNode,
+        # not appear as root entries
+        add_entry = _find_entry(result, "calc::CalculatorEngine::add")
+        assert add_entry is not None
+        # The method should NOT be at the root level
+        assert "calc::CalculatorEngine::add" not in result.entries
+        # The parent class should contain the method
+        engine_entry = _find_entry(result, "calc::CalculatorEngine")
+        assert engine_entry is not None
+        assert "MethodNode" in engine_entry.children
+
+
+
+class TestToJsonNested:
+    """Tests for LayerGraph.to_json() nested output format."""
+
+    def test_no_composes_in_edges(self):
+        """COMPOSES edges should not appear in any entry's edges array."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+        graph.to_neo4j()
+        output = graph.to_json()
+
+        def _check_no_composes(items: list[dict]) -> None:
+            for item in items:
+                for edge in item.get("edges", []):
+                    assert edge["relation_type"] != "COMPOSES"
+                _check_no_composes(item.get("composes", []))
+
+        _check_no_composes(output)
+
+    def test_composes_key_present_for_parents(self):
+        """Entries that compose children should have a composes key."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+        graph.to_neo4j()
+        output = graph.to_json()
+
+        # NamespaceNode "calc" composes CalculatorEngine, CalculatorResult,
+        # ICalculator, Operation, and formatResult
+        calc_entry = next(e for e in output if e.get("name") == "calc")
+        assert "composes" in calc_entry
+        assert len(calc_entry["composes"]) == 5
+
+        # CalculatorEngine composes methods + attribute
+        engine_entry = next(
+            c for c in calc_entry["composes"] if c.get("name") == "CalculatorEngine"
+        )
+        assert "composes" in engine_entry
+
+        # FileNode has no children — no composes key
+        file_entry = next(e for e in output if e.get("type") == "FileNode")
+        assert "composes" not in file_entry
+
+    def test_composed_children_not_at_root(self):
+        """Composed children should not appear as top-level entries."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+        graph.to_neo4j()
+        output = graph.to_json()
+
+        # Composed children use qualified_name as keys in nested output;
+        # check that short names like "add" don't appear at the root level.
+        # (The serialized output uses "name" for display, not the key.)
+        root_names = {e.get("name") for e in output}
+        # Members are composed by their parent — their names shouldn't be at root
+        assert "add" not in root_names
+        assert "precision" not in root_names
+        # "calc" namespace IS at root
+        assert "calc" in root_names
+
+    def test_output_written_to_file(self):
+        """to_json output should be persistable and re-loadable."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+        graph.to_neo4j()
+        output = graph.to_json()
+
+        FIXTURE_DIR.mkdir(exist_ok=True)
+        out_path = FIXTURE_DIR / "layer_graph_export.json"
+        with open(out_path, "w") as f:
+            json.dump(output, f, indent=2)
+
+        # Verify we can roundtrip via from_json
+        with open(out_path) as f:
+            loaded = json.load(f)
+        restored = LayerGraph.from_json(loaded)
+        assert _count_all_entries(restored) == _count_all_entries(graph)
+
+
+class TestFromJsonNested:
+    """Tests for LayerGraph.from_json() with nested (composes) format."""
+
+    def test_creates_nodes_from_nested_data(self):
+        """Nested format should produce same total entry count as flat format."""
+        with open(FIXTURE) as f:
+            flat_data = json.load(f)
+        graph_flat = LayerGraph.from_json(flat_data)
+        graph_flat.to_neo4j()
+        nested_data = graph_flat.to_json()
+
+        graph_nested = LayerGraph.from_json(nested_data)
+        assert _count_all_entries(graph_nested) == _count_all_entries(graph_flat)
+
+    def test_composes_children_nested(self):
+        """COMPOSES from nested data should create nesting under parent."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+        graph.to_neo4j()
+        nested = graph.to_json()
+
+        restored = LayerGraph.from_json(nested)
+        engine = _find_entry(restored, "calc::CalculatorEngine")
+        assert engine is not None
+        assert "MethodNode" in engine.children
+        assert "AttributeNode" in engine.children
+
+    def test_references_preserved(self):
+        """Non-COMPOSES edges should be stored as references after nested parse."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+        graph.to_neo4j()
+        nested = graph.to_json()
+
+        restored = LayerGraph.from_json(nested)
+        engine = _find_entry(restored, "calc::CalculatorEngine")
+        assert engine is not None
+        ref_types = {r[0] for r in engine.references}
+        assert "REALIZES" in ref_types
+        assert "DEPENDS_ON" in ref_types
+        assert "DEFINED_IN" in ref_types
+        assert "COMPOSES" not in ref_types

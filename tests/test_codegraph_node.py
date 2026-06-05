@@ -43,14 +43,15 @@ class TestFindRelationshipManager:
     def test_raises_on_wrong_target_type(self):
         """Raises ValueError for a valid relation_type but wrong target type."""
         cls_node = ClassNode(name="WrongTarget", kind="class").save()
-        ns_node = NamespaceNode(name="wrongns", kind="namespace").save()
-        # COMPOSES exists on ClassNode but targets MethodNode/AttributeNode, not NamespaceNode
+        file_node = FileNode(name="wrongfile", path="/wrong.h").save()
+        # COMPOSES exists on ClassNode but targets MethodNode/AttributeNode/
+        # NamespaceNode, not FileNode
         with pytest.raises(ValueError, match="No 'COMPOSES' relationship"):
             CodeGraphNode.find_relationship_manager(
-                cls_node, "COMPOSES", ns_node
+                cls_node, "COMPOSES", file_node
             )
         cls_node.delete()
-        ns_node.delete()
+        file_node.delete()
 
 
 class TestFromJsonErrorPaths:
