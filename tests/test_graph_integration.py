@@ -25,6 +25,16 @@ def _count_all_entries(graph: LayerGraph) -> int:
     return sum(1 for _ in graph._all_entries())
 
 
+def _flatten_items(items: list[dict]) -> list[dict]:
+    """Flatten nested composes items into a single list."""
+    result = []
+    for item in items:
+        result.append(item)
+        if "composes" in item:
+            result.extend(_flatten_items(item["composes"]))
+    return result
+
+
 def test_graph_integration():
     with open(FIXTURE) as f:
         nodes_data = json.load(f)
@@ -39,7 +49,7 @@ def test_graph_integration():
     # Explicit persistence
     graph.to_neo4j()
 
-    # Serialize the entire graph to a single JSON file
+    # Serialize the entire graph to a single JSON file (nested format)
     FIXTURE_DIR.mkdir(exist_ok=True)
     out_path = FIXTURE_DIR / "graph_integration.json"
 
@@ -51,14 +61,18 @@ def test_graph_integration():
     with open(out_path) as f:
         loaded = json.load(f)
 
-    assert len(loaded) == len(nodes_data)
+    # Flatten the nested output for total node count comparison
+    flat_loaded = _flatten_items(loaded)
+    assert len(flat_loaded) == len(nodes_data), (
+        f"Expected {len(nodes_data)} total nodes, "
+        f"got {len(flat_loaded)} ({len(loaded)} root + nested)"
+    )
 
     flat = graph._flat_index()
 
-    # Build a key-based lookup for the serialized output (order may differ
-    # from the input fixture because to_json() walks the entry tree).
+    # Build a key-based lookup from the flattened output
     loaded_by_key: dict[str, dict] = {}
-    for item in loaded:
+    for item in flat_loaded:
         k = LayerGraph._node_key(item)
         loaded_by_key[k] = item
 

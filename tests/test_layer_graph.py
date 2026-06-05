@@ -197,18 +197,27 @@ class TestRoundtrip:
         # Persist
         graph.to_neo4j()
 
-        # Serialize
+        # Serialize (nested format)
         serialized = graph.to_json()
-        assert len(serialized) == len(data)
+        # Root entries only — composed children are nested, not flat
+        assert len(serialized) == len(graph.entries)
 
-        # Every node serialized has the right type
-        types_in_output = {item["type"] for item in serialized}
+        # Every node type present in the nested output
+        def _collect_types(items: list[dict]) -> set[str]:
+            types = set()
+            for item in items:
+                types.add(item["type"])
+                if "composes" in item:
+                    types |= _collect_types(item["composes"])
+            return types
+
+        types_in_output = _collect_types(serialized)
         types_in_input = {item["type"] for item in data}
         assert types_in_output == types_in_input
 
         # Write/read roundtrip via JSON
         FIXTURE_DIR.mkdir(exist_ok=True)
-        out_path = FIXTURE_DIR / "graph_integration.json"
+        out_path = FIXTURE_DIR / "layer_graph_export.json"
         with open(out_path, "w") as f:
             json.dump(serialized, f, indent=2)
         with open(out_path) as f:
@@ -290,3 +299,127 @@ class TestFromNeo4j:
             e for e in design._all_entries() if type(e.node).__name__ == "FileNode"
         ]
         assert len(file_entries) > 0, "FileNodes should be included as neighbors of design nodes"
+
+
+class TestToJsonNested:
+    """Tests for LayerGraph.to_json() nested output format."""
+
+    def test_no_composes_in_edges(self):
+        """COMPOSES edges should not appear in any entry's edges array."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+        graph.to_neo4j()
+        output = graph.to_json()
+
+        def _check_no_composes(items: list[dict]) -> None:
+            for item in items:
+                for edge in item.get("edges", []):
+                    assert edge["relation_type"] != "COMPOSES"
+                _check_no_composes(item.get("composes", []))
+
+        _check_no_composes(output)
+
+    def test_composes_key_present_for_parents(self):
+        """Entries that compose children should have a composes key."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+        graph.to_neo4j()
+        output = graph.to_json()
+
+        # NamespaceNode "calc" composes CalculatorEngine, CalculatorResult
+        calc_entry = next(e for e in output if e.get("name") == "calc")
+        assert "composes" in calc_entry
+        assert len(calc_entry["composes"]) == 2
+
+        # CalculatorEngine composes methods + attribute
+        engine_entry = next(
+            c for c in calc_entry["composes"] if c.get("name") == "CalculatorEngine"
+        )
+        assert "composes" in engine_entry
+
+        # FileNode has no children — no composes key
+        file_entry = next(e for e in output if e.get("type") == "FileNode")
+        assert "composes" not in file_entry
+
+    def test_composed_children_not_at_root(self):
+        """Composed children should not appear as top-level entries."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+        graph.to_neo4j()
+        output = graph.to_json()
+
+        root_names = {e.get("name") for e in output}
+        # "add" is composed by CalculatorEngine — not at root
+        assert "add" not in root_names
+        # "precision" is composed by CalculatorEngine — not at root
+        assert "precision" not in root_names
+        # "calc" namespace IS at root
+        assert "calc" in root_names
+
+    def test_output_written_to_file(self):
+        """to_json output should be persistable and re-loadable."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+        graph.to_neo4j()
+        output = graph.to_json()
+
+        FIXTURE_DIR.mkdir(exist_ok=True)
+        out_path = FIXTURE_DIR / "layer_graph_export.json"
+        with open(out_path, "w") as f:
+            json.dump(output, f, indent=2)
+
+        # Verify we can roundtrip via from_json
+        with open(out_path) as f:
+            loaded = json.load(f)
+        restored = LayerGraph.from_json(loaded)
+        assert _count_all_entries(restored) == _count_all_entries(graph)
+
+
+class TestFromJsonNested:
+    """Tests for LayerGraph.from_json() with nested (composes) format."""
+
+    def test_creates_nodes_from_nested_data(self):
+        """Nested format should produce same total entry count as flat format."""
+        with open(FIXTURE) as f:
+            flat_data = json.load(f)
+        graph_flat = LayerGraph.from_json(flat_data)
+        graph_flat.to_neo4j()
+        nested_data = graph_flat.to_json()
+
+        graph_nested = LayerGraph.from_json(nested_data)
+        assert _count_all_entries(graph_nested) == _count_all_entries(graph_flat)
+
+    def test_composes_children_nested(self):
+        """COMPOSES from nested data should create nesting under parent."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+        graph.to_neo4j()
+        nested = graph.to_json()
+
+        restored = LayerGraph.from_json(nested)
+        engine = _find_entry(restored, "CalculatorEngine")
+        assert engine is not None
+        assert "MethodNode" in engine.children
+        assert "AttributeNode" in engine.children
+
+    def test_references_preserved(self):
+        """Non-COMPOSES edges should be stored as references after nested parse."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+        graph.to_neo4j()
+        nested = graph.to_json()
+
+        restored = LayerGraph.from_json(nested)
+        engine = _find_entry(restored, "CalculatorEngine")
+        assert engine is not None
+        ref_types = {r[0] for r in engine.references}
+        assert "REALIZES" in ref_types
+        assert "DEPENDS_ON" in ref_types
+        assert "DEFINED_IN" in ref_types
+        assert "COMPOSES" not in ref_types
