@@ -136,6 +136,16 @@ class TestGetByNamespace:
         assert isinstance(result, LayerGraph)
         assert len(result.entries) == 0
 
+    def test_includes_non_class_composed_entities(self, repo, seeded_graph):
+        """Namespace should include interfaces, enums, and functions composed by it."""
+        result = repo.get_by_namespace("calc")
+        node_types = {type(n).__name__ for n in _all_nodes(result)}
+        # The calc namespace composes classes, interface, enum, and function
+        assert "ClassNode" in node_types
+        assert "InterfaceNode" in node_types
+        assert "EnumNode" in node_types
+        assert "FunctionNode" in node_types
+
 
 # ── get_by_compound ──────────────────────────────────────────────────────────
 

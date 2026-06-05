@@ -347,10 +347,11 @@ class TestToJsonNested:
         graph.to_neo4j()
         output = graph.to_json()
 
-        # NamespaceNode "calc" composes CalculatorEngine, CalculatorResult
+        # NamespaceNode "calc" composes CalculatorEngine, CalculatorResult,
+        # ICalculator, Operation, and formatResult
         calc_entry = next(e for e in output if e.get("name") == "calc")
         assert "composes" in calc_entry
-        assert len(calc_entry["composes"]) == 2
+        assert len(calc_entry["composes"]) == 5
 
         # CalculatorEngine composes methods + attribute
         engine_entry = next(

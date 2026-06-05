@@ -70,6 +70,21 @@
                 "relation_type": "COMPOSES",
                 "target_type": "ClassNode",
                 "target_local_id": "calc::CalculatorResult"
+            },
+            {
+                "relation_type": "COMPOSES",
+                "target_type": "InterfaceNode",
+                "target_local_id": "calc::ICalculator"
+            },
+            {
+                "relation_type": "COMPOSES",
+                "target_type": "EnumNode",
+                "target_local_id": "calc::Operation"
+            },
+            {
+                "relation_type": "COMPOSES",
+                "target_type": "FunctionNode",
+                "target_local_id": "calc::formatResult"
             }
         ]
     },
@@ -241,6 +256,24 @@
         "brief_description": "Represents subtraction.",
         "source": "calculator",
         "edges": []
+    },
+    {
+        "type": "FunctionNode",
+        "name": "formatResult",
+        "qualified_name": "calc::formatResult",
+        "kind": "function",
+        "type_signature": "string",
+        "argsstring": "(double value)",
+        "visibility": "public",
+        "brief_description": "Formats a numeric result as a string.",
+        "source": "calculator",
+        "edges": [
+            {
+                "relation_type": "DEFINED_IN",
+                "target_type": "FileNode",
+                "target_local_id": "file-calc-engine"
+            }
+        ]
     },
     {
         "type": "ClassNode",

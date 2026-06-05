@@ -178,7 +178,11 @@ class GraphRepository:
         return self._build_layer_graph(seeds)
 
     def get_by_namespace(self, qualified_name: str) -> LayerGraph:
-        """Fetch a namespace, its compounds, and their 1-hop neighbors.
+        """Fetch a namespace, its composed entities, and their 1-hop neighbors.
+
+        Retrieves a namespace and all entities it composes (classes, interfaces,
+        enums, unions, modules, functions, and sub-namespaces), plus their
+        1-hop neighbors.
 
         Args:
             qualified_name: The namespace's fully-qualified name.
@@ -190,7 +194,16 @@ class GraphRepository:
         ns = NamespaceNode.nodes.get_or_none(qualified_name=qualified_name)
         if ns is None:
             return LayerGraph(layer="design")
-        seeds = [ns] + list(ns.compounds.all())
+        seeds = (
+            [ns]
+            + list(ns.classes.all())
+            + list(ns.interfaces.all())
+            + list(ns.enums.all())
+            + list(ns.unions.all())
+            + list(ns.modules.all())
+            + list(ns.functions.all())
+            + list(ns.namespaces.all())
+        )
         return self._build_layer_graph(seeds)
 
     def get_by_compound(self, qualified_name: str) -> LayerGraph:
