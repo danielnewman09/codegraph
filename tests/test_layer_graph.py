@@ -34,27 +34,46 @@ def _find_entry(graph: LayerGraph, key: str) -> CompositeEntry | None:
 class TestNodeKey:
     """Tests for LayerGraph._node_key()."""
 
-    def test_file_node_dict_uses_path(self):
-        result = LayerGraph._node_key({"type": "FileNode", "path": "/src/main.h", "name": "main.h"})
-        assert result == "/src/main.h"
+    def test_file_node_dict_uses_refid(self):
+        result = LayerGraph._node_key({"type": "FileNode", "refid": "file-main", "path": "/src/main.h", "name": "main.h"})
+        assert result == "file-main"
 
-    def test_class_node_dict_uses_name(self):
+    def test_file_node_dict_falls_back_to_name_without_refid(self):
+        result = LayerGraph._node_key({"type": "FileNode", "path": "/src/main.h", "name": "main.h"})
+        assert result == "main.h"
+
+    def test_class_node_dict_uses_qualified_name(self):
+        result = LayerGraph._node_key({"type": "ClassNode", "qualified_name": "ns::Widget", "name": "Widget"})
+        assert result == "ns::Widget"
+
+    def test_class_node_dict_falls_back_to_name_without_qualified_name(self):
         result = LayerGraph._node_key({"type": "ClassNode", "name": "Widget"})
         assert result == "Widget"
 
-    def test_method_node_dict_uses_name(self):
-        result = LayerGraph._node_key({"type": "MethodNode", "name": "draw"})
-        assert result == "draw"
+    def test_method_node_dict_uses_qualified_name(self):
+        result = LayerGraph._node_key({"type": "MethodNode", "qualified_name": "ns::Widget::draw", "name": "draw"})
+        assert result == "ns::Widget::draw"
 
-    def test_file_node_instance_uses_path(self):
-        node = FileNode(name="test.h", path="/src/test.h")
-        result = LayerGraph._node_key(node)
-        assert result == "/src/test.h"
+    def test_namespace_node_dict_uses_qualified_name(self):
+        result = LayerGraph._node_key({"type": "NamespaceNode", "qualified_name": "calc", "name": "calc"})
+        assert result == "calc"
 
-    def test_class_node_instance_uses_name(self):
-        node = ClassNode(name="Widget", kind="class")
+    def test_file_node_instance_uses_refid(self):
+        node = FileNode(name="test.h", path="/src/test.h", refid="file-test-h")
         result = LayerGraph._node_key(node)
-        assert result == "Widget"
+        assert result == "file-test-h"
+
+    def test_class_node_instance_uses_qualified_name(self):
+        node = ClassNode(name="Widget", kind="class", qualified_name="ns::Widget")
+        result = LayerGraph._node_key(node)
+        assert result == "ns::Widget"
+
+    def test_parameter_node_falls_back_to_name(self):
+        """ParameterNode has no UniqueIdProperty, so _node_key falls back to name."""
+        from codegraph.models.parameter import ParameterNode
+        node = ParameterNode(name="argc", position=0, type="int")
+        result = LayerGraph._node_key(node)
+        assert result == "argc"
 
 
 class TestLayerValidation:
@@ -97,19 +116,19 @@ class TestFromJson:
             data = json.load(f)
         graph = LayerGraph.from_json(data)
         # Spot-check some nodes by finding them in the tree
-        engine = _find_entry(graph, "CalculatorEngine")
+        engine = _find_entry(graph, "calc::CalculatorEngine")
         assert engine is not None
         assert type(engine.node).__name__ == "ClassNode"
 
-        file_entry = _find_entry(graph, "/src/calc/calculator_engine.h")
+        file_entry = _find_entry(graph, "file-calc-engine")
         assert file_entry is not None
         assert type(file_entry.node).__name__ == "FileNode"
 
-        icalc = _find_entry(graph, "ICalculator")
+        icalc = _find_entry(graph, "calc::ICalculator")
         assert icalc is not None
         assert type(icalc.node).__name__ == "InterfaceNode"
 
-        add_entry = _find_entry(graph, "add")
+        add_entry = _find_entry(graph, "calc::CalculatorEngine::add")
         assert add_entry is not None
         assert type(add_entry.node).__name__ == "MethodNode"
 
@@ -119,14 +138,14 @@ class TestFromJson:
             data = json.load(f)
         graph = LayerGraph.from_json(data)
 
-        engine = _find_entry(graph, "CalculatorEngine")
+        engine = _find_entry(graph, "calc::CalculatorEngine")
         assert engine is not None
         # CalculatorEngine COMPOSES MethodNode (add, validateInput)
         assert "MethodNode" in engine.children
-        assert "add" in engine.children["MethodNode"]
+        assert "calc::CalculatorEngine::add" in engine.children["MethodNode"]
         # CalculatorEngine COMPOSES AttributeNode (precision)
         assert "AttributeNode" in engine.children
-        assert "precision" in engine.children["AttributeNode"]
+        assert "calc::CalculatorEngine::precision" in engine.children["AttributeNode"]
 
     def test_non_composes_edges_as_references(self):
         """Non-COMPOSES edges should be stored as references, not children."""
@@ -134,7 +153,7 @@ class TestFromJson:
             data = json.load(f)
         graph = LayerGraph.from_json(data)
 
-        engine = _find_entry(graph, "CalculatorEngine")
+        engine = _find_entry(graph, "calc::CalculatorEngine")
         assert engine is not None
         ref_types = {r[0] for r in engine.references}
         assert "REALIZES" in ref_types
@@ -149,9 +168,9 @@ class TestFromJson:
             data = json.load(f)
         graph = LayerGraph.from_json(data)
 
-        # "add" is composed by CalculatorEngine, so it should not be a root entry
-        assert "add" not in graph.entries
-        assert "precision" not in graph.entries
+        # "calc::CalculatorEngine::add" is composed by CalculatorEngine, not at root
+        assert "calc::CalculatorEngine::add" not in graph.entries
+        assert "calc::CalculatorEngine::precision" not in graph.entries
         # NamespaceNode "calc" should be a root entry
         assert "calc" in graph.entries
 
@@ -351,10 +370,12 @@ class TestToJsonNested:
         graph.to_neo4j()
         output = graph.to_json()
 
+        # Composed children use qualified_name as keys in nested output;
+        # check that short names like "add" don't appear at the root level.
+        # (The serialized output uses "name" for display, not the key.)
         root_names = {e.get("name") for e in output}
-        # "add" is composed by CalculatorEngine — not at root
+        # Members are composed by their parent — their names shouldn't be at root
         assert "add" not in root_names
-        # "precision" is composed by CalculatorEngine — not at root
         assert "precision" not in root_names
         # "calc" namespace IS at root
         assert "calc" in root_names
@@ -402,7 +423,7 @@ class TestFromJsonNested:
         nested = graph.to_json()
 
         restored = LayerGraph.from_json(nested)
-        engine = _find_entry(restored, "CalculatorEngine")
+        engine = _find_entry(restored, "calc::CalculatorEngine")
         assert engine is not None
         assert "MethodNode" in engine.children
         assert "AttributeNode" in engine.children
@@ -416,7 +437,7 @@ class TestFromJsonNested:
         nested = graph.to_json()
 
         restored = LayerGraph.from_json(nested)
-        engine = _find_entry(restored, "CalculatorEngine")
+        engine = _find_entry(restored, "calc::CalculatorEngine")
         assert engine is not None
         ref_types = {r[0] for r in engine.references}
         assert "REALIZES" in ref_types

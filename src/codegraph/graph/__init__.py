@@ -71,24 +71,37 @@ class LayerGraph:
     def _node_key(obj) -> str:
         """Derive a stable local key from a node instance or raw dict.
 
-        For dicts (raw JSON data), uses ``type`` and ``path``/``name``.
-        For CodeGraphNode instances, uses ``path`` for FileNode, ``name``
-        otherwise.
+        Uses the node's UniqueIdProperty value (``qualified_name`` for
+        compounds/members/namespaces, ``refid`` for FileNode) as the key,
+        falling back to ``name`` for node types that lack a UniqueIdProperty
+        (e.g. ParameterNode) or for dicts that omit the uid field.
+
+        For dicts (raw JSON data), the uid property name is resolved via
+        the type registry so that the correct field is consulted regardless
+        of node type.
+
+        For CodeGraphNode instances, delegates to ``_uid_value()`` which
+        returns the value of the node's UniqueIdProperty.
 
         Args:
-            obj: A CodeGraphNode instance or a raw dict with ``type``,
-                ``name``, and/or ``path`` keys.
+            obj: A CodeGraphNode instance or a raw dict with ``type``
+                and node property keys.
 
         Returns:
             The stable local key string for the node.
         """
         if isinstance(obj, dict):
-            if obj.get("type") == "FileNode":
-                return obj["path"]
-            return obj["name"]
-        # CodeGraphNode instance
-        if obj.__class__.__name__ == "FileNode":
-            return obj.path
+            type_name = obj.get("type")
+            if type_name and type_name in CodeGraphNode._registry:
+                uid_prop = CodeGraphNode._registry[type_name]._uid_prop()
+                if uid_prop and uid_prop in obj:
+                    return obj[uid_prop]
+            return obj.get("name", "")
+        # CodeGraphNode instance — use the UniqueIdProperty value
+        uid = obj._uid_value()
+        if uid is not None:
+            return uid
+        # Fallback for types without UniqueIdProperty (e.g. ParameterNode)
         return obj.name
 
     @staticmethod

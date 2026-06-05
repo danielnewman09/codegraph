@@ -1,137 +1,137 @@
 [
   {
+    "source": "calculator",
     "name": "calculator_engine.h",
     "path": "/src/calc/calculator_engine.h",
-    "source": "calculator",
     "type": "FileNode",
     "edges": [],
-    "refid": "d0a9338bb58249e68919a79293c66703"
+    "refid": "file-calc-engine"
   },
   {
+    "source": "calculator",
     "name": "icalculator.h",
     "path": "/src/calc/icalculator.h",
-    "source": "calculator",
     "type": "FileNode",
     "edges": [],
-    "refid": "e4f6d4ebd3224d9b9d2a6deef3a5b1c1"
+    "refid": "file-icalc"
   },
   {
+    "source": "calculator",
     "name": "operation.h",
     "path": "/src/calc/operation.h",
-    "source": "calculator",
     "type": "FileNode",
     "edges": [],
-    "refid": "051d831f89414c8f837ccbe387331eff"
+    "refid": "file-operation"
   },
   {
+    "source": "calculator",
     "name": "calculator_result.h",
     "path": "/src/calc/calculator_result.h",
-    "source": "calculator",
     "type": "FileNode",
     "edges": [],
-    "refid": "3806ae65eb414b2eaf25fc6b0cbeace0"
+    "refid": "file-calc-result"
   },
   {
+    "source": "calculator",
     "name": "base_window.h",
     "path": "/src/ui/base_window.h",
-    "source": "calculator",
     "type": "FileNode",
     "edges": [],
-    "refid": "55b07aa6630a4f259920987c8eb49d06"
+    "refid": "file-base-window"
   },
   {
+    "source": "calculator",
     "name": "calculator_window.h",
     "path": "/src/ui/calculator_window.h",
-    "source": "calculator",
     "type": "FileNode",
     "edges": [],
-    "refid": "be4dfc4b50a3423781bb484114c758eb"
+    "refid": "file-calc-window"
   },
   {
-    "kind": "namespace",
     "name": "calc",
-    "qualified_name": "516bd72598b44efda1d16a0d4a80c98d",
+    "qualified_name": "calc",
     "description": "Calculation engine module",
+    "kind": "namespace",
     "type": "NamespaceNode",
     "edges": [],
     "composes": [
       {
+        "visibility": "public",
+        "qualified_name": "calc::CalculatorEngine",
+        "base_classes": [],
         "brief_description": "The core calculator engine class that performs arithmetic operations.",
         "name": "CalculatorEngine",
-        "qualified_name": "8432f6edb6ee4300bbe1523bfd5d9341",
         "kind": "class",
-        "visibility": "public",
-        "base_classes": [],
         "type": "ClassNode",
         "edges": [
           {
             "relation_type": "DEPENDS_ON",
-            "target_uid": "779c89f610164d3286d9a9bb2641bf22",
+            "target_uid": "calc::CalculatorResult",
             "target_type": "ClassNode"
           },
           {
             "relation_type": "DEPENDS_ON",
-            "target_uid": "afb963e494254ecf80b9c9bf27d7c26d",
+            "target_uid": "ui::CalculatorWindow",
             "target_type": "ClassNode"
           },
           {
             "relation_type": "REALIZES",
-            "target_uid": "6dfd4e34a0be493cb2a8bf9a28d499ff",
+            "target_uid": "calc::ICalculator",
             "target_type": "InterfaceNode"
           },
           {
             "relation_type": "DEFINED_IN",
-            "target_uid": "d0a9338bb58249e68919a79293c66703",
+            "target_uid": "file-calc-engine",
             "target_type": "FileNode"
           }
         ],
         "composes": [
           {
+            "visibility": "public",
+            "qualified_name": "calc::CalculatorEngine::add",
+            "argsstring": "(double a, double b)",
             "brief_description": "Calculates the sum of two valid numeric operands.",
             "name": "add",
-            "qualified_name": "8314941410d244238846240dbae344fc",
             "kind": "method",
             "type_signature": "CalculatorResult",
-            "visibility": "public",
-            "argsstring": "(double a, double b)",
             "type": "MethodNode",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "d0a9338bb58249e68919a79293c66703",
+                "target_uid": "file-calc-engine",
                 "target_type": "FileNode"
               }
             ]
           },
           {
+            "visibility": "public",
+            "qualified_name": "calc::CalculatorEngine::validateInput",
+            "argsstring": "(string input)",
             "brief_description": "Validates that the inputs are valid numbers.",
             "name": "validateInput",
-            "qualified_name": "f7769ad45d76489c952e55aeb3b35617",
             "kind": "method",
             "type_signature": "bool",
-            "visibility": "public",
-            "argsstring": "(string input)",
             "type": "MethodNode",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "d0a9338bb58249e68919a79293c66703",
+                "target_uid": "file-calc-engine",
                 "target_type": "FileNode"
               }
             ]
           },
           {
+            "visibility": "public",
+            "qualified_name": "calc::CalculatorEngine::precision",
             "brief_description": "The number of decimal places for result precision.",
             "name": "precision",
-            "qualified_name": "60d1a7cd01df4243b272dc53ce3fe47e",
             "kind": "attribute",
             "type_signature": "int",
-            "visibility": "public",
             "type": "AttributeNode",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "d0a9338bb58249e68919a79293c66703",
+                "target_uid": "file-calc-engine",
                 "target_type": "FileNode"
               }
             ]
@@ -139,55 +139,55 @@
         ]
       },
       {
+        "visibility": "public",
+        "qualified_name": "calc::CalculatorResult",
+        "base_classes": [],
         "brief_description": "A result wrapper class that holds the outcome of a calculator operation.",
         "name": "CalculatorResult",
-        "qualified_name": "779c89f610164d3286d9a9bb2641bf22",
         "kind": "class",
-        "visibility": "public",
-        "base_classes": [],
         "type": "ClassNode",
         "edges": [
           {
             "relation_type": "DEPENDS_ON",
-            "target_uid": "8432f6edb6ee4300bbe1523bfd5d9341",
+            "target_uid": "calc::CalculatorEngine",
             "target_type": "ClassNode"
           },
           {
             "relation_type": "DEFINED_IN",
-            "target_uid": "3806ae65eb414b2eaf25fc6b0cbeace0",
+            "target_uid": "file-calc-result",
             "target_type": "FileNode"
           }
         ],
         "composes": [
           {
+            "visibility": "public",
+            "qualified_name": "calc::CalculatorResult::value",
             "brief_description": "The computed numeric result.",
             "name": "value",
-            "qualified_name": "861f7717c96949f899dd10b351499016",
             "kind": "attribute",
             "type_signature": "double",
-            "visibility": "public",
             "type": "AttributeNode",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "3806ae65eb414b2eaf25fc6b0cbeace0",
+                "target_uid": "file-calc-result",
                 "target_type": "FileNode"
               }
             ]
           },
           {
+            "visibility": "public",
+            "qualified_name": "calc::CalculatorResult::get_value",
+            "argsstring": "",
             "brief_description": "Returns the computed value.",
             "name": "get_value",
-            "qualified_name": "d1b5c917d5a64216988b1f74e1218d8b",
             "kind": "method",
             "type_signature": "double",
-            "visibility": "public",
-            "argsstring": "",
             "type": "MethodNode",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "3806ae65eb414b2eaf25fc6b0cbeace0",
+                "target_uid": "file-calc-result",
                 "target_type": "FileNode"
               }
             ]
@@ -197,47 +197,47 @@
     ]
   },
   {
-    "kind": "namespace",
     "name": "ui",
-    "qualified_name": "116e29071e244fa9b65cb4ed44fddb4c",
+    "qualified_name": "ui",
     "description": "User interface module",
+    "kind": "namespace",
     "type": "NamespaceNode",
     "edges": [],
     "composes": [
       {
+        "visibility": "public",
+        "qualified_name": "ui::BaseWindow",
+        "base_classes": [],
         "brief_description": "Abstract base window class providing common window operations.",
         "name": "BaseWindow",
-        "qualified_name": "b73c116b2b0144308ed3b32917fa0a7a",
         "kind": "class",
-        "visibility": "public",
-        "base_classes": [],
         "type": "ClassNode",
         "edges": [
           {
             "relation_type": "INHERITS_FROM",
-            "target_uid": "afb963e494254ecf80b9c9bf27d7c26d",
+            "target_uid": "ui::CalculatorWindow",
             "target_type": "ClassNode"
           },
           {
             "relation_type": "DEFINED_IN",
-            "target_uid": "55b07aa6630a4f259920987c8eb49d06",
+            "target_uid": "file-base-window",
             "target_type": "FileNode"
           }
         ],
         "composes": [
           {
+            "visibility": "public",
+            "qualified_name": "ui::BaseWindow::show",
+            "argsstring": "",
             "brief_description": "Shows the window on screen.",
             "name": "show",
-            "qualified_name": "ed25123b6c074f32abf3fc2a5188a399",
             "kind": "method",
             "type_signature": "void",
-            "visibility": "public",
-            "argsstring": "",
             "type": "MethodNode",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "55b07aa6630a4f259920987c8eb49d06",
+                "target_uid": "file-base-window",
                 "target_type": "FileNode"
               }
             ]
@@ -245,76 +245,76 @@
         ]
       },
       {
+        "visibility": "public",
+        "qualified_name": "ui::CalculatorWindow",
+        "base_classes": [],
         "brief_description": "The main application window for the calculator.",
         "name": "CalculatorWindow",
-        "qualified_name": "afb963e494254ecf80b9c9bf27d7c26d",
         "kind": "class",
-        "visibility": "public",
-        "base_classes": [],
         "type": "ClassNode",
         "edges": [
           {
             "relation_type": "INHERITS_FROM",
-            "target_uid": "b73c116b2b0144308ed3b32917fa0a7a",
+            "target_uid": "ui::BaseWindow",
             "target_type": "ClassNode"
           },
           {
             "relation_type": "DEPENDS_ON",
-            "target_uid": "8432f6edb6ee4300bbe1523bfd5d9341",
+            "target_uid": "calc::CalculatorEngine",
             "target_type": "ClassNode"
           },
           {
             "relation_type": "DEFINED_IN",
-            "target_uid": "be4dfc4b50a3423781bb484114c758eb",
+            "target_uid": "file-calc-window",
             "target_type": "FileNode"
           }
         ],
         "composes": [
           {
+            "visibility": "private",
+            "qualified_name": "ui::CalculatorWindow::display",
             "brief_description": "The numeric display area showing input and results.",
             "name": "display",
-            "qualified_name": "699c5383b44c4b8cb767c1b1e34137f2",
             "kind": "attribute",
             "type_signature": "string",
-            "visibility": "private",
             "type": "AttributeNode",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "be4dfc4b50a3423781bb484114c758eb",
+                "target_uid": "file-calc-window",
                 "target_type": "FileNode"
               }
             ]
           },
           {
+            "visibility": "private",
+            "qualified_name": "ui::CalculatorWindow::currentInput",
             "brief_description": "The current input string being built by the user.",
             "name": "currentInput",
-            "qualified_name": "9944b74c207c471c88795211812a5b1f",
             "kind": "attribute",
             "type_signature": "string",
-            "visibility": "private",
             "type": "AttributeNode",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "be4dfc4b50a3423781bb484114c758eb",
+                "target_uid": "file-calc-window",
                 "target_type": "FileNode"
               }
             ]
           },
           {
+            "visibility": "private",
+            "qualified_name": "ui::CalculatorWindow::handleEquals",
+            "argsstring": "",
             "brief_description": "Callback for the equals button. Triggers calculation and displays the result.",
             "name": "handleEquals",
-            "qualified_name": "a7cb571858e64e02a1366418ac60201e",
             "kind": "method",
             "type_signature": "void",
-            "visibility": "private",
-            "argsstring": "",
             "type": "MethodNode",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "be4dfc4b50a3423781bb484114c758eb",
+                "target_uid": "file-calc-window",
                 "target_type": "FileNode"
               }
             ]
@@ -324,33 +324,33 @@
     ]
   },
   {
+    "visibility": "public",
+    "qualified_name": "calc::ICalculator",
     "brief_description": "Calculator interface contract defining the core calculation operation.",
     "name": "ICalculator",
-    "qualified_name": "6dfd4e34a0be493cb2a8bf9a28d499ff",
     "kind": "interface",
-    "visibility": "public",
     "type": "InterfaceNode",
     "edges": [
       {
         "relation_type": "DEFINED_IN",
-        "target_uid": "e4f6d4ebd3224d9b9d2a6deef3a5b1c1",
+        "target_uid": "file-icalc",
         "target_type": "FileNode"
       }
     ],
     "composes": [
       {
+        "visibility": "public",
+        "qualified_name": "calc::ICalculator::calculate",
+        "argsstring": "(Operation op, double a, double b)",
         "brief_description": "Perform a calculation with the given operation and operands.",
         "name": "calculate",
-        "qualified_name": "488bee15ffd64a898814c1fbf9c2158d",
         "kind": "method",
         "type_signature": "CalculatorResult",
-        "visibility": "public",
-        "argsstring": "(Operation op, double a, double b)",
         "type": "MethodNode",
         "edges": [
           {
             "relation_type": "DEFINED_IN",
-            "target_uid": "e4f6d4ebd3224d9b9d2a6deef3a5b1c1",
+            "target_uid": "file-icalc",
             "target_type": "FileNode"
           }
         ]
@@ -358,35 +358,35 @@
     ]
   },
   {
+    "visibility": "public",
+    "qualified_name": "calc::Operation",
     "brief_description": "An enumeration of supported arithmetic operations.",
     "name": "Operation",
-    "qualified_name": "6d1006cbe6fb4fa6801292aed13bb569",
     "kind": "enum",
-    "visibility": "public",
     "type": "EnumNode",
     "edges": [
       {
         "relation_type": "DEFINED_IN",
-        "target_uid": "051d831f89414c8f837ccbe387331eff",
+        "target_uid": "file-operation",
         "target_type": "FileNode"
       }
     ],
     "composes": [
       {
+        "visibility": "public",
+        "qualified_name": "calc::Operation::ADD",
         "brief_description": "Represents addition.",
         "name": "ADD",
-        "qualified_name": "d83aa879e0bf46cf80c13936a99e6361",
         "kind": "enumvalue",
-        "visibility": "public",
         "type": "EnumValueNode",
         "edges": []
       },
       {
+        "visibility": "public",
+        "qualified_name": "calc::Operation::SUBTRACT",
         "brief_description": "Represents subtraction.",
         "name": "SUBTRACT",
-        "qualified_name": "70cf1fbcb6b848bcb95002e7c714345c",
         "kind": "enumvalue",
-        "visibility": "public",
         "type": "EnumValueNode",
         "edges": []
       }
