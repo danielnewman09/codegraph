@@ -99,19 +99,19 @@ class TestFromJson:
         # Spot-check some nodes by finding them in the tree
         engine = _find_entry(graph, "CalculatorEngine")
         assert engine is not None
-        assert isinstance(engine.node, ClassNode)
+        assert type(engine.node).__name__ == "ClassNode"
 
         file_entry = _find_entry(graph, "/src/calc/calculator_engine.h")
         assert file_entry is not None
-        assert isinstance(file_entry.node, FileNode)
+        assert type(file_entry.node).__name__ == "FileNode"
 
         icalc = _find_entry(graph, "ICalculator")
         assert icalc is not None
-        assert isinstance(icalc.node, InterfaceNode)
+        assert type(icalc.node).__name__ == "InterfaceNode"
 
         add_entry = _find_entry(graph, "add")
         assert add_entry is not None
-        assert isinstance(add_entry.node, MethodNode)
+        assert type(add_entry.node).__name__ == "MethodNode"
 
     def test_composes_children_nested(self):
         """COMPOSES edges should create nesting under the parent entry."""
@@ -273,7 +273,7 @@ class TestFromNeo4j:
 
         # Should include at least the ClassNode we created
         class_entries = [
-            e for e in design._all_entries() if isinstance(e.node, ClassNode)
+            e for e in design._all_entries() if type(e.node).__name__ == "ClassNode"
         ]
         assert len(class_entries) > 0
 
@@ -287,6 +287,6 @@ class TestFromNeo4j:
         design = LayerGraph.from_neo4j("design")
         # FileNodes should appear as neighbors
         file_entries = [
-            e for e in design._all_entries() if isinstance(e.node, FileNode)
+            e for e in design._all_entries() if type(e.node).__name__ == "FileNode"
         ]
         assert len(file_entries) > 0, "FileNodes should be included as neighbors of design nodes"

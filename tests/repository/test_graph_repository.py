@@ -26,6 +26,18 @@ def _all_nodes(graph: LayerGraph):
         yield entry.node
 
 
+def _nodes_of_type(graph: LayerGraph, type_name: str):
+    """Yield all nodes of a given type name from the entry tree.
+
+    Uses ``type().__name__`` instead of ``isinstance`` to avoid
+    false positives caused by neomodel's ABCMeta/NodeMeta metaclass
+    interaction after ``save()`` / ``connect()``.
+    """
+    for node in _all_nodes(graph):
+        if type(node).__name__ == type_name:
+            yield node
+
+
 def _find_entry(graph: LayerGraph, key: str) -> CompositeEntry | None:
     """Find a CompositeEntry by node key across the entire tree."""
     for entry in graph._all_entries():
@@ -59,7 +71,7 @@ class TestGetByLayer:
 
     def test_includes_design_nodes(self, repo, seeded_graph):
         result = repo.get_by_layer("design")
-        class_nodes = [n for n in _all_nodes(result) if isinstance(n, ClassNode)]
+        class_nodes = list(_nodes_of_type(result, "ClassNode"))
         assert len(class_nodes) > 0
 
     def test_includes_neighbors(self, repo, seeded_graph):
@@ -104,8 +116,7 @@ class TestGetBySource:
 class TestGetByNamespace:
     def test_returns_layer_graph(self, repo, seeded_graph):
         # Find the actual qualified_name of a namespace in the seed graph
-        ns_nodes = [n for n in _all_nodes(seeded_graph)
-                     if isinstance(n, NamespaceNode)]
+        ns_nodes = list(_nodes_of_type(seeded_graph, "NamespaceNode"))
         assert len(ns_nodes) > 0, "Seed graph must have at least one namespace"
         qname = ns_nodes[0].qualified_name
 
@@ -113,13 +124,11 @@ class TestGetByNamespace:
         assert isinstance(result, LayerGraph)
 
     def test_includes_namespace_and_compounds(self, repo, seeded_graph):
-        ns_nodes = [n for n in _all_nodes(seeded_graph)
-                     if isinstance(n, NamespaceNode)]
+        ns_nodes = list(_nodes_of_type(seeded_graph, "NamespaceNode"))
         qname = ns_nodes[0].qualified_name
 
         result = repo.get_by_namespace(qname)
-        ns_in_result = [n for n in _all_nodes(result)
-                        if isinstance(n, NamespaceNode)]
+        ns_in_result = list(_nodes_of_type(result, "NamespaceNode"))
         assert len(ns_in_result) > 0
 
     def test_missing_namespace_returns_empty(self, repo, seeded_graph):
@@ -133,21 +142,18 @@ class TestGetByNamespace:
 
 class TestGetByCompound:
     def test_returns_layer_graph(self, repo, seeded_graph):
-        class_nodes = [n for n in _all_nodes(seeded_graph)
-                       if isinstance(n, ClassNode)]
+        class_nodes = list(_nodes_of_type(seeded_graph, "ClassNode"))
         qname = class_nodes[0].qualified_name
 
         result = repo.get_by_compound(qname)
         assert isinstance(result, LayerGraph)
 
     def test_includes_compound(self, repo, seeded_graph):
-        class_nodes = [n for n in _all_nodes(seeded_graph)
-                       if isinstance(n, ClassNode)]
+        class_nodes = list(_nodes_of_type(seeded_graph, "ClassNode"))
         qname = class_nodes[0].qualified_name
 
         result = repo.get_by_compound(qname)
-        compounds = [n for n in _all_nodes(result)
-                     if isinstance(n, ClassNode)]
+        compounds = list(_nodes_of_type(result, "ClassNode"))
         assert len(compounds) > 0
 
     def test_missing_compound_returns_empty(self, repo, seeded_graph):
@@ -161,8 +167,7 @@ class TestGetByCompound:
 
 class TestGetByNeighbourhood:
     def test_works_for_compound(self, repo, seeded_graph):
-        class_nodes = [n for n in _all_nodes(seeded_graph)
-                       if isinstance(n, ClassNode)]
+        class_nodes = list(_nodes_of_type(seeded_graph, "ClassNode"))
         qname = class_nodes[0].qualified_name
 
         result = repo.get_by_neighbourhood(qname)
@@ -171,15 +176,14 @@ class TestGetByNeighbourhood:
         assert count > 0
 
     def test_works_for_member(self, repo, seeded_graph):
-        method_nodes = [n for n in _all_nodes(seeded_graph)
-                        if isinstance(n, MethodNode)]
+        method_nodes = list(_nodes_of_type(seeded_graph, "MethodNode"))
         if not method_nodes:
             pytest.skip("No method nodes in seed graph")
         qname = method_nodes[0].qualified_name
 
         result = repo.get_by_neighbourhood(qname)
         assert isinstance(result, LayerGraph)
-        members = [n for n in _all_nodes(result) if isinstance(n, MethodNode)]
+        members = list(_nodes_of_type(result, "MethodNode"))
         assert len(members) > 0
 
     def test_missing_node_returns_empty(self, repo, seeded_graph):
@@ -198,7 +202,7 @@ class TestGetByKind:
 
     def test_includes_class_nodes(self, repo, seeded_graph):
         result = repo.get_by_kind("class")
-        class_nodes = [n for n in _all_nodes(result) if isinstance(n, ClassNode)]
+        class_nodes = list(_nodes_of_type(result, "ClassNode"))
         assert len(class_nodes) > 0
 
     def test_with_layer_filter(self, repo, seeded_graph):
@@ -211,7 +215,7 @@ class TestGetByKind:
 
     def test_returns_methods(self, repo, seeded_graph):
         result = repo.get_by_kind("method")
-        method_nodes = [n for n in _all_nodes(result) if isinstance(n, MethodNode)]
+        method_nodes = list(_nodes_of_type(result, "MethodNode"))
         assert len(method_nodes) > 0
 
 

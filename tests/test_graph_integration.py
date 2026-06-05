@@ -55,11 +55,21 @@ def test_graph_integration():
 
     flat = graph._flat_index()
 
-    for original, roundtripped_data in zip(nodes_data, loaded):
+    # Build a key-based lookup for the serialized output (order may differ
+    # from the input fixture because to_json() walks the entry tree).
+    loaded_by_key: dict[str, dict] = {}
+    for item in loaded:
+        k = LayerGraph._node_key(item)
+        loaded_by_key[k] = item
+
+    for original in nodes_data:
         key = LayerGraph._node_key(original)
         entry = flat.get(key)
         assert entry is not None, f"Missing entry for key {key}"
         saved = entry.node
+
+        roundtripped_data = loaded_by_key.get(key)
+        assert roundtripped_data is not None, f"Missing roundtripped entry for key {key}"
 
         assert roundtripped_data["type"] == original["type"], (
             f"{original['type']} {key}: "
