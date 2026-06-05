@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from neomodel import (
     StructuredNode, StringProperty, IntegerProperty, BooleanProperty,
-    UniqueIdProperty, RelationshipTo,
+    UniqueIdProperty, RelationshipTo, RelationshipFrom,
 )
 
 from codegraph.models.tags import CodeGraphNode
@@ -104,9 +104,16 @@ class MethodNode(_MemberMixin):
 
     # --- MethodNode relationships -------------------------------------------
     #
+    #  ── Composition (incoming) ──
+    #  • COMPOSES (incoming)  — ClassNode | InterfaceNode → this MethodNode
+    #    The parent compound or interface owns this method.
+    #    Traversed via ``parent_compound`` / ``parent_interface``.
+    #
+    #  ── Call-callee ──
     #  • INVOKES  — MethodNode(caller) → MethodNode(callee)
     #    Call-callee relationship.  The source method invokes the target method.
     #
+    #  ── Type relationships ──
     #  • HAS_ARGUMENT  — MethodNode → ClassNode
     #    The method accepts a parameter whose type is the target class.
     #    Example: ``void draw(Canvas c)``  →  ``draw -[:HAS_ARGUMENT]-> Canvas``.
@@ -114,11 +121,11 @@ class MethodNode(_MemberMixin):
     #  • RETURNS  — MethodNode → ClassNode
     #    The method's return type is the target class.
     #    Example: ``Canvas create()``  →  ``create -[:RETURNS]-> Canvas``.
-    #
-    #  Note: COMPOSES is declared only on parent compound nodes (ClassNode,
-    #  InterfaceNode) as an outgoing relationship. Use ``compound_refid``
-    #  (inherited from ``_MemberMixin``) to look up the parent compound.
     # --------------------------------------------------------------------------
+
+    # Incoming composition
+    parent_compound = RelationshipFrom('codegraph.models.compound.ClassNode', 'COMPOSES')
+    parent_interface = RelationshipFrom('codegraph.models.compound.InterfaceNode', 'COMPOSES')
 
     # Call-callee
     invokes = RelationshipTo('MethodNode', 'INVOKES')
@@ -150,10 +157,14 @@ class AttributeNode(_MemberMixin):
 
     # --- AttributeNode relationships ----------------------------------------
     #
-    #  Note: COMPOSES is declared only on parent ClassNode as an outgoing
-    #  relationship. Use ``compound_refid`` (inherited from ``_MemberMixin``)
-    #  to look up the parent compound.
+    #  ── Composition (incoming) ──
+    #  • COMPOSES (incoming)  — ClassNode → this AttributeNode
+    #    The parent class owns this attribute.
+    #    Traversed via ``parent_compound``.
     # --------------------------------------------------------------------------
+
+    # Incoming composition
+    parent_compound = RelationshipFrom('codegraph.models.compound.ClassNode', 'COMPOSES')
 
 
 class EnumValueNode(_MemberMixin):
@@ -169,10 +180,14 @@ class EnumValueNode(_MemberMixin):
 
     # --- EnumValueNode relationships ----------------------------------------
     #
-    #  Note: COMPOSES is declared only on parent EnumNode as an outgoing
-    #  relationship. Use ``compound_refid`` (inherited from ``_MemberMixin``)
-    #  to look up the parent compound.
+    #  ── Composition (incoming) ──
+    #  • COMPOSES (incoming)  — EnumNode → this EnumValueNode
+    #    The parent enum owns this constant value.
+    #    Traversed via ``parent_enum``.
     # --------------------------------------------------------------------------
+
+    # Incoming composition
+    parent_enum = RelationshipFrom('codegraph.models.compound.EnumNode', 'COMPOSES')
 
 
 class FunctionNode(_MemberMixin):
@@ -192,6 +207,17 @@ class FunctionNode(_MemberMixin):
         "qualified_name", "name", "kind", "brief_description",
         "type_signature", "argsstring", "visibility",
     }
+
+    # --- FunctionNode relationships ------------------------------------------
+    #
+    #  ── Composition (incoming) ──
+    #  • COMPOSES (incoming)  — NamespaceNode → this FunctionNode
+    #    The parent namespace owns this function.
+    #    Traversed via ``parent_namespace``.
+    # --------------------------------------------------------------------------
+
+    # Incoming composition
+    parent_namespace = RelationshipFrom('codegraph.models.namespace.NamespaceNode', 'COMPOSES')
 
 
 class DefineNode(_MemberMixin):

@@ -405,3 +405,49 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
                                 "target_type": type(node).__name__,
                             })
         return edges
+
+    def walk_edges(self) -> list[dict]:
+        """Walk relationship descriptors, classifying each edge by direction.
+
+        Unlike :meth:`serialize_edges`, this method distinguishes outgoing
+        (``RelationshipTo``) from incoming (``RelationshipFrom``) edges so
+        that callers can handle COMPOSES nesting direction correctly.
+        Direction is derived from the descriptor type — no extra field is
+        added to :meth:`serialize_edges` output.
+
+        Requires the node to be saved in Neo4j (the relationship managers
+        query the database).
+
+        Returns:
+            A list of dicts, each with keys:
+
+            - ``relation_type`` — Neo4j relationship label
+            - ``target_uid`` — connected node's unique id value
+            - ``target_type`` — connected node's class name
+            - ``is_outgoing`` — ``True`` for ``RelationshipTo``,
+              ``False`` for ``RelationshipFrom``
+        """
+        from neomodel import RelationshipTo, RelationshipFrom
+
+        edges: list[dict] = []
+        seen: set[str] = set()
+        for klass in type(self).__mro__:
+            for name, val in vars(klass).items():
+                if not isinstance(val, (RelationshipTo, RelationshipFrom)):
+                    continue
+                if name in seen:
+                    continue
+                seen.add(name)
+
+                is_outgoing = isinstance(val, RelationshipTo)
+                manager = getattr(self, name)
+
+                for target in manager.all():
+                    edges.append({
+                        "relation_type": val.definition["relation_type"],
+                        "target_uid": target._uid_value(),
+                        "target_type": type(target).__name__,
+                        "is_outgoing": is_outgoing,
+                    })
+
+        return edges

@@ -319,6 +319,26 @@ class TestFromNeo4j:
         ]
         assert len(file_entries) > 0, "FileNodes should be included as neighbors of design nodes"
 
+    def test_incoming_composes_nests_child_under_parent(self):
+        """from_neo4j should nest children under parents even when discovered
+        via incoming COMPOSES from the child side."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        LayerGraph.from_json(data).to_neo4j()
+
+        result = LayerGraph.from_neo4j("design")
+        # Methods should be nested under their parent ClassNode,
+        # not appear as root entries
+        add_entry = _find_entry(result, "calc::CalculatorEngine::add")
+        assert add_entry is not None
+        # The method should NOT be at the root level
+        assert "calc::CalculatorEngine::add" not in result.entries
+        # The parent class should contain the method
+        engine_entry = _find_entry(result, "calc::CalculatorEngine")
+        assert engine_entry is not None
+        assert "MethodNode" in engine_entry.children
+
+
 
 class TestToJsonNested:
     """Tests for LayerGraph.to_json() nested output format."""

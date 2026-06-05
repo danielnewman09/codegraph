@@ -151,6 +151,9 @@ class ClassNode(_CompoundMixin):
     # Interface realization (outgoing)
     realizes = RelationshipTo('InterfaceNode', 'REALIZES')
 
+    # Incoming composition (parent namespace)
+    parent_namespace = RelationshipFrom('codegraph.models.namespace.NamespaceNode', 'COMPOSES')
+
 
 # --- Stubs for Tasks 3-5 (will be fleshed out with their own fields) ---
 
@@ -186,6 +189,9 @@ class InterfaceNode(_CompoundMixin):
     inherits_from = RelationshipTo('InterfaceNode', 'INHERITS_FROM')
     dependencies = RelationshipTo('ClassNode', 'DEPENDS_ON')
 
+    # Incoming composition (parent namespace)
+    parent_namespace = RelationshipFrom('codegraph.models.namespace.NamespaceNode', 'COMPOSES')
+
 
 class EnumNode(_CompoundMixin):
     """Enum type — Neo4j label ``:Enum``.
@@ -209,6 +215,9 @@ class EnumNode(_CompoundMixin):
 
     values = RelationshipTo('codegraph.models.member.EnumValueNode', 'COMPOSES')
 
+    # Incoming composition (parent namespace)
+    parent_namespace = RelationshipFrom('codegraph.models.namespace.NamespaceNode', 'COMPOSES')
+
 
 class UnionNode(_CompoundMixin):
     """C/C++ union type — Neo4j label ``:Union``.
@@ -222,6 +231,9 @@ class UnionNode(_CompoundMixin):
     module = StringProperty(default="")
 
     _llm_fields = {"qualified_name", "name", "kind", "brief_description", "visibility"}
+
+    # Incoming composition (parent namespace)
+    parent_namespace = RelationshipFrom('codegraph.models.namespace.NamespaceNode', 'COMPOSES')
 
 
 class ModuleNode(_CompoundMixin):
@@ -237,4 +249,7 @@ class ModuleNode(_CompoundMixin):
     kind = StringProperty(default="module")
 
     _llm_fields = {"qualified_name", "name", "kind", "brief_description", "visibility"}
+
+    # Incoming composition (parent namespace)
+    parent_namespace = RelationshipFrom('codegraph.models.namespace.NamespaceNode', 'COMPOSES')
 

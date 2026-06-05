@@ -201,6 +201,32 @@ class TestGetByNeighbourhood:
         assert isinstance(result, LayerGraph)
         assert len(result.entries) == 0
 
+    def test_method_seed_discovers_parent_class(self, repo, seeded_graph):
+        """When a MethodNode is the seed, its parent ClassNode should be
+        discovered via incoming COMPOSES and the method should be nested
+        under the class."""
+        result = repo.get_by_neighbourhood("calc::CalculatorEngine::add")
+        # The method should NOT be a root entry
+        method_entry = _find_entry(result, "calc::CalculatorEngine::add")
+        assert method_entry is not None
+        # The method should be nested under the parent class, not at root
+        assert "calc::CalculatorEngine::add" not in result.entries
+        # The parent class should be in the graph
+        engine_entry = _find_entry(result, "calc::CalculatorEngine")
+        assert engine_entry is not None
+        # The method should appear under the class's "MethodNode" children
+        assert "MethodNode" in engine_entry.children
+        assert "calc::CalculatorEngine::add" in engine_entry.children["MethodNode"]
+
+    def test_class_seed_discovers_parent_namespace(self, repo, seeded_graph):
+        """When a ClassNode is the seed, the parent NamespaceNode should be
+        discovered via incoming COMPOSES."""
+        result = repo.get_by_neighbourhood("calc::CalculatorEngine")
+        calc_entry = _find_entry(result, "calc")
+        assert calc_entry is not None
+        assert "ClassNode" in calc_entry.children
+        assert "calc::CalculatorEngine" in calc_entry.children["ClassNode"]
+
 
 # ── get_by_kind ──────────────────────────────────────────────────────────────
 

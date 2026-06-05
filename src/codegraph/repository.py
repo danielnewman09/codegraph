@@ -88,7 +88,7 @@ class GraphRepository:
 
         # Phase 2: expand 1-hop neighbors
         for node in list(seeds):
-            for edge_info in node.serialize_edges():
+            for edge_info in node.walk_edges():
                 target_uid = edge_info["target_uid"]
                 target_type = edge_info["target_type"]
                 if target_uid not in uid_to_key:
@@ -115,21 +115,28 @@ class GraphRepository:
             source_key = LayerGraph._node_key(node)
             source_entry = key_to_entry[source_key]
 
-            for edge_info in node.serialize_edges():
+            for edge_info in node.walk_edges():
                 relation_type = edge_info["relation_type"]
                 target_uid = edge_info["target_uid"]
                 target_type = edge_info["target_type"]
+                is_outgoing = edge_info["is_outgoing"]
                 target_key = uid_to_key.get(target_uid)
 
                 if target_key is None or target_key not in key_to_entry:
                     continue
 
                 if relation_type == "COMPOSES":
-                    target_entry = key_to_entry[target_key]
-                    if target_type not in source_entry.children:
-                        source_entry.children[target_type] = {}
-                    source_entry.children[target_type][target_key] = target_entry
-                    child_keys.add(target_key)
+                    if is_outgoing:
+                        # Parent -> child: nest target under source
+                        target_entry = key_to_entry[target_key]
+                        source_entry.children.setdefault(target_type, {})[target_key] = target_entry
+                        child_keys.add(target_key)
+                    else:
+                        # Child -> parent: nest source under target
+                        source_type = type(node).__name__
+                        target_entry = key_to_entry[target_key]
+                        target_entry.children.setdefault(source_type, {})[source_key] = source_entry
+                        child_keys.add(source_key)
                 else:
                     source_entry.references.append(
                         (relation_type, target_key, target_type)

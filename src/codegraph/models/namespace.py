@@ -2,7 +2,7 @@
 
 from neomodel import (
     StructuredNode, StringProperty, IntegerProperty, UniqueIdProperty,
-    RelationshipTo,
+    RelationshipTo, RelationshipFrom,
 )
 
 from codegraph.models.tags import CodeGraphNode
@@ -27,10 +27,14 @@ class NamespaceNode(StructuredNode, CodeGraphNode):
 
     # --- NamespaceNode relationships ----------------------------------------
     #
-    #  • COMPOSES  — NamespaceNode → ClassNode | InterfaceNode | EnumNode |
-    #    UnionNode | ModuleNode | FunctionNode | NamespaceNode
+    #  • COMPOSES (outgoing)  — NamespaceNode → ClassNode | InterfaceNode |
+    #    EnumNode | UnionNode | ModuleNode | FunctionNode | NamespaceNode
     #    The namespace owns/contains these entities.  Each target type gets
     #    its own descriptor so neomodel can dispatch correctly.
+    #
+    #  • COMPOSES (incoming)  — NamespaceNode ← NamespaceNode
+    #    The parent namespace owns/contains this namespace.
+    #    Traversed via ``parent_namespace``.
     #
     #  Self-referential COMPOSES (namespaces → namespaces) supports
     #  nested namespaces (e.g. outer::inner).
@@ -43,6 +47,9 @@ class NamespaceNode(StructuredNode, CodeGraphNode):
     modules     = RelationshipTo('codegraph.models.compound.ModuleNode', 'COMPOSES')
     functions   = RelationshipTo('codegraph.models.member.FunctionNode', 'COMPOSES')
     namespaces  = RelationshipTo('NamespaceNode', 'COMPOSES')
+
+    # Incoming composition (parent namespace for nesting)
+    parent_namespace = RelationshipFrom('NamespaceNode', 'COMPOSES')
 
     # --- Serialization contract ---
     _llm_fields: set[str] = {"qualified_name", "name", "kind", "description"}
