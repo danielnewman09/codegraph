@@ -205,6 +205,105 @@ def _find_entry(graph: LayerGraph, key: str) -> CompositeEntry | None:
     return None
 
 
+class TestLayerGraphToDict:
+    """Tests for LayerGraph.to_dict()."""
+
+    def test_to_dict_fields_all(self):
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+        result = graph.to_dict(fields="all")
+        assert result["layer"] == "design"
+        assert "entries" in result
+        assert len(result["entries"]) > 0
+
+    def test_to_dict_all_includes_all_properties(self):
+        """to_dict(fields='all') includes non-LLM properties like layer, component_id."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+        result = graph.to_dict(fields="all")
+
+        # Find the CalculatorEngine entry (nested under its namespace)
+        engine = _find_entry(graph, "calc::CalculatorEngine")
+        assert engine is not None
+        engine_dict = engine.to_dict(fields="all")
+        # Properties that serialize() would omit but to_dict(fields='all') includes
+        assert "layer" in engine_dict
+        assert "file_path" in engine_dict
+        assert "line_number" in engine_dict
+
+    def test_to_dict_fields_llm(self):
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+        result = graph.to_dict(fields="llm")
+        assert result["layer"] == "design"
+        assert len(result["entries"]) > 0
+
+    def test_to_dict_llm_excludes_non_llm_fields(self):
+        """to_dict(fields='llm') omits non-LLM properties like layer, component_id."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+        result = graph.to_dict(fields="llm")
+
+        # Walk entries recursively checking for non-LLM fields
+        def _check_llm_only(entries):
+            for entry_data in entries:
+                # Non-LLM fields should not be present
+                assert "component_id" not in entry_data
+                assert "file_path" not in entry_data
+                if "composes" in entry_data:
+                    _check_llm_only(entry_data["composes"])
+
+        _check_llm_only(result["entries"])
+
+    def test_to_dict_preserves_composition_structure(self):
+        """to_dict output has composes nesting matching to_json structure."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+        result = graph.to_dict(fields="all")
+
+        # Namespace should have composes
+        calc_entries = [e for e in result["entries"] if e.get("qualified_name") == "calc"]
+        assert len(calc_entries) == 1
+        calc_entry = calc_entries[0]
+        assert "composes" in calc_entry
+        # CalculatorEngine should be in composes
+        engine_entries = [c for c in calc_entry["composes"] if c.get("qualified_name") == "calc::CalculatorEngine"]
+        assert len(engine_entries) == 1
+
+    def test_to_dict_roundtrip_all(self):
+        """from_json(data) -> to_dict(fields='all') -> from_dict -> to_dict(fields='all'), compare."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+        result1 = graph.to_dict(fields="all")
+
+        # Roundtrip through from_dict
+        restored = LayerGraph.from_dict(result1)
+        result2 = restored.to_dict(fields="all")
+
+        # Same number of root entries
+        assert len(result1["entries"]) == len(result2["entries"])
+        # Same total entry count
+        assert _count_all_entries(graph) == _count_all_entries(restored)
+
+    def test_to_dict_roundtrip_llm(self):
+        """from_json(data) -> to_dict(fields='llm') -> from_dict -> to_dict(fields='llm'), compare."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+        result1 = graph.to_dict(fields="llm")
+
+        restored = LayerGraph.from_dict(result1)
+        result2 = restored.to_dict(fields="llm")
+
+        assert len(result1["entries"]) == len(result2["entries"])
+
+
 class TestNodeKey:
     """Tests for LayerGraph._node_key()."""
 

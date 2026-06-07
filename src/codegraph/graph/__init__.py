@@ -196,6 +196,28 @@ class LayerGraph:
         """
         return {LayerGraph._node_key(e.node): e for e in self._all_entries()}
 
+    # ── to_dict / from_dict ────────────────────────────────────────────
+
+    def to_dict(self, fields: str = "all") -> dict:
+        """Serialize the graph as a dict with layer metadata and entries.
+
+        Args:
+            fields: "all" for every defined property, "llm" for only
+                ``_llm_fields`` properties.
+
+        Returns:
+            A dict with ``layer`` and ``entries`` keys, where entries
+            is a list of CompositeEntry dicts produced by
+            :meth:`CompositeEntry.to_dict`.
+        """
+        return {
+            "layer": self.layer,
+            "entries": [
+                entry.to_dict(fields=fields)
+                for entry in self.entries.values()
+            ],
+        }
+
     # ── from_json ──────────────────────────────────────────────────────
 
     @classmethod
