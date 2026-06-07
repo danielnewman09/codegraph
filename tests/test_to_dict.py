@@ -321,3 +321,33 @@ class TestFromDict:
         assert type(from_json_result) == type(from_dict_result)
         assert from_json_result.name == from_dict_result.name
         assert from_json_result.kind == from_dict_result.kind
+
+
+class TestSerializeDelegates:
+    """Tests that serialize() delegates to to_dict()."""
+
+    def test_serialize_delegates_to_to_dict_llm(self):
+        node = ClassNode(
+            qualified_name="ns::Widget",
+            name="Widget",
+            kind="class",
+            visibility="public",
+            brief_description="A widget",
+            layer="design",
+            component_id=42,
+        )
+        serialized = node.serialize()
+        to_dict_llm = node.to_dict(fields="llm")
+
+        # serialize() should include everything from to_dict(fields='llm') plus edges
+        for key in to_dict_llm:
+            assert key in serialized, f"Key {key} missing from serialize()"
+            assert serialized[key] == to_dict_llm[key], f"Value mismatch for {key}"
+        assert "edges" in serialized
+
+    def test_serialize_includes_edges_key(self):
+        node = ClassNode(qualified_name="ns::Widget", name="Widget", kind="class")
+        result = node.serialize()
+        assert "edges" in result
+        # Unsaved node should have empty edges
+        assert result["edges"] == []

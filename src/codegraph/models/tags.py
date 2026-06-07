@@ -287,12 +287,13 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
 
         For unsaved nodes the ``edges`` key is an empty list.
 
+        Delegates to :meth:`to_dict` with ``fields="llm"`` for the
+        property fields, then adds ``edges``.
+
         Returns:
             A dict with ``type``, property fields, and ``edges`` keys.
         """
-        props = dict(self.__properties__)
-        result = {k: props[k] for k in self._llm_fields if k in props}
-        result["type"] = type(self).__name__
+        result = self.to_dict(fields="llm")
         if hasattr(self, "element_id_property"):
             result["edges"] = self.serialize_edges()
         else:
