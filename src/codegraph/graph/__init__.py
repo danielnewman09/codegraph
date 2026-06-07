@@ -351,7 +351,7 @@ class LayerGraph:
             The CompositeEntry for this node (with children attached,
             references pending).
         """
-        node = CodeGraphNode.from_json(data)
+        node = CodeGraphNode.from_dict(data)
         entry = CompositeEntry(node=node)
 
         # Build uid → key mapping
@@ -416,9 +416,9 @@ class LayerGraph:
     def _from_json_nested(cls, data: list[dict]) -> "LayerGraph":
         """Deserialize from the nested JSON format (entries with composes key).
 
-        Two-phase approach:
-        1. Create all CompositeEntry instances and build uid mapping.
-        2. Resolve references using the complete mapping.
+        Detects whether entries use ``references`` (from :meth:`to_dict`)
+        or ``edges`` (from :meth:`to_json` and legacy formats) and delegates
+        accordingly.
 
         Args:
             data: A list of dicts in nested format, where each entry may
@@ -427,12 +427,19 @@ class LayerGraph:
         Returns:
             A LayerGraph with the nested composition structure.
         """
+        # Check if any entry uses the 'references' key (to_dict format)
+        # vs 'edges' key (to_json / legacy format)
+        uses_references = any("references" in entry for entry in data)
+
+        if uses_references:
+            return cls._from_dict_entries(data)
+
+        # Legacy format: use two-phase parsing for edges resolution
         key_to_entry: dict[str, CompositeEntry] = {}
         uid_to_key: dict[str, str] = {}
         child_keys: set[str] = set()
         layer: Layer = "design"
 
-        # Phase 1: create entries and build tree structure
         for entry_data in data:
             cls._parse_nested_entry(
                 entry_data, key_to_entry, uid_to_key, child_keys
@@ -440,7 +447,6 @@ class LayerGraph:
             if layer == "design" and "layer" in entry_data:
                 layer = entry_data["layer"]  # type: ignore[assignment]
 
-        # Phase 2: resolve references with complete uid mapping
         for entry_data in data:
             cls._resolve_nested_references(entry_data, key_to_entry, uid_to_key)
 
@@ -450,6 +456,61 @@ class LayerGraph:
             if key not in child_keys
         }
         return cls(layer=layer, entries=root_entries)
+
+    @classmethod
+    def _from_dict_entries(cls, entries_data: list[dict]) -> "LayerGraph":
+        """Build a LayerGraph from a list of entry dicts with ``composes`` and ``references``.
+
+        Uses :meth:`CompositeEntry.from_dict` for each root entry, then
+        determines root vs child entries.
+
+        Args:
+            entries_data: A list of dicts produced by
+                :meth:`CompositeEntry.to_dict` or :meth:`LayerGraph.to_dict`.
+
+        Returns:
+            A LayerGraph with entries, children, and references populated.
+        """
+        key_to_entry: dict[str, CompositeEntry] = {}
+        child_keys: set[str] = set()
+        layer: Layer = "design"
+
+        for entry_data in entries_data:
+            entry = CompositeEntry.from_dict(entry_data)
+            key = cls._node_key(entry_data)
+            key_to_entry[key] = entry
+
+            if layer == "design" and "layer" in entry_data:
+                layer = entry_data["layer"]  # type: ignore[assignment]
+
+            # Track child keys from composes
+            for type_children in entry.children.values():
+                for child_key in type_children:
+                    child_keys.add(child_key)
+
+            # Also collect child keys from nested composes data
+            # (since from_dict only populates direct children)
+            cls._collect_child_keys(entry_data, child_keys)
+
+        root_entries = {
+            key: entry
+            for key, entry in key_to_entry.items()
+            if key not in child_keys
+        }
+        return cls(layer=layer, entries=root_entries)
+
+    @classmethod
+    def _collect_child_keys(cls, data: dict, child_keys: set[str]) -> None:
+        """Recursively collect all child keys from composes data.
+
+        Args:
+            data: A dict with optional ``composes`` children.
+            child_keys: Set to add child keys to.
+        """
+        for child_data in data.get("composes", []):
+            child_key = cls._node_key(child_data)
+            child_keys.add(child_key)
+            cls._collect_child_keys(child_data, child_keys)
 
     @classmethod
     def _from_json_flat(cls, data: list[dict]) -> "LayerGraph":
@@ -468,11 +529,11 @@ class LayerGraph:
 
         # Phase 1: create all CompositeEntry instances (nodes only, no edges yet)
         for node_data in data:
-            node = CodeGraphNode.from_json(node_data)
+            node = CodeGraphNode.from_dict(node_data)
             key = cls._node_key(node_data)
             key_to_entry[key] = CompositeEntry(node=node)
 
-            # Build uid → key mapping for roundtrip format
+            # Build uid -> key mapping for roundtrip format
             uid = node._uid_value()
             if uid:
                 uid_to_key[uid] = key

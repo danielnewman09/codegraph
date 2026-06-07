@@ -825,3 +825,28 @@ class TestFromJsonNested:
         assert "DEPENDS_ON" in ref_types
         assert "DEFINED_IN" in ref_types
         assert "COMPOSES" not in ref_types
+
+    def test_from_dict_with_flat_format_edges(self):
+        """from_dict handles flat format with edges arrays."""
+        with open(FIXTURE) as f:
+            flat_data = json.load(f)
+        restored = LayerGraph.from_dict(flat_data)
+        assert _count_all_entries(restored) == len(flat_data)
+        engine = _find_entry(restored, "calc::CalculatorEngine")
+        assert engine is not None
+        assert "MethodNode" in engine.children
+
+    def test_from_dict_with_nested_format_composes(self):
+        """from_dict handles nested format with composes/references."""
+        with open(FIXTURE) as f:
+            flat_data = json.load(f)
+        graph = LayerGraph.from_json(flat_data)
+        dict_data = graph.to_dict(fields="all")
+        restored = LayerGraph.from_dict(dict_data)
+        assert _count_all_entries(restored) == _count_all_entries(graph)
+        engine = _find_entry(restored, "calc::CalculatorEngine")
+        assert engine is not None
+        assert "MethodNode" in engine.children
+        ref_types = {r[0] for r in engine.references}
+        assert "REALIZES" in ref_types
+        assert "DEFINED_IN" in ref_types
