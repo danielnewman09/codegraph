@@ -16,9 +16,16 @@ class TestImplementationNodeModel:
         node = ImplementationNode()
         assert node.kind == "implementation"
 
-    def test_qualified_name_default_empty(self):
+    def test_qualified_name_auto_generated(self):
+        """UniqueIdProperty auto-generates a UUID when no value is provided."""
         node = ImplementationNode()
-        assert node.qualified_name == ""
+        # UniqueIdProperty generates a UUID when not explicitly set
+        assert len(node.qualified_name) > 0
+
+    def test_qualified_name_explicit_set(self):
+        """qualified_name can be explicitly set to match the parent member."""
+        node = ImplementationNode(qualified_name="Widget::draw")
+        assert node.qualified_name == "Widget::draw"
 
     def test_implementation_default_empty(self):
         node = ImplementationNode()

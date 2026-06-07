@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from neomodel import (
     StructuredNode, StringProperty, ArrayProperty, FloatProperty,
+    UniqueIdProperty,
 )
 
 from codegraph.models.tags import CodeGraphNode
@@ -36,15 +37,16 @@ class ImplementationNode(StructuredNode, CodeGraphNode):
             embedding = impl_nodes[0].impl_embedding
 
     Attributes:
-        qualified_name: Matches the parent node's qualified_name.
-            Used to correlate back to the owning method/function/compound.
+        qualified_name: Unique identifier matching the parent node's qualified_name.
+            Used to MERGE on upsert and to correlate back to the owning
+            method/function/compound. Must be unique across all ImplementationNodes.
         kind: Always "implementation".
         implementation: Full source code body of the method/function.
         impl_embedding: Vector embedding of the implementation source code.
     """
 
     # --- Identity ---
-    qualified_name = StringProperty(default="")
+    qualified_name = UniqueIdProperty()
     kind = StringProperty(default="implementation")
 
     # --- Source code ---
