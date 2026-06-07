@@ -43,11 +43,11 @@ def test_method_defined_in_file():
     with open(out_path, "w") as f:
         json.dump(method_node.serialize(), f, indent=2)
 
-    # 3. Read back and deserialize via from_json
+    # 3. Read back and deserialize via deserialize
     with open(out_path) as f:
         data = json.load(f)
 
-    roundtripped = CodeGraphNode.from_json(data)
+    roundtripped = CodeGraphNode.deserialize(data)
     assert isinstance(roundtripped, MethodNode)
     assert data["type"] == "MethodNode"
 

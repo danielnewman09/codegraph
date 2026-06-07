@@ -94,7 +94,7 @@ class TestMemberDeserialization:
         """Verify method_node_full.json deserializes correctly."""
         with open(DATA_DIR / "method_node_full.json") as f:
             data = json.load(f)
-        node = CodeGraphNode.from_json(data)
+        node = CodeGraphNode.deserialize(data)
         assert isinstance(node, MethodNode)
         # implementation is no longer on MethodNode
         assert not hasattr(node, "implementation") or getattr(node, "implementation", "") == ""
@@ -107,7 +107,7 @@ class TestMemberDeserialization:
         """Verify function_node_full.json deserializes correctly."""
         with open(DATA_DIR / "function_node_full.json") as f:
             data = json.load(f)
-        node = CodeGraphNode.from_json(data)
+        node = CodeGraphNode.deserialize(data)
         assert isinstance(node, FunctionNode)
         assert node.doc_embedding == data.get("doc_embedding", [])
 
@@ -154,7 +154,7 @@ class TestMemberBodyLocation:
             "body_start": 25,
             "body_end": 30,
         }
-        node = CodeGraphNode.from_json(data)
+        node = CodeGraphNode.deserialize(data)
         assert isinstance(node, MethodNode)
         assert node.body_start == 25
         assert node.body_end == 30
@@ -167,6 +167,6 @@ class TestMemberBodyLocation:
             "name": "draw",
             "kind": "method",
         }
-        node = CodeGraphNode.from_json(data)
+        node = CodeGraphNode.deserialize(data)
         assert node.body_start == 0
         assert node.body_end == 0

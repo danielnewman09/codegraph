@@ -54,7 +54,7 @@ class TestCompoundImplementationRef:
 
 
 class TestCompoundDeserialization:
-    """Test that from_json/deserialize handles the current fields correctly."""
+    """Test that deserialize handles the current fields correctly."""
 
     def test_class_deserialize_with_doc_embedding(self):
         data = {
@@ -64,6 +64,6 @@ class TestCompoundDeserialization:
             "kind": "class",
             "doc_embedding": [0.1, 0.2, 0.3],
         }
-        node = CodeGraphNode.from_json(data)
+        node = CodeGraphNode.deserialize(data)
         assert isinstance(node, ClassNode)
         assert node.doc_embedding == [0.1, 0.2, 0.3]

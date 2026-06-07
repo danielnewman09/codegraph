@@ -40,7 +40,7 @@ def test_method_invokes_method():
     with open(out_path) as f:
         data = json.load(f)
 
-    roundtripped = CodeGraphNode.from_json(data)
+    roundtripped = CodeGraphNode.deserialize(data)
     assert isinstance(roundtripped, MethodNode)
 
     original_fields = {k: v for k, v in caller.serialize().items() if k != "edges"}

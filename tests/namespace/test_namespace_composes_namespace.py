@@ -36,7 +36,7 @@ def test_namespace_composes_namespace():
     with open(out_path) as f:
         data = json.load(f)
 
-    roundtripped = CodeGraphNode.from_json(data)
+    roundtripped = CodeGraphNode.deserialize(data)
     assert isinstance(roundtripped, NamespaceNode)
 
     original_fields = {k: v for k, v in outer_ns.serialize().items() if k != "edges"}

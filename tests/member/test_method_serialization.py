@@ -31,10 +31,10 @@ def test_method_node_roundtrip():
     with open(out_path, "w") as f:
         json.dump(original.serialize(), f, indent=2)
 
-    # 3. Read the JSON file and deserialize via from_json
+    # 3. Read the JSON file and deserialize via deserialize
     with open(out_path) as f:
         data = json.load(f)
-    roundtripped = CodeGraphNode.from_json(data)
+    roundtripped = CodeGraphNode.deserialize(data)
 
     # 4. Assert type is correct
     assert isinstance(roundtripped, MethodNode)
@@ -44,7 +44,7 @@ def test_method_node_roundtrip():
     assert original.serialize() == roundtripped.serialize(), (
         f"Mismatch:\n  expected: {original.serialize()}\n  actual:   {roundtripped.serialize()}"
     )
-    print("✓ PASS: MethodNode roundtrip — serialize/from_json preserves type and fields")
+    print("✓ PASS: MethodNode roundtrip — serialize/deserialize preserves type and fields")
 
 
 if __name__ == "__main__":

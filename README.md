@@ -38,7 +38,7 @@ Nodes are tagged with a `layer` property indicating their origin:
 ## Node models
 
 Every node inherits from `CodeGraphNode`, which provides `serialize()`,
-`deserialize()`, `from_json()`, and relationship introspection.
+`deserialize()`, and relationship introspection.
 
 | Category | Node types | UID property |
 |---|---|---|
@@ -67,7 +67,7 @@ Deserialize a JSON array of node payloads. **No database interaction** —
 pure in-memory construction:
 
 ```python
-graph = LayerGraph.from_json(nodes_data)
+graph = LayerGraph.deserialize(nodes_data)
 
 # Access root entries (files, namespaces, orphan compounds)
 calc_ns = graph.entries["calc"]  # NamespaceNode entry
@@ -99,8 +99,9 @@ Call ``node.serialize()`` to see both COMPOSES children and other edges.
 ### Serialize back to JSON
 
 ```python
-serialized = graph.to_json()
+serialized = graph.serialize()
 # Returns a list of dicts, each with "type", properties, and "edges"
+# Convert to JSON externally with json.dumps(serialized)
 ```
 
 ### Query from Neo4j
@@ -126,9 +127,9 @@ for entry in design._all_entries():
 
 ```python
 # Load → persist → serialize → reload
-graph = LayerGraph.from_json(nodes_data)
+graph = LayerGraph.deserialize(nodes_data)
 graph.to_neo4j()
-json_data = graph.to_json()
+json_data = graph.serialize()
 
 # Write to file
 import json
@@ -138,12 +139,12 @@ with open("my_graph.json", "w") as f:
 # Read back
 with open("my_graph.json") as f:
     loaded = json.load(f)
-restored = LayerGraph.from_json(loaded)
+restored = LayerGraph.deserialize(loaded)
 ```
 
 ## JSON format
 
-`LayerGraph.from_json()` accepts a JSON array where each item is a
+`LayerGraph.deserialize()` accepts a list of dicts where each item is a
 serialized node with a `type` discriminator:
 
 ```json
@@ -181,7 +182,7 @@ Each edge has:
 - `target_local_id` — the lookup key for the target node (`name` for most
   nodes, `path` for `FileNode`)
 
-When deserializing output from `to_json()`, edges use `target_uid` (the
+When deserializing output from `serialize()`, edges use `target_uid` (the
 Neo4j unique ID) instead of `target_local_id`. Both formats are accepted.
 
 ## CodeGraphNode API
@@ -191,8 +192,7 @@ All node types inherit from `CodeGraphNode`, which provides:
 | Method | Description |
 |---|---|
 | `serialize()` | Full dict with `type`, properties, and `edges` |
-| `deserialize(data)` | Instantiate from a dict (class method) |
-| `from_json(data)` | Factory: dispatches to the correct subclass by `type` |
+| `deserialize(data)` | Factory: dispatches to the correct subclass by `type` key, then instantiates |
 | `serialize_edges()` | Live edges from Neo4j (requires saved node) |
 | `serialize_relationships()` | Static relationship descriptors (no DB call) |
 | `find_relationship_manager(source, relation_type, target)` | Find the neomodel relationship manager matching a relation type and target class |

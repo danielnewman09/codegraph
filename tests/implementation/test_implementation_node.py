@@ -82,7 +82,7 @@ class TestImplementationNodeModel:
             "kind": "implementation",
             "implementation": "void draw() { render(); }",
         }
-        node = CodeGraphNode.from_json(data)
+        node = CodeGraphNode.deserialize(data)
         assert isinstance(node, ImplementationNode)
         assert node.implementation == "void draw() { render(); }"
 
@@ -90,7 +90,7 @@ class TestImplementationNodeModel:
         """Verify implementation_node_full.json deserializes correctly."""
         with open(DATA_DIR / "implementation_node_full.json") as f:
             data = json.load(f)
-        node = CodeGraphNode.from_json(data)
+        node = CodeGraphNode.deserialize(data)
         assert isinstance(node, ImplementationNode)
         assert node.implementation == data["implementation"]
         assert node.impl_embedding == data["impl_embedding"]

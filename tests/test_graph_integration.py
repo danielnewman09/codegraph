@@ -40,7 +40,7 @@ def test_graph_integration():
         nodes_data = json.load(f)
 
     # Pure deserialization — no DB interaction
-    graph = LayerGraph.from_json(nodes_data)
+    graph = LayerGraph.deserialize(nodes_data)
 
     assert _count_all_entries(graph) == len(nodes_data), (
         f"Expected {len(nodes_data)} nodes, got {_count_all_entries(graph)}"
@@ -53,7 +53,7 @@ def test_graph_integration():
     FIXTURE_DIR.mkdir(exist_ok=True)
     out_path = FIXTURE_DIR / "graph_integration.json"
 
-    graph_serialized = graph.to_json()
+    graph_serialized = graph.serialize()
     with open(out_path, "w") as f:
         json.dump(graph_serialized, f, indent=2)
 
@@ -90,7 +90,7 @@ def test_graph_integration():
             f"expected {original['type']!r}, got {roundtripped_data['type']!r}"
         )
 
-        roundtripped = CodeGraphNode.from_json(roundtripped_data)
+        roundtripped = CodeGraphNode.deserialize(roundtripped_data)
         original_fields = {k: v for k, v in saved.serialize().items() if k != "edges"}
         roundtripped_fields = {k: v for k, v in roundtripped.serialize().items() if k != "edges"}
         assert original_fields == roundtripped_fields, (

@@ -24,7 +24,7 @@ def test_method_node_full_deserialization():
         data = json.load(f)
 
     # Deserialize via the registry so type discrimination is exercised
-    node = CodeGraphNode.from_json(data)
+    node = CodeGraphNode.deserialize(data)
 
     # Correct subclass
     assert isinstance(node, MethodNode)

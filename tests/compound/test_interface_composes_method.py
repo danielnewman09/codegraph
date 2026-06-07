@@ -40,7 +40,7 @@ def test_interface_composes_method():
     with open(out_path) as f:
         data = json.load(f)
 
-    roundtripped = CodeGraphNode.from_json(data)
+    roundtripped = CodeGraphNode.deserialize(data)
     assert isinstance(roundtripped, InterfaceNode)
 
     original_fields = {k: v for k, v in interface_node.serialize().items() if k != "edges"}

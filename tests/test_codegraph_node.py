@@ -1,7 +1,7 @@
 """Tests for CodeGraphNode class methods.
 
 Covers find_relationship_manager error paths, fetch_by_layer,
-fetch_all_by_layer, from_json error paths, and serialize_relationships.
+fetch_all_by_layer, deserialize error paths, and serialize_relationships.
 """
 
 import pytest
@@ -54,18 +54,18 @@ class TestFindRelationshipManager:
         file_node.delete()
 
 
-class TestFromJsonErrorPaths:
-    """Tests for CodeGraphNode.from_json() error handling."""
+class TestDeserializeErrorPaths:
+    """Tests for CodeGraphNode.deserialize() error handling."""
 
     def test_missing_type_discriminator(self):
         """Raises ValueError when 'type' key is missing."""
         with pytest.raises(ValueError, match="missing the 'type' discriminator"):
-            CodeGraphNode.from_json({"name": "orphan"})
+            CodeGraphNode.deserialize({"name": "orphan"})
 
     def test_unknown_type(self):
         """Raises KeyError when type is not in the registry."""
         with pytest.raises(KeyError, match="Unknown node type"):
-            CodeGraphNode.from_json({"type": "FakeNode", "name": "x"})
+            CodeGraphNode.deserialize({"type": "FakeNode", "name": "x"})
 
 
 class TestSerializeRelationships:

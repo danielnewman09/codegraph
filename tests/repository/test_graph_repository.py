@@ -51,7 +51,7 @@ def seeded_graph():
     """Seed Neo4j with the design_graph fixture and return the LayerGraph."""
     with open(FIXTURE) as f:
         data = json.load(f)
-    graph = LayerGraph.from_json(data)
+    graph = LayerGraph.deserialize(data)
     graph.to_neo4j()
     return graph
 
@@ -264,7 +264,7 @@ class TestSaveLayerGraph:
         with open(FIXTURE) as f:
             data = json.load(f)
 
-        graph = LayerGraph.from_json(data)
+        graph = LayerGraph.deserialize(data)
         repo.save_layer_graph(graph)
 
         # Query back by layer

@@ -19,7 +19,7 @@ def test_enum_value_node_full_deserialization():
     with open(FIXTURE) as f:
         data = json.load(f)
 
-    node = CodeGraphNode.from_json(data)
+    node = CodeGraphNode.deserialize(data)
 
     assert isinstance(node, EnumValueNode)
     assert data["type"] == "EnumValueNode"

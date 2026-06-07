@@ -4,7 +4,7 @@
 Pipeline:
     1. Run ``sphinx-build -b json_api`` to produce ``api_metadata.json``
     2. Transform the metadata into codegraph node payloads
-    3. Load via ``LayerGraph.from_json()``
+    3. Load via ``LayerGraph.deserialize()``
     4. Persist via ``LayerGraph.to_neo4j()``
 
 Usage:
@@ -105,7 +105,7 @@ def _node_type_for_class(fqn: str) -> str | None:
 def _transform(metadata: dict[str, dict]) -> list[dict]:
     """Transform ``api_metadata.json`` entries into codegraph node payloads.
 
-    Returns a list of dicts suitable for ``LayerGraph.from_json()``.
+    Returns a list of dicts suitable for ``LayerGraph.deserialize()``.
     Each dict has ``type``, node properties, and ``edges``.
     """
     nodes: list[dict] = []
@@ -354,7 +354,7 @@ def load_and_persist(nodes_data: list[dict]) -> None:
 
     from codegraph.graph import LayerGraph
 
-    graph = LayerGraph.from_json(nodes_data)
+    graph = LayerGraph.deserialize(nodes_data)
     total = sum(1 for _ in graph._all_entries())
     print(f"Loaded {total} nodes into LayerGraph (layer={graph.layer})")
     print(f"Root entries: {len(graph.entries)}")

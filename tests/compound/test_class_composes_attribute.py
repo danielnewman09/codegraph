@@ -38,7 +38,7 @@ def test_class_composes_attribute():
     with open(out_path) as f:
         data = json.load(f)
 
-    roundtripped = CodeGraphNode.from_json(data)
+    roundtripped = CodeGraphNode.deserialize(data)
     assert isinstance(roundtripped, ClassNode)
 
     original_fields = {k: v for k, v in class_node.serialize().items() if k != "edges"}

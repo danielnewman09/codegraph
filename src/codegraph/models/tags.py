@@ -1,8 +1,8 @@
 """CodeGraphNode — base class for all codegraph neomodel nodes.
 
 Provides shared fields (``source``), serialization (``serialize()``,
-``deserialize()``, ``from_json()``), relationship introspection, and a
-registry for type-dispatched deserialization.
+``deserialize()``), relationship introspection, and a registry for
+type-dispatched deserialization.
 
 Uses a combined metaclass (ABCMeta + NodeMeta) so that subclasses can
 inherit from both StructuredNode and CodeGraphNode without metaclass
@@ -226,7 +226,7 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
 
     # ── Registry ──────────────────────────────────────────────────────────
     # Every concrete CodeGraphNode subclass registers itself here so that
-    # ``from_json()`` can look up the right class by the ``type`` discriminator.
+    # ``deserialize()`` can look up the right class by the ``type`` discriminator.
     _registry: dict[str, type["CodeGraphNode"]] = {}
 
     def __init_subclass__(cls, **kwargs) -> None:
@@ -263,49 +263,47 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
 
     @classmethod
     def deserialize(cls, data: dict) -> "CodeGraphNode":
-        """Instantiate a node of *this* class from LLM-provided dict data.
-
-        Ignores the ``edges`` and ``type`` keys — edges are resolved
-        separately via Neo4j after nodes are saved.
-
-        Args:
-            data: A dict of property names to values, as produced by an LLM
-            or deserialized from JSON. Keys ``edges`` and ``type`` are ignored.
-
-        Returns:
-            A new instance of this CodeGraphNode subclass.
-        """
-        skip = {"edges", "type"}
-        filtered = {k: v for k, v in data.items()
-                    if k not in skip and k in cls.defined_properties()}
-        return cls(**filtered)
-
-    @classmethod
-    def from_json(cls, data: dict) -> "CodeGraphNode":
         """Instantiate the correct subclass from a serialized dict.
 
         Reads the ``type`` key to dispatch to the registered subclass,
-        then calls ``deserialize()`` on that class.
+        then constructs an instance from the remaining properties.
+        Keys ``edges`` and ``type`` are ignored — edges are resolved
+        separately via Neo4j after nodes are saved.
+
+        The ``type`` key is required when called on the base
+        ``CodeGraphNode`` class.  When called directly on a concrete
+        subclass, ``type`` is optional (defaults to that subclass).
 
         Args:
-            data: A serialized dict with a ``type`` discriminator key.
+            data: A serialized dict, typically with a ``type`` discriminator.
 
         Returns:
             A new instance of the appropriate CodeGraphNode subclass.
 
         Raises:
-            ValueError: If the ``type`` key is missing from data.
-            KeyError: If the ``type`` is not in the registry.
+            ValueError: If the ``type`` key is missing and *cls* is the
+                abstract ``CodeGraphNode`` base.
+            KeyError: If the ``type`` value is not in the registry.
         """
         type_name = data.get("type")
-        if type_name is None:
-            raise ValueError("Serialized data is missing the 'type' discriminator")
-        if type_name not in cls._registry:
-            raise KeyError(
-                f"Unknown node type '{type_name}'. "
-                f"Registered types: {sorted(cls._registry.keys())}"
+        if type_name is not None:
+            if type_name not in cls._registry:
+                raise KeyError(
+                    f"Unknown node type '{type_name}'. "
+                    f"Registered types: {sorted(cls._registry.keys())}"
+                )
+            target_cls = cls._registry[type_name]
+        elif cls is CodeGraphNode or not cls._llm_fields:
+            raise ValueError(
+                "Serialized data is missing the 'type' discriminator"
             )
-        return cls._registry[type_name].deserialize(data)
+        else:
+            target_cls = cls
+
+        skip = {"edges", "type"}
+        filtered = {k: v for k, v in data.items()
+                    if k not in skip and k in target_cls.defined_properties()}
+        return target_cls(**filtered)
 
     @classmethod
     def serialize_relationships(cls) -> list[dict]:

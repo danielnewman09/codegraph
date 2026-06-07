@@ -1,4 +1,4 @@
-"""Tests for LayerGraph: from_json, to_json, to_neo4j, _node_key, from_neo4j."""
+"""Tests for LayerGraph: deserialize, serialize, to_neo4j, _node_key, from_neo4j."""
 
 import json
 from pathlib import Path
@@ -95,26 +95,26 @@ class TestLayerValidation:
         with pytest.raises(ValueError, match="Invalid layer"):
             LayerGraph(layer="production")
 
-    def test_from_json_invalid_layer_raises(self):
+    def test_deserialize_invalid_layer_raises(self):
         data = [{"type": "ClassNode", "name": "X", "kind": "class", "layer": "unknown"}]
         with pytest.raises(ValueError, match="Invalid layer"):
-            LayerGraph.from_json(data)
+            LayerGraph.deserialize(data)
 
 
-class TestFromJson:
-    """Tests for LayerGraph.from_json() — pure deserialization, no DB."""
+class TestDeserialize:
+    """Tests for LayerGraph.deserialize() — pure deserialization, no DB."""
 
     def test_creates_nodes_from_fixture(self):
         with open(FIXTURE) as f:
             data = json.load(f)
-        graph = LayerGraph.from_json(data)
+        graph = LayerGraph.deserialize(data)
         assert _count_all_entries(graph) == len(data)
         assert graph.layer == "design"
 
     def test_node_types_are_correct(self):
         with open(FIXTURE) as f:
             data = json.load(f)
-        graph = LayerGraph.from_json(data)
+        graph = LayerGraph.deserialize(data)
         # Spot-check some nodes by finding them in the tree
         engine = _find_entry(graph, "calc::CalculatorEngine")
         assert engine is not None
@@ -136,7 +136,7 @@ class TestFromJson:
         """COMPOSES edges should create nesting under the parent entry."""
         with open(FIXTURE) as f:
             data = json.load(f)
-        graph = LayerGraph.from_json(data)
+        graph = LayerGraph.deserialize(data)
 
         engine = _find_entry(graph, "calc::CalculatorEngine")
         assert engine is not None
@@ -151,7 +151,7 @@ class TestFromJson:
         """Non-COMPOSES edges should be stored as references, not children."""
         with open(FIXTURE) as f:
             data = json.load(f)
-        graph = LayerGraph.from_json(data)
+        graph = LayerGraph.deserialize(data)
 
         engine = _find_entry(graph, "calc::CalculatorEngine")
         assert engine is not None
@@ -166,7 +166,7 @@ class TestFromJson:
         """Nodes composed by another node should not appear as root entries."""
         with open(FIXTURE) as f:
             data = json.load(f)
-        graph = LayerGraph.from_json(data)
+        graph = LayerGraph.deserialize(data)
 
         # "calc::CalculatorEngine::add" is composed by CalculatorEngine, not at root
         assert "calc::CalculatorEngine::add" not in graph.entries
@@ -178,7 +178,7 @@ class TestFromJson:
         """Root entries should be CompositeEntry instances."""
         with open(FIXTURE) as f:
             data = json.load(f)
-        graph = LayerGraph.from_json(data)
+        graph = LayerGraph.deserialize(data)
         for entry in graph.entries.values():
             assert isinstance(entry, CompositeEntry)
 
@@ -186,38 +186,38 @@ class TestFromJson:
         data = [
             {"type": "ClassNode", "name": "MyClass", "kind": "class", "layer": "as-built"},
         ]
-        graph = LayerGraph.from_json(data)
+        graph = LayerGraph.deserialize(data)
         assert graph.layer == "as-built"
 
     def test_layer_defaults_to_design(self):
         data = [
             {"type": "ClassNode", "name": "MyClass", "kind": "class"},
         ]
-        graph = LayerGraph.from_json(data)
+        graph = LayerGraph.deserialize(data)
         assert graph.layer == "design"
 
     def test_empty_data(self):
-        graph = LayerGraph.from_json([])
+        graph = LayerGraph.deserialize([])
         assert len(graph.entries) == 0
         assert graph.layer == "design"
 
 
 class TestRoundtrip:
-    """Integration test: from_json → to_neo4j → to_json roundtrip."""
+    """Integration test: deserialize → to_neo4j → serialize roundtrip."""
 
     def test_full_graph_roundtrip(self):
         with open(FIXTURE) as f:
             data = json.load(f)
 
         # Pure deserialization
-        graph = LayerGraph.from_json(data)
+        graph = LayerGraph.deserialize(data)
         assert _count_all_entries(graph) == len(data)
 
         # Persist
         graph.to_neo4j()
 
         # Serialize (nested format)
-        serialized = graph.to_json()
+        serialized = graph.serialize()
         # Root entries only — composed children are nested, not flat
         assert len(serialized) == len(graph.entries)
 
@@ -243,7 +243,7 @@ class TestRoundtrip:
             loaded = json.load(f)
 
         # Deserialize back
-        restored = LayerGraph.from_json(loaded)
+        restored = LayerGraph.deserialize(loaded)
         assert _count_all_entries(restored) == len(data)
 
     def test_edge_persistence(self):
@@ -251,7 +251,7 @@ class TestRoundtrip:
         with open(FIXTURE) as f:
             data = json.load(f)
 
-        graph = LayerGraph.from_json(data)
+        graph = LayerGraph.deserialize(data)
         graph.to_neo4j()
 
         flat = graph._flat_index()
@@ -291,7 +291,7 @@ class TestFromNeo4j:
         # Seed some nodes first
         with open(FIXTURE) as f:
             data = json.load(f)
-        graph = LayerGraph.from_json(data)
+        graph = LayerGraph.deserialize(data)
         graph.to_neo4j()
 
         # Now fetch via from_neo4j
@@ -310,7 +310,7 @@ class TestFromNeo4j:
         # FileNodes don't have layer, but are DEFINED_IN targets of design-layer nodes
         with open(FIXTURE) as f:
             data = json.load(f)
-        LayerGraph.from_json(data).to_neo4j()
+        LayerGraph.deserialize(data).to_neo4j()
 
         design = LayerGraph.from_neo4j("design")
         # FileNodes should appear as neighbors
@@ -324,7 +324,7 @@ class TestFromNeo4j:
         via incoming COMPOSES from the child side."""
         with open(FIXTURE) as f:
             data = json.load(f)
-        LayerGraph.from_json(data).to_neo4j()
+        LayerGraph.deserialize(data).to_neo4j()
 
         result = LayerGraph.from_neo4j("design")
         # Methods should be nested under their parent ClassNode,
@@ -340,16 +340,16 @@ class TestFromNeo4j:
 
 
 
-class TestToJsonNested:
-    """Tests for LayerGraph.to_json() nested output format."""
+class TestSerializeNested:
+    """Tests for LayerGraph.serialize() nested output format."""
 
     def test_no_composes_in_edges(self):
         """COMPOSES edges should not appear in any entry's edges array."""
         with open(FIXTURE) as f:
             data = json.load(f)
-        graph = LayerGraph.from_json(data)
+        graph = LayerGraph.deserialize(data)
         graph.to_neo4j()
-        output = graph.to_json()
+        output = graph.serialize()
 
         def _check_no_composes(items: list[dict]) -> None:
             for item in items:
@@ -363,9 +363,9 @@ class TestToJsonNested:
         """Entries that compose children should have a composes key."""
         with open(FIXTURE) as f:
             data = json.load(f)
-        graph = LayerGraph.from_json(data)
+        graph = LayerGraph.deserialize(data)
         graph.to_neo4j()
-        output = graph.to_json()
+        output = graph.serialize()
 
         # NamespaceNode "calc" composes CalculatorEngine, CalculatorResult,
         # ICalculator, Operation, and formatResult
@@ -387,9 +387,9 @@ class TestToJsonNested:
         """Composed children should not appear as top-level entries."""
         with open(FIXTURE) as f:
             data = json.load(f)
-        graph = LayerGraph.from_json(data)
+        graph = LayerGraph.deserialize(data)
         graph.to_neo4j()
-        output = graph.to_json()
+        output = graph.serialize()
 
         # Composed children use qualified_name as keys in nested output;
         # check that short names like "add" don't appear at the root level.
@@ -402,48 +402,48 @@ class TestToJsonNested:
         assert "calc" in root_names
 
     def test_output_written_to_file(self):
-        """to_json output should be persistable and re-loadable."""
+        """serialize output should be persistable and re-loadable."""
         with open(FIXTURE) as f:
             data = json.load(f)
-        graph = LayerGraph.from_json(data)
+        graph = LayerGraph.deserialize(data)
         graph.to_neo4j()
-        output = graph.to_json()
+        output = graph.serialize()
 
         FIXTURE_DIR.mkdir(exist_ok=True)
         out_path = FIXTURE_DIR / "layer_graph_export.json"
         with open(out_path, "w") as f:
             json.dump(output, f, indent=2)
 
-        # Verify we can roundtrip via from_json
+        # Verify we can roundtrip via deserialize
         with open(out_path) as f:
             loaded = json.load(f)
-        restored = LayerGraph.from_json(loaded)
+        restored = LayerGraph.deserialize(loaded)
         assert _count_all_entries(restored) == _count_all_entries(graph)
 
 
-class TestFromJsonNested:
-    """Tests for LayerGraph.from_json() with nested (composes) format."""
+class TestDeserializeNested:
+    """Tests for LayerGraph.deserialize() with nested (composes) format."""
 
     def test_creates_nodes_from_nested_data(self):
         """Nested format should produce same total entry count as flat format."""
         with open(FIXTURE) as f:
             flat_data = json.load(f)
-        graph_flat = LayerGraph.from_json(flat_data)
+        graph_flat = LayerGraph.deserialize(flat_data)
         graph_flat.to_neo4j()
-        nested_data = graph_flat.to_json()
+        nested_data = graph_flat.serialize()
 
-        graph_nested = LayerGraph.from_json(nested_data)
+        graph_nested = LayerGraph.deserialize(nested_data)
         assert _count_all_entries(graph_nested) == _count_all_entries(graph_flat)
 
     def test_composes_children_nested(self):
         """COMPOSES from nested data should create nesting under parent."""
         with open(FIXTURE) as f:
             data = json.load(f)
-        graph = LayerGraph.from_json(data)
+        graph = LayerGraph.deserialize(data)
         graph.to_neo4j()
-        nested = graph.to_json()
+        nested = graph.serialize()
 
-        restored = LayerGraph.from_json(nested)
+        restored = LayerGraph.deserialize(nested)
         engine = _find_entry(restored, "calc::CalculatorEngine")
         assert engine is not None
         assert "MethodNode" in engine.children
@@ -453,11 +453,11 @@ class TestFromJsonNested:
         """Non-COMPOSES edges should be stored as references after nested parse."""
         with open(FIXTURE) as f:
             data = json.load(f)
-        graph = LayerGraph.from_json(data)
+        graph = LayerGraph.deserialize(data)
         graph.to_neo4j()
-        nested = graph.to_json()
+        nested = graph.serialize()
 
-        restored = LayerGraph.from_json(nested)
+        restored = LayerGraph.deserialize(nested)
         engine = _find_entry(restored, "calc::CalculatorEngine")
         assert engine is not None
         ref_types = {r[0] for r in engine.references}

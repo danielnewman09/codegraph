@@ -37,7 +37,7 @@ def test_enum_composes_value():
     with open(out_path) as f:
         data = json.load(f)
 
-    roundtripped = CodeGraphNode.from_json(data)
+    roundtripped = CodeGraphNode.deserialize(data)
     assert isinstance(roundtripped, EnumNode)
 
     original_fields = {k: v for k, v in enum_node.serialize().items() if k != "edges"}
