@@ -11,6 +11,8 @@
   "detailed_description": "Invokes the calculator engine and returns the result.",
   "file_path": "/src/calc/compute.h",
   "line_number": 10,
+  "body_start": 0,
+  "body_end": 0,
   "definition": "CalculatorResult compute(Operation op, double a, double b)",
   "type_signature": "CalculatorResult",
   "argsstring": "(Operation op, double a, double b)",

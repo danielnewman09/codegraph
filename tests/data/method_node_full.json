@@ -13,6 +13,8 @@
   "detailed_description": "Draws the widget contents to the specified Canvas object, handling layout and clipping automatically.",
   "file_path": "/src/widget.h",
   "line_number": 57,
+  "body_start": 25,
+  "body_end": 30,
   "definition": "void Widget::draw(Canvas c)",
   "type_signature": "void",
   "argsstring": "(Canvas c)",

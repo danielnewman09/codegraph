@@ -29,6 +29,8 @@ class _MemberMixin(StructuredNode, CodeGraphNode):
         detailed_description: Full human-readable description.
         file_path: Source file path where declared.
         line_number: Source line number where declared.
+        body_start: Start line of implementation body (from Doxygen bodystart).
+        body_end: End line of implementation body (from Doxygen bodyend).
         definition: Source code definition text (signature only).
         doc_embedding: Vector embedding of documentation text.
     """
@@ -52,6 +54,16 @@ class _MemberMixin(StructuredNode, CodeGraphNode):
     # --- Location ---
     file_path = StringProperty(default="")
     line_number = IntegerProperty()
+    body_start = IntegerProperty(
+        default=0,
+        help_text="Start line of the implementation body (from Doxygen bodystart). "
+                  "0 or negative means no implementation body available.",
+    )
+    body_end = IntegerProperty(
+        default=0,
+        help_text="End line of the implementation body (from Doxygen bodyend). "
+                  "0 or negative means no implementation body available.",
+    )
 
     # --- Definition ---
     definition = StringProperty(default="")

@@ -11,6 +11,8 @@
   "detailed_description": "The addition operation.",
   "file_path": "/src/calc/operation.h",
   "line_number": 4,
+  "body_start": 0,
+  "body_end": 0,
   "definition": "ADD",
   "source": "calculator",
   "doc_embedding": [],

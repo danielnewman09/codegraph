@@ -11,6 +11,8 @@
   "detailed_description": "Defines the upper limit for buffer allocation.",
   "file_path": "/src/calc/config.h",
   "line_number": 1,
+  "body_start": 0,
+  "body_end": 0,
   "definition": "#define MAX_BUFFER_SIZE 1024",
   "source": "calculator",
   "doc_embedding": [],

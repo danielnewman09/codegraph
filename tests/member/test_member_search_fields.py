@@ -110,3 +110,63 @@ class TestMemberDeserialization:
         node = CodeGraphNode.from_json(data)
         assert isinstance(node, FunctionNode)
         assert node.doc_embedding == data.get("doc_embedding", [])
+
+
+class TestMemberBodyLocation:
+    """Test body_start and body_end fields on member nodes."""
+
+    def test_method_body_start_default_zero(self):
+        m = MethodNode(kind="method")
+        assert m.body_start == 0
+
+    def test_method_body_end_default_zero(self):
+        m = MethodNode(kind="method")
+        assert m.body_end == 0
+
+    def test_method_body_start_stored(self):
+        m = MethodNode(kind="method", body_start=25, body_end=30)
+        assert m.body_start == 25
+        assert m.body_end == 30
+
+    def test_function_body_start_stored(self):
+        f = FunctionNode(kind="function", body_start=100, body_end=120)
+        assert f.body_start == 100
+        assert f.body_end == 120
+
+    def test_body_start_not_in_llm_fields(self):
+        """body_start/body_end are extraction plumbing, not for LLM context."""
+        for cls in [MethodNode, FunctionNode, AttributeNode, DefineNode]:
+            assert "body_start" not in cls._llm_fields
+            assert "body_end" not in cls._llm_fields
+
+    def test_method_serialize_excludes_body_location(self):
+        m = MethodNode(kind="method", body_start=25, body_end=30, name="draw")
+        serialized = m.serialize()
+        assert "body_start" not in serialized
+        assert "body_end" not in serialized
+
+    def test_deserialize_with_body_location(self):
+        data = {
+            "type": "MethodNode",
+            "qualified_name": "Widget::draw",
+            "name": "draw",
+            "kind": "method",
+            "body_start": 25,
+            "body_end": 30,
+        }
+        node = CodeGraphNode.from_json(data)
+        assert isinstance(node, MethodNode)
+        assert node.body_start == 25
+        assert node.body_end == 30
+
+    def test_deserialize_without_body_location(self):
+        """Old fixtures without body_start/body_end should default to 0."""
+        data = {
+            "type": "MethodNode",
+            "qualified_name": "Widget::draw",
+            "name": "draw",
+            "kind": "method",
+        }
+        node = CodeGraphNode.from_json(data)
+        assert node.body_start == 0
+        assert node.body_end == 0
