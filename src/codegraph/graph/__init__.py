@@ -35,6 +35,37 @@ class CompositeEntry:
     children: dict[str, dict[str, "CompositeEntry"]] = field(default_factory=dict)
     references: list[tuple[str, str, str]] = field(default_factory=list)
 
+    def to_dict(self, fields: str = "all") -> dict:
+        """Serialize this entry and its composed children to a dict.
+
+        Args:
+            fields: "all" for every defined property, "llm" for only
+                ``_llm_fields`` properties.
+
+        Returns:
+            A dict with the serialized node, optional ``composes`` key
+                containing nested children, and optional ``references``
+                key containing non-COMPOSES edge triples.
+        """
+        result = self.node.to_dict(fields=fields)
+
+        # Inline composed children under "composes"
+        if self.children:
+            composes = []
+            for type_children in self.children.values():
+                for child_entry in type_children.values():
+                    composes.append(child_entry.to_dict(fields=fields))
+            result["composes"] = composes
+
+        # Include non-COMPOSES references as serializable lists
+        if self.references:
+            result["references"] = [
+                [rel_type, target_key, target_type]
+                for rel_type, target_key, target_type in self.references
+            ]
+
+        return result
+
 
 @dataclass
 class LayerGraph:

@@ -13,6 +13,79 @@ from codegraph.models.namespace import NamespaceNode
 from codegraph.models.tags import CodeGraphNode
 
 
+class TestCompositeEntryToDict:
+    """Tests for CompositeEntry.to_dict()."""
+
+    def test_entry_to_dict_fields_all(self):
+        node = ClassNode(qualified_name="ns::Widget", name="Widget", kind="class", layer="design")
+        entry = CompositeEntry(node=node)
+        result = entry.to_dict(fields="all")
+        assert result["type"] == "ClassNode"
+        assert result["qualified_name"] == "ns::Widget"
+        assert result["name"] == "Widget"
+        assert result["kind"] == "class"
+        assert result["layer"] == "design"
+        # All ClassNode properties should be present
+        assert "component_id" in result
+        assert "file_path" in result
+
+    def test_entry_to_dict_fields_llm(self):
+        node = ClassNode(qualified_name="ns::Widget", name="Widget", kind="class", visibility="public")
+        entry = CompositeEntry(node=node)
+        result = entry.to_dict(fields="llm")
+        assert result["type"] == "ClassNode"
+        assert result["qualified_name"] == "ns::Widget"
+        # LLM fields only
+        assert "visibility" in result
+        # Non-LLM fields should be absent
+        assert "layer" not in result
+        assert "component_id" not in result
+
+    def test_entry_to_dict_with_children(self):
+        ns_node = NamespaceNode(qualified_name="calc", name="calc", kind="namespace")
+        class_node = ClassNode(qualified_name="calc::Widget", name="Widget", kind="class")
+        method_node = MethodNode(qualified_name="calc::Widget::draw", name="draw", kind="method")
+
+        method_entry = CompositeEntry(node=method_node)
+        class_entry = CompositeEntry(
+            node=class_node,
+            children={"MethodNode": {"calc::Widget::draw": method_entry}},
+        )
+        ns_entry = CompositeEntry(
+            node=ns_node,
+            children={"ClassNode": {"calc::Widget": class_entry}},
+        )
+
+        result = ns_entry.to_dict(fields="all")
+        assert "composes" in result
+        assert len(result["composes"]) == 1
+        class_result = result["composes"][0]
+        assert class_result["type"] == "ClassNode"
+        assert "composes" in class_result
+        method_result = class_result["composes"][0]
+        assert method_result["type"] == "MethodNode"
+
+    def test_entry_to_dict_with_references(self):
+        class_node = ClassNode(qualified_name="ns::Widget", name="Widget", kind="class")
+        file_node = FileNode(name="widget.h", path="/src/widget.h", refid="file-widget")
+
+        entry = CompositeEntry(
+            node=class_node,
+            references=[("DEFINED_IN", "file-widget", "FileNode")],
+        )
+        result = entry.to_dict(fields="all")
+        assert "references" in result
+        assert len(result["references"]) == 1
+        assert result["references"][0] == ["DEFINED_IN", "file-widget", "FileNode"]
+
+    def test_entry_to_dict_without_children_or_references(self):
+        node = ClassNode(qualified_name="ns::Widget", name="Widget", kind="class")
+        entry = CompositeEntry(node=node)
+        result = entry.to_dict(fields="all")
+        assert "composes" not in result
+        assert "references" not in result
+
+
 DATA_DIR = Path(__file__).resolve().parent / "data"
 FIXTURE = DATA_DIR / "design_graph.json"
 FIXTURE_DIR = Path(__file__).resolve().parent / "unit_test_data"
