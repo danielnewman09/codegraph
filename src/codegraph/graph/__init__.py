@@ -218,6 +218,111 @@ class LayerGraph:
             ],
         }
 
+    @classmethod
+    def from_dict(cls, data) -> "LayerGraph":
+        """Reconstruct a LayerGraph from a dict produced by :meth:`to_dict`.
+
+        Also accepts a bare list of entry dicts (legacy ``from_json`` format)
+        for backward compatibility.
+
+        Args:
+            data: Either a dict with ``layer`` and ``entries`` keys
+                (as produced by ``to_dict()``), or a list of entry dicts
+                (as accepted by ``from_json()``).
+
+        Returns:
+            A LayerGraph with entries, children, and references populated.
+        """
+        if isinstance(data, list):
+            # Legacy bare-list format — delegate to existing parse logic
+            return cls._from_list(data)
+
+        # New dict format: {"layer": ..., "entries": [...]}
+        layer = data.get("layer", "design")
+        entries_data = data.get("entries", [])
+
+        key_to_entry: dict[str, CompositeEntry] = {}
+        child_keys: set[str] = set()
+
+        for entry_data in entries_data:
+            entry = CompositeEntry.from_dict(entry_data)
+            key = cls._node_key(entry_data)
+            key_to_entry[key] = entry
+            # Track children from composites
+            for type_children in entry.children.values():
+                for child_key in type_children:
+                    child_keys.add(child_key)
+
+        # Resolve references if they came from the "references" key
+        # in entries that also had flat "edges" format (legacy roundtrip)
+        flat_entries = data.get("entries", [])
+        cls._resolve_flat_references(flat_entries, key_to_entry)
+
+        root_entries = {
+            key: entry
+            for key, entry in key_to_entry.items()
+            if key not in child_keys
+        }
+        return cls(layer=layer, entries=root_entries)
+
+    @classmethod
+    def _resolve_flat_references(
+        cls,
+        entries_data: list[dict],
+        key_to_entry: dict[str, CompositeEntry],
+    ) -> None:
+        """Resolve flat edges format references into CompositeEntry references.
+
+        Walks entry data looking for ``edges`` arrays (flat format) and
+        converts COMPOSES and non-COMPOSES edges into CompositeEntry
+        children and references respectively.
+
+        Args:
+            entries_data: List of entry dicts that may contain ``edges`` arrays.
+            key_to_entry: Global index mapping node keys to entries.
+        """
+        for entry_data in entries_data:
+            source_key = cls._node_key(entry_data)
+            source_entry = key_to_entry.get(source_key)
+            if source_entry is None:
+                continue
+
+            # Handle flat "edges" format
+            for edge in entry_data.get("edges", []):
+                relation_type = edge["relation_type"]
+                target_type = edge["target_type"]
+                target_key = edge.get("target_local_id")
+                if target_key is None:
+                    uid_to_key = {
+                        key: key
+                        for key in key_to_entry
+                    }
+                    target_key = edge.get("target_uid")
+                    # Try to look up the uid in entry nodes
+                    if target_key:
+                        for k, e in key_to_entry.items():
+                            uid = e.node._uid_value()
+                            if uid == target_key:
+                                target_key = k
+                                break
+                if target_key is None:
+                    continue
+
+                if relation_type == "COMPOSES":
+                    target_entry = key_to_entry.get(target_key)
+                    if target_entry is not None:
+                        if target_type not in source_entry.children:
+                            source_entry.children[target_type] = {}
+                        source_entry.children[target_type][target_key] = target_entry
+                else:
+                    source_entry.references.append(
+                        (relation_type, target_key, target_type)
+                    )
+
+            # Recurse into composites entries
+            for child_data in entry_data.get("composes", []):
+                cls._resolve_flat_references([child_data], key_to_entry)
+
     # ── from_json ──────────────────────────────────────────────────────
 
     @classmethod
@@ -420,6 +525,27 @@ class LayerGraph:
         return cls(layer=layer, entries=root_entries)
 
     @classmethod
+    def _from_list(cls, data: list[dict]) -> "LayerGraph":
+        """Deserialize from a bare list of entry dicts.
+
+        Detects whether the data is in nested format (entries with
+        ``composes`` key) or flat format (entries with ``edges`` arrays)
+        and delegates accordingly.
+
+        Args:
+            data: A list of dicts, each a serialized node.
+
+        Returns:
+            A LayerGraph with the nested composition structure.
+        """
+        has_nested = any("composes" in entry for entry in data)
+
+        if has_nested:
+            return cls._from_json_nested(data)
+
+        return cls._from_json_flat(data)
+
+    @classmethod
     def from_json(cls, data: list[dict]) -> "LayerGraph":
         """Deserialize from a JSON array (as produced by ``to_json()``).
 
@@ -441,13 +567,7 @@ class LayerGraph:
             A LayerGraph containing the deserialized nodes in a nested
             composition structure.
         """
-        # Detect format: nested if any entry has a "composes" key
-        has_nested = any("composes" in entry for entry in data)
-
-        if has_nested:
-            return cls._from_json_nested(data)
-
-        return cls._from_json_flat(data)
+        return cls._from_list(data)
 
     # ── to_neo4j ───────────────────────────────────────────────────────
 

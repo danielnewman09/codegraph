@@ -304,6 +304,93 @@ class TestLayerGraphToDict:
         assert len(result1["entries"]) == len(result2["entries"])
 
 
+class TestLayerGraphFromDict:
+    """Tests for LayerGraph.from_dict()."""
+
+    def test_from_dict_with_layer_and_entries(self):
+        """from_dict accepts {"layer": ..., "entries": [...]} format."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+        dict_data = graph.to_dict(fields="all")
+        restored = LayerGraph.from_dict(dict_data)
+        assert restored.layer == "design"
+        assert _count_all_entries(restored) == _count_all_entries(graph)
+
+    def test_from_dict_bare_list_backward_compat(self):
+        """from_dict accepts a bare list (legacy from_json format)."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        restored = LayerGraph.from_dict(data)
+        assert restored.layer == "design"
+        assert _count_all_entries(restored) == len(data)
+
+    def test_from_dict_roundtrip_all(self):
+        """from_json(data) -> to_dict(fields='all') -> from_dict() -> to_dict(fields='all')."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+        result1 = graph.to_dict(fields="all")
+        restored = LayerGraph.from_dict(result1)
+        result2 = restored.to_dict(fields="all")
+
+        assert len(result1["entries"]) == len(result2["entries"])
+        assert _count_all_entries(graph) == _count_all_entries(restored)
+
+    def test_from_dict_roundtrip_llm(self):
+        """Round-trip with LLM fields."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+        result1 = graph.to_dict(fields="llm")
+        restored = LayerGraph.from_dict(result1)
+        result2 = restored.to_dict(fields="llm")
+
+        assert len(result1["entries"]) == len(result2["entries"])
+
+    def test_from_dict_preserves_all_properties(self):
+        """After round-trip with fields='all', non-LLM properties survive."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+        dict_data = graph.to_dict(fields="all")
+        restored = LayerGraph.from_dict(dict_data)
+
+        engine = _find_entry(restored, "calc::CalculatorEngine")
+        assert engine is not None
+        assert engine.node.layer == "design"
+        # These properties are NOT in _llm_fields but should survive round-trip
+        assert hasattr(engine.node, "component_id")
+        assert hasattr(engine.node, "file_path")
+
+    def test_from_dict_preserves_composition_structure(self):
+        """Children and references survive round-trip."""
+        with open(FIXTURE) as f:
+            data = json.load(f)
+        graph = LayerGraph.from_json(data)
+        dict_data = graph.to_dict(fields="all")
+        restored = LayerGraph.from_dict(dict_data)
+
+        engine = _find_entry(restored, "calc::CalculatorEngine")
+        assert engine is not None
+        assert "MethodNode" in engine.children
+        assert "AttributeNode" in engine.children
+        ref_types = {r[0] for r in engine.references}
+        assert "REALIZES" in ref_types
+        assert "DEFINED_IN" in ref_types
+
+    def test_from_dict_invalid_layer_raises(self):
+        """Passing invalid layer data raises ValueError."""
+        dict_data = {
+            "layer": "unknown",
+            "entries": [
+                {"type": "ClassNode", "name": "X", "kind": "class"},
+            ],
+        }
+        with pytest.raises(ValueError, match="Invalid layer"):
+            LayerGraph.from_dict(dict_data)
+
+
 class TestNodeKey:
     """Tests for LayerGraph._node_key()."""
 
