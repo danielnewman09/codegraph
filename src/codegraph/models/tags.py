@@ -319,11 +319,39 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         return cls(**filtered)
 
     @classmethod
-    def from_json(cls, data: dict) -> "CodeGraphNode":
-        """Instantiate the correct subclass from a serialized dict.
+    def from_dict(cls, data: dict) -> "CodeGraphNode":
+        """Instantiate the correct subclass from a dict.
 
         Reads the ``type`` key to dispatch to the registered subclass,
         then calls ``deserialize()`` on that class.
+
+        Args:
+            data: A dict with a ``type`` discriminator key and property
+                fields as produced by :meth:`to_dict`.
+
+        Returns:
+            A new instance of the appropriate CodeGraphNode subclass.
+
+        Raises:
+            ValueError: If the ``type`` key is missing from data.
+            KeyError: If the ``type`` is not in the registry.
+        """
+        type_name = data.get("type")
+        if type_name is None:
+            raise ValueError("Dict data is missing the 'type' discriminator")
+        if type_name not in cls._registry:
+            raise KeyError(
+                f"Unknown node type '{type_name}'. "
+                f"Registered types: {sorted(cls._registry.keys())}"
+            )
+        return cls._registry[type_name].deserialize(data)
+
+    @classmethod
+    def from_json(cls, data: dict) -> "CodeGraphNode":
+        """Instantiate the correct subclass from a serialized dict.
+
+        Alias for :meth:`from_dict`. Reads the ``type`` key to dispatch
+        to the registered subclass.
 
         Args:
             data: A serialized dict with a ``type`` discriminator key.
@@ -335,15 +363,7 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
             ValueError: If the ``type`` key is missing from data.
             KeyError: If the ``type`` is not in the registry.
         """
-        type_name = data.get("type")
-        if type_name is None:
-            raise ValueError("Serialized data is missing the 'type' discriminator")
-        if type_name not in cls._registry:
-            raise KeyError(
-                f"Unknown node type '{type_name}'. "
-                f"Registered types: {sorted(cls._registry.keys())}"
-            )
-        return cls._registry[type_name].deserialize(data)
+        return cls.from_dict(data)
 
     @classmethod
     def serialize_relationships(cls) -> list[dict]:
