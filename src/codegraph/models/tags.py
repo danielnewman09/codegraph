@@ -240,6 +240,44 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
 
     # ── Serialization ─────────────────────────────────────────────────────
 
+    def to_dict(self, fields: str = "all") -> dict:
+        """Return a dict representation of this node.
+
+        Produces a full-fidelity or LLM-trimmed dict suitable for
+        round-tripping through :meth:`from_dict` or for transport to
+        external services.
+
+        Args:
+            fields: "all" to include every defined property, "llm" to
+                include only the properties listed in ``_llm_fields``.
+
+        Returns:
+            A dict with ``type`` discriminator, the node's unique
+            identifier property value (if it has one), and the selected
+            property fields.  Does NOT include ``edges`` — that is
+            the domain of :class:`CompositeEntry` and
+            :class:`~codegraph.graph.LayerGraph`.
+        """
+        props = dict(self.__properties__)
+        if fields == "llm":
+            result = {k: props[k] for k in self._llm_fields if k in props}
+        else:  # fields == "all"
+            result = dict(props)
+
+        # Always include the type discriminator
+        result["type"] = type(self).__name__
+
+        # Always include uid_prop for round-trip resolution, even in llm mode.
+        # FileNode uses refid (not in _llm_fields), so to_dict(fields="llm")
+        # would omit it without this explicit inclusion.
+        uid_prop = type(self)._uid_prop()
+        if uid_prop and uid_prop not in result:
+            uid_value = getattr(self, uid_prop, None)
+            if uid_value is not None:
+                result[uid_prop] = uid_value
+
+        return result
+
     def serialize(self) -> dict:
         """Return the full LLM-facing representation of this node.
 

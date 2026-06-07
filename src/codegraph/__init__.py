@@ -33,18 +33,6 @@ from codegraph.constants import (
 )
 from codegraph.graph import LayerGraph, CompositeEntry
 from codegraph.repository import GraphRepository
-from codegraph.diagram import (
-    Association,
-    ClassDiagram,
-    DiagramAttributeNode,
-    DiagramClassNode,
-    DiagramEnumNode,
-    DiagramEnumValueNode,
-    DiagramInterfaceNode,
-    DiagramMethodNode,
-    DiagramModuleNode,
-    DiagramNode,
-)
 from codegraph.models import (
     ClassNode,
     InterfaceNode,
@@ -64,17 +52,6 @@ from codegraph.models import (
 )
 
 __all__ = [
-    # Diagram types (Pydantic, for LLM I/O and in-memory diagrams)
-    "Association",
-    "ClassDiagram",
-    "DiagramAttributeNode",
-    "DiagramClassNode",
-    "DiagramEnumNode",
-    "DiagramEnumValueNode",
-    "DiagramInterfaceNode",
-    "DiagramMethodNode",
-    "DiagramModuleNode",
-    "DiagramNode",
     # Nodes (neomodel, atomized)
     "ClassNode",
     "InterfaceNode",
