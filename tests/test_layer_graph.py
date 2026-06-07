@@ -86,6 +86,107 @@ class TestCompositeEntryToDict:
         assert "references" not in result
 
 
+class TestCompositeEntryFromDict:
+    """Tests for CompositeEntry.from_dict()."""
+
+    def test_from_dict_roundtrip_with_to_dict_all(self):
+        ns_node = NamespaceNode(qualified_name="calc", name="calc", kind="namespace", description="A namespace")
+        class_node = ClassNode(qualified_name="calc::Widget", name="Widget", kind="class", visibility="public")
+        ns_entry = CompositeEntry(
+            node=ns_node,
+            references=[("GROUPS", "calc::Widget", "ClassNode")],
+        )
+        class_entry = CompositeEntry(
+            node=class_node,
+            children={},
+            references=[("DEFINED_IN", "file-widget", "FileNode")],
+        )
+        ns_entry.children = {"ClassNode": {"calc::Widget": class_entry}}
+
+        data = ns_entry.to_dict(fields="all")
+        restored = CompositeEntry.from_dict(data)
+
+        assert isinstance(restored.node, NamespaceNode)
+        assert restored.node.qualified_name == "calc"
+        assert restored.node.description == "A namespace"
+        assert len(restored.references) == 1
+        assert restored.references[0] == ("GROUPS", "calc::Widget", "ClassNode")
+        assert "ClassNode" in restored.children
+        child = restored.children["ClassNode"]["calc::Widget"]
+        assert isinstance(child.node, ClassNode)
+        assert child.node.qualified_name == "calc::Widget"
+        assert len(child.references) == 1
+        assert child.references[0] == ("DEFINED_IN", "file-widget", "FileNode")
+
+    def test_from_dict_with_children(self):
+        data = {
+            "type": "NamespaceNode",
+            "qualified_name": "calc",
+            "name": "calc",
+            "kind": "namespace",
+            "composes": [
+                {
+                    "type": "ClassNode",
+                    "qualified_name": "calc::Widget",
+                    "name": "Widget",
+                    "kind": "class",
+                }
+            ],
+        }
+        entry = CompositeEntry.from_dict(data)
+        assert isinstance(entry.node, NamespaceNode)
+        assert "ClassNode" in entry.children
+        assert "calc::Widget" in entry.children["ClassNode"]
+        child = entry.children["ClassNode"]["calc::Widget"]
+        assert isinstance(child.node, ClassNode)
+
+    def test_from_dict_with_references(self):
+        data = {
+            "type": "ClassNode",
+            "qualified_name": "ns::Widget",
+            "name": "Widget",
+            "kind": "class",
+            "references": [
+                ["DEFINED_IN", "file-widget", "FileNode"],
+                ["REALIZES", "ns::IWidget", "InterfaceNode"],
+            ],
+        }
+        entry = CompositeEntry.from_dict(data)
+        assert len(entry.references) == 2
+        assert entry.references[0] == ("DEFINED_IN", "file-widget", "FileNode")
+        assert entry.references[1] == ("REALIZES", "ns::IWidget", "InterfaceNode")
+
+    def test_from_dict_nested_children(self):
+        data = {
+            "type": "NamespaceNode",
+            "qualified_name": "calc",
+            "name": "calc",
+            "kind": "namespace",
+            "composes": [
+                {
+                    "type": "ClassNode",
+                    "qualified_name": "calc::Widget",
+                    "name": "Widget",
+                    "kind": "class",
+                    "composes": [
+                        {
+                            "type": "MethodNode",
+                            "qualified_name": "calc::Widget::draw",
+                            "name": "draw",
+                            "kind": "method",
+                        }
+                    ],
+                }
+            ],
+        }
+        entry = CompositeEntry.from_dict(data)
+        assert isinstance(entry.node, NamespaceNode)
+        class_child = entry.children["ClassNode"]["calc::Widget"]
+        assert isinstance(class_child.node, ClassNode)
+        method_child = class_child.children["MethodNode"]["calc::Widget::draw"]
+        assert isinstance(method_child.node, MethodNode)
+
+
 DATA_DIR = Path(__file__).resolve().parent / "data"
 FIXTURE = DATA_DIR / "design_graph.json"
 FIXTURE_DIR = Path(__file__).resolve().parent / "unit_test_data"

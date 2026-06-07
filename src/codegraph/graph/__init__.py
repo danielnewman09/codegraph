@@ -66,6 +66,35 @@ class CompositeEntry:
 
         return result
 
+    @classmethod
+    def from_dict(cls, data: dict) -> "CompositeEntry":
+        """Reconstruct a CompositeEntry from a dict produced by to_dict().
+
+        Args:
+            data: A dict with node properties and optional ``composes``
+                children and ``references`` triples.
+
+        Returns:
+            A CompositeEntry with node, children, and references populated.
+        """
+        node = CodeGraphNode.from_dict(data)
+        entry = cls(node=node)
+
+        # Parse composes children recursively
+        for child_data in data.get("composes", []):
+            child_entry = cls.from_dict(child_data)
+            child_type = child_data["type"]
+            child_key = LayerGraph._node_key(child_data)
+            if child_type not in entry.children:
+                entry.children[child_type] = {}
+            entry.children[child_type][child_key] = child_entry
+
+        # Parse references from serializable list format
+        for ref in data.get("references", []):
+            entry.references.append((ref[0], ref[1], ref[2]))
+
+        return entry
+
 
 @dataclass
 class LayerGraph:
