@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from neomodel import (
     StructuredNode, StringProperty, IntegerProperty, BooleanProperty,
-    ArrayProperty, UniqueIdProperty, RelationshipTo, RelationshipFrom,
+    ArrayProperty, FloatProperty, UniqueIdProperty, RelationshipTo, RelationshipFrom,
 )
 
 from codegraph.models.tags import CodeGraphNode
@@ -19,7 +19,7 @@ class _CompoundMixin(StructuredNode, CodeGraphNode):
 
     Attributes:
         qualified_name: Unique identifier for the compound.
-        kind: Node kind (e.g. "class", "struct", "interface").
+        kind: Node kind (e.g. "class", "struct", "interface", "concept").
         layer: Origin layer ("design", "as-built", "dependency").
         component_id: Component identifier for grouping.
         source_type: Source system type (e.g. "Doxygen").
@@ -28,7 +28,8 @@ class _CompoundMixin(StructuredNode, CodeGraphNode):
         detailed_description: Full human-readable description.
         file_path: Source file path where declared.
         line_number: Source line number where declared.
-        definition: Source code definition text.
+        definition: Source code definition text (class/struct declaration).
+        doc_embedding: Vector embedding of documentation text.
     """
 
     # --- Identity ---
@@ -54,6 +55,24 @@ class _CompoundMixin(StructuredNode, CodeGraphNode):
     # --- Definition ---
     definition = StringProperty(default="")
 
+    # --- Vector embeddings ---
+    doc_embedding = ArrayProperty(FloatProperty(), default=[],
+        help_text="Vector embedding of brief_description + detailed_description.")
+
+    # --- Lazy-loaded implementation ----------------------------------------
+    #
+    #  • HAS_IMPLEMENTATION  — this compound → ImplementationNode
+    #    The full source code body and its vector embedding.  Kept on a
+    #    separate node so that lightweight queries (listing, counting,
+    #    serializing) do not pull potentially large implementation text or
+    #    embedding vectors.
+    #
+    #    NOT expanded by LayerGraph — access via
+    #    ``node.implementation_ref.all()`` when source code is needed.
+    # --------------------------------------------------------------------------
+
+    implementation_ref = RelationshipTo('codegraph.models.implementation.ImplementationNode', 'HAS_IMPLEMENTATION')
+
     # --- Relationships -------------------------------------------------------
     #
     # Relationship glossary (all compound types inherit these):
@@ -61,21 +80,29 @@ class _CompoundMixin(StructuredNode, CodeGraphNode):
     #  • DEFINED_IN   — this compound → FileNode
     #    The source file where this compound is declared/defined.
     #
-    #  • TEMPLATE_PARAM  — this template → ClassNode
+    #  • TEMPLATE_PARAM  — this template → ClassNode (parameter slot)
     #    Declares a template type parameter slot. The target ClassNode represents
-    #    the parameter itself (e.g., a type parameter named "T").
+    #    the parameter itself (kind='type_parameter'). The edge carries metadata:
+    #    position, declname, defname, defval.
     #
     #  • SPECIALIZES  — this specialization → ClassNode (primary template)
     #    Records that this compound is a template specialization of another.
     #    Example: ``std::vector<int> -[:SPECIALIZES]-> std::vector<T>``.
+    #
+    #  • ENFORCES_CONCEPT  — this type-parameter ClassNode → ConceptNode
+    #    Records that a template parameter is constrained by a C++20 concept.
+    #    The source is a ClassNode(kind='type_parameter'), and the target
+    #    is the ConceptNode that defines the constraint.
+    #    Example: ``T -[:ENFORCES_CONCEPT]-> ValidTransferObject``.
     # --------------------------------------------------------------------------
 
     # File location
     defined_in = RelationshipTo('codegraph.models.file.FileNode', 'DEFINED_IN')
 
-    # Template machinery (shared by ClassNode, InterfaceNode, etc.)
+    # Template machinery (shared by ClassNode, InterfaceNode, ConceptNode, etc.)
     template_params = RelationshipTo('ClassNode', 'TEMPLATE_PARAM')
     specializes = RelationshipTo('ClassNode', 'SPECIALIZES')
+    enforces_concept = RelationshipTo('ConceptNode', 'ENFORCES_CONCEPT')
 
     # --- Serialization contract ---
     _llm_fields: set[str] = {"qualified_name", "name", "kind", "brief_description", "visibility"}
@@ -229,6 +256,32 @@ class UnionNode(_CompoundMixin):
 
     kind = StringProperty(default="union")
     module = StringProperty(default="")
+
+    _llm_fields = {"qualified_name", "name", "kind", "brief_description", "visibility"}
+
+    # Incoming composition (parent namespace)
+    parent_namespace = RelationshipFrom('codegraph.models.namespace.NamespaceNode', 'COMPOSES')
+
+
+class ConceptNode(_CompoundMixin):
+    """C++20 concept (type constraint) — Neo4j label ``:Concept``.
+
+    Concepts define constraints on template parameters. They are
+    parsed from Doxygen ``kind=\"concept\"`` compound elements.
+
+    Attributes:
+        kind: Defaults to "concept".
+        module: Module/namespace the concept belongs to.
+        initializer: The concept definition expression (e.g.
+            ``template<typename T>\nconcept ValidTransferObject = TransferObject<T>``).
+    """
+
+    kind = StringProperty(default="concept")
+    module = StringProperty(default="")
+    initializer = StringProperty(
+        default="",
+        help_text="The full concept definition expression as written in source.",
+    )
 
     _llm_fields = {"qualified_name", "name", "kind", "brief_description", "visibility"}
 

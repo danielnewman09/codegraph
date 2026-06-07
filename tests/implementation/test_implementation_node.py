@@ -1,0 +1,100 @@
+"""Unit tests for ImplementationNode model."""
+
+import json
+from pathlib import Path
+
+from codegraph.models.implementation import ImplementationNode
+from codegraph.models.tags import CodeGraphNode
+
+DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+
+
+class TestImplementationNodeModel:
+    """Test ImplementationNode creation and field defaults."""
+
+    def test_kind_defaults_to_implementation(self):
+        node = ImplementationNode()
+        assert node.kind == "implementation"
+
+    def test_qualified_name_default_empty(self):
+        node = ImplementationNode()
+        assert node.qualified_name == ""
+
+    def test_implementation_default_empty(self):
+        node = ImplementationNode()
+        assert node.implementation == ""
+
+    def test_impl_embedding_default_empty(self):
+        node = ImplementationNode()
+        assert node.impl_embedding == []
+
+    def test_implementation_stored(self):
+        node = ImplementationNode(
+            qualified_name="Widget::draw",
+            implementation="void draw() { render(); }",
+        )
+        assert node.implementation == "void draw() { render(); }"
+
+    def test_impl_embedding_stored(self):
+        node = ImplementationNode(
+            qualified_name="Widget::draw",
+            impl_embedding=[0.1, 0.2, 0.3],
+        )
+        assert node.impl_embedding == [0.1, 0.2, 0.3]
+
+    def test_llm_fields_include_implementation(self):
+        assert "implementation" in ImplementationNode._llm_fields
+
+    def test_llm_fields_include_qualified_name(self):
+        assert "qualified_name" in ImplementationNode._llm_fields
+
+    def test_llm_fields_exclude_embedding(self):
+        assert "impl_embedding" not in ImplementationNode._llm_fields
+
+    def test_serialize_includes_implementation(self):
+        node = ImplementationNode(
+            qualified_name="Widget::draw",
+            implementation="void draw() { render(); }",
+        )
+        serialized = node.serialize()
+        assert "implementation" in serialized
+        assert serialized["implementation"] == "void draw() { render(); }"
+
+    def test_serialize_excludes_embedding(self):
+        node = ImplementationNode(
+            qualified_name="Widget::draw",
+            impl_embedding=[0.1, 0.2, 0.3],
+        )
+        serialized = node.serialize()
+        assert "impl_embedding" not in serialized
+
+    def test_deserialize_with_implementation(self):
+        data = {
+            "type": "ImplementationNode",
+            "qualified_name": "Widget::draw",
+            "kind": "implementation",
+            "implementation": "void draw() { render(); }",
+        }
+        node = CodeGraphNode.from_json(data)
+        assert isinstance(node, ImplementationNode)
+        assert node.implementation == "void draw() { render(); }"
+
+    def test_fixture_roundtrip(self):
+        """Verify implementation_node_full.json deserializes correctly."""
+        with open(DATA_DIR / "implementation_node_full.json") as f:
+            data = json.load(f)
+        node = CodeGraphNode.from_json(data)
+        assert isinstance(node, ImplementationNode)
+        assert node.implementation == data["implementation"]
+        assert node.impl_embedding == data["impl_embedding"]
+        assert node.qualified_name == data["qualified_name"]
+
+
+class TestImplementationNodeRegistry:
+    """Test that ImplementationNode is registered in CodeGraphNode._registry."""
+
+    def test_implementation_node_in_registry(self):
+        assert "ImplementationNode" in CodeGraphNode._registry
+
+    def test_implementation_node_registry_class(self):
+        assert CodeGraphNode._registry["ImplementationNode"] is ImplementationNode

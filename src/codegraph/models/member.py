@@ -8,7 +8,8 @@ from __future__ import annotations
 
 from neomodel import (
     StructuredNode, StringProperty, IntegerProperty, BooleanProperty,
-    UniqueIdProperty, RelationshipTo, RelationshipFrom,
+    ArrayProperty, FloatProperty, UniqueIdProperty,
+    RelationshipTo, RelationshipFrom,
 )
 
 from codegraph.models.tags import CodeGraphNode
@@ -28,7 +29,8 @@ class _MemberMixin(StructuredNode, CodeGraphNode):
         detailed_description: Full human-readable description.
         file_path: Source file path where declared.
         line_number: Source line number where declared.
-        definition: Source code definition text.
+        definition: Source code definition text (signature only).
+        doc_embedding: Vector embedding of documentation text.
     """
 
     # --- Identity ---
@@ -53,6 +55,24 @@ class _MemberMixin(StructuredNode, CodeGraphNode):
 
     # --- Definition ---
     definition = StringProperty(default="")
+
+    # --- Vector embeddings ---
+    doc_embedding = ArrayProperty(FloatProperty(), default=[],
+        help_text="Vector embedding of brief_description + detailed_description.")
+
+    # --- Lazy-loaded implementation ----------------------------------------
+    #
+    #  • HAS_IMPLEMENTATION  — this member → ImplementationNode
+    #    The full source code body and its vector embedding.  Kept on a
+    #    separate node so that lightweight queries (listing, counting,
+    #    serializing) do not pull potentially large implementation text or
+    #    embedding vectors.
+    #
+    #    NOT expanded by LayerGraph — access via
+    #    ``method.implementation_ref.all()`` when source code is needed.
+    # --------------------------------------------------------------------------
+
+    implementation_ref = RelationshipTo('codegraph.models.implementation.ImplementationNode', 'HAS_IMPLEMENTATION')
 
     # --- Relationships -------------------------------------------------------
     #

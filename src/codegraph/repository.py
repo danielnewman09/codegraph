@@ -89,6 +89,9 @@ class GraphRepository:
         # Phase 2: expand 1-hop neighbors
         for node in list(seeds):
             for edge_info in node.walk_edges():
+                # Skip lazy-loaded relationships — fetched on demand, not in graph expansion
+                if edge_info["relation_type"] == "HAS_IMPLEMENTATION":
+                    continue
                 target_uid = edge_info["target_uid"]
                 target_type = edge_info["target_type"]
                 if target_uid not in uid_to_key:
@@ -120,6 +123,9 @@ class GraphRepository:
                 target_uid = edge_info["target_uid"]
                 target_type = edge_info["target_type"]
                 is_outgoing = edge_info["is_outgoing"]
+                # Skip lazy-loaded relationships
+                if relation_type == "HAS_IMPLEMENTATION":
+                    continue
                 target_key = uid_to_key.get(target_uid)
 
                 if target_key is None or target_key not in key_to_entry:

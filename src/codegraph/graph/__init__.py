@@ -508,6 +508,9 @@ class LayerGraph:
         # Expand to first-level neighbors
         for node in matched_nodes:
             for edge in node.walk_edges():
+                # Skip lazy-loaded relationships — fetched on demand
+                if edge["relation_type"] == "HAS_IMPLEMENTATION":
+                    continue
                 target_uid = edge["target_uid"]
                 target_type = edge["target_type"]
                 if target_uid not in seen_uids:
@@ -540,6 +543,9 @@ class LayerGraph:
                 target_uid = edge["target_uid"]
                 target_type = edge["target_type"]
                 is_outgoing = edge["is_outgoing"]
+                # Skip lazy-loaded relationships
+                if relation_type == "HAS_IMPLEMENTATION":
+                    continue
                 target_key = uid_to_key.get(target_uid)
 
                 if target_key is None:

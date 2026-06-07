@@ -1,0 +1,9 @@
+{
+  "type": "ImplementationNode",
+  "qualified_name": "Widget::draw",
+  "name": "draw_impl",
+  "kind": "implementation",
+  "implementation": "void Widget::draw(Canvas c) {\n  c.beginDraw();\n  render(c);\n  c.endDraw();\n}",
+  "impl_embedding": [],
+  "edges": []
+}

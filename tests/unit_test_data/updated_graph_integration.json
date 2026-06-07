@@ -1,0 +1,385 @@
+[
+  {
+    "path": "/src/calc/calculator_engine.h",
+    "source": "calculator",
+    "name": "calculator_engine.h",
+    "type": "FileNode",
+    "edges": []
+  },
+  {
+    "path": "/src/calc/icalculator.h",
+    "source": "calculator",
+    "name": "icalculator.h",
+    "type": "FileNode",
+    "edges": []
+  },
+  {
+    "path": "/src/calc/operation.h",
+    "source": "calculator",
+    "name": "operation.h",
+    "type": "FileNode",
+    "edges": []
+  },
+  {
+    "path": "/src/calc/calculator_result.h",
+    "source": "calculator",
+    "name": "calculator_result.h",
+    "type": "FileNode",
+    "edges": []
+  },
+  {
+    "path": "/src/ui/base_window.h",
+    "source": "calculator",
+    "name": "base_window.h",
+    "type": "FileNode",
+    "edges": []
+  },
+  {
+    "path": "/src/ui/calculator_window.h",
+    "source": "calculator",
+    "name": "calculator_window.h",
+    "type": "FileNode",
+    "edges": []
+  },
+  {
+    "description": "Calculation engine module",
+    "kind": "namespace",
+    "name": "calc",
+    "qualified_name": "5342175bb99b41f88eb8a23f24bfd689",
+    "type": "NamespaceNode",
+    "composes": [
+    {
+      "visibility": "public",
+      "kind": "class",
+      "name": "CalculatorResult",
+      "brief_description": "A result wrapper class that holds the outcome of a calculator operation.",
+      "qualified_name": "56de91d660de40a1bf8a6a99cc96efa0",
+      "base_classes": [],
+      "type": "ClassNode",
+      "edges": [
+        {
+          "relation_type": "DEPENDS_ON",
+          "target_uid": "1ade9366dbd84c5da640fedc0212ac58",
+          "target_type": "ClassNode"
+        },
+        {
+          "relation_type": "DEFINED_IN",
+          "target_uid": "ddcee046a9d1409face11d086f287144",
+          "target_type": "FileNode"
+        }
+      ],
+      "composes": [
+        {
+            "visibility": "public",
+            "kind": "method",
+            "name": "get_value",
+            "qualified_name": "732b5df73f8244b4b7745e1ba5001cb7",
+            "brief_description": "Returns the computed value.",
+            "type_signature": "double",
+            "argsstring": "",
+            "type": "MethodNode",
+            "edges": [
+            {
+                "relation_type": "DEFINED_IN",
+                "target_uid": "ddcee046a9d1409face11d086f287144",
+                "target_type": "FileNode"
+            }
+            ]
+        },
+        {
+            "visibility": "public",
+            "kind": "attribute",
+            "name": "value",
+            "qualified_name": "cbfbc5947f7c4b05935b1860a1e089fe",
+            "brief_description": "The computed numeric result.",
+            "type_signature": "double",
+            "type": "AttributeNode",
+            "edges": [
+            {
+                "relation_type": "DEFINED_IN",
+                "target_uid": "ddcee046a9d1409face11d086f287144",
+                "target_type": "FileNode"
+            }
+            ]
+        }
+      ]
+    },
+    {
+        "visibility": "public",
+        "kind": "class",
+        "name": "CalculatorEngine",
+        "brief_description": "The core calculator engine class that performs arithmetic operations.",
+        "qualified_name": "1ade9366dbd84c5da640fedc0212ac58",
+        "base_classes": [],
+        "type": "ClassNode",
+        "edges": [
+            {
+            "relation_type": "DEPENDS_ON",
+            "target_uid": "56de91d660de40a1bf8a6a99cc96efa0",
+            "target_type": "ClassNode"
+            },
+            {
+            "relation_type": "DEPENDS_ON",
+            "target_uid": "9eefd200e2394c9b9b58ecd34991f54e",
+            "target_type": "ClassNode"
+            },
+            {
+            "relation_type": "REALIZES",
+            "target_uid": "ed8f64c23a9c4b5489fe09c9e738f062",
+            "target_type": "InterfaceNode"
+            },
+            {
+            "relation_type": "DEFINED_IN",
+            "target_uid": "594e8dedb6174be59917ea0f2a844798",
+            "target_type": "FileNode"
+            }
+        ],
+        "composes": [
+            {
+                "visibility": "public",
+                "kind": "method",
+                "name": "validateInput",
+                "qualified_name": "bf4db7f5080d439d860fe26aec69bc76",
+                "brief_description": "Validates that the inputs are valid numbers.",
+                "type_signature": "bool",
+                "argsstring": "(string input)",
+                "type": "MethodNode",
+                "edges": [
+                {
+                    "relation_type": "DEFINED_IN",
+                    "target_uid": "594e8dedb6174be59917ea0f2a844798",
+                    "target_type": "FileNode"
+                }
+                ]
+            },
+            {
+                "visibility": "public",
+                "kind": "method",
+                "name": "add",
+                "qualified_name": "15a6b13f69914365a740b663a202bea6",
+                "brief_description": "Calculates the sum of two valid numeric operands.",
+                "type_signature": "CalculatorResult",
+                "argsstring": "(double a, double b)",
+                "type": "MethodNode",
+                "edges": [
+                {
+                    "relation_type": "DEFINED_IN",
+                    "target_uid": "594e8dedb6174be59917ea0f2a844798",
+                    "target_type": "FileNode"
+                }
+                ]
+            },
+            {
+                "visibility": "public",
+                "kind": "attribute",
+                "name": "precision",
+                "qualified_name": "0dc17582dd5a458abc9205b6feca9ab3",
+                "brief_description": "The number of decimal places for result precision.",
+                "type_signature": "int",
+                "type": "AttributeNode",
+                "edges": [
+                {
+                    "relation_type": "DEFINED_IN",
+                    "target_uid": "594e8dedb6174be59917ea0f2a844798",
+                    "target_type": "FileNode"
+                }
+                ]
+            }
+        ]
+    }
+    ]
+  },
+  {
+    "description": "User interface module",
+    "kind": "namespace",
+    "name": "ui",
+    "qualified_name": "13dd44da0c4c4f7595fd066ecdf64d40",
+    "type": "NamespaceNode",
+    "composes": [
+    {
+        "visibility": "public",
+        "kind": "class",
+        "name": "CalculatorWindow",
+        "brief_description": "The main application window for the calculator.",
+        "qualified_name": "9eefd200e2394c9b9b58ecd34991f54e",
+        "base_classes": [],
+        "type": "ClassNode",
+        "edges": [
+            {
+                "relation_type": "INHERITS_FROM",
+                "target_uid": "633bc422519d4c5d8fe7e35170c91428",
+                "target_type": "ClassNode"
+            },
+            {
+                "relation_type": "DEPENDS_ON",
+                "target_uid": "1ade9366dbd84c5da640fedc0212ac58",
+                "target_type": "ClassNode"
+            },
+            {
+                "relation_type": "DEFINED_IN",
+                "target_uid": "2478d77b8e8e4d3aab10d2674b170c05",
+                "target_type": "FileNode"
+            }
+        ],
+        "composes": [
+        {
+            "visibility": "private",
+            "kind": "method",
+            "name": "handleEquals",
+            "qualified_name": "9792f8109c7d4b56b65be8821164519d",
+            "brief_description": "Callback for the equals button. Triggers calculation and displays the result.",
+            "type_signature": "void",
+            "argsstring": "",
+            "type": "MethodNode",
+            "edges": [
+            {
+                "relation_type": "DEFINED_IN",
+                "target_uid": "2478d77b8e8e4d3aab10d2674b170c05",
+                "target_type": "FileNode"
+            }
+            ]
+        },
+        {
+            "visibility": "private",
+            "kind": "attribute",
+            "name": "currentInput",
+            "qualified_name": "1bba25dd1c524fa1b6efd31615962f42",
+            "brief_description": "The current input string being built by the user.",
+            "type_signature": "string",
+            "type": "AttributeNode",
+            "edges": [
+                {
+                    "relation_type": "DEFINED_IN",
+                    "target_uid": "2478d77b8e8e4d3aab10d2674b170c05",
+                    "target_type": "FileNode"
+                }
+            ]
+        },
+        {
+            "visibility": "private",
+            "kind": "attribute",
+            "name": "display",
+            "qualified_name": "9a016cdd359946e68af659f24246581f",
+            "brief_description": "The numeric display area showing input and results.",
+            "type_signature": "string",
+            "type": "AttributeNode",
+            "edges": [
+                {
+                    "relation_type": "DEFINED_IN",
+                    "target_uid": "2478d77b8e8e4d3aab10d2674b170c05",
+                    "target_type": "FileNode"
+                }
+            ]
+        }
+        ]
+    },
+    {
+        "visibility": "public",
+        "kind": "class",
+        "name": "BaseWindow",
+        "brief_description": "Abstract base window class providing common window operations.",
+        "qualified_name": "633bc422519d4c5d8fe7e35170c91428",
+        "base_classes": [],
+        "type": "ClassNode",
+        "edges": [
+        {
+            "visibility": "public",
+            "kind": "method",
+            "name": "show",
+            "qualified_name": "0e79e47ae0d74768a4e7242f843122a7",
+            "brief_description": "Shows the window on screen.",
+            "type_signature": "void",
+            "argsstring": "",
+            "type": "MethodNode",
+            "edges": [
+            {
+                "relation_type": "DEFINED_IN",
+                "target_uid": "a0acf6a54a394d6ca8d033cb0a7bb258",
+                "target_type": "FileNode"
+            }
+            ]
+        },
+        {
+            "relation_type": "INHERITS_FROM",
+            "target_uid": "9eefd200e2394c9b9b58ecd34991f54e",
+            "target_type": "ClassNode"
+        },
+        {
+            "relation_type": "DEFINED_IN",
+            "target_uid": "a0acf6a54a394d6ca8d033cb0a7bb258",
+            "target_type": "FileNode"
+        }
+        ]
+    }
+    ]
+  },
+  {
+    "visibility": "public",
+    "kind": "interface",
+    "name": "ICalculator",
+    "brief_description": "Calculator interface contract defining the core calculation operation.",
+    "qualified_name": "ed8f64c23a9c4b5489fe09c9e738f062",
+    "type": "InterfaceNode",
+    "edges": [
+        {
+        "relation_type": "DEFINED_IN",
+        "target_uid": "4c81c592a4fd4d24aa2142b06c0cfdca",
+        "target_type": "FileNode"
+      }
+    ],
+    "composes": [
+        {
+            "visibility": "public",
+            "kind": "method",
+            "name": "calculate",
+            "qualified_name": "880de7823af24c8997339e1b7e52fb9c",
+            "brief_description": "Perform a calculation with the given operation and operands.",
+            "type_signature": "CalculatorResult",
+            "argsstring": "(Operation op, double a, double b)",
+            "type": "MethodNode",
+            "edges": [
+            {
+                "relation_type": "DEFINED_IN",
+                "target_uid": "4c81c592a4fd4d24aa2142b06c0cfdca",
+                "target_type": "FileNode"
+            }
+            ]
+        }
+    ]
+  },
+  {
+    "visibility": "public",
+    "kind": "enum",
+    "name": "Operation",
+    "brief_description": "An enumeration of supported arithmetic operations.",
+    "qualified_name": "d89ba7652993401fad425a5603c39ded",
+    "type": "EnumNode",
+    "edges": [
+        {
+        "relation_type": "DEFINED_IN",
+        "target_uid": "3ba3cea9007f4957b6492603b3245d06",
+        "target_type": "FileNode"
+      }
+    ],
+    "composes": [
+        {
+            "visibility": "public",
+            "kind": "enumvalue",
+            "name": "SUBTRACT",
+            "brief_description": "Represents subtraction.",
+            "qualified_name": "27909e2882244be4af5c610e69045f24",
+            "type": "EnumValueNode",
+            "edges": []
+        },
+        {
+            "visibility": "public",
+            "kind": "enumvalue",
+            "name": "ADD",
+            "brief_description": "Represents addition.",
+            "qualified_name": "007d57425d6a4f4ab3ccfbf2aa340f11",
+            "type": "EnumValueNode",
+            "edges": []
+        }
+    ]
+  }
+]

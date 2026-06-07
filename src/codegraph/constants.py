@@ -17,6 +17,7 @@ COMPOUND_KINDS: list[tuple[str, str]] = [
     ("template_class", "Template Class"),
     ("interface", "Interface"),
     ("abstract_class", "Abstract Class"),
+    ("concept", "Concept"),
     ("enum", "Enum"),
     ("enum_class", "Enum Class"),
     ("union", "Union"),
@@ -57,7 +58,7 @@ NODE_KIND_KEYS: set[str] = {k for k, _ in NODE_KINDS}
 
 TYPE_KINDS: set[str] = {
     "class", "struct", "template_class", "interface",
-    "abstract_class", "enum", "enum_class", "union", "type_alias",
+    "abstract_class", "concept", "enum", "enum_class", "union", "type_alias",
 }
 VALUE_KINDS: set[str] = {"method", "variable", "define", "enumvalue", "function"}
 
@@ -107,6 +108,7 @@ PREDICATE_TO_REL_TYPE: dict[str, str] = {
     "returns": "RETURNS",
     "type_argument": "TYPE_ARGUMENT",
     "template_param": "TEMPLATE_PARAM",
+    "enforces_concept": "ENFORCES_CONCEPT",
     "implements": "IMPLEMENTS",
 }
 
@@ -127,6 +129,7 @@ DEFAULT_PREDICATES: list[tuple[str, str]] = [
     ("returns", "A method returns a value of the given entity type (method → type)"),
     ("type_argument", "A template accepts a type argument at a given position"),
     ("template_param", "A template declares a type parameter slot"),
+    ("enforces_concept", "A type parameter is constrained by a C++20 concept"),
 ]
 
 # ---------------------------------------------------------------------------
@@ -262,6 +265,15 @@ CONSTRAINTS_AND_INDEXES: list[str] = [
     "CREATE INDEX compound_source IF NOT EXISTS FOR (c:Compound) ON (c.source)",
     "CREATE INDEX member_source IF NOT EXISTS FOR (m:Member) ON (m.source)",
     "CREATE INDEX namespace_source IF NOT EXISTS FOR (n:Namespace) ON (n.source)",
-    # Full-text search
-    "CREATE FULLTEXT INDEX doc_search IF NOT EXISTS FOR (n:Compound|Member) ON EACH [n.name, n.qualified_name, n.brief_description, n.detailed_description]",
+    # Full-text search — documentation and signatures on compounds and members
+    "CREATE FULLTEXT INDEX doc_search IF NOT EXISTS FOR (n:Compound|Member) ON EACH [n.name, n.qualified_name, n.brief_description, n.detailed_description, n.definition]",
+    # Full-text search — implementation source code on implementation nodes
+    "CREATE FULLTEXT INDEX impl_search IF NOT EXISTS FOR (n:Implementation) ON EACH [n.implementation]",
+    # Lookup indexes for Implementation nodes
+    "CREATE INDEX impl_qualified IF NOT EXISTS FOR (i:Implementation) ON (i.qualified_name)",
+    "CREATE INDEX impl_kind IF NOT EXISTS FOR (i:Implementation) ON (i.kind)",
+    # Vector search — documentation embeddings on methods and functions
+    "CREATE VECTOR INDEX doc_embedding IF NOT EXISTS FOR (n:Method|Function) ON (n.doc_embedding) OPTIONS {indexConfig: {`vector.dimensions`: 1536, `vector.similarity_function`: 'cosine'}}",
+    # Vector search — implementation embeddings on implementation nodes
+    "CREATE VECTOR INDEX impl_embedding IF NOT EXISTS FOR (n:Implementation) ON (n.impl_embedding) OPTIONS {indexConfig: {`vector.dimensions`: 1536, `vector.similarity_function`: 'cosine'}}",
 ]

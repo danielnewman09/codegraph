@@ -51,8 +51,17 @@ CONSTRAINTS_AND_INDEXES = [
     "CREATE INDEX compound_source IF NOT EXISTS FOR (c:Compound) ON (c.source)",
     "CREATE INDEX member_source IF NOT EXISTS FOR (m:Member) ON (m.source)",
     "CREATE INDEX namespace_source IF NOT EXISTS FOR (n:Namespace) ON (n.source)",
-    # Full-text index for documentation search
-    "CREATE FULLTEXT INDEX doc_search IF NOT EXISTS FOR (n:Compound|Member) ON EACH [n.name, n.qualified_name, n.brief_description, n.detailed_description]",
+    # Full-text index for documentation and signature search
+    "CREATE FULLTEXT INDEX doc_search IF NOT EXISTS FOR (n:Compound|Member) ON EACH [n.name, n.qualified_name, n.brief_description, n.detailed_description, n.definition]",
+    # Full-text index for implementation source code search
+    "CREATE FULLTEXT INDEX impl_search IF NOT EXISTS FOR (n:Implementation) ON EACH [n.implementation]",
+    # Lookup indexes for Implementation nodes
+    "CREATE INDEX impl_qualified IF NOT EXISTS FOR (i:Implementation) ON (i.qualified_name)",
+    "CREATE INDEX impl_kind IF NOT EXISTS FOR (i:Implementation) ON (i.kind)",
+    # Vector search — documentation embeddings on methods and functions
+    "CREATE VECTOR INDEX doc_embedding IF NOT EXISTS FOR (n:Method|Function) ON (n.doc_embedding) OPTIONS {indexConfig: {`vector.dimensions`: 1536, `vector.similarity_function`: 'cosine'}}",
+    # Vector search — implementation embeddings on implementation nodes
+    "CREATE VECTOR INDEX impl_embedding IF NOT EXISTS FOR (n:Implementation) ON (n.impl_embedding) OPTIONS {indexConfig: {`vector.dimensions`: 1536, `vector.similarity_function`: 'cosine'}}",
 ]
 
 
