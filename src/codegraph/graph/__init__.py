@@ -609,14 +609,80 @@ class LayerGraph:
 
     # ── to_json ────────────────────────────────────────────────────────
 
+    def _json_serialize_entry(self, entry: CompositeEntry) -> dict:
+        """Transform CompositeEntry.to_dict() output into the legacy to_json format.
+
+        Converts ``references`` triples into ``edges`` dicts with
+        ``relation_type``, ``target_type``, and ``target_local_id`` keys.
+        COMPOSES edges are excluded since they are represented by nesting.
+        Recursively processes ``composes`` children.
+
+        Args:
+            entry: The CompositeEntry to serialize.
+
+        Returns:
+            A dict in the legacy to_json format with ``edges`` key.
+        """
+        result = entry.to_dict(fields="llm")
+
+        # Convert references to edges format, excluding COMPOSES
+        references = result.pop("references", [])
+        edges = []
+        for ref in references:
+            rel_type, target_key, target_type = ref[0], ref[1], ref[2]
+            if rel_type != "COMPOSES":
+                edges.append({
+                    "relation_type": rel_type,
+                    "target_type": target_type,
+                    "target_local_id": target_key,
+                })
+        result["edges"] = edges
+
+        # Recursively convert composes children
+        if "composes" in result:
+            result["composes"] = [
+                self._json_serialize_compose(child) for child in result["composes"]
+            ]
+
+        return result
+
+    @staticmethod
+    def _json_serialize_compose(data: dict) -> dict:
+        """Convert references in a nested composes dict to edges format.
+
+        Recursively walks the ``composes`` tree, converting ``references``
+        to ``edges`` at each level.
+
+        Args:
+            data: A dict produced by CompositeEntry.to_dict().
+
+        Returns:
+            The same dict with ``references`` converted to ``edges``.
+        """
+        references = data.pop("references", [])
+        edges = []
+        for ref in references:
+            rel_type, target_key, target_type = ref[0], ref[1], ref[2]
+            if rel_type != "COMPOSES":
+                edges.append({
+                    "relation_type": rel_type,
+                    "target_type": target_type,
+                    "target_local_id": target_key,
+                })
+        data["edges"] = edges
+
+        if "composes" in data:
+            data["composes"] = [
+                LayerGraph._json_serialize_compose(child) for child in data["composes"]
+            ]
+
+        return data
+
     def _serialize_entry(self, entry: CompositeEntry) -> dict:
         """Recursively serialize a CompositeEntry and its composed children.
 
-        Produces a nested dict where composed children appear under a
-        ``composes`` key and COMPOSES edges are removed from the
-        ``edges`` array.  Includes the node's unique identifier
-        property in the output if it is not already present, so that
-        roundtrip deserialization can resolve edge targets correctly.
+        Delegates to :meth:`_json_serialize_entry` for node serialization
+        and reference-to-edges conversion.
 
         Args:
             entry: The CompositeEntry to serialize.
@@ -624,51 +690,27 @@ class LayerGraph:
         Returns:
             A dict representing the entry with nested children.
         """
-        serialized = entry.node.serialize()
-
-        # Ensure uid property is included for roundtrip target resolution.
-        # FileNode uses refid (not in _llm_fields), so serialize() omits it.
-        # Without it, from_json cannot resolve target_uid in edges.
-        uid_prop = type(entry.node)._uid_prop()
-        if uid_prop and uid_prop not in serialized:
-            uid_value = entry.node._uid_value()
-            if uid_value is not None:
-                serialized[uid_prop] = uid_value
-
-        # Remove COMPOSES edges — they are represented by nesting
-        edges = [
-            e for e in serialized.get("edges", [])
-            if e["relation_type"] != "COMPOSES"
-        ]
-        serialized["edges"] = edges
-
-        # Inline composed children under "composes"
-        if entry.children:
-            composes: list[dict] = []
-            for type_children in entry.children.values():
-                for child_entry in type_children.values():
-                    composes.append(self._serialize_entry(child_entry))
-            serialized["composes"] = composes
-
-        return serialized
+        return self._json_serialize_entry(entry)
 
     def to_json(self) -> list[dict]:
         """Serialize the graph as a nested JSON-compatible list of dicts.
 
-        Root entries are serialized recursively.  Composed children
-        appear under a ``composes`` key on their parent and do not
-        appear as top-level entries.  COMPOSES edges are excluded
-        from the ``edges`` array since the nesting represents them
-        explicitly.
+        Uses ``CompositeEntry.to_dict(fields="llm")`` for each entry,
+        then converts references to the legacy ``edges`` format.
 
-        For nodes that have not been persisted to Neo4j, the
-        ``edges`` key will be an empty list.
+        Composed children appear under a ``composes`` key on their parent
+        and do not appear as top-level entries.  COMPOSES edges are excluded
+        from the ``edges`` array since the nesting represents them explicitly.
+
+        For nodes that have not been persisted to Neo4j, the ``edges`` key
+        will contain only non-COMPOSES references from the entry's
+        ``references`` list.
 
         Returns:
             A list of serialized node dicts with nested composition,
             suitable for JSON output.
         """
-        return [self._serialize_entry(entry) for entry in self.entries.values()]
+        return [self._json_serialize_entry(entry) for entry in self.entries.values()]
 
     # ── from_neo4j ─────────────────────────────────────────────────────
 

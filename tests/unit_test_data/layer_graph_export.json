@@ -48,365 +48,350 @@
     "edges": []
   },
   {
+    "kind": "namespace",
     "qualified_name": "calc",
     "name": "calc",
     "description": "Calculation engine module",
-    "kind": "namespace",
     "type": "NamespaceNode",
-    "edges": [],
     "composes": [
       {
-        "qualified_name": "calc::CalculatorEngine",
-        "visibility": "public",
         "brief_description": "The core calculator engine class that performs arithmetic operations.",
+        "qualified_name": "calc::CalculatorEngine",
         "kind": "class",
-        "name": "CalculatorEngine",
         "base_classes": [],
+        "visibility": "public",
+        "name": "CalculatorEngine",
         "type": "ClassNode",
-        "edges": [
-          {
-            "relation_type": "DEPENDS_ON",
-            "target_uid": "calc::CalculatorResult",
-            "target_type": "ClassNode"
-          },
-          {
-            "relation_type": "DEPENDS_ON",
-            "target_uid": "ui::CalculatorWindow",
-            "target_type": "ClassNode"
-          },
-          {
-            "relation_type": "REALIZES",
-            "target_uid": "calc::ICalculator",
-            "target_type": "InterfaceNode"
-          },
-          {
-            "relation_type": "DEFINED_IN",
-            "target_uid": "file-calc-engine",
-            "target_type": "FileNode"
-          }
-        ],
         "composes": [
           {
-            "qualified_name": "calc::CalculatorEngine::add",
-            "visibility": "public",
             "brief_description": "Calculates the sum of two valid numeric operands.",
+            "qualified_name": "calc::CalculatorEngine::add",
+            "type_signature": "CalculatorResult",
+            "visibility": "public",
             "kind": "method",
             "argsstring": "(double a, double b)",
             "name": "add",
-            "type_signature": "CalculatorResult",
             "type": "MethodNode",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "file-calc-engine",
-                "target_type": "FileNode"
+                "target_type": "FileNode",
+                "target_local_id": "file-calc-engine"
               }
             ]
           },
           {
-            "qualified_name": "calc::CalculatorEngine::validateInput",
-            "visibility": "public",
             "brief_description": "Validates that the inputs are valid numbers.",
+            "qualified_name": "calc::CalculatorEngine::validateInput",
+            "type_signature": "bool",
+            "visibility": "public",
             "kind": "method",
             "argsstring": "(string input)",
             "name": "validateInput",
-            "type_signature": "bool",
             "type": "MethodNode",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "file-calc-engine",
-                "target_type": "FileNode"
+                "target_type": "FileNode",
+                "target_local_id": "file-calc-engine"
               }
             ]
           },
           {
-            "qualified_name": "calc::CalculatorEngine::precision",
-            "visibility": "public",
             "brief_description": "The number of decimal places for result precision.",
+            "qualified_name": "calc::CalculatorEngine::precision",
+            "type_signature": "int",
+            "visibility": "public",
             "kind": "attribute",
             "name": "precision",
-            "type_signature": "int",
             "type": "AttributeNode",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "file-calc-engine",
-                "target_type": "FileNode"
+                "target_type": "FileNode",
+                "target_local_id": "file-calc-engine"
               }
             ]
+          }
+        ],
+        "edges": [
+          {
+            "relation_type": "REALIZES",
+            "target_type": "InterfaceNode",
+            "target_local_id": "calc::ICalculator"
+          },
+          {
+            "relation_type": "DEPENDS_ON",
+            "target_type": "ClassNode",
+            "target_local_id": "calc::CalculatorResult"
+          },
+          {
+            "relation_type": "DEFINED_IN",
+            "target_type": "FileNode",
+            "target_local_id": "file-calc-engine"
           }
         ]
       },
       {
-        "qualified_name": "calc::CalculatorResult",
-        "visibility": "public",
         "brief_description": "A result wrapper class that holds the outcome of a calculator operation.",
+        "qualified_name": "calc::CalculatorResult",
         "kind": "class",
-        "name": "CalculatorResult",
         "base_classes": [],
+        "visibility": "public",
+        "name": "CalculatorResult",
         "type": "ClassNode",
-        "edges": [
-          {
-            "relation_type": "DEPENDS_ON",
-            "target_uid": "calc::CalculatorEngine",
-            "target_type": "ClassNode"
-          },
-          {
-            "relation_type": "DEFINED_IN",
-            "target_uid": "file-calc-result",
-            "target_type": "FileNode"
-          }
-        ],
         "composes": [
           {
-            "qualified_name": "calc::CalculatorResult::value",
-            "visibility": "public",
             "brief_description": "The computed numeric result.",
+            "qualified_name": "calc::CalculatorResult::value",
+            "type_signature": "double",
+            "visibility": "public",
             "kind": "attribute",
             "name": "value",
-            "type_signature": "double",
             "type": "AttributeNode",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "file-calc-result",
-                "target_type": "FileNode"
+                "target_type": "FileNode",
+                "target_local_id": "file-calc-result"
               }
             ]
           },
           {
-            "qualified_name": "calc::CalculatorResult::get_value",
-            "visibility": "public",
             "brief_description": "Returns the computed value.",
+            "qualified_name": "calc::CalculatorResult::get_value",
+            "type_signature": "double",
+            "visibility": "public",
             "kind": "method",
             "argsstring": "",
             "name": "get_value",
-            "type_signature": "double",
             "type": "MethodNode",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "file-calc-result",
-                "target_type": "FileNode"
+                "target_type": "FileNode",
+                "target_local_id": "file-calc-result"
               }
             ]
+          }
+        ],
+        "edges": [
+          {
+            "relation_type": "DEFINED_IN",
+            "target_type": "FileNode",
+            "target_local_id": "file-calc-result"
           }
         ]
       },
       {
-        "qualified_name": "calc::ICalculator",
-        "visibility": "public",
         "brief_description": "Calculator interface contract defining the core calculation operation.",
+        "qualified_name": "calc::ICalculator",
         "kind": "interface",
+        "visibility": "public",
         "name": "ICalculator",
         "type": "InterfaceNode",
-        "edges": [
-          {
-            "relation_type": "DEFINED_IN",
-            "target_uid": "file-icalc",
-            "target_type": "FileNode"
-          }
-        ],
         "composes": [
           {
-            "qualified_name": "calc::ICalculator::calculate",
-            "visibility": "public",
             "brief_description": "Perform a calculation with the given operation and operands.",
+            "qualified_name": "calc::ICalculator::calculate",
+            "type_signature": "CalculatorResult",
+            "visibility": "public",
             "kind": "method",
             "argsstring": "(Operation op, double a, double b)",
             "name": "calculate",
-            "type_signature": "CalculatorResult",
             "type": "MethodNode",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "file-icalc",
-                "target_type": "FileNode"
+                "target_type": "FileNode",
+                "target_local_id": "file-icalc"
               }
             ]
+          }
+        ],
+        "edges": [
+          {
+            "relation_type": "DEFINED_IN",
+            "target_type": "FileNode",
+            "target_local_id": "file-icalc"
           }
         ]
       },
       {
-        "qualified_name": "calc::Operation",
-        "visibility": "public",
         "brief_description": "An enumeration of supported arithmetic operations.",
+        "qualified_name": "calc::Operation",
         "kind": "enum",
+        "visibility": "public",
         "name": "Operation",
         "type": "EnumNode",
-        "edges": [
-          {
-            "relation_type": "DEFINED_IN",
-            "target_uid": "file-operation",
-            "target_type": "FileNode"
-          }
-        ],
         "composes": [
           {
-            "qualified_name": "calc::Operation::ADD",
-            "visibility": "public",
             "brief_description": "Represents addition.",
+            "qualified_name": "calc::Operation::ADD",
             "kind": "enumvalue",
+            "visibility": "public",
             "name": "ADD",
             "type": "EnumValueNode",
             "edges": []
           },
           {
-            "qualified_name": "calc::Operation::SUBTRACT",
-            "visibility": "public",
             "brief_description": "Represents subtraction.",
+            "qualified_name": "calc::Operation::SUBTRACT",
             "kind": "enumvalue",
+            "visibility": "public",
             "name": "SUBTRACT",
             "type": "EnumValueNode",
             "edges": []
           }
+        ],
+        "edges": [
+          {
+            "relation_type": "DEFINED_IN",
+            "target_type": "FileNode",
+            "target_local_id": "file-operation"
+          }
         ]
       },
       {
-        "qualified_name": "calc::formatResult",
-        "visibility": "public",
         "brief_description": "Formats a numeric result as a string.",
+        "qualified_name": "calc::formatResult",
+        "type_signature": "string",
+        "visibility": "public",
         "kind": "function",
         "argsstring": "(double value)",
         "name": "formatResult",
-        "type_signature": "string",
         "type": "FunctionNode",
         "edges": [
           {
             "relation_type": "DEFINED_IN",
-            "target_uid": "file-calc-engine",
-            "target_type": "FileNode"
+            "target_type": "FileNode",
+            "target_local_id": "file-calc-engine"
           }
         ]
       }
-    ]
+    ],
+    "edges": []
   },
   {
+    "kind": "namespace",
     "qualified_name": "ui",
     "name": "ui",
     "description": "User interface module",
-    "kind": "namespace",
     "type": "NamespaceNode",
-    "edges": [],
     "composes": [
       {
-        "qualified_name": "ui::BaseWindow",
-        "visibility": "public",
         "brief_description": "Abstract base window class providing common window operations.",
+        "qualified_name": "ui::BaseWindow",
         "kind": "class",
-        "name": "BaseWindow",
         "base_classes": [],
+        "visibility": "public",
+        "name": "BaseWindow",
         "type": "ClassNode",
-        "edges": [
-          {
-            "relation_type": "INHERITS_FROM",
-            "target_uid": "ui::CalculatorWindow",
-            "target_type": "ClassNode"
-          },
-          {
-            "relation_type": "DEFINED_IN",
-            "target_uid": "file-base-window",
-            "target_type": "FileNode"
-          }
-        ],
         "composes": [
           {
-            "qualified_name": "ui::BaseWindow::show",
-            "visibility": "public",
             "brief_description": "Shows the window on screen.",
+            "qualified_name": "ui::BaseWindow::show",
+            "type_signature": "void",
+            "visibility": "public",
             "kind": "method",
             "argsstring": "",
             "name": "show",
-            "type_signature": "void",
             "type": "MethodNode",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "file-base-window",
-                "target_type": "FileNode"
+                "target_type": "FileNode",
+                "target_local_id": "file-base-window"
               }
             ]
+          }
+        ],
+        "edges": [
+          {
+            "relation_type": "DEFINED_IN",
+            "target_type": "FileNode",
+            "target_local_id": "file-base-window"
           }
         ]
       },
       {
-        "qualified_name": "ui::CalculatorWindow",
-        "visibility": "public",
         "brief_description": "The main application window for the calculator.",
+        "qualified_name": "ui::CalculatorWindow",
         "kind": "class",
-        "name": "CalculatorWindow",
         "base_classes": [],
+        "visibility": "public",
+        "name": "CalculatorWindow",
         "type": "ClassNode",
-        "edges": [
-          {
-            "relation_type": "INHERITS_FROM",
-            "target_uid": "ui::BaseWindow",
-            "target_type": "ClassNode"
-          },
-          {
-            "relation_type": "DEPENDS_ON",
-            "target_uid": "calc::CalculatorEngine",
-            "target_type": "ClassNode"
-          },
-          {
-            "relation_type": "DEFINED_IN",
-            "target_uid": "file-calc-window",
-            "target_type": "FileNode"
-          }
-        ],
         "composes": [
           {
-            "qualified_name": "ui::CalculatorWindow::display",
-            "visibility": "private",
             "brief_description": "The numeric display area showing input and results.",
+            "qualified_name": "ui::CalculatorWindow::display",
+            "type_signature": "string",
+            "visibility": "private",
             "kind": "attribute",
             "name": "display",
-            "type_signature": "string",
             "type": "AttributeNode",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "file-calc-window",
-                "target_type": "FileNode"
+                "target_type": "FileNode",
+                "target_local_id": "file-calc-window"
               }
             ]
           },
           {
-            "qualified_name": "ui::CalculatorWindow::currentInput",
-            "visibility": "private",
             "brief_description": "The current input string being built by the user.",
+            "qualified_name": "ui::CalculatorWindow::currentInput",
+            "type_signature": "string",
+            "visibility": "private",
             "kind": "attribute",
             "name": "currentInput",
-            "type_signature": "string",
             "type": "AttributeNode",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "file-calc-window",
-                "target_type": "FileNode"
+                "target_type": "FileNode",
+                "target_local_id": "file-calc-window"
               }
             ]
           },
           {
-            "qualified_name": "ui::CalculatorWindow::handleEquals",
-            "visibility": "private",
             "brief_description": "Callback for the equals button. Triggers calculation and displays the result.",
+            "qualified_name": "ui::CalculatorWindow::handleEquals",
+            "type_signature": "void",
+            "visibility": "private",
             "kind": "method",
             "argsstring": "",
             "name": "handleEquals",
-            "type_signature": "void",
             "type": "MethodNode",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "file-calc-window",
-                "target_type": "FileNode"
+                "target_type": "FileNode",
+                "target_local_id": "file-calc-window"
               }
             ]
           }
+        ],
+        "edges": [
+          {
+            "relation_type": "INHERITS_FROM",
+            "target_type": "ClassNode",
+            "target_local_id": "ui::BaseWindow"
+          },
+          {
+            "relation_type": "DEPENDS_ON",
+            "target_type": "ClassNode",
+            "target_local_id": "calc::CalculatorEngine"
+          },
+          {
+            "relation_type": "DEFINED_IN",
+            "target_type": "FileNode",
+            "target_local_id": "file-calc-window"
+          }
         ]
       }
-    ]
+    ],
+    "edges": []
   }
 ]
