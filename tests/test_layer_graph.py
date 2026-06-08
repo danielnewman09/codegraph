@@ -283,6 +283,116 @@ class TestRoundtrip:
         assert total_live_edges >= total_fixture_edges
 
 
+class TestSerializeFields:
+    """Tests for LayerGraph.serialize(fields=...) and CompositeEntry.serialize(fields=...)."""
+
+    def test_llm_fields_default(self):
+        """Default serialize() includes only _llm_fields per node."""
+        data = [
+            {"type": "ClassNode", "name": "Engine", "kind": "class",
+             "qualified_name": "ns::Engine", "layer": "design"},
+            {"type": "MethodNode", "name": "run", "kind": "method",
+             "qualified_name": "ns::Engine::run", "layer": "design",
+             "edges": [{"relation_type": "COMPOSES", "target_type": "MethodNode",
+                         "target_local_id": "ns::Engine::run"}]},
+        ]
+        graph = LayerGraph.deserialize(data)
+        output = graph.serialize()
+
+        # Find the ClassNode entry
+        engine = next(e for e in output if e["type"] == "ClassNode")
+        # ClassNode _llm_fields: qualified_name, name, kind, brief_description,
+        # base_classes, visibility
+        assert "name" in engine
+        assert "kind" in engine
+        # Non-LLM fields should be absent
+        assert "module" not in engine
+        assert "is_abstract" not in engine
+        assert "layer" not in engine
+
+    def test_all_fields_includes_more_properties(self):
+        """serialize(fields='all') includes properties beyond _llm_fields."""
+        data = [
+            {"type": "ClassNode", "name": "Engine", "kind": "class",
+             "qualified_name": "ns::Engine",
+             "layer": "design", "module": "mymod", "is_abstract": True},
+        ]
+        graph = LayerGraph.deserialize(data)
+        llm_output = graph.serialize()
+        all_output = graph.serialize(fields="all")
+
+        llm_engine = next(e for e in llm_output if e["type"] == "ClassNode")
+        all_engine = next(e for e in all_output if e["type"] == "ClassNode")
+
+        # fields="all" includes non-LLM properties
+        assert "module" not in llm_engine
+        assert "module" in all_engine
+        assert "is_abstract" not in llm_engine
+        assert "is_abstract" in all_engine
+        assert "layer" not in llm_engine
+        assert "layer" in all_engine
+
+    def test_all_fields_includes_uid_property(self):
+        """serialize(fields='all') includes FileNode's refid (uid).
+
+        With fields='llm', FileNode.refid is not in _llm_fields so it's
+        omitted from the node output (CompositeEntry adds it back for
+        edge resolution, but only if needed).
+        """
+        data = [
+            {"type": "FileNode", "name": "main.h", "path": "/src/main.h",
+             "refid": "file-main"},
+        ]
+        graph = LayerGraph.deserialize(data)
+        all_output = graph.serialize(fields="all")
+        file_entry = next(e for e in all_output if e["type"] == "FileNode")
+        assert "refid" in file_entry
+
+    def test_fields_propagates_to_nested_children(self):
+        """fields parameter propagates through composes children."""
+        data = [
+            {"type": "NamespaceNode", "name": "ns", "kind": "namespace",
+             "qualified_name": "ns",
+             "edges": [{"relation_type": "COMPOSES", "target_type": "ClassNode",
+                         "target_local_id": "ns::Widget"}]},
+            {"type": "ClassNode", "name": "Widget", "kind": "class",
+             "qualified_name": "ns::Widget", "module": "mymod"},
+        ]
+        graph = LayerGraph.deserialize(data)
+
+        llm_output = graph.serialize()
+        all_output = graph.serialize(fields="all")
+
+        # In LLM mode, the child ClassNode should lack 'module'
+        ns_llm = next(e for e in llm_output if e["type"] == "NamespaceNode")
+        widget_llm = next(c for c in ns_llm.get("composes", []) if c["type"] == "ClassNode")
+        assert "module" not in widget_llm
+
+        # In all mode, the child ClassNode should have 'module'
+        ns_all = next(e for e in all_output if e["type"] == "NamespaceNode")
+        widget_all = next(c for c in ns_all.get("composes", []) if c["type"] == "ClassNode")
+        assert "module" in widget_all
+
+    def test_composite_entry_serialize_fields(self):
+        """CompositeEntry.serialize(fields=...) forwards to its node."""
+        node = ClassNode(name="Widget", kind="class", qualified_name="ns::Widget",
+                         module="mymod", is_abstract=True)
+        entry = CompositeEntry(node=node)
+
+        llm_result = entry.serialize()
+        all_result = entry.serialize(fields="all")
+
+        # LLM mode
+        assert "name" in llm_result
+        assert "module" not in llm_result
+        assert "is_abstract" not in llm_result
+
+        # All mode
+        assert "name" in all_result
+        assert "module" in all_result
+        assert "is_abstract" in all_result
+
+
 class TestFromNeo4j:
     """Tests for LayerGraph.from_neo4j()."""
 

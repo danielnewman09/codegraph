@@ -191,7 +191,7 @@ All node types inherit from `CodeGraphNode`, which provides:
 
 | Method | Description |
 |---|---|
-| `serialize()` | Full dict with `type`, properties, and `edges` |
+| `serialize(fields="llm")` | Dict with `type`, property fields, and `edges`. `fields="llm"` (default) includes only `_llm_fields`; `fields="all"` includes every defined property |
 | `deserialize(data)` | Factory: dispatches to the correct subclass by `type` key, then instantiates |
 | `serialize_edges()` | Live edges from Neo4j (requires saved node) |
 | `serialize_relationships()` | Static relationship descriptors (no DB call) |

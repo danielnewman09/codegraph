@@ -1,7 +1,8 @@
 """Tests for CodeGraphNode class methods.
 
 Covers find_relationship_manager error paths, fetch_by_layer,
-fetch_all_by_layer, deserialize error paths, and serialize_relationships.
+fetch_all_by_layer, deserialize error paths, serialize_relationships,
+and serialize(fields=...) behaviour.
 """
 
 import pytest
@@ -140,6 +141,115 @@ class TestLayerQueries:
         finally:
             cls.delete()
             meth.delete()
+
+
+class TestSerializeFields:
+    """Tests for CodeGraphNode.serialize(fields=...) — LLM vs all fields."""
+
+    def test_llm_fields_default(self):
+        """Default serialize() includes only _llm_fields plus type and edges."""
+        node = ClassNode(name="Widget", kind="class", qualified_name="ns::Widget")
+        result = node.serialize()
+        # _llm_fields for ClassNode: qualified_name, name, kind,
+        # brief_description, base_classes, visibility
+        llm = ClassNode._llm_fields
+        for field in llm:
+            assert field in result, f"LLM field '{field}' missing from default serialize()"
+        assert result["type"] == "ClassNode"
+        assert "edges" in result
+
+    def test_llm_fields_excludes_non_llm(self):
+        """Default serialize() omits properties not in _llm_fields."""
+        node = ClassNode(
+            name="Widget",
+            kind="class",
+            qualified_name="ns::Widget",
+            layer="design",
+            module="mymod",
+            is_abstract=True,
+        )
+        result = node.serialize()
+        # These are NOT in _llm_fields for ClassNode
+        assert "module" not in result
+        assert "is_abstract" not in result
+        assert "layer" not in result
+        assert "detailed_description" not in result
+        assert "file_path" not in result
+
+    def test_all_fields_includes_everything(self):
+        """serialize(fields='all') includes every defined property."""
+        node = ClassNode(
+            name="Widget",
+            kind="class",
+            qualified_name="ns::Widget",
+            layer="design",
+            module="mymod",
+            is_abstract=True,
+            is_final=False,
+            brief_description="A test class",
+            detailed_description="Detailed info",
+            file_path="/src/widget.h",
+            line_number=42,
+            source="testproj",
+            source_type="doxygen",
+        )
+        result = node.serialize(fields="all")
+        assert result["type"] == "ClassNode"
+        # LLM fields are present
+        for field in ClassNode._llm_fields:
+            assert field in result, f"LLM field '{field}' missing from serialize(fields='all')"
+        # Non-LLM fields are also present
+        assert "module" in result
+        assert "is_abstract" in result
+        assert "layer" in result
+        assert "detailed_description" in result
+        assert "file_path" in result
+        assert "line_number" in result
+        assert "source" in result
+        assert "source_type" in result
+        # Value checks
+        assert result["module"] == "mymod"
+        assert result["is_abstract"] is True
+        assert result["layer"] == "design"
+        assert result["line_number"] == 42
+
+    def test_all_fields_has_more_keys_than_llm(self):
+        """serialize(fields='all') returns more keys than the default."""
+        node = ClassNode(name="A", kind="class", qualified_name="ns::A")
+        llm_result = node.serialize()
+        all_result = node.serialize(fields="all")
+        # 'type' and 'edges' are in both, so we strip them for comparison
+        llm_data_keys = {k for k in llm_result if k not in {"type", "edges"}}
+        all_data_keys = {k for k in all_result if k not in {"type", "edges"}}
+        assert all_data_keys > llm_data_keys, (
+            f"fields='all' should have more data keys than fields='llm'. "
+            f"all: {sorted(all_data_keys)}, llm: {sorted(llm_data_keys)}"
+        )
+
+    def test_llm_fields_on_file_node(self):
+        """FileNode.serialize() includes _llm_fields but omits non-LLM fields."""
+        node = FileNode(name="test.h", path="/src/test.h")
+        result = node.serialize()
+        # FileNode _llm_fields is {name, path, source}
+        assert "path" in result
+        assert "name" in result
+        assert "source" in result
+        # refid and language are NOT in _llm_fields
+        assert "refid" not in result
+        assert "language" not in result
+
+    def test_all_fields_on_file_node_includes_refid(self):
+        """FileNode.serialize(fields='all') includes refid (the uid)."""
+        node = FileNode(name="test.h", path="/src/test.h")
+        result = node.serialize(fields="all")
+        assert "refid" in result
+        assert result["refid"] is not None
+
+    def test_unsaved_node_has_empty_edges(self):
+        """Unsaved nodes always have an empty edges list regardless of fields."""
+        node = ClassNode(name="Ghost", kind="class", qualified_name="ns::Ghost")
+        assert node.serialize()["edges"] == []
+        assert node.serialize(fields="all")["edges"] == []
 
 
 class TestUidAccessors:

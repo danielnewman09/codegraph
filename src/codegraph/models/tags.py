@@ -240,20 +240,32 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
 
     # ── Serialization ─────────────────────────────────────────────────────
 
-    def serialize(self) -> dict:
-        """Return the full LLM-facing representation of this node.
+    def serialize(self, fields: str = "llm") -> dict:
+        """Return a serialized representation of this node.
 
-        Includes a ``type`` discriminator, property fields (filtered by
-        ``_llm_fields``), and, if the node has been saved to Neo4j, a list
-        of relationship edges from ``serialize_edges()``.
+        By default (``fields="llm"``), only includes property fields listed
+        in the node's ``_llm_fields`` set — the minimal subset relevant for
+        LLM consumption.  Pass ``fields="all"`` to include every
+        neomodel-defined property.
 
+        Regardless of *fields*, the result always includes a ``type``
+        discriminator and, if the node has been saved to Neo4j,
+        a list of relationship edges from ``serialize_edges()``.
         For unsaved nodes the ``edges`` key is an empty list.
+
+        Args:
+            fields: Which property fields to include.
+                ``"llm"`` (default) — only ``_llm_fields``.
+                ``"all"`` — every defined property.
 
         Returns:
             A dict with ``type``, property fields, and ``edges`` keys.
         """
         props = dict(self.__properties__)
-        result = {k: props[k] for k in self._llm_fields if k in props}
+        if fields == "all":
+            result = {k: v for k, v in props.items()}
+        else:
+            result = {k: props[k] for k in self._llm_fields if k in props}
         result["type"] = type(self).__name__
         if hasattr(self, "element_id_property"):
             result["edges"] = self.serialize_edges()

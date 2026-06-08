@@ -35,7 +35,7 @@ class CompositeEntry:
     children: dict[str, dict[str, "CompositeEntry"]] = field(default_factory=dict)
     references: list[tuple[str, str, str]] = field(default_factory=list)
 
-    def serialize(self) -> dict:
+    def serialize(self, fields: str = "llm") -> dict:
         """Recursively serialize this CompositeEntry and its composed children.
 
         Produces a nested dict where composed children appear under a
@@ -44,14 +44,21 @@ class CompositeEntry:
         property in the output if it is not already present, so that
         roundtrip deserialization can resolve edge targets correctly.
 
+        Args:
+            fields: Which property fields to include when serializing
+                each node.  ``"llm"`` (default) — only ``_llm_fields``.
+                ``"all"`` — every defined property.  Passed through to
+                ``CodeGraphNode.serialize()``.
+
         Returns:
             A dict representing the entry with nested children.
         """
-        serialized = self.node.serialize()
+        serialized = self.node.serialize(fields=fields)
 
         # Ensure uid property is included for roundtrip target resolution.
-        # FileNode uses refid (not in _llm_fields), so serialize() omits it.
-        # Without it, deserialize() cannot resolve target_uid in edges.
+        # With fields="llm" (default), FileNode's refid is omitted since
+        # it's not in _llm_fields; with fields="all" it's already present.
+        # The conditional skip handles both cases.
         uid_prop = type(self.node)._uid_prop()
         if uid_prop and uid_prop not in serialized:
             uid_value = self.node._uid_value()
@@ -70,7 +77,7 @@ class CompositeEntry:
             composes: list[dict] = []
             for type_children in self.children.values():
                 for child_entry in type_children.values():
-                    composes.append(child_entry.serialize())
+                    composes.append(child_entry.serialize(fields=fields))
             serialized["composes"] = composes
 
         return serialized
@@ -447,7 +454,7 @@ class LayerGraph:
 
     # ── Serialization ──────────────────────────────────────────────────
 
-    def serialize(self) -> list[dict]:
+    def serialize(self, fields: str = "llm") -> list[dict]:
         """Serialize the graph as a nested list of dicts.
 
         Root entries are serialized recursively.  Composed children
@@ -459,11 +466,17 @@ class LayerGraph:
         For nodes that have not been persisted to Neo4j, the
         ``edges`` key will be an empty list.
 
+        Args:
+            fields: Which property fields to include when serializing
+                each node.  ``"llm"`` (default) — only ``_llm_fields``.
+                ``"all"`` — every defined property.  Passed through to
+                ``CodeGraphNode.serialize()``.
+
         Returns:
             A list of serialized node dicts with nested composition,
             suitable for passing to ``json.dumps()`` externally.
         """
-        return [entry.serialize() for entry in self.entries.values()]
+        return [entry.serialize(fields=fields) for entry in self.entries.values()]
 
     # ── from_neo4j ─────────────────────────────────────────────────────
 
