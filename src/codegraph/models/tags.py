@@ -416,6 +416,56 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
                             })
         return edges
 
+    def update(self, **kwargs) -> "CodeGraphNode":
+        """Update one or more property fields and persist the changes to Neo4j.
+
+        Sets each keyword argument as an attribute on this node instance,
+        then calls ``save()`` to write the changes to the database.
+
+        Only neomodel-defined properties are accepted — passing a key
+        that is not a declared property raises ``ValueError``.
+
+        Args:
+            **kwargs: Property names and their new values.
+                Each key must correspond to a declared neomodel property
+                on this node type (e.g. ``name``, ``source``, ``kind``,
+                ``brief_description``, etc.).
+
+        Returns:
+            This node instance (after saving), for chaining.
+
+        Raises:
+            ValueError: If any key is not a declared property on this
+                node type.
+            ValueError: If the node has not been saved to Neo4j yet
+                (no ``element_id_property``).
+
+        Example:
+            >>> node = ClassNode.nodes.get(qualified_name="MyClass")
+            >>> node.update(brief_description="Updated", layer="as-built")
+            ClassNode(name='MyClass', ...)
+        """
+        if not hasattr(self, "element_id_property"):
+            raise ValueError(
+                f"Cannot update unsaved {type(self).__name__} instance. "
+                "Save the node first before calling update()."
+            )
+
+        props = type(self).defined_properties()
+        invalid = set(kwargs) - set(props)
+        if invalid:
+            raise ValueError(
+                f"Unknown property(ies) on {type(self).__name__}: "
+                f"{sorted(invalid)}. "
+                f"Valid properties: {sorted(props)}"
+            )
+
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+        self.save()
+        return self
+
     def walk_edges(self) -> list[dict]:
         """Walk relationship descriptors, classifying each edge by direction.
 
