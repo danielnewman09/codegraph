@@ -1,7 +1,7 @@
 """Compound node models — ClassNode, InterfaceNode, EnumNode, UnionNode, ModuleNode.
 
 Each compound kind gets its own neomodel class, Neo4j label, and
-kind-specific fields. Common fields are shared via ``_CompoundMixin``.
+kind-specific fields. Common fields are shared via ``CompoundNode``.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from neomodel import (
 from codegraph.models.tags import CodeGraphNode
 
 
-class _CompoundMixin(StructuredNode, CodeGraphNode):
+class CompoundNode(StructuredNode, CodeGraphNode):
     """Common fields and serialization for all compound node types.
 
     Attributes:
@@ -108,7 +108,7 @@ class _CompoundMixin(StructuredNode, CodeGraphNode):
     _llm_fields: set[str] = {"qualified_name", "name", "kind", "brief_description", "visibility"}
 
 
-class ClassNode(_CompoundMixin):
+class ClassNode(CompoundNode):
     """Class or struct — Neo4j label ``:Class``.
 
     Attributes:
@@ -184,7 +184,7 @@ class ClassNode(_CompoundMixin):
 
 # --- Stubs for Tasks 3-5 (will be fleshed out with their own fields) ---
 
-class InterfaceNode(_CompoundMixin):
+class InterfaceNode(CompoundNode):
     """Interface or abstract base — Neo4j label ``:Interface``.
 
     Attributes:
@@ -220,7 +220,7 @@ class InterfaceNode(_CompoundMixin):
     parent_namespace = RelationshipFrom('codegraph.models.namespace.NamespaceNode', 'COMPOSES')
 
 
-class EnumNode(_CompoundMixin):
+class EnumNode(CompoundNode):
     """Enum type — Neo4j label ``:Enum``.
 
     Attributes:
@@ -246,7 +246,7 @@ class EnumNode(_CompoundMixin):
     parent_namespace = RelationshipFrom('codegraph.models.namespace.NamespaceNode', 'COMPOSES')
 
 
-class UnionNode(_CompoundMixin):
+class UnionNode(CompoundNode):
     """C/C++ union type — Neo4j label ``:Union``.
 
     Attributes:
@@ -263,7 +263,7 @@ class UnionNode(_CompoundMixin):
     parent_namespace = RelationshipFrom('codegraph.models.namespace.NamespaceNode', 'COMPOSES')
 
 
-class ConceptNode(_CompoundMixin):
+class ConceptNode(CompoundNode):
     """C++20 concept (type constraint) — Neo4j label ``:Concept``.
 
     Concepts define constraints on template parameters. They are
@@ -289,7 +289,7 @@ class ConceptNode(_CompoundMixin):
     parent_namespace = RelationshipFrom('codegraph.models.namespace.NamespaceNode', 'COMPOSES')
 
 
-class ModuleNode(_CompoundMixin):
+class ModuleNode(CompoundNode):
     """Module or logical namespace — Neo4j label ``:Module``.
 
     Module names are derived from compound qualified names during

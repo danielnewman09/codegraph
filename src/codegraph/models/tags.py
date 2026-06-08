@@ -232,7 +232,7 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
     def __init_subclass__(cls, **kwargs) -> None:
         super().__init_subclass__(**kwargs)
         # Only register concrete classes that have their own ``_llm_fields``.
-        # Mixins like _CompoundMixin / _MemberMixin set _llm_fields but are
+        # Mixins like CompoundNode / _MemberMixin set _llm_fields but are
         # still abstract (they inherit from StructuredNode directly). We skip
         # any class whose name starts with an underscore by convention.
         if not cls.__name__.startswith("_") and cls._llm_fields:
