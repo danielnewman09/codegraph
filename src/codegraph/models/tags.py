@@ -232,34 +232,233 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
     def __init_subclass__(cls, **kwargs) -> None:
         super().__init_subclass__(**kwargs)
         # Only register concrete classes that have their own ``_llm_fields``.
-        # Mixins like CompoundNode / _MemberMixin set _llm_fields but are
+        # Mixins like CompoundNode / MemberNode set _llm_fields but are
         # still abstract (they inherit from StructuredNode directly). We skip
         # any class whose name starts with an underscore by convention.
         if not cls.__name__.startswith("_") and cls._llm_fields:
             CodeGraphNode._registry[cls.__name__] = cls
 
+            # Override neomodel's delete() on each concrete class.
+            # Without this injection, MRO resolution finds
+            # StructuredNode.delete() first (StructuredNode precedes
+            # CodeGraphNode in the MRO of every concrete subclass),
+            # so our enhanced version on CodeGraphNode would be shadowed.
+            # Putting delete directly in the concrete class's __dict__
+            # makes it the first entry found during method resolution.
+            #
+            # create() is NOT injected because neomodel's
+            # StructuredNode.create() is called internally by save(),
+            # and overriding it on concrete classes breaks the internal
+            # creation path.  Instead, save_new() (below) provides
+            # the single-node creation API.
+            if "delete" not in cls.__dict__:
+                cls.delete = CodeGraphNode._delete
+
+            # Inject save_new() as a convenience classmethod on each
+            # concrete class::
+            #
+            #     ClassNode.save_new(name="Widget", kind="class",
+            #                       qualified_name="ns::Widget")
+            #
+            # Validates properties, constructs, saves, and returns the
+            # instance in one call.
+            if "save_new" not in cls.__dict__:
+                def _make_save_new(klass):
+                    def save_new(kls, **kwargs):
+                        return CodeGraphNode._save_new(klass, **kwargs)
+                    return classmethod(save_new)
+                cls.save_new = _make_save_new(cls)
+
+    # ── Create / Delete ──────────────────────────────────────────────────
+
+    @staticmethod
+    def _save_new(cls, **kwargs) -> "CodeGraphNode":
+        """Create and persist a single node instance.
+
+        Validates that all keyword arguments correspond to declared
+        neomodel properties, constructs a node instance, saves it to
+        Neo4j, and returns the saved instance.
+
+        Called by the ``save_new()`` classmethod injected on each
+        concrete subclass via ``__init_subclass__``.
+
+        Args:
+            cls: The concrete CodeGraphNode subclass to instantiate.
+            **kwargs: Property names and their initial values.
+                Each key must correspond to a declared neomodel property
+                on ``cls``.
+
+        Returns:
+            The saved node instance.
+
+        Raises:
+            ValueError: If any key is not a declared property on ``cls``.
+        """
+        props = cls.defined_properties()
+        invalid = set(kwargs) - set(props)
+        if invalid:
+            raise ValueError(
+                f"Unknown property(ies) on {cls.__name__}: "
+                f"{sorted(invalid)}. "
+                f"Valid properties: {sorted(props)}"
+            )
+        node = cls(**kwargs)
+        return node.save()
+
+    def _delete(self) -> "CodeGraphNode":
+        """Delete this node from Neo4j, cascading to composed children first.
+
+        Any node reachable via an outgoing COMPOSES relationship is
+        considered an owned child and is deleted recursively (depth-
+        first, leaves first) before this node is removed.  This mirrors
+        the containment semantics of the code graph: deleting a
+        namespace deletes its classes, which delete their methods, and
+        so on.
+
+        After cascading, all remaining relationships on this node
+        (both outgoing and incoming) are explicitly disconnected to
+        clear the in-memory caches of related nodes — neomodel's
+        default ``DETACH DELETE`` removes relationships at the database
+        level but does not update other nodes' relationship manager
+        caches.
+
+        Must be called on a saved node (one with an
+        ``element_id_property``).  After deletion the node is marked
+        as deleted and should not be reused.
+
+        Returns:
+            This node instance (marked as deleted, no longer persisted).
+
+        Raises:
+            ValueError: If the node has not been saved to Neo4j yet
+                (no ``element_id_property``).
+
+        Example:
+            >>> ns = NamespaceNode.save_new(name="my_ns", kind="namespace",
+            ...                              qualified_name="my_ns")
+            >>> cls = ClassNode.save_new(name="Widget", kind="class",
+            ...                         qualified_name="my_ns::Widget")
+            >>> ns.classes.connect(cls)
+            >>> ns.delete()  # deletes cls first (composed child), then ns
+        """
+        from neomodel import RelationshipTo, RelationshipFrom
+        from neomodel.sync_.node import StructuredNode
+
+        if not hasattr(self, "element_id_property"):
+            raise ValueError(
+                f"Cannot delete unsaved {type(self).__name__} instance. "
+                "Save the node first before calling delete()."
+            )
+
+        # Cascade: delete all composed children (depth-first, leaves
+        # first) before deleting this node.  COMPOSES represents
+        # ownership containment, so children should not outlive their
+        # parent.
+        for child in self.walk_composes():
+            if hasattr(child, "element_id_property") and not getattr(child, "deleted", False):
+                child.delete()
+
+        # Disconnect all remaining relationships to clear caches of
+        # related nodes.  neomodel's DETACH DELETE removes relationships
+        # at the Cypher level but does not update other nodes'
+        # Python-side relationship caches.
+        seen: set[str] = set()
+        for klass in type(self).__mro__:
+            for name, val in vars(klass).items():
+                if not isinstance(val, (RelationshipTo, RelationshipFrom)):
+                    continue
+                if name in seen:
+                    continue
+                seen.add(name)
+                manager = getattr(self, name)
+                try:
+                    for connected in manager.all():
+                        try:
+                            manager.disconnect(connected)
+                        except Exception:
+                            pass  # best-effort disconnect
+                except Exception:
+                    pass  # unsaved or unavailable relationship manager
+
+        # Delegate to neomodel's DETACH DELETE
+        StructuredNode.delete(self)
+        return self
+
     # ── Serialization ─────────────────────────────────────────────────────
 
-    def serialize(self, fields: str = "llm") -> dict:
+    def walk_composes(self) -> list["CodeGraphNode"]:
+        """Return all nodes that this node composes via outgoing COMPOSES edges.
+
+        Walks all ``RelationshipTo`` managers with
+        ``relation_type="COMPOSES"`` and returns the connected target
+        nodes.
+
+        Requires the node to be saved in Neo4j (the relationship managers
+        query the database).  Returns an empty list for unsaved nodes.
+
+        Returns:
+            A list of CodeGraphNode instances that this node composes.
+        """
+        from neomodel import RelationshipTo
+
+        # Unsaved nodes have no database relationships to walk
+        if not hasattr(self, "element_id_property"):
+            return []
+
+        children: list[CodeGraphNode] = []
+        seen: set[str] = set()
+        for klass in type(self).__mro__:
+            for name, val in vars(klass).items():
+                if not isinstance(val, RelationshipTo):
+                    continue
+                if val.definition["relation_type"] != "COMPOSES":
+                    continue
+                if name in seen:
+                    continue
+                seen.add(name)
+                children.extend(getattr(self, name).all())
+        return children
+
+    def serialize(
+        self,
+        fields: str = "llm",
+        nested: bool = False,
+        _seen: set | None = None,
+    ) -> dict:
         """Return a serialized representation of this node.
 
-        By default (``fields="llm"``), only includes property fields listed
-        in the node's ``_llm_fields`` set — the minimal subset relevant for
-        LLM consumption.  Pass ``fields="all"`` to include every
-        neomodel-defined property.
+        By default (``fields="llm"``, ``nested=False``), only includes
+        property fields listed in the node's ``_llm_fields`` set — the
+        minimal subset relevant for LLM consumption.  Pass
+        ``fields="all"`` to include every neomodel-defined property.
 
-        Regardless of *fields*, the result always includes a ``type``
-        discriminator and, if the node has been saved to Neo4j,
-        a list of relationship edges from ``serialize_edges()``.
-        For unsaved nodes the ``edges`` key is an empty list.
+        When ``nested=True``, walks outgoing COMPOSES relationship
+        managers and inlines composed children under a ``composes``
+        key.  COMPOSES edges are removed from the ``edges`` array since
+        the nesting represents them explicitly.  The node's unique
+        identifier property is always included for roundtrip target
+        resolution.  Cycle detection via ``_seen`` prevents infinite
+        recursion.
+
+        Regardless of *fields* and *nested*, the result always includes
+        a ``type`` discriminator and, if the node has been saved to
+        Neo4j, a list of relationship edges from
+        ``serialize_edges()``.  For unsaved nodes the ``edges`` key is
+        an empty list.
 
         Args:
             fields: Which property fields to include.
                 ``"llm"`` (default) — only ``_llm_fields``.
                 ``"all"`` — every defined property.
+            nested: If True, inline composed children under a
+                ``composes`` key.  Requires the node to be persisted in
+                Neo4j.
+            _seen: Internal — set of uid values for cycle detection.
+                Not part of the public API.
 
         Returns:
-            A dict with ``type``, property fields, and ``edges`` keys.
+            A dict with ``type``, property fields, ``edges``, and
+            optionally ``composes`` keys.
         """
         props = dict(self.__properties__)
         if fields == "all":
@@ -267,11 +466,70 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         else:
             result = {k: props[k] for k in self._llm_fields if k in props}
         result["type"] = type(self).__name__
+
         if hasattr(self, "element_id_property"):
-            result["edges"] = self.serialize_edges()
+            all_edges = self.serialize_edges()
+            if nested:
+                # Remove COMPOSES edges — they are represented by nesting
+                result["edges"] = [
+                    e for e in all_edges
+                    if e["relation_type"] != "COMPOSES"
+                ]
+            else:
+                result["edges"] = all_edges
         else:
             result["edges"] = []
+
+        if nested:
+            # Ensure uid property is included for roundtrip target resolution
+            uid_prop = type(self)._uid_prop()
+            uid_value = self._uid_value()
+            if uid_prop and uid_value and uid_prop not in result:
+                result[uid_prop] = uid_value
+
+            # Cycle detection
+            if _seen is None:
+                _seen = set()
+            if uid_value:
+                _seen.add(uid_value)
+
+            # Walk COMPOSES relationships and serialize children recursively
+            composes = self._serialize_composes(fields=fields, _seen=_seen)
+            if composes:
+                result["composes"] = composes
+
         return result
+
+    def _serialize_composes(
+        self,
+        fields: str = "llm",
+        _seen: set | None = None,
+    ) -> list[dict]:
+        """Serialize all COMPOSES children of this node recursively.
+
+        Walks outgoing COMPOSES relationship managers, filters out
+        already-seen nodes (cycle prevention), and recursively serializes
+        each child with ``nested=True``.
+
+        Args:
+            fields: Which property fields to include for each child.
+            _seen: Set of uid values for cycle detection.
+
+        Returns:
+            A list of serialized child dicts, or an empty list if this
+            node has no composed children.
+        """
+        children = self.walk_composes()
+        composes: list[dict] = []
+        for child in children:
+            child_uid = child._uid_value()
+            # Skip already-visited nodes (cycle prevention)
+            if _seen is not None and child_uid and child_uid in _seen:
+                continue
+            composes.append(
+                child.serialize(fields=fields, nested=True, _seen=_seen)
+            )
+        return composes
 
     @classmethod
     def deserialize(cls, data: dict) -> "CodeGraphNode":

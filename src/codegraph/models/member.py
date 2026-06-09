@@ -1,7 +1,7 @@
 """Member node models — MethodNode, AttributeNode, EnumValueNode, FunctionNode, DefineNode.
 
 Each member kind gets its own neomodel class and Neo4j label. Common fields
-are shared via a ``_MemberMixin`` abstract base.
+are shared via a ``MemberNode`` abstract base.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from neomodel import (
 from codegraph.models.tags import CodeGraphNode
 
 
-class _MemberMixin(StructuredNode, CodeGraphNode):
+class MemberNode(StructuredNode, CodeGraphNode):
     """Common fields and serialization for all member node types.
 
     Attributes:
@@ -104,7 +104,7 @@ class _MemberMixin(StructuredNode, CodeGraphNode):
     }
 
 
-class MethodNode(_MemberMixin):
+class MethodNode(MemberNode):
     """Function or method — Neo4j label ``:Method``.
 
     Attributes:
@@ -167,7 +167,7 @@ class MethodNode(_MemberMixin):
     returns = RelationshipTo('codegraph.models.compound.ClassNode', 'RETURNS')
 
 
-class AttributeNode(_MemberMixin):
+class AttributeNode(MemberNode):
     """Member variable / data attribute — Neo4j label ``:Attribute``.
 
     Attributes:
@@ -199,7 +199,7 @@ class AttributeNode(_MemberMixin):
     parent_compound = RelationshipFrom('codegraph.models.compound.ClassNode', 'COMPOSES')
 
 
-class EnumValueNode(_MemberMixin):
+class EnumValueNode(MemberNode):
     """Enum constant value — Neo4j label ``:EnumValue``.
 
     Attributes:
@@ -222,7 +222,7 @@ class EnumValueNode(_MemberMixin):
     parent_enum = RelationshipFrom('codegraph.models.compound.EnumNode', 'COMPOSES')
 
 
-class FunctionNode(_MemberMixin):
+class FunctionNode(MemberNode):
     """Free function (not a method) — Neo4j label ``:Function``.
 
     Attributes:
@@ -252,7 +252,7 @@ class FunctionNode(_MemberMixin):
     parent_namespace = RelationshipFrom('codegraph.models.namespace.NamespaceNode', 'COMPOSES')
 
 
-class DefineNode(_MemberMixin):
+class DefineNode(MemberNode):
     """Preprocessor macro / define — Neo4j label ``:Define``.
 
     Attributes:

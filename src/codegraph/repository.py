@@ -112,40 +112,31 @@ class GraphRepository:
         for key, node in nodes.items():
             key_to_entry[key] = CompositeEntry(node=node)
 
-        # Phase 4: walk edges and build nesting / references
+        # Phase 4: build composition tree and collect references
         child_keys: set[str] = set()
-        for node in nodes.values():
-            source_key = LayerGraph._node_key(node)
-            source_entry = key_to_entry[source_key]
+        for key, node in nodes.items():
+            entry = key_to_entry[key]
 
+            # COMPOSES: use walk_composes() for outgoing edges
+            for child in node.walk_composes():
+                child_key = LayerGraph._node_key(child)
+                if child_key not in key_to_entry:
+                    continue  # child not in our fetched set
+                child_entry = key_to_entry[child_key]
+                child_type = type(child).__name__
+                entry.children.setdefault(child_type, {})[child_key] = child_entry
+                child_keys.add(child_key)
+
+            # Non-COMPOSES references: use walk_edges()
             for edge_info in node.walk_edges():
                 relation_type = edge_info["relation_type"]
-                target_uid = edge_info["target_uid"]
-                target_type = edge_info["target_type"]
-                is_outgoing = edge_info["is_outgoing"]
-                # Skip lazy-loaded relationships
-                if relation_type == "HAS_IMPLEMENTATION":
+                # Skip COMPOSES (handled above) and lazy-loaded edges
+                if relation_type in ("COMPOSES", "HAS_IMPLEMENTATION"):
                     continue
-                target_key = uid_to_key.get(target_uid)
-
-                if target_key is None or target_key not in key_to_entry:
-                    continue
-
-                if relation_type == "COMPOSES":
-                    if is_outgoing:
-                        # Parent -> child: nest target under source
-                        target_entry = key_to_entry[target_key]
-                        source_entry.children.setdefault(target_type, {})[target_key] = target_entry
-                        child_keys.add(target_key)
-                    else:
-                        # Child -> parent: nest source under target
-                        source_type = type(node).__name__
-                        target_entry = key_to_entry[target_key]
-                        target_entry.children.setdefault(source_type, {})[source_key] = source_entry
-                        child_keys.add(source_key)
-                else:
-                    source_entry.references.append(
-                        (relation_type, target_key, target_type)
+                target_key = uid_to_key.get(edge_info["target_uid"])
+                if target_key and target_key in key_to_entry:
+                    entry.references.append(
+                        (relation_type, target_key, edge_info["target_type"])
                     )
 
         # Phase 5: root entries = nodes not composed by another node

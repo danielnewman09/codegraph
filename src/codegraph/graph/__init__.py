@@ -38,11 +38,23 @@ class CompositeEntry:
     def serialize(self, fields: str = "llm") -> dict:
         """Recursively serialize this CompositeEntry and its composed children.
 
-        Produces a nested dict where composed children appear under a
-        ``composes`` key and COMPOSES edges are removed from the
-        ``edges`` array.  Includes the node's unique identifier
-        property in the output if it is not already present, so that
-        roundtrip deserialization can resolve edge targets correctly.
+        Walks the pre-built ``children`` tree to produce nested output.
+        Composed children appear under a ``composes`` key and COMPOSES
+        edges are removed from the ``edges`` array.  The node's unique
+        identifier property is included in the output when not already
+        present, so that roundtrip deserialization can resolve edge
+        targets correctly.
+
+        Uses ``CodeGraphNode.serialize()`` for each node's properties
+        and edges, then adds the ``composes`` nesting and uid supplement
+        on top.
+
+        Note: For direct nested serialization of a single persisted
+        node, use ``node.serialize(nested=True)`` instead — it walks
+        COMPOSES relationship managers directly.  This method exists
+        because the ``children`` tree may contain only a scoped subset
+        of the full composition hierarchy (e.g. only nodes in a
+        particular layer), which ``walk_composes()`` would not respect.
 
         Args:
             fields: Which property fields to include when serializing
@@ -53,24 +65,23 @@ class CompositeEntry:
         Returns:
             A dict representing the entry with nested children.
         """
+        # Start from the node's own flat serialization.
+        # Remove COMPOSES edges — they are represented by nesting.
         serialized = self.node.serialize(fields=fields)
-
-        # Ensure uid property is included for roundtrip target resolution.
-        # With fields="llm" (default), FileNode's refid is omitted since
-        # it's not in _llm_fields; with fields="all" it's already present.
-        # The conditional skip handles both cases.
-        uid_prop = type(self.node)._uid_prop()
-        if uid_prop and uid_prop not in serialized:
-            uid_value = self.node._uid_value()
-            if uid_value is not None:
-                serialized[uid_prop] = uid_value
-
-        # Remove COMPOSES edges — they are represented by nesting
         edges = [
             e for e in serialized.get("edges", [])
             if e["relation_type"] != "COMPOSES"
         ]
         serialized["edges"] = edges
+
+        # Ensure uid property is included for roundtrip target resolution.
+        # With fields="llm" (default), FileNode's refid is omitted since
+        # it's not in _llm_fields; with fields="all" it's already present.
+        uid_prop = type(self.node)._uid_prop()
+        if uid_prop and uid_prop not in serialized:
+            uid_value = self.node._uid_value()
+            if uid_value is not None:
+                serialized[uid_prop] = uid_value
 
         # Inline composed children under "composes"
         if self.children:
@@ -542,40 +553,31 @@ class LayerGraph:
         for key, node in nodes.items():
             key_to_entry[key] = CompositeEntry(node=node)
 
-        # Walk edges and build nesting / references
+        # Build composition tree and collect references
         child_keys: set[str] = set()
-        for node in list(nodes.values()):
-            source_key = cls._node_key(node)
-            source_entry = key_to_entry[source_key]
+        for key, node in nodes.items():
+            entry = key_to_entry[key]
 
+            # COMPOSES: use walk_composes() for outgoing edges
+            for child in node.walk_composes():
+                child_key = cls._node_key(child)
+                if child_key not in key_to_entry:
+                    continue  # child not in our fetched set
+                child_entry = key_to_entry[child_key]
+                child_type = type(child).__name__
+                entry.children.setdefault(child_type, {})[child_key] = child_entry
+                child_keys.add(child_key)
+
+            # Non-COMPOSES references: use walk_edges()
             for edge in node.walk_edges():
                 relation_type = edge["relation_type"]
-                target_uid = edge["target_uid"]
-                target_type = edge["target_type"]
-                is_outgoing = edge["is_outgoing"]
-                # Skip lazy-loaded relationships
-                if relation_type == "HAS_IMPLEMENTATION":
+                # Skip COMPOSES (handled above) and lazy-loaded edges
+                if relation_type in ("COMPOSES", "HAS_IMPLEMENTATION"):
                     continue
-                target_key = uid_to_key.get(target_uid)
-
-                if target_key is None:
-                    continue
-
-                if relation_type == "COMPOSES":
-                    target_entry = key_to_entry.get(target_key)
-                    if target_entry is not None:
-                        if is_outgoing:
-                            # Parent -> child: nest target under source
-                            source_entry.children.setdefault(target_type, {})[target_key] = target_entry
-                            child_keys.add(target_key)
-                        else:
-                            # Child -> parent: nest source under target
-                            source_type = type(node).__name__
-                            target_entry.children.setdefault(source_type, {})[source_key] = source_entry
-                            child_keys.add(source_key)
-                else:
-                    source_entry.references.append(
-                        (relation_type, target_key, target_type)
+                target_key = uid_to_key.get(edge["target_uid"])
+                if target_key and target_key in key_to_entry:
+                    entry.references.append(
+                        (relation_type, target_key, edge["target_type"])
                     )
 
         # Root entries = nodes not composed by another node

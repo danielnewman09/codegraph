@@ -1,67 +1,67 @@
 [
   {
-    "name": "calculator_engine.h",
     "source": "calculator",
+    "name": "calculator_engine.h",
     "path": "/src/calc/calculator_engine.h",
     "type": "FileNode",
     "edges": [],
     "refid": "file-calc-engine"
   },
   {
-    "name": "icalculator.h",
     "source": "calculator",
+    "name": "icalculator.h",
     "path": "/src/calc/icalculator.h",
     "type": "FileNode",
     "edges": [],
     "refid": "file-icalc"
   },
   {
-    "name": "operation.h",
     "source": "calculator",
+    "name": "operation.h",
     "path": "/src/calc/operation.h",
     "type": "FileNode",
     "edges": [],
     "refid": "file-operation"
   },
   {
-    "name": "calculator_result.h",
     "source": "calculator",
+    "name": "calculator_result.h",
     "path": "/src/calc/calculator_result.h",
     "type": "FileNode",
     "edges": [],
     "refid": "file-calc-result"
   },
   {
-    "name": "base_window.h",
     "source": "calculator",
+    "name": "base_window.h",
     "path": "/src/ui/base_window.h",
     "type": "FileNode",
     "edges": [],
     "refid": "file-base-window"
   },
   {
-    "name": "calculator_window.h",
     "source": "calculator",
+    "name": "calculator_window.h",
     "path": "/src/ui/calculator_window.h",
     "type": "FileNode",
     "edges": [],
     "refid": "file-calc-window"
   },
   {
+    "kind": "namespace",
     "name": "calc",
     "description": "Calculation engine module",
     "qualified_name": "calc",
-    "kind": "namespace",
     "type": "NamespaceNode",
     "edges": [],
     "composes": [
       {
-        "visibility": "public",
-        "qualified_name": "calc::CalculatorEngine",
         "base_classes": [],
+        "kind": "class",
+        "qualified_name": "calc::CalculatorEngine",
         "brief_description": "The core calculator engine class that performs arithmetic operations.",
         "name": "CalculatorEngine",
-        "kind": "class",
+        "visibility": "public",
         "type": "ClassNode",
         "edges": [
           {
@@ -87,13 +87,13 @@
         ],
         "composes": [
           {
-            "visibility": "public",
-            "qualified_name": "calc::CalculatorEngine::add",
-            "name": "add",
-            "argsstring": "(double a, double b)",
-            "brief_description": "Calculates the sum of two valid numeric operands.",
             "type_signature": "CalculatorResult",
             "kind": "method",
+            "qualified_name": "calc::CalculatorEngine::add",
+            "brief_description": "Calculates the sum of two valid numeric operands.",
+            "argsstring": "(double a, double b)",
+            "name": "add",
+            "visibility": "public",
             "type": "MethodNode",
             "edges": [
               {
@@ -104,13 +104,13 @@
             ]
           },
           {
-            "visibility": "public",
-            "qualified_name": "calc::CalculatorEngine::validateInput",
-            "name": "validateInput",
-            "argsstring": "(string input)",
-            "brief_description": "Validates that the inputs are valid numbers.",
             "type_signature": "bool",
             "kind": "method",
+            "qualified_name": "calc::CalculatorEngine::validateInput",
+            "brief_description": "Validates that the inputs are valid numbers.",
+            "argsstring": "(string input)",
+            "name": "validateInput",
+            "visibility": "public",
             "type": "MethodNode",
             "edges": [
               {
@@ -121,12 +121,12 @@
             ]
           },
           {
-            "visibility": "public",
-            "qualified_name": "calc::CalculatorEngine::precision",
-            "name": "precision",
-            "brief_description": "The number of decimal places for result precision.",
             "type_signature": "int",
             "kind": "attribute",
+            "qualified_name": "calc::CalculatorEngine::precision",
+            "brief_description": "The number of decimal places for result precision.",
+            "name": "precision",
+            "visibility": "public",
             "type": "AttributeNode",
             "edges": [
               {
@@ -139,12 +139,12 @@
         ]
       },
       {
-        "visibility": "public",
-        "qualified_name": "calc::CalculatorResult",
         "base_classes": [],
+        "kind": "class",
+        "qualified_name": "calc::CalculatorResult",
         "brief_description": "A result wrapper class that holds the outcome of a calculator operation.",
         "name": "CalculatorResult",
-        "kind": "class",
+        "visibility": "public",
         "type": "ClassNode",
         "edges": [
           {
@@ -160,12 +160,12 @@
         ],
         "composes": [
           {
-            "visibility": "public",
-            "qualified_name": "calc::CalculatorResult::value",
-            "name": "value",
-            "brief_description": "The computed numeric result.",
             "type_signature": "double",
             "kind": "attribute",
+            "qualified_name": "calc::CalculatorResult::value",
+            "brief_description": "The computed numeric result.",
+            "name": "value",
+            "visibility": "public",
             "type": "AttributeNode",
             "edges": [
               {
@@ -176,13 +176,13 @@
             ]
           },
           {
-            "visibility": "public",
-            "qualified_name": "calc::CalculatorResult::get_value",
-            "name": "get_value",
-            "argsstring": "",
-            "brief_description": "Returns the computed value.",
             "type_signature": "double",
             "kind": "method",
+            "qualified_name": "calc::CalculatorResult::get_value",
+            "brief_description": "Returns the computed value.",
+            "argsstring": "",
+            "name": "get_value",
+            "visibility": "public",
             "type": "MethodNode",
             "edges": [
               {
@@ -195,11 +195,11 @@
         ]
       },
       {
-        "visibility": "public",
-        "qualified_name": "calc::ICalculator",
-        "name": "ICalculator",
-        "brief_description": "Calculator interface contract defining the core calculation operation.",
         "kind": "interface",
+        "qualified_name": "calc::ICalculator",
+        "brief_description": "Calculator interface contract defining the core calculation operation.",
+        "name": "ICalculator",
+        "visibility": "public",
         "type": "InterfaceNode",
         "edges": [
           {
@@ -210,13 +210,13 @@
         ],
         "composes": [
           {
-            "visibility": "public",
-            "qualified_name": "calc::ICalculator::calculate",
-            "name": "calculate",
-            "argsstring": "(Operation op, double a, double b)",
-            "brief_description": "Perform a calculation with the given operation and operands.",
             "type_signature": "CalculatorResult",
             "kind": "method",
+            "qualified_name": "calc::ICalculator::calculate",
+            "brief_description": "Perform a calculation with the given operation and operands.",
+            "argsstring": "(Operation op, double a, double b)",
+            "name": "calculate",
+            "visibility": "public",
             "type": "MethodNode",
             "edges": [
               {
@@ -229,11 +229,11 @@
         ]
       },
       {
-        "visibility": "public",
-        "qualified_name": "calc::Operation",
-        "name": "Operation",
-        "brief_description": "An enumeration of supported arithmetic operations.",
         "kind": "enum",
+        "qualified_name": "calc::Operation",
+        "brief_description": "An enumeration of supported arithmetic operations.",
+        "name": "Operation",
+        "visibility": "public",
         "type": "EnumNode",
         "edges": [
           {
@@ -244,33 +244,33 @@
         ],
         "composes": [
           {
-            "visibility": "public",
-            "qualified_name": "calc::Operation::ADD",
-            "name": "ADD",
-            "brief_description": "Represents addition.",
             "kind": "enumvalue",
+            "qualified_name": "calc::Operation::ADD",
+            "brief_description": "Represents addition.",
+            "name": "ADD",
+            "visibility": "public",
             "type": "EnumValueNode",
             "edges": []
           },
           {
-            "visibility": "public",
-            "qualified_name": "calc::Operation::SUBTRACT",
-            "name": "SUBTRACT",
-            "brief_description": "Represents subtraction.",
             "kind": "enumvalue",
+            "qualified_name": "calc::Operation::SUBTRACT",
+            "brief_description": "Represents subtraction.",
+            "name": "SUBTRACT",
+            "visibility": "public",
             "type": "EnumValueNode",
             "edges": []
           }
         ]
       },
       {
-        "visibility": "public",
-        "qualified_name": "calc::formatResult",
-        "name": "formatResult",
-        "argsstring": "(double value)",
-        "brief_description": "Formats a numeric result as a string.",
         "type_signature": "string",
         "kind": "function",
+        "qualified_name": "calc::formatResult",
+        "brief_description": "Formats a numeric result as a string.",
+        "argsstring": "(double value)",
+        "name": "formatResult",
+        "visibility": "public",
         "type": "FunctionNode",
         "edges": [
           {
@@ -283,20 +283,20 @@
     ]
   },
   {
+    "kind": "namespace",
     "name": "ui",
     "description": "User interface module",
     "qualified_name": "ui",
-    "kind": "namespace",
     "type": "NamespaceNode",
     "edges": [],
     "composes": [
       {
-        "visibility": "public",
-        "qualified_name": "ui::BaseWindow",
         "base_classes": [],
+        "kind": "class",
+        "qualified_name": "ui::BaseWindow",
         "brief_description": "Abstract base window class providing common window operations.",
         "name": "BaseWindow",
-        "kind": "class",
+        "visibility": "public",
         "type": "ClassNode",
         "edges": [
           {
@@ -312,13 +312,13 @@
         ],
         "composes": [
           {
-            "visibility": "public",
-            "qualified_name": "ui::BaseWindow::show",
-            "name": "show",
-            "argsstring": "",
-            "brief_description": "Shows the window on screen.",
             "type_signature": "void",
             "kind": "method",
+            "qualified_name": "ui::BaseWindow::show",
+            "brief_description": "Shows the window on screen.",
+            "argsstring": "",
+            "name": "show",
+            "visibility": "public",
             "type": "MethodNode",
             "edges": [
               {
@@ -331,12 +331,12 @@
         ]
       },
       {
-        "visibility": "public",
-        "qualified_name": "ui::CalculatorWindow",
         "base_classes": [],
+        "kind": "class",
+        "qualified_name": "ui::CalculatorWindow",
         "brief_description": "The main application window for the calculator.",
         "name": "CalculatorWindow",
-        "kind": "class",
+        "visibility": "public",
         "type": "ClassNode",
         "edges": [
           {
@@ -357,12 +357,12 @@
         ],
         "composes": [
           {
-            "visibility": "private",
+            "type_signature": "string",
+            "kind": "attribute",
             "qualified_name": "ui::CalculatorWindow::display",
-            "name": "display",
             "brief_description": "The numeric display area showing input and results.",
-            "type_signature": "string",
-            "kind": "attribute",
+            "name": "display",
+            "visibility": "private",
             "type": "AttributeNode",
             "edges": [
               {
@@ -373,12 +373,12 @@
             ]
           },
           {
-            "visibility": "private",
+            "type_signature": "string",
+            "kind": "attribute",
             "qualified_name": "ui::CalculatorWindow::currentInput",
-            "name": "currentInput",
             "brief_description": "The current input string being built by the user.",
-            "type_signature": "string",
-            "kind": "attribute",
+            "name": "currentInput",
+            "visibility": "private",
             "type": "AttributeNode",
             "edges": [
               {
@@ -389,13 +389,13 @@
             ]
           },
           {
-            "visibility": "private",
-            "qualified_name": "ui::CalculatorWindow::handleEquals",
-            "name": "handleEquals",
-            "argsstring": "",
-            "brief_description": "Callback for the equals button. Triggers calculation and displays the result.",
             "type_signature": "void",
             "kind": "method",
+            "qualified_name": "ui::CalculatorWindow::handleEquals",
+            "brief_description": "Callback for the equals button. Triggers calculation and displays the result.",
+            "argsstring": "",
+            "name": "handleEquals",
+            "visibility": "private",
             "type": "MethodNode",
             "edges": [
               {
