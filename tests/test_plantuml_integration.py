@@ -1,26 +1,33 @@
 """Integration test: full Calculator graph → PlantUML → PNG.
 
 Builds the complete Calculator graph from ``design_graph.json``, exports it
-to PlantUML, compiles the diagram to PNG (if the PlantUML jar is available),
-and verifies the exported diagram contains all expected elements.
+to PlantUML, imports it back, and compiles the diagram to PNG.
 
-Saves the following artefacts to ``unit_test_data/``:
+Saves the following artefacts:
 
-- ``plantuml_integration.puml`` — the exported PlantUML source
-- ``plantuml_integration.png`` — the compiled diagram (requires PlantUML jar)
+- ``unit_test_data/plantuml_integration.puml`` — exported PlantUML source
+- ``unit_test_data/plantuml_integration.png`` — compiled diagram (requires jar)
+- ``tests/data/design_graph_puml.json`` — restored graph serialized as JSON,
+  suitable for diffing against the original ``design_graph.json`` to see
+  exactly what the PlantUML round-trip preserves and what it loses.
 
 Requires Neo4j for the initial ``to_neo4j()`` call.
 PlantUML PNG compilation is skipped if ``tools/plantuml.jar`` is absent.
 """
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
 
 from codegraph.graph import LayerGraph
 from codegraph.models.tags import CodeGraphNode
-from codegraph.plantuml import export_plantuml
+from codegraph.plantuml import export_plantuml, import_plantuml
+
+DATA_DIR = Path(__file__).resolve().parent / "data"
+FIXTURE = DATA_DIR / "design_graph.json"
+FIXTURE_DIR = Path(__file__).resolve().parent.parent / "unit_test_data"
 
 # ── PNG compilation constants ────────────────────────────────────────────
 
@@ -32,21 +39,10 @@ def _plantuml_available() -> bool:
     if not PLANTUML_JAR.is_file():
         return False
     try:
-        import subprocess
         subprocess.run(["java", "-version"], capture_output=True, timeout=5)
         return True
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return False
-
-
-DATA_DIR = Path(__file__).resolve().parent / "data"
-FIXTURE = DATA_DIR / "design_graph.json"
-FIXTURE_DIR = Path(__file__).resolve().parent.parent / "unit_test_data"
-
-
-def _count_all_entries(graph: LayerGraph) -> int:
-    """Count all CompositeEntry instances across the entire tree."""
-    return sum(1 for _ in graph._all_entries())
 
 
 # ── Full integration: fixture → LayerGraph → PlantUML → PNG ────────────────
@@ -54,7 +50,7 @@ def _count_all_entries(graph: LayerGraph) -> int:
 
 class TestPlantUMLIntegration:
     """End-to-end test: load design_graph.json, export to PlantUML,
-    compile to PNG, and verify diagram content."""
+    import back, compile to PNG, and verify diagram content."""
 
     @pytest.fixture(autouse=True)
     def _setup(self):
@@ -74,9 +70,6 @@ class TestPlantUMLIntegration:
         # Basic structure
         assert puml.startswith("@startuml")
         assert puml.endswith("@enduml")
-
-        # No metadata note by default
-        assert "note as N_metadata" not in puml
 
         # Save the .puml file
         out_path = FIXTURE_DIR / "plantuml_integration.puml"
@@ -108,8 +101,123 @@ class TestPlantUMLIntegration:
         assert "SUBTRACT" in puml
 
         # Relationships
-        assert "..|>" in puml or "realizes" in puml     # REALIZES
-        assert "inherits_from" in puml or "<|--" in puml  # INHERITS_FROM
+        assert "realizes" in puml
+        assert "inherits_from" in puml
+
+    # ── Import ─────────────────────────────────────────────────────────
+
+    def test_import_restores_core_structure(self):
+        """Export → import round-trip preserves core structure."""
+        puml = export_plantuml(self.graph)
+        restored = import_plantuml(puml)
+
+        # Namespaces preserved
+        assert "calc" in restored.entries
+        assert "ui" in restored.entries
+
+        # Classes inside calc namespace
+        calc = restored.entries["calc"]
+        assert "ClassNode" in calc.children
+        cls_names = [e.node.name for e in calc.children["ClassNode"].values()]
+        assert "CalculatorEngine" in cls_names
+        assert "CalculatorResult" in cls_names
+
+        # Interface preserved
+        assert "InterfaceNode" in calc.children
+
+        # Enum preserved
+        assert "EnumNode" in calc.children
+
+        # Function preserved
+        assert "FunctionNode" in calc.children
+
+        # UI namespace classes
+        ui = restored.entries["ui"]
+        ui_cls_names = [e.node.name for e in ui.children["ClassNode"].values()]
+        assert "BaseWindow" in ui_cls_names
+        assert "CalculatorWindow" in ui_cls_names
+
+    def test_import_preserves_members(self):
+        """Export → import round-trip preserves methods and attributes."""
+        puml = export_plantuml(self.graph)
+        restored = import_plantuml(puml)
+
+        calc = restored.entries["calc"]
+        cls_entries = list(calc.children["ClassNode"].values())
+        engine = next(e for e in cls_entries if e.node.name == "CalculatorEngine")
+
+        # Methods
+        assert "MethodNode" in engine.children
+        meth_names = [e.node.name for e in engine.children["MethodNode"].values()]
+        assert "add" in meth_names
+        assert "validateInput" in meth_names
+
+        # Attributes
+        assert "AttributeNode" in engine.children
+        attr_names = [e.node.name for e in engine.children["AttributeNode"].values()]
+        assert "precision" in attr_names
+
+    def test_import_preserves_enum_values(self):
+        """Export → import round-trip preserves enum values."""
+        puml = export_plantuml(self.graph)
+        restored = import_plantuml(puml)
+
+        calc = restored.entries["calc"]
+        enum_entries = list(calc.children["EnumNode"].values())
+        op_entry = enum_entries[0]
+
+        assert "EnumValueNode" in op_entry.children
+        val_names = [e.node.name for e in op_entry.children["EnumValueNode"].values()]
+        assert "ADD" in val_names
+        assert "SUBTRACT" in val_names
+
+    def test_import_preserves_relationships(self):
+        """Export → import round-trip preserves relationship arrows."""
+        puml = export_plantuml(self.graph)
+        restored = import_plantuml(puml)
+
+        calc = restored.entries["calc"]
+        cls_entries = list(calc.children["ClassNode"].values())
+        engine = next(e for e in cls_entries if e.node.name == "CalculatorEngine")
+
+        # REALIZES
+        assert any(r[0] == "REALIZES" for r in engine.references)
+
+        # DEPENDS_ON
+        assert any(r[0] == "DEPENDS_ON" for r in engine.references)
+
+        # INHERITS_FROM in ui namespace
+        ui = restored.entries["ui"]
+        ui_cls = list(ui.children["ClassNode"].values())
+        calc_win = next(e for e in ui_cls if e.node.name == "CalculatorWindow")
+        assert any(r[0] == "INHERITS_FROM" for r in calc_win.references)
+
+    def test_import_serializes_to_json(self):
+        """Export → import round-trip, then serialize the restored graph to JSON.
+
+        Saves ``design_graph_puml.json`` alongside the original
+        ``design_graph.json`` fixture so the two can be diffed to see
+        exactly what the PlantUML round-trip preserves and what it loses."""
+        puml = export_plantuml(self.graph)
+        restored = import_plantuml(puml)
+
+        json_data = restored.serialize(fields="all")
+        out_path = DATA_DIR / "design_graph_puml.json"
+        out_path.write_text(
+            json.dumps(json_data, indent=2),
+            encoding="utf-8",
+        )
+
+        # Verify the file was written and is valid JSON
+        assert out_path.exists()
+        with open(out_path) as f:
+            reloaded = json.load(f)
+        assert isinstance(reloaded, list)
+        assert len(reloaded) > 0
+
+        # Every entry should have a type key
+        for entry in reloaded:
+            assert "type" in entry
 
     # ── PNG compilation ────────────────────────────────────────────────
 
@@ -128,7 +236,6 @@ class TestPlantUMLIntegration:
 
 def _compile_plantuml_to_png(puml: str, output_path: Path) -> None:
     """Compile PlantUML text to a PNG file."""
-    import subprocess
     plantuml_jar = Path(__file__).resolve().parent.parent / "tools" / "plantuml.jar"
     result = subprocess.run(
         ["java", "-jar", str(plantuml_jar),

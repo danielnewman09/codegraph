@@ -209,17 +209,34 @@ Each edge has:
 When deserializing output from `serialize()`, edges use `target_uid` (the
 Neo4j unique ID) instead of `target_local_id`. Both formats are accepted.
 
-## PlantUML Export
+## PlantUML Export / Import
 
 `export_plantuml` converts a `LayerGraph` to a PlantUML class diagram.
+`import_plantuml` parses PlantUML back into a `LayerGraph`, deriving
+qualified names from the nesting structure — no alias parsing needed.
 
 ```python
-from codegraph.plantuml import export_plantuml
+from codegraph.plantuml import export_plantuml, import_plantuml
 
 # Export
 puml = export_plantuml(graph)  # LayerGraph → PlantUML string
 print(puml)
+
+# Import — qualified names derived from nesting
+restored = import_plantuml(puml, tags=frozenset({"design"}))
 ```
+
+### Import design
+
+Qualified names are derived from nesting, not from `as alias` text.
+A class `"CalculatorEngine"` inside `package "calc"` becomes
+`calc::CalculatorEngine`. Arrow targets are resolved using the same
+`_sanitize_alias` convention the exporter uses, so export→import
+round-trips preserve core structure (namespaces, compounds, members,
+relationships) without any JSON metadata blob.
+
+This supports the workflow: export a diagram, edit it manually or via
+an LLM agent, then import the modified diagram back as a fresh graph.
 
 ### Node-type mapping
 
