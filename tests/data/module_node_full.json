@@ -3,7 +3,6 @@
   "qualified_name": "calc",
   "name": "calc",
   "kind": "module",
-  "layer": "design",
   "component_id": 4,
   "source_type": "doxygen",
   "visibility": "public",
@@ -14,5 +13,8 @@
   "definition": "module calc",
   "source": "calculator",
   "doc_embedding": [],
-  "edges": []
+  "edges": [],
+  "tags": [
+    "design"
+  ]
 }

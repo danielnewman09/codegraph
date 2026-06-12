@@ -23,7 +23,7 @@ Usage::
     # ORM reads (unchanged)
     from codegraph.repository import GraphRepository
     repo = GraphRepository()
-    graph = repo.get_by_layer("design")
+    graph = repo.get_by_tag("design")
 """
 
 from __future__ import annotations

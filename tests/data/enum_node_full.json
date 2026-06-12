@@ -3,7 +3,6 @@
   "qualified_name": "calc::Operation",
   "name": "Operation",
   "kind": "enum",
-  "layer": "design",
   "component_id": 3,
   "source_type": "doxygen",
   "visibility": "public",
@@ -15,5 +14,8 @@
   "module": "calc",
   "source": "calculator",
   "doc_embedding": [],
-  "edges": []
+  "edges": [],
+  "tags": [
+    "design"
+  ]
 }

@@ -1,10 +1,10 @@
-"""LayerGraph — layer-aware graph container for codebase views.
+"""LayerGraph — tag-aware graph container for codebase views.
 
 A Python-only container that holds a nested composition structure for
 all nodes in a design view. Root entries are keyed by a stable local
 identifier.  COMPOSES relationships create nesting; other relationship
 types are stored as references.  Supports deserialization from dicts,
-persistence to Neo4j, and querying from Neo4j by layer.
+persistence to Neo4j, and querying from Neo4j by tag.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Iterator
 
-from codegraph.constants import Layer, LAYERS
+from codegraph.constants import Tag, TAGS
 from codegraph.models.tags import CodeGraphNode
 
 
@@ -54,7 +54,7 @@ class CompositeEntry:
         COMPOSES relationship managers directly.  This method exists
         because the ``children`` tree may contain only a scoped subset
         of the full composition hierarchy (e.g. only nodes in a
-        particular layer), which ``walk_composes()`` would not respect.
+        particular tags), which ``walk_composes()`` would not respect.
 
         Args:
             fields: Which property fields to include when serializing
@@ -96,7 +96,7 @@ class CompositeEntry:
 
 @dataclass
 class LayerGraph:
-    """A Python-only container for all nodes in a design view, filtered by layer.
+    """A Python-only container for all nodes in a design view, filtered by tags.
 
     Nodes are organised into a nested composition structure via
     ``CompositeEntry`` instances.  Root entries are nodes not composed
@@ -107,18 +107,20 @@ class LayerGraph:
     Non-COMPOSES relationships are stored as references on each entry.
 
     Attributes:
-        layer: The design view layer ("design", "as-built", or "dependency").
+        tags: The provenance tags this graph was constructed from
+            (e.g. frozenset({"design"}), frozenset({"design", "as-built"})).
         entries: Dict mapping stable local keys to CompositeEntry instances
             for root-level nodes only.
     """
 
-    layer: Layer  # "design" | "as-built" | "dependency"
+    tags: frozenset[str]  # e.g. frozenset({"design"}) or frozenset({"design", "as-built"})
 
     def __post_init__(self) -> None:
-        """Validate that *layer* is one of the allowed values."""
-        if self.layer not in LAYERS:
+        """Validate that all tags are from the allowed vocabulary."""
+        invalid = self.tags - set(TAGS)
+        if invalid:
             raise ValueError(
-                f"Invalid layer {self.layer!r}; must be one of {LAYERS}"
+                f"Invalid tags {invalid!r}; must be from {TAGS}"
             )
 
     entries: dict[str, CompositeEntry] = field(default_factory=dict)
@@ -301,15 +303,20 @@ class LayerGraph:
         key_to_entry: dict[str, CompositeEntry] = {}
         uid_to_key: dict[str, str] = {}
         child_keys: set[str] = set()
-        layer: Layer = "design"
+        tags: frozenset[str] = frozenset()
 
         # Phase 1: create entries and build tree structure
         for entry_data in data:
             cls._parse_nested_entry(
                 entry_data, key_to_entry, uid_to_key, child_keys
             )
-            if layer == "design" and "layer" in entry_data:
-                layer = entry_data["layer"]  # type: ignore[assignment]
+            # Infer tags from node data (backward compat: "layer" field)
+            if not tags:
+                node_tags = entry_data.get("tags", [])
+                if not node_tags and "layer" in entry_data:
+                    node_tags = [entry_data["layer"]]
+                if node_tags:
+                    tags = frozenset(node_tags)
 
         # Phase 2: resolve references with complete uid mapping
         for entry_data in data:
@@ -320,7 +327,7 @@ class LayerGraph:
             for key, entry in key_to_entry.items()
             if key not in child_keys
         }
-        return cls(layer=layer, entries=root_entries)
+        return cls(tags=tags or frozenset({"design"}), entries=root_entries)
 
     @classmethod
     def _deserialize_flat(cls, data: list[dict]) -> "LayerGraph":
@@ -335,7 +342,7 @@ class LayerGraph:
         """
         key_to_entry: dict[str, CompositeEntry] = {}
         uid_to_key: dict[str, str] = {}
-        layer: Layer = "design"
+        tags: frozenset[str] = frozenset()
 
         # Phase 1: create all CompositeEntry instances (nodes only, no edges yet)
         for node_data in data:
@@ -348,9 +355,13 @@ class LayerGraph:
             if uid:
                 uid_to_key[uid] = key
 
-            # Infer layer from node data
-            if layer == "design" and "layer" in node_data:
-                layer = node_data["layer"]  # type: ignore[assignment]
+            # Infer tags from node data (backward compat: "layer" field)
+            if not tags:
+                node_tags = node_data.get("tags", [])
+                if not node_tags and "layer" in node_data:
+                    node_tags = [node_data["layer"]]
+                if node_tags:
+                    tags = frozenset(node_tags)
 
         # Phase 2: walk edges and build nesting / references
         # Track which nodes are children (composed by another node)
@@ -393,14 +404,15 @@ class LayerGraph:
             if key not in child_keys
         }
 
-        return cls(layer=layer, entries=root_entries)
+        return cls(tags=tags or frozenset({"design"}), entries=root_entries)
 
     @classmethod
     def deserialize(cls, data: list[dict]) -> "LayerGraph":
         """Deserialize from a list of dicts (as produced by ``serialize()``).
 
-        Pure deserialization — no database interaction.  Infers layer from
-        the first node that has a ``layer`` field (fallback: ``"design"``).
+        Pure deserialization — no database interaction.  Infers tags from
+        the first node that has a ``tags`` field (fallback: ``frozenset({"design"})``).
+        Supports backward compatibility with legacy ``layer`` field data.
 
         Accepts two formats:
         - **Nested format**: entries with a ``composes`` key containing
@@ -492,32 +504,32 @@ class LayerGraph:
     # ── from_neo4j ─────────────────────────────────────────────────────
 
     @classmethod
-    def from_neo4j(cls, layer: Layer) -> "LayerGraph":
-        """Query Neo4j for all nodes where ``.layer == layer``, plus their
+    def from_neo4j(cls, tag: str) -> "LayerGraph":
+        """Query Neo4j for all nodes where *tag* is in their tags, plus their
         first-level neighbors.  Collect into a nested LayerGraph.
 
-        This includes both endpoints of any edge touching a layer-matched
-        node, even if the neighbor's layer is different.
+        This includes both endpoints of any edge touching a tag-matched
+        node, even if the neighbor's tags don't include *tag*.
 
         COMPOSES edges from compound nodes create nesting; all other
         edge types are stored as references.
 
         Args:
-            layer: The layer to query for (``"design"``, ``"as-built"``,
+            tag: The tag to query for (``"design"``, ``"as-built"``,
                 ``"dependency"``).
 
         Returns:
             A LayerGraph containing all matching nodes and their first-level
             neighbours in a nested composition structure.
         """
-        # Fetch all layer-matched nodes
-        matched_nodes = CodeGraphNode.fetch_all_by_layer(layer)
+        # Fetch all tag-matched nodes
+        matched_nodes = CodeGraphNode.fetch_all_by_tag(tag)
 
         nodes: dict[str, CodeGraphNode] = {}
         uid_to_key: dict[str, str] = {}
         seen_uids: set[str] = set()
 
-        # Add all layer-matched nodes
+        # Add all tag-matched nodes
         for node in matched_nodes:
             key = cls._node_key(node)
             nodes[key] = node
@@ -587,4 +599,4 @@ class LayerGraph:
             if key not in child_keys
         }
 
-        return cls(layer=layer, entries=root_entries)
+        return cls(tags=frozenset({tag}), entries=root_entries)

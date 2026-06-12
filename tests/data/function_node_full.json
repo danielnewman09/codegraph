@@ -3,7 +3,6 @@
   "qualified_name": "calc::compute",
   "name": "compute",
   "kind": "function",
-  "layer": "design",
   "component_id": 7,
   "compound_refid": "module_calc",
   "visibility": "public",
@@ -18,5 +17,8 @@
   "argsstring": "(Operation op, double a, double b)",
   "source": "calculator",
   "doc_embedding": [],
-  "edges": []
+  "edges": [],
+  "tags": [
+    "design"
+  ]
 }

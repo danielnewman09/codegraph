@@ -1,7 +1,8 @@
 """Namespace node model (:Namespace label in Neo4j)."""
 
 from neomodel import (
-    StructuredNode, StringProperty, IntegerProperty, UniqueIdProperty,
+    StructuredNode, StringProperty, IntegerProperty, ArrayProperty,
+    UniqueIdProperty,
     RelationshipTo, RelationshipFrom,
 )
 
@@ -14,14 +15,16 @@ class NamespaceNode(StructuredNode, CodeGraphNode):
     Attributes:
         qualified_name: Unique identifier for the namespace.
         kind: Namespace kind (defaults to "namespace").
-        layer: Origin layer (defaults to "design").
+        tags: Provenance tags (e.g. ["design"], ["as-built"]).
+            Multiple tags allowed.
         component_id: Component identifier for grouping.
         description: Human-readable description of the namespace.
     """
 
     qualified_name = UniqueIdProperty()
     kind = StringProperty(default="namespace")
-    layer = StringProperty(default="design")
+    tags = ArrayProperty(StringProperty(), default=list,
+        help_text="Provenance tags: 'design', 'as-built', 'dependency'.")
     component_id = IntegerProperty()
     description = StringProperty(default="")
 
@@ -52,4 +55,4 @@ class NamespaceNode(StructuredNode, CodeGraphNode):
     parent_namespace = RelationshipFrom('NamespaceNode', 'COMPOSES')
 
     # --- Serialization contract ---
-    _llm_fields: set[str] = {"qualified_name", "name", "kind", "description"}
+    _llm_fields: set[str] = {"qualified_name", "name", "kind", "tags", "description"}

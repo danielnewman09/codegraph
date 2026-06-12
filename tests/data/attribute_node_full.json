@@ -3,7 +3,6 @@
   "qualified_name": "Widget::m_width",
   "name": "m_width",
   "kind": "attribute",
-  "layer": "design",
   "component_id": 7,
   "refid": "attr_widget_m_width_a1b2c3",
   "compound_refid": "classWidget",
@@ -20,5 +19,8 @@
   "is_static": false,
   "is_const": false,
   "doc_embedding": [],
-  "edges": []
+  "edges": [],
+  "tags": [
+    "design"
+  ]
 }

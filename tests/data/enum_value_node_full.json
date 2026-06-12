@@ -3,7 +3,6 @@
   "qualified_name": "calc::Operation::ADD",
   "name": "ADD",
   "kind": "enumvalue",
-  "layer": "design",
   "component_id": 6,
   "compound_refid": "calc::Operation",
   "visibility": "public",
@@ -16,5 +15,8 @@
   "definition": "ADD",
   "source": "calculator",
   "doc_embedding": [],
-  "edges": []
+  "edges": [],
+  "tags": [
+    "design"
+  ]
 }

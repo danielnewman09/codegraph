@@ -61,34 +61,34 @@ def repo():
     return GraphRepository()
 
 
-# ── get_by_layer ────────────────────────────────────────────────────────────
+# ── get_by_tag ──────────────────────────────────────────────────────────────
 
 
-class TestGetByLayer:
+class TestGetByTag:
     def test_returns_layer_graph(self, repo, seeded_graph):
-        result = repo.get_by_layer("design")
+        result = repo.get_by_tag("design")
         assert isinstance(result, LayerGraph)
 
     def test_includes_design_nodes(self, repo, seeded_graph):
-        result = repo.get_by_layer("design")
+        result = repo.get_by_tag("design")
         class_nodes = list(_nodes_of_type(result, "ClassNode"))
         assert len(class_nodes) > 0
 
     def test_includes_neighbors(self, repo, seeded_graph):
-        result = repo.get_by_layer("design")
-        # Seed nodes have layer="design"; neighbors may not.
+        result = repo.get_by_tag("design")
+        # Seed nodes have tags=["design"]; neighbors may not.
         # The LayerGraph should contain more than just the seeds.
         count = sum(1 for _ in result._all_entries())
         assert count > 0
 
-    def test_empty_layer(self, repo, seeded_graph):
-        result = repo.get_by_layer("nonexistent")
+    def test_empty_tag(self, repo, seeded_graph):
+        result = repo.get_by_tag("nonexistent")
         assert isinstance(result, LayerGraph)
         assert len(result.entries) == 0
 
-    def test_derived_layer_matches(self, repo, seeded_graph):
-        result = repo.get_by_layer("design")
-        assert result.layer == "design"
+    def test_derived_tags_include_design(self, repo, seeded_graph):
+        result = repo.get_by_tag("design")
+        assert "design" in result.tags
 
 
 # ── get_by_source ────────────────────────────────────────────────────────────
@@ -241,13 +241,13 @@ class TestGetByKind:
         class_nodes = list(_nodes_of_type(result, "ClassNode"))
         assert len(class_nodes) > 0
 
-    def test_with_layer_filter(self, repo, seeded_graph):
-        result = repo.get_by_kind("class", layer="design")
+    def test_with_tag_filter(self, repo, seeded_graph):
+        result = repo.get_by_kind("class", tag="design")
         assert isinstance(result, LayerGraph)
-        # All returned nodes with a layer property should be design
+        # All returned nodes with a tags property should include "design"
         for node in _all_nodes(result):
-            if "layer" in type(node).defined_properties():
-                assert node.layer == "design"
+            if "tags" in type(node).defined_properties():
+                assert "design" in (node.tags or [])
 
     def test_returns_methods(self, repo, seeded_graph):
         result = repo.get_by_kind("method")
@@ -267,8 +267,8 @@ class TestSaveLayerGraph:
         graph = LayerGraph.deserialize(data)
         repo.save_layer_graph(graph)
 
-        # Query back by layer
-        result = repo.get_by_layer("design")
+        # Query back by tag
+        result = repo.get_by_tag("design")
         count = sum(1 for _ in result._all_entries())
         assert count > 0
 
@@ -279,13 +279,13 @@ class TestSaveLayerGraph:
 class TestBuildLayerGraphEntries:
     def test_entries_are_composite_entries(self, repo, seeded_graph):
         """All entries should be CompositeEntry instances."""
-        result = repo.get_by_layer("design")
+        result = repo.get_by_tag("design")
         for entry in result._all_entries():
             assert isinstance(entry, CompositeEntry)
 
     def test_composes_children_and_references(self, repo, seeded_graph):
         """Entries should have COMPOSES in children and other edges in references."""
-        result = repo.get_by_layer("design")
+        result = repo.get_by_tag("design")
         for entry in result._all_entries():
             # No COMPOSES edges should appear in references
             ref_types = {r[0] for r in entry.references}

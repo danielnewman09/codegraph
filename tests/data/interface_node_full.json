@@ -3,7 +3,6 @@
   "qualified_name": "calc::ICalculator",
   "name": "ICalculator",
   "kind": "interface",
-  "layer": "design",
   "component_id": 2,
   "source_type": "doxygen",
   "visibility": "public",
@@ -16,5 +15,8 @@
   "is_abstract": true,
   "source": "calculator",
   "doc_embedding": [],
-  "edges": []
+  "edges": [],
+  "tags": [
+    "design"
+  ]
 }

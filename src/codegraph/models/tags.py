@@ -134,46 +134,109 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
             f"{type(source).__name__} to {target_cls.__name__}"
         )
 
-    # ── Layer-aware queries ───────────────────────────────────────────────
+    # ── Tag-aware queries ───────────────────────────────────────────────
 
     @classmethod
-    def fetch_by_layer(cls, layer: str) -> list["CodeGraphNode"]:
-        """Fetch all persisted instances of this type matching *layer*.
+    def fetch_by_tag(cls, tag: str) -> list["CodeGraphNode"]:
+        """Fetch all persisted instances of this type matching *tag*.
 
-        Uses neomodel's ``.nodes.filter(layer=layer)``. Returns an empty
-        list for types that don't have a ``layer`` property
-        (e.g. FileNode, ParameterNode).
+        Uses a Cypher ``WHERE $tag IN n.tags`` query for array membership.
+        Returns an empty list for types that don't have a ``tags``
+        property (e.g. FileNode, ParameterNode).
 
         Args:
-            layer: The layer to filter by (e.g. "design", "as-built",
+            tag: The tag to filter by (e.g. "design", "as-built",
                 "dependency").
 
         Returns:
-            A list of CodeGraphNode instances matching the given layer.
+            A list of CodeGraphNode instances matching the given tag.
         """
-        if "layer" not in cls.defined_properties():
+        if "tags" not in cls.defined_properties():
             return []
-        return list(cls.nodes.filter(layer=layer))
+        from neomodel import db
+        label = cls.__label__
+        query = f"MATCH (n:`{label}`) WHERE $tag IN n.tags RETURN n"
+        results, _ = db.cypher_query(query, {"tag": tag})
+        return [cls.inflate(row[0]) for row in results]
 
     @classmethod
-    def fetch_all_by_layer(cls, layer: str) -> list["CodeGraphNode"]:
-        """Fetch all nodes across all registered types matching *layer*.
+    def fetch_all_by_tag(cls, tag: str) -> list["CodeGraphNode"]:
+        """Fetch all nodes across all registered types matching *tag*.
 
-        Iterates ``_registry``, calling ``fetch_by_layer`` on each
+        Iterates ``_registry``, calling ``fetch_by_tag`` on each
         concrete subclass. Returns a flat list.
 
         Args:
-            layer: The layer to filter by (e.g. "design", "as-built",
+            tag: The tag to filter by (e.g. "design", "as-built",
                 "dependency").
 
         Returns:
             A flat list of CodeGraphNode instances across all registered
-            types matching the given layer.
+            types matching the given tag.
         """
         result: list[CodeGraphNode] = []
         for node_cls in cls._registry.values():
-            result.extend(node_cls.fetch_by_layer(layer))
+            result.extend(node_cls.fetch_by_tag(tag))
         return result
+
+    # ── Tag mutation helpers ─────────────────────────────────────────────
+
+    def add_tag(self, tag: str) -> "CodeGraphNode":
+        """Add *tag* to this node's tags list. Persists the change to Neo4j.
+
+        Does nothing if the tag is already present. Does nothing for
+        node types that don't have a ``tags`` property.
+
+        Args:
+            tag: The tag to add (e.g. "design", "as-built", "dependency").
+
+        Returns:
+            This node instance (after saving), for chaining.
+        """
+        if "tags" not in type(self).defined_properties():
+            return self
+        current = list(self.tags) if self.tags else []
+        if tag not in current:
+            current.append(tag)
+            self.tags = current
+            self.save()
+        return self
+
+    def remove_tag(self, tag: str) -> "CodeGraphNode":
+        """Remove *tag* from this node's tags list. Persists the change.
+
+        Does nothing if the tag is not present. Does nothing for
+        node types that don't have a ``tags`` property.
+
+        Args:
+            tag: The tag to remove.
+
+        Returns:
+            This node instance (after saving), for chaining.
+        """
+        if "tags" not in type(self).defined_properties():
+            return self
+        current = list(self.tags) if self.tags else []
+        if tag in current:
+            current.remove(tag)
+            self.tags = current
+            self.save()
+        return self
+
+    def has_tag(self, tag: str) -> bool:
+        """Check whether this node has *tag* in its tags list.
+
+        Returns False for node types that don't have a ``tags`` property.
+
+        Args:
+            tag: The tag to check for.
+
+        Returns:
+            True if the tag is present, False otherwise.
+        """
+        if "tags" not in type(self).defined_properties():
+            return False
+        return tag in (self.tags or [])
 
     @classmethod
     def fetch_all_by_source(cls, source: str) -> list["CodeGraphNode"]:
@@ -196,32 +259,33 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         return result
 
     @classmethod
-    def fetch_all_by_kind(cls, kind: str, layer: str | None = None) -> list["CodeGraphNode"]:
+    def fetch_all_by_kind(cls, kind: str, tag: str | None = None) -> list["CodeGraphNode"]:
         """Fetch all nodes across all registered types matching *kind*.
 
-        Optionally filter by *layer* as well. Only types that have a ``kind``
+        Optionally filter by *tag* as well. Only types that have a ``kind``
         property are queried. Returns a flat list.
 
         Args:
             kind: The node kind to filter by (e.g. "class", "method").
-            layer: Optional layer to additionally filter by. When provided,
-                only nodes with both matching kind and layer are returned.
+            tag: Optional tag to additionally filter by. When provided,
+                only nodes with both matching kind and tag are returned.
 
         Returns:
             A flat list of CodeGraphNode instances matching the given kind
-            (and optionally layer).
+            (and optionally tag).
         """
         result: list[CodeGraphNode] = []
         for node_cls in cls._registry.values():
             props = node_cls.defined_properties()
             if "kind" not in props:
                 continue
-            if layer is not None and "layer" not in props:
+            if tag is not None and "tags" not in props:
                 continue
             filters: dict = {"kind": kind}
-            if layer is not None and "layer" in props:
-                filters["layer"] = layer
-            result.extend(node_cls.nodes.filter(**filters))
+            nodes = list(node_cls.nodes.filter(**filters))
+            if tag is not None and "tags" in props:
+                nodes = [n for n in nodes if tag in (n.tags or [])]
+            result.extend(nodes)
         return result
 
     # ── Registry ──────────────────────────────────────────────────────────
@@ -571,7 +635,13 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
             target_cls = cls
 
         skip = {"edges", "type"}
-        filtered = {k: v for k, v in data.items()
+        # Backward compatibility: convert legacy "layer" field to "tags".
+        # If data has "layer" but no "tags", promote the single layer value
+        # into a tags list.
+        compat_data = dict(data)
+        if "layer" in compat_data and "tags" not in compat_data:
+            compat_data["tags"] = [compat_data.pop("layer")]
+        filtered = {k: v for k, v in compat_data.items()
                     if k not in skip and k in target_cls.defined_properties()}
         return target_cls(**filtered)
 
@@ -700,7 +770,7 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
 
         Example:
             >>> node = ClassNode.nodes.get(qualified_name="MyClass")
-            >>> node.update(brief_description="Updated", layer="as-built")
+            >>> node.update(brief_description="Updated", tags=["design", "as-built"])
             ClassNode(name='MyClass', ...)
         """
         if not hasattr(self, "element_id_property"):

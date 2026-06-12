@@ -76,29 +76,33 @@ class TestNodeKey:
         assert result == "argc"
 
 
-class TestLayerValidation:
-    """Tests for Layer validation — only 'design', 'as-built', 'dependency' allowed."""
+class TestTagValidation:
+    """Tests for Tag validation — only 'design', 'as-built', 'dependency' allowed."""
 
     def test_valid_design(self):
-        graph = LayerGraph(layer="design")
-        assert graph.layer == "design"
+        graph = LayerGraph(tags=frozenset({"design"}))
+        assert graph.tags == frozenset({"design"})
 
     def test_valid_as_built(self):
-        graph = LayerGraph(layer="as-built")
-        assert graph.layer == "as-built"
+        graph = LayerGraph(tags=frozenset({"as-built"}))
+        assert graph.tags == frozenset({"as-built"})
 
     def test_valid_dependency(self):
-        graph = LayerGraph(layer="dependency")
-        assert graph.layer == "dependency"
+        graph = LayerGraph(tags=frozenset({"dependency"}))
+        assert graph.tags == frozenset({"dependency"})
 
-    def test_invalid_layer_raises(self):
-        with pytest.raises(ValueError, match="Invalid layer"):
-            LayerGraph(layer="production")
+    def test_valid_multiple_tags(self):
+        graph = LayerGraph(tags=frozenset({"design", "as-built"}))
+        assert graph.tags == frozenset({"design", "as-built"})
 
-    def test_deserialize_invalid_layer_raises(self):
-        data = [{"type": "ClassNode", "name": "X", "kind": "class", "layer": "unknown"}]
-        with pytest.raises(ValueError, match="Invalid layer"):
-            LayerGraph.deserialize(data)
+    def test_invalid_tag_raises(self):
+        with pytest.raises(ValueError, match="Invalid tags"):
+            LayerGraph(tags=frozenset({"production"}))
+
+    def test_invalid_tag_mixed_raises(self):
+        """A valid tag mixed with an invalid one still raises."""
+        with pytest.raises(ValueError, match="Invalid tags"):
+            LayerGraph(tags=frozenset({"design", "bogus"}))
 
 
 class TestDeserialize:
@@ -109,7 +113,7 @@ class TestDeserialize:
             data = json.load(f)
         graph = LayerGraph.deserialize(data)
         assert _count_all_entries(graph) == len(data)
-        assert graph.layer == "design"
+        assert graph.tags == frozenset({"design"})
 
     def test_node_types_are_correct(self):
         with open(FIXTURE) as f:
@@ -174,7 +178,7 @@ class TestDeserialize:
         # NamespaceNode "calc" should be a root entry
         assert "calc" in graph.entries
 
-    def test_layers_are_composite_entries(self):
+    def test_entries_are_composite_entries(self):
         """Root entries should be CompositeEntry instances."""
         with open(FIXTURE) as f:
             data = json.load(f)
@@ -182,24 +186,36 @@ class TestDeserialize:
         for entry in graph.entries.values():
             assert isinstance(entry, CompositeEntry)
 
-    def test_layer_inference_from_data(self):
+    def test_tags_inference_from_data(self):
         data = [
-            {"type": "ClassNode", "name": "MyClass", "kind": "class", "layer": "as-built"},
+            {"type": "ClassNode", "name": "MyClass", "kind": "class", "tags": ["as-built"]},
         ]
         graph = LayerGraph.deserialize(data)
-        assert graph.layer == "as-built"
+        assert graph.tags == frozenset({"as-built"})
 
-    def test_layer_defaults_to_design(self):
+    def test_tags_default_to_design(self):
         data = [
             {"type": "ClassNode", "name": "MyClass", "kind": "class"},
         ]
         graph = LayerGraph.deserialize(data)
-        assert graph.layer == "design"
+        assert graph.tags == frozenset({"design"})
+
+    def test_backward_compat_layer_field(self):
+        """Legacy 'layer' field in data is converted to 'tags'."""
+        data = [
+            {"type": "ClassNode", "name": "MyClass", "kind": "class", "layer": "as-built"},
+        ]
+        graph = LayerGraph.deserialize(data)
+        assert graph.tags == frozenset({"as-built"})
+        # The node itself should have tags=["as-built"] via backward compat
+        for entry in graph._all_entries():
+            if hasattr(entry.node, 'tags'):
+                assert "as-built" in entry.node.tags
 
     def test_empty_data(self):
         graph = LayerGraph.deserialize([])
         assert len(graph.entries) == 0
-        assert graph.layer == "design"
+        assert graph.tags == frozenset({"design"})
 
 
 class TestRoundtrip:
@@ -290,9 +306,9 @@ class TestSerializeFields:
         """Default serialize() includes only _llm_fields per node."""
         data = [
             {"type": "ClassNode", "name": "Engine", "kind": "class",
-             "qualified_name": "ns::Engine", "layer": "design"},
+             "qualified_name": "ns::Engine", "tags": ["design"]},
             {"type": "MethodNode", "name": "run", "kind": "method",
-             "qualified_name": "ns::Engine::run", "layer": "design",
+             "qualified_name": "ns::Engine::run", "tags": ["design"],
              "edges": [{"relation_type": "COMPOSES", "target_type": "MethodNode",
                          "target_local_id": "ns::Engine::run"}]},
         ]
@@ -301,21 +317,21 @@ class TestSerializeFields:
 
         # Find the ClassNode entry
         engine = next(e for e in output if e["type"] == "ClassNode")
-        # ClassNode _llm_fields: qualified_name, name, kind, brief_description,
+        # ClassNode _llm_fields: qualified_name, name, kind, tags, brief_description,
         # base_classes, visibility
         assert "name" in engine
         assert "kind" in engine
+        assert "tags" in engine  # tags is now in _llm_fields
         # Non-LLM fields should be absent
         assert "module" not in engine
         assert "is_abstract" not in engine
-        assert "layer" not in engine
 
     def test_all_fields_includes_more_properties(self):
         """serialize(fields='all') includes properties beyond _llm_fields."""
         data = [
             {"type": "ClassNode", "name": "Engine", "kind": "class",
              "qualified_name": "ns::Engine",
-             "layer": "design", "module": "mymod", "is_abstract": True},
+             "tags": ["design"], "module": "mymod", "is_abstract": True},
         ]
         graph = LayerGraph.deserialize(data)
         llm_output = graph.serialize()
@@ -329,8 +345,9 @@ class TestSerializeFields:
         assert "module" in all_engine
         assert "is_abstract" not in llm_engine
         assert "is_abstract" in all_engine
-        assert "layer" not in llm_engine
-        assert "layer" in all_engine
+        # tags is in _llm_fields so present in both
+        assert "tags" in llm_engine
+        assert "tags" in all_engine
 
     def test_all_fields_includes_uid_property(self):
         """serialize(fields='all') includes FileNode's refid (uid).
@@ -396,8 +413,8 @@ class TestSerializeFields:
 class TestFromNeo4j:
     """Tests for LayerGraph.from_neo4j()."""
 
-    def test_fetches_design_layer_nodes(self):
-        """from_neo4j returns nodes with layer='design' and their neighbors."""
+    def test_fetches_design_tag_nodes(self):
+        """from_neo4j returns nodes tagged design and their neighbors."""
         # Seed some nodes first
         with open(FIXTURE) as f:
             data = json.load(f)
@@ -407,7 +424,7 @@ class TestFromNeo4j:
         # Now fetch via from_neo4j
         design = LayerGraph.from_neo4j("design")
         assert _count_all_entries(design) > 0
-        assert design.layer == "design"
+        assert design.tags == frozenset({"design"})
 
         # Should include at least the ClassNode we created
         class_entries = [
@@ -415,9 +432,9 @@ class TestFromNeo4j:
         ]
         assert len(class_entries) > 0
 
-    def test_includes_neighbors_of_layer_nodes(self):
-        """Neighbors of layer-matched nodes are included even if different layer."""
-        # FileNodes don't have layer, but are DEFINED_IN targets of design-layer nodes
+    def test_includes_neighbors_of_tag_nodes(self):
+        """Neighbors of tag-matched nodes are included even if different tags."""
+        # FileNodes don't have tags, but are DEFINED_IN targets of design-tagged nodes
         with open(FIXTURE) as f:
             data = json.load(f)
         LayerGraph.deserialize(data).to_neo4j()

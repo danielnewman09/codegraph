@@ -20,7 +20,10 @@ class CompoundNode(StructuredNode, CodeGraphNode):
     Attributes:
         qualified_name: Unique identifier for the compound.
         kind: Node kind (e.g. "class", "struct", "interface", "concept").
-        layer: Origin layer ("design", "as-built", "dependency").
+        tags: Provenance tags (e.g. ["design"], ["design", "as-built"],
+            ["dependency"]). Multiple tags allowed — a node can belong to
+            several views simultaneously. Tags can be added/removed
+            independently as the code evolves.
         component_id: Component identifier for grouping.
         source_type: Source system type (e.g. "Doxygen").
         visibility: Access level (e.g. "public", "private").
@@ -36,8 +39,10 @@ class CompoundNode(StructuredNode, CodeGraphNode):
     qualified_name = UniqueIdProperty()
     kind = StringProperty(required=True)
 
-    # --- Layer & provenance ---
-    layer = StringProperty(default="design")
+    # --- Tags & provenance ---
+    tags = ArrayProperty(StringProperty(), default=list,
+        help_text="Provenance tags: 'design', 'as-built', 'dependency'. "
+                  "Multiple tags allowed — a node can belong to several views.")
     component_id = IntegerProperty()
     source_type = StringProperty(default="")
 
@@ -105,7 +110,7 @@ class CompoundNode(StructuredNode, CodeGraphNode):
     enforces_concept = RelationshipTo('ConceptNode', 'ENFORCES_CONCEPT')
 
     # --- Serialization contract ---
-    _llm_fields: set[str] = {"qualified_name", "name", "kind", "brief_description", "visibility"}
+    _llm_fields: set[str] = {"qualified_name", "name", "kind", "tags", "brief_description", "visibility"}
 
 
 class ClassNode(CompoundNode):
@@ -125,7 +130,7 @@ class ClassNode(CompoundNode):
     is_final = BooleanProperty(default=False)
     is_abstract = BooleanProperty(default=False)
 
-    _llm_fields = {"qualified_name", "name", "kind", "brief_description", "base_classes", "visibility"}
+    _llm_fields = {"qualified_name", "name", "kind", "tags", "brief_description", "base_classes", "visibility"}
 
     # --- ClassNode relationships ---------------------------------------------
     #
@@ -197,7 +202,7 @@ class InterfaceNode(CompoundNode):
     module = StringProperty(default="")
     is_abstract = BooleanProperty(default=True)
 
-    _llm_fields = {"qualified_name", "name", "kind", "brief_description", "visibility"}
+    _llm_fields = {"qualified_name", "name", "kind", "tags", "brief_description", "visibility"}
 
     # --- InterfaceNode relationships -----------------------------------------
     #
@@ -231,7 +236,7 @@ class EnumNode(CompoundNode):
     kind = StringProperty(default="enum")
     module = StringProperty(default="")
 
-    _llm_fields = {"qualified_name", "name", "kind", "brief_description", "visibility"}
+    _llm_fields = {"qualified_name", "name", "kind", "tags", "brief_description", "visibility"}
 
     # --- EnumNode relationships ----------------------------------------------
     #
@@ -257,7 +262,7 @@ class UnionNode(CompoundNode):
     kind = StringProperty(default="union")
     module = StringProperty(default="")
 
-    _llm_fields = {"qualified_name", "name", "kind", "brief_description", "visibility"}
+    _llm_fields = {"qualified_name", "name", "kind", "tags", "brief_description", "visibility"}
 
     # Incoming composition (parent namespace)
     parent_namespace = RelationshipFrom('codegraph.models.namespace.NamespaceNode', 'COMPOSES')
@@ -283,7 +288,7 @@ class ConceptNode(CompoundNode):
         help_text="The full concept definition expression as written in source.",
     )
 
-    _llm_fields = {"qualified_name", "name", "kind", "brief_description", "visibility"}
+    _llm_fields = {"qualified_name", "name", "kind", "tags", "brief_description", "visibility"}
 
     # Incoming composition (parent namespace)
     parent_namespace = RelationshipFrom('codegraph.models.namespace.NamespaceNode', 'COMPOSES')
@@ -301,7 +306,7 @@ class ModuleNode(CompoundNode):
 
     kind = StringProperty(default="module")
 
-    _llm_fields = {"qualified_name", "name", "kind", "brief_description", "visibility"}
+    _llm_fields = {"qualified_name", "name", "kind", "tags", "brief_description", "visibility"}
 
     # Incoming composition (parent namespace)
     parent_namespace = RelationshipFrom('codegraph.models.namespace.NamespaceNode', 'COMPOSES')

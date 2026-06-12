@@ -1,6 +1,6 @@
 """Constants for the Neo4j codebase graph layer.
 
-Defines the vocabulary of node kinds, layers, visibility, predicates,
+Defines the vocabulary of node kinds, tags, visibility, predicates,
 schema DDL, language specializations, and semantic groupings used by
 both the ticketing system and Doxygen parser.
 """
@@ -74,12 +74,19 @@ SOURCE_TYPES: list[tuple[str, str]] = [
 SOURCE_TYPE_KEYS: set[str] = {k for k, _ in SOURCE_TYPES}
 
 # ---------------------------------------------------------------------------
-# Layers — where a node originates
+# Tags — provenance labels for nodes
+#
+# Tags replace the former single-value "layer" field.  A node can carry
+# multiple tags (e.g. ["design", "as-built"]), and tags can be added or
+# removed independently as the code evolves.
 # ---------------------------------------------------------------------------
 
-LAYERS: list[str] = ["design", "as-built", "dependency"]
+TAGS: list[str] = ["design", "as-built", "dependency"]
 
-Layer = Literal["design", "as-built", "dependency"]
+Tag = Literal["design", "as-built", "dependency"]
+
+# Backward-compatible aliases
+
 
 # ---------------------------------------------------------------------------
 # Visibility / access specifiers
@@ -240,7 +247,7 @@ def valid_specializations(language: str, kind: str) -> set[str]:
 CONSTRAINTS_AND_INDEXES: list[str] = [
     # Uniqueness constraints
     "CREATE CONSTRAINT file_refid IF NOT EXISTS FOR (f:File) REQUIRE f.refid IS UNIQUE",
-    # Use INDEX instead of CONSTRAINT for refid to allow design-layer nodes
+    # Use INDEX instead of CONSTRAINT for refid to allow design-tag nodes
     # (which have no refid) to coexist with as-built/dependency nodes.
     "CREATE INDEX namespace_refid IF NOT EXISTS FOR (n:Namespace) ON (n.refid)",
     "CREATE INDEX compound_refid IF NOT EXISTS FOR (c:Compound) ON (c.refid)",
@@ -256,10 +263,10 @@ CONSTRAINTS_AND_INDEXES: list[str] = [
     "CREATE INDEX member_name IF NOT EXISTS FOR (m:Member) ON (m.name)",
     "CREATE INDEX member_qualified IF NOT EXISTS FOR (m:Member) ON (m.qualified_name)",
     "CREATE INDEX member_kind IF NOT EXISTS FOR (m:Member) ON (m.kind)",
-    # Layer indexes
-    "CREATE INDEX compound_layer IF NOT EXISTS FOR (c:Compound) ON (c.layer)",
-    "CREATE INDEX member_layer IF NOT EXISTS FOR (m:Member) ON (m.layer)",
-    "CREATE INDEX namespace_layer IF NOT EXISTS FOR (n:Namespace) ON (n.layer)",
+    # Tag indexes (array membership)
+    "CREATE INDEX compound_tags IF NOT EXISTS FOR (c:Compound) ON (c.tags)",
+    "CREATE INDEX member_tags IF NOT EXISTS FOR (m:Member) ON (m.tags)",
+    "CREATE INDEX namespace_tags IF NOT EXISTS FOR (n:Namespace) ON (n.tags)",
     # Source provenance
     "CREATE INDEX file_source IF NOT EXISTS FOR (f:File) ON (f.source)",
     "CREATE INDEX compound_source IF NOT EXISTS FOR (c:Compound) ON (c.source)",

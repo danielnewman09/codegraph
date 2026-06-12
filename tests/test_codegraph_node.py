@@ -1,7 +1,7 @@
 """Tests for CodeGraphNode class methods.
 
-Covers find_relationship_manager error paths, fetch_by_layer,
-fetch_all_by_layer, deserialize error paths, serialize_relationships,
+Covers find_relationship_manager error paths, fetch_by_tag,
+fetch_all_by_tag, deserialize error paths, serialize_relationships,
 and serialize(fields=...) behaviour.
 """
 
@@ -94,53 +94,144 @@ class TestSerializeRelationships:
         assert len(outgoing) == 0
 
 
-class TestLayerQueries:
-    """Tests for fetch_by_layer and fetch_all_by_layer."""
+class TestTagQueries:
+    """Tests for fetch_by_tag and fetch_all_by_tag."""
 
-    def test_fetch_by_layer_returns_empty_for_file_node(self):
-        """FileNode doesn't have a 'layer' property, so fetch_by_layer returns []."""
-        result = FileNode.fetch_by_layer("design")
+    def test_fetch_by_tag_returns_empty_for_file_node(self):
+        """FileNode doesn't have a 'tags' property, so fetch_by_tag returns []."""
+        result = FileNode.fetch_by_tag("design")
         assert result == []
 
-    def test_fetch_by_layer_returns_empty_for_parameter_node(self):
-        """ParameterNode doesn't have a 'layer' property."""
+    def test_fetch_by_tag_returns_empty_for_parameter_node(self):
+        """ParameterNode doesn't have a 'tags' property."""
         from codegraph.models.parameter import ParameterNode
-        result = ParameterNode.fetch_by_layer("design")
+        result = ParameterNode.fetch_by_tag("design")
         assert result == []
 
-    def test_fetch_by_layer_returns_nodes_with_matching_layer(self):
-        """ClassNode.fetch_by_layer returns nodes where layer matches."""
-        # Create and save a ClassNode with layer="design"
-        cls = ClassNode(name="FetchTestClass", kind="class", layer="design").save()
+    def test_fetch_by_tag_returns_nodes_with_matching_tag(self):
+        """ClassNode.fetch_by_tag returns nodes where tag is in tags."""
+        cls = ClassNode(name="FetchTestClass", kind="class", qualified_name="ns::FetchTestClass", tags=["design"]).save()
         try:
-            result = ClassNode.fetch_by_layer("design")
+            result = ClassNode.fetch_by_tag("design")
             names = [n.name for n in result]
             assert "FetchTestClass" in names
         finally:
             cls.delete()
 
-    def test_fetch_by_layer_excludes_other_layers(self):
-        """fetch_by_layer("as-built") doesn't return design-layer nodes."""
-        cls = ClassNode(name="FetchDesignOnly", kind="class", layer="design").save()
+    def test_fetch_by_tag_excludes_non_matching_tags(self):
+        """fetch_by_tag("as-built") doesn't return nodes tagged only 'design'."""
+        cls = ClassNode(name="FetchDesignOnly", kind="class", qualified_name="ns::FetchDesignOnly", tags=["design"]).save()
         try:
-            result = ClassNode.fetch_by_layer("as-built")
+            result = ClassNode.fetch_by_tag("as-built")
             names = [n.name for n in result]
             assert "FetchDesignOnly" not in names
         finally:
             cls.delete()
 
-    def test_fetch_all_by_layer_across_types(self):
-        """fetch_all_by_layer queries all registered types."""
-        cls = ClassNode(name="FetchAllClass", kind="class", layer="design").save()
-        meth = MethodNode(name="fetchAllMethod", kind="method", layer="design").save()
+    def test_fetch_by_tag_returns_nodes_with_multiple_tags(self):
+        """fetch_by_tag returns nodes that have the tag among multiple tags."""
+        cls = ClassNode(name="MultiTagClass", kind="class", qualified_name="ns::MultiTagClass", tags=["design", "as-built"]).save()
         try:
-            result = CodeGraphNode.fetch_all_by_layer("design")
+            design_result = ClassNode.fetch_by_tag("design")
+            asbuilt_result = ClassNode.fetch_by_tag("as-built")
+            assert "MultiTagClass" in [n.name for n in design_result]
+            assert "MultiTagClass" in [n.name for n in asbuilt_result]
+        finally:
+            cls.delete()
+
+    def test_fetch_all_by_tag_across_types(self):
+        """fetch_all_by_tag queries all registered types."""
+        cls = ClassNode(name="FetchAllClass", kind="class", qualified_name="ns::FetchAllClass2", tags=["design"]).save()
+        meth = MethodNode(name="fetchAllMethod", kind="method", qualified_name="ns::FetchAllClass2::fetchAllMethod", tags=["design"]).save()
+        try:
+            result = CodeGraphNode.fetch_all_by_tag("design")
             names = [n.name for n in result]
-            assert "FetchAllClass" in names
+            assert "FetchAllClass" in names or "FetchAllClass2" in names
             assert "fetchAllMethod" in names
         finally:
             cls.delete()
             meth.delete()
+
+
+class TestTagMutation:
+    """Tests for add_tag, remove_tag, and has_tag."""
+
+    def test_add_tag(self):
+        """add_tag appends a tag and persists."""
+        cls = ClassNode.save_new(name="AddTagClass", kind="class", qualified_name="ns::AddTagClass")
+        try:
+            assert cls.tags == []  # default empty list
+            cls.add_tag("design")
+            assert "design" in cls.tags
+            assert cls.has_tag("design")
+        finally:
+            cls.delete()
+
+    def test_add_tag_idempotent(self):
+        """add_tag is idempotent — adding same tag twice doesn't duplicate."""
+        cls = ClassNode.save_new(name="IdempotentTagClass", kind="class", qualified_name="ns::IdempotentTagClass")
+        try:
+            cls.add_tag("design")
+            cls.add_tag("design")
+            assert cls.tags.count("design") == 1
+        finally:
+            cls.delete()
+
+    def test_add_multiple_tags(self):
+        """Multiple tags can be added."""
+        cls = ClassNode.save_new(name="MultiTagClass2", kind="class", qualified_name="ns::MultiTagClass2")
+        try:
+            cls.add_tag("design")
+            cls.add_tag("as-built")
+            assert cls.has_tag("design")
+            assert cls.has_tag("as-built")
+            assert not cls.has_tag("dependency")
+        finally:
+            cls.delete()
+
+    def test_remove_tag(self):
+        """remove_tag removes a tag and persists."""
+        cls = ClassNode.save_new(name="RemoveTagClass", kind="class", qualified_name="ns::RemoveTagClass", tags=["design", "as-built"])
+        try:
+            assert cls.has_tag("design")
+            assert cls.has_tag("as-built")
+            cls.remove_tag("design")
+            assert not cls.has_tag("design")
+            assert cls.has_tag("as-built")
+        finally:
+            cls.delete()
+
+    def test_remove_tag_nonexistent(self):
+        """remove_tag is a no-op if tag is not present."""
+        cls = ClassNode.save_new(name="RemoveNoopClass", kind="class", qualified_name="ns::RemoveNoopClass", tags=["design"])
+        try:
+            cls.remove_tag("dependency")
+            assert cls.tags == ["design"]
+        finally:
+            cls.delete()
+
+    def test_has_tag_on_file_node(self):
+        """has_tag returns False for nodes without tags property (FileNode)."""
+        f = FileNode.save_new(name="tagless.h", path="/src/tagless.h")
+        try:
+            assert f.has_tag("design") is False
+        finally:
+            f.delete()
+
+    def test_add_tag_on_file_node(self):
+        """add_tag is a no-op for nodes without tags property (FileNode)."""
+        f = FileNode.save_new(name="tagless2.h", path="/src/tagless2.h")
+        try:
+            result = f.add_tag("design")
+            assert result is f  # returns self, no error
+        finally:
+            f.delete()
+
+    def test_has_tag_on_unsaved_node(self):
+        """has_tag works on unsaved nodes."""
+        node = ClassNode(name="UnsavedTags", kind="class", qualified_name="ns::UnsavedTags", tags=["design"])
+        assert node.has_tag("design") is True
+        assert node.has_tag("as-built") is False
 
 
 class TestSerializeFields:
@@ -164,7 +255,7 @@ class TestSerializeFields:
             name="Widget",
             kind="class",
             qualified_name="ns::Widget",
-            layer="design",
+            tags=["design"],
             module="mymod",
             is_abstract=True,
         )
@@ -172,9 +263,10 @@ class TestSerializeFields:
         # These are NOT in _llm_fields for ClassNode
         assert "module" not in result
         assert "is_abstract" not in result
-        assert "layer" not in result
         assert "detailed_description" not in result
         assert "file_path" not in result
+        # tags IS in _llm_fields for ClassNode
+        assert "tags" in result
 
     def test_all_fields_includes_everything(self):
         """serialize(fields='all') includes every defined property."""
@@ -182,7 +274,7 @@ class TestSerializeFields:
             name="Widget",
             kind="class",
             qualified_name="ns::Widget",
-            layer="design",
+            tags=["design"],
             module="mymod",
             is_abstract=True,
             is_final=False,
@@ -201,7 +293,7 @@ class TestSerializeFields:
         # Non-LLM fields are also present
         assert "module" in result
         assert "is_abstract" in result
-        assert "layer" in result
+        assert "tags" in result
         assert "detailed_description" in result
         assert "file_path" in result
         assert "line_number" in result
@@ -210,7 +302,7 @@ class TestSerializeFields:
         # Value checks
         assert result["module"] == "mymod"
         assert result["is_abstract"] is True
-        assert result["layer"] == "design"
+        assert result["tags"] == ["design"]
         assert result["line_number"] == 42
 
     def test_all_fields_has_more_keys_than_llm(self):
@@ -428,8 +520,8 @@ class TestSerializeNested:
             # In all mode, the child should include non-LLM fields
             meth_all = next(c for c in all_result["composes"] if c["type"] == "MethodNode")
             assert "name" in meth_all
-            # 'layer' is not a MethodNode llm field
-            assert "layer" in meth_all
+            # 'tags' is in _llm_fields now
+            assert "tags" in meth_all
         finally:
             cls.methods.disconnect(meth)
             meth.delete()
@@ -544,12 +636,12 @@ class TestSaveNew:
             kind="class",
             qualified_name="ns::CreateFullClass",
             brief_description="A full class",
-            layer="design",
+            tags=["design"],
             module="mymod",
         )
         try:
             assert cls.brief_description == "A full class"
-            assert cls.layer == "design"
+            assert cls.tags == ["design"]
             assert cls.module == "mymod"
         finally:
             cls.delete()

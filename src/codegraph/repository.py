@@ -6,7 +6,7 @@ single bulk write method.  Uses neomodel ORM for all queries.
 
 from __future__ import annotations
 
-from codegraph.constants import Layer
+from codegraph.constants import Tag
 from codegraph.graph import LayerGraph, CompositeEntry
 from codegraph.models.compound import (
     ClassNode, InterfaceNode, EnumNode, UnionNode, ModuleNode,
@@ -146,27 +146,29 @@ class GraphRepository:
             if key not in child_keys
         }
 
-        # Phase 6: derive layer
-        layer: Layer = "design"
+        # Phase 6: derive tags from seeds
+        all_tags: set[str] = set()
         for node in seeds:
-            if "layer" in type(node).defined_properties():
-                layer = getattr(node, "layer", "design") or "design"  # type: ignore[assignment]
-                break
+            if "tags" in type(node).defined_properties():
+                node_tags = getattr(node, "tags", None)
+                if node_tags:
+                    all_tags.update(node_tags)
+        tags = frozenset(all_tags) if all_tags else frozenset({"design"})
 
-        return LayerGraph(layer=layer, entries=root_entries)
+        return LayerGraph(tags=tags, entries=root_entries)
 
     # ── Public: scope-based read methods ──────────────────────────────
 
-    def get_by_layer(self, layer: Layer) -> LayerGraph:
-        """Fetch all nodes in a layer plus their 1-hop neighbors.
+    def get_by_tag(self, tag: Tag) -> LayerGraph:
+        """Fetch all nodes with a given tag plus their 1-hop neighbors.
 
         Args:
-            layer: The layer to query (``"design"``, ``"as-built"``, ``"dependency"``).
+            tag: The tag to query (``"design"``, ``"as-built"``, ``"dependency"``).
 
         Returns:
             A LayerGraph containing all matching nodes and neighbors.
         """
-        seeds = CodeGraphNode.fetch_all_by_layer(layer)
+        seeds = CodeGraphNode.fetch_all_by_tag(tag)
         return self._build_layer_graph(seeds)
 
     def get_by_source(self, source: str) -> LayerGraph:
@@ -197,7 +199,7 @@ class GraphRepository:
         """
         ns = NamespaceNode.nodes.get_or_none(qualified_name=qualified_name)
         if ns is None:
-            return LayerGraph(layer="design")
+            return LayerGraph(tags=frozenset({"design"}))
         seeds = (
             [ns]
             + list(ns.classes.all())
@@ -222,7 +224,7 @@ class GraphRepository:
         """
         compound = self._get_node_by_qualified_name(qualified_name)
         if compound is None:
-            return LayerGraph(layer="design")
+            return LayerGraph(tags=frozenset({"design"}))
         return self._build_layer_graph([compound])
 
     def get_by_neighbourhood(self, qualified_name: str) -> LayerGraph:
@@ -239,20 +241,20 @@ class GraphRepository:
         if node is None:
             node = self._get_member_by_qualified_name(qualified_name)
         if node is None:
-            return LayerGraph(layer="design")
+            return LayerGraph(tags=frozenset({"design"}))
         return self._build_layer_graph([node])
 
-    def get_by_kind(self, kind: str, layer: Layer | None = None) -> LayerGraph:
-        """Fetch all nodes of a given kind, optionally filtered by layer.
+    def get_by_kind(self, kind: str, tag: Tag | None = None) -> LayerGraph:
+        """Fetch all nodes of a given kind, optionally filtered by tag.
 
         Args:
             kind: The node kind to filter by (e.g. "class", "method").
-            layer: Optional layer to additionally filter by.
+            tag: Optional tag to additionally filter by.
 
         Returns:
             A LayerGraph containing all matching nodes and neighbors.
         """
-        seeds = CodeGraphNode.fetch_all_by_kind(kind, layer=layer)
+        seeds = CodeGraphNode.fetch_all_by_kind(kind, tag=tag)
         return self._build_layer_graph(seeds)
 
     # ── Public: write method ──────────────────────────────────────────

@@ -3,7 +3,6 @@
   "qualified_name": "calc::CalculatorEngine",
   "name": "CalculatorEngine",
   "kind": "class",
-  "layer": "design",
   "component_id": 1,
   "source_type": "doxygen",
   "visibility": "public",
@@ -18,5 +17,8 @@
   "is_abstract": false,
   "source": "calculator",
   "doc_embedding": [],
-  "edges": []
+  "edges": [],
+  "tags": [
+    "design"
+  ]
 }

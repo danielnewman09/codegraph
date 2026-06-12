@@ -3,7 +3,6 @@
   "qualified_name": "Widget::draw(Canvas)",
   "name": "draw",
   "kind": "method",
-  "layer": "design",
   "component_id": 42,
   "refid": "classWidget_1af35deb81e0c377",
   "compound_refid": "classWidget",
@@ -25,5 +24,8 @@
   "is_inline": false,
   "is_explicit": false,
   "doc_embedding": [],
-  "edges": []
+  "edges": [],
+  "tags": [
+    "design"
+  ]
 }

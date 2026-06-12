@@ -304,7 +304,7 @@ class Neo4jBatchWriter:
             MERGE (n:Namespace {refid: row.refid})
             ON CREATE SET n.name = row.name, n.qualified_name = row.qualified_name,
                           n.source = row.source,
-                          n.layer = "codebase"
+                          n.tags = ["codebase"]
             ON MATCH SET n.source = CASE WHEN n.source CONTAINS row.source THEN n.source
                                          ELSE n.source + ',' + row.source END
             """,
@@ -327,7 +327,7 @@ class Neo4jBatchWriter:
                           c.base_classes = row.base_classes,
                           c.is_final = row.is_final, c.is_abstract = row.is_abstract,
                           c.source = row.source,
-                          c.layer = "codebase"
+                          c.tags = ["codebase"]
             ON MATCH SET c.source = CASE WHEN c.source CONTAINS row.source THEN c.source
                                          ELSE c.source + ',' + row.source END
             """,
@@ -359,7 +359,7 @@ class Neo4jBatchWriter:
                               m.is_constexpr = row.is_constexpr,
                               m.is_virtual = row.is_virtual, m.is_inline = row.is_inline,
                               m.is_explicit = row.is_explicit, m.source = row.source,
-                              m.layer = "codebase"
+                              m.tags = ["codebase"]
                 ON MATCH SET m.source = CASE WHEN m.source CONTAINS row.source THEN m.source
                                               ELSE m.source + ',' + row.source END
                 """,

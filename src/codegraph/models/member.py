@@ -21,7 +21,9 @@ class MemberNode(StructuredNode, CodeGraphNode):
     Attributes:
         qualified_name: Unique identifier for the member.
         kind: Node kind (e.g. "method", "attribute", "function").
-        layer: Origin layer ("design", "as-built", "dependency").
+        tags: Provenance tags (e.g. ["design"], ["design", "as-built"],
+            ["dependency"]). Multiple tags allowed — a node can belong to
+            several views simultaneously.
         component_id: Component identifier for grouping.
         compound_refid: Reference ID of the parent compound.
         visibility: Access level (e.g. "public", "private").
@@ -39,8 +41,10 @@ class MemberNode(StructuredNode, CodeGraphNode):
     qualified_name = UniqueIdProperty()
     kind = StringProperty(required=True)
 
-    # --- Layer & provenance ---
-    layer = StringProperty(default="design")
+    # --- Tags & provenance ---
+    tags = ArrayProperty(StringProperty(), default=list,
+        help_text="Provenance tags: 'design', 'as-built', 'dependency'. "
+                  "Multiple tags allowed — a node can belong to several views.")
     component_id = IntegerProperty()
     compound_refid = StringProperty(default="")
 
@@ -99,7 +103,7 @@ class MemberNode(StructuredNode, CodeGraphNode):
 
     # --- Serialization contract ---
     _llm_fields: set[str] = {
-        "qualified_name", "name", "kind", "brief_description",
+        "qualified_name", "name", "kind", "tags", "brief_description",
         "type_signature", "visibility",
     }
 
@@ -130,7 +134,7 @@ class MethodNode(MemberNode):
     is_explicit = BooleanProperty(default=False)
 
     _llm_fields = {
-        "qualified_name", "name", "kind", "brief_description",
+        "qualified_name", "name", "kind", "tags", "brief_description",
         "type_signature", "argsstring", "visibility",
     }
 
@@ -183,7 +187,7 @@ class AttributeNode(MemberNode):
     is_const = BooleanProperty(default=False)
 
     _llm_fields = {
-        "qualified_name", "name", "kind", "brief_description",
+        "qualified_name", "name", "kind", "tags", "brief_description",
         "type_signature", "visibility",
     }
 
@@ -208,7 +212,7 @@ class EnumValueNode(MemberNode):
 
     kind = StringProperty(default="enumvalue")
 
-    _llm_fields = {"qualified_name", "name", "kind", "brief_description", "visibility"}
+    _llm_fields = {"qualified_name", "name", "kind", "tags", "brief_description", "visibility"}
 
     # --- EnumValueNode relationships ----------------------------------------
     #
@@ -236,7 +240,7 @@ class FunctionNode(MemberNode):
     argsstring = StringProperty(default="")
 
     _llm_fields = {
-        "qualified_name", "name", "kind", "brief_description",
+        "qualified_name", "name", "kind", "tags", "brief_description",
         "type_signature", "argsstring", "visibility",
     }
 
@@ -261,5 +265,5 @@ class DefineNode(MemberNode):
 
     kind = StringProperty(default="define")
 
-    _llm_fields = {"qualified_name", "name", "kind", "brief_description", "visibility"}
+    _llm_fields = {"qualified_name", "name", "kind", "tags", "brief_description", "visibility"}
 

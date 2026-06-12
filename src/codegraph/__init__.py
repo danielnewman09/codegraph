@@ -3,7 +3,7 @@
 Provides atomized neomodel Node models (Class, Interface, Enum, Union, Module,
 Method, Attribute, EnumValue, Function, Define, Namespace, File, Parameter),
 LayerGraph container, GraphRepository for ORM reads, direct Cypher access
-via get_session() and cypher_query(), and constants (kinds, layers, predicates,
+via get_session() and cypher_query(), and constants (kinds, tags, predicates,
 schema DDL, language specializations).
 """
 
@@ -14,7 +14,7 @@ from codegraph.constants import (
     CONSTRAINTS_AND_INDEXES,
     DEFAULT_PREDICATES,
     LANGUAGE_SPECIALIZATIONS,
-    LAYERS,
+    TAGS,
     MEMBER_KINDS,
     NAMESPACE_KINDS,
     NODE_KIND_KEYS,
@@ -24,11 +24,11 @@ from codegraph.constants import (
     SOURCE_TYPE_KEYS,
     SOURCE_TYPES,
     SUPPORTED_LANGUAGES,
+    Tag,
     TYPE_KINDS,
     UNCLASSIFIED_KINDS,
     VALUE_KINDS,
     VISIBILITY_CHOICES,
-    Layer,
     valid_specializations,
 )
 from codegraph.graph import LayerGraph, CompositeEntry
@@ -87,8 +87,8 @@ __all__ = [
     "CONSTRAINTS_AND_INDEXES",
     "DEFAULT_PREDICATES",
     "LANGUAGE_SPECIALIZATIONS",
-    "LAYERS",
-    "Layer",
+    "TAGS",
+    "Tag",
     "MEMBER_KINDS",
     "NAMESPACE_KINDS",
     "NODE_KIND_KEYS",

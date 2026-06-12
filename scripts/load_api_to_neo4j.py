@@ -183,7 +183,7 @@ def _make_module_node(fqn: str, entry: dict) -> dict:
         "name": fqn.rsplit(".", 1)[-1],
         "qualified_name": fqn,
         "kind": "module",
-        "layer": "as-built",
+        "tags": ["as-built"],
         "brief_description": entry.get("doc", ""),
         "visibility": "",
         "edges": [],
@@ -207,7 +207,7 @@ def _make_class_node(fqn: str, entry: dict, node_type: str) -> dict:
         "name": fqn.rsplit(".", 1)[-1],
         "qualified_name": fqn,
         "kind": kind_value,
-        "layer": "as-built",
+        "tags": ["as-built"],
         "visibility": props.get("visibility", {}).get("default", ""),
         "brief_description": entry.get("doc", ""),
         "edges": [],
@@ -271,7 +271,7 @@ def _make_method_node(parent_fqn: str, method_name: str, method_data: dict) -> d
         "name": method_name,
         "qualified_name": qualified_name,
         "kind": "method",
-        "layer": "as-built",
+        "tags": ["as-built"],
         "visibility": "public",
         "brief_description": brief,
         "type_signature": method_data.get("signature", ""),
@@ -291,7 +291,7 @@ def _make_function_node(fqn: str, entry: dict) -> dict:
         "name": name,
         "qualified_name": fqn,
         "kind": "function",
-        "layer": "as-built",
+        "tags": ["as-built"],
         "visibility": "public",
         "brief_description": brief,
         "type_signature": entry.get("signature", ""),
@@ -356,7 +356,7 @@ def load_and_persist(nodes_data: list[dict]) -> None:
 
     graph = LayerGraph.deserialize(nodes_data)
     total = sum(1 for _ in graph._all_entries())
-    print(f"Loaded {total} nodes into LayerGraph (layer={graph.layer})")
+    print(f"Loaded {total} nodes into LayerGraph (tags={graph.tags})")
     print(f"Root entries: {len(graph.entries)}")
 
     graph.to_neo4j()

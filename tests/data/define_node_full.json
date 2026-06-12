@@ -3,7 +3,6 @@
   "qualified_name": "MAX_BUFFER_SIZE",
   "name": "MAX_BUFFER_SIZE",
   "kind": "define",
-  "layer": "design",
   "component_id": 8,
   "compound_refid": "",
   "visibility": "public",
@@ -16,5 +15,8 @@
   "definition": "#define MAX_BUFFER_SIZE 1024",
   "source": "calculator",
   "doc_embedding": [],
-  "edges": []
+  "edges": [],
+  "tags": [
+    "design"
+  ]
 }
