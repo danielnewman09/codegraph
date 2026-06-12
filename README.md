@@ -1,17 +1,17 @@
 # Codegraph
 
-Shared Neo4j codebase graph data model with layer-aware graph containers.
+Shared Neo4j codebase graph data model with tag-aware graph containers.
 
 Provides atomized neomodel Node models (`ClassNode`, `InterfaceNode`,
 `EnumNode`, `MethodNode`, `AttributeNode`, `FileNode`, `NamespaceNode`,
 `ParameterNode`, etc.), a `LayerGraph` container for loading and persisting
-complete design views, graph visualization containers (`CompoundGraph`,
-`NamespaceGraph`, `OntologyGraph`), and constants
-(kinds, layers, predicates, schema DDL).
+complete design views, PlantUML export/import for diagram generation,
+graph visualization containers (`CompoundGraph`, `NamespaceGraph`,
+`OntologyGraph`), and constants (kinds, tags, predicates, schema DDL).
 
 Used by:
-- [Doxygen Dependency Parser](https://github.com/danielnewman09/Doxygen-Dependency-Parser) — populates `as-built` and `dependency` layers
-- [Ticketing System](https://github.com/danielnewman09/ticketing-system) — adds the `design` layer
+- [Doxygen Dependency Parser](https://github.com/danielnewman09/Doxygen-Dependency-Parser) — populates `as-built` and `dependency` tags
+- [Ticketing System](https://github.com/danielnewman09/ticketing-system) — adds the `design` tag
 
 ## Install
 
@@ -25,15 +25,39 @@ For development:
 pip install codegraph[dev]
 ```
 
-## Layers
+### PlantUML (optional)
 
-Nodes are tagged with a `layer` property indicating their origin:
+To compile PlantUML diagrams to PNG in tests, download the PlantUML jar:
 
-| Layer | Description |
+```bash
+mkdir -p tools
+curl -L -o tools/plantuml.jar \
+  https://github.com/plantuml/plantuml/releases/download/v1.2024.8/plantuml-1.2024.8.jar
+```
+
+Requires Java runtime (`java` on PATH). The `tools/` directory is
+gitignored. Tests that compile PNGs are automatically skipped if the
+jar is not present.
+
+## Tags
+
+Nodes are tagged with provenance tags indicating their origin:
+
+| Tag | Description |
 |---|---|
 | `design` | Intended architecture (from UML, tickets, design docs) |
 | `as-built` | Actual implementation (from Doxygen, static analysis) |
 | `dependency` | Compile-time and runtime dependencies |
+
+A node can carry multiple tags simultaneously — a class that exists in
+both the design and as-built views would have `tags=["design", "as-built"]`.
+Tags can be added or removed independently:
+
+```python
+node.add_tag("as-built")   # node now has ["design", "as-built"]
+node.remove_tag("design")  # node now has ["as-built"]
+node.has_tag("design")     # False
+```
 
 ## Node models
 
@@ -153,7 +177,7 @@ serialized node with a `type` discriminator:
         "type": "ClassNode",
         "name": "CalculatorEngine",
         "kind": "class",
-        "layer": "design",
+        "tags": ["design"],
         "visibility": "public",
         "brief_description": "Core calculator engine",
         "edges": [
@@ -168,7 +192,7 @@ serialized node with a `type` discriminator:
         "type": "MethodNode",
         "name": "add",
         "kind": "method",
-        "layer": "design",
+        "tags": ["design"],
         "visibility": "public",
         "type_signature": "CalculatorResult",
         "edges": []
@@ -185,6 +209,57 @@ Each edge has:
 When deserializing output from `serialize()`, edges use `target_uid` (the
 Neo4j unique ID) instead of `target_local_id`. Both formats are accepted.
 
+## PlantUML Export
+
+`export_plantuml` converts a `LayerGraph` to a PlantUML class diagram.
+
+```python
+from codegraph.plantuml import export_plantuml
+
+# Export
+puml = export_plantuml(graph)  # LayerGraph → PlantUML string
+print(puml)
+```
+
+### Node-type mapping
+
+| CodeGraph type | PlantUML element |
+|---|---|
+| `NamespaceNode` | `package` |
+| `ClassNode` | `class` |
+| `InterfaceNode` | `interface` |
+| `EnumNode` | `enum` |
+| `UnionNode` | `class <<union>>` |
+| `ModuleNode` | `package <<module>>` |
+| `ConceptNode` | `class <<concept>>` |
+| `MethodNode` | method inside parent class |
+| `AttributeNode` | field inside parent class |
+| `EnumValueNode` | constant inside parent enum |
+| `FunctionNode` | `class <<function>>` |
+| `FileNode` | `note` |
+
+### Relationship mapping
+
+| CodeGraph predicate | PlantUML arrow |
+|---|---|
+| `INHERITS_FROM` | `<\|--` |
+| `REALIZES` | `..\|>` |
+| `COMPOSES` | nesting / `*--` |
+| `DEPENDS_ON` | `..>` |
+| `REFERENCES` | `-->` |
+| `INVOKES` | `..>` (labelled) |
+| `ASSOCIATES` | `-->` |
+| `AGGREGATES` | `o--` |
+
+### Compile to PNG
+
+```bash
+java -jar tools/plantuml.jar -tpng diagram.puml
+```
+
+Or programmatically via the test suite, which compiles exported
+PlantUML to PNG files in `unit_test_data/`.
+
 ## CodeGraphNode API
 
 All node types inherit from `CodeGraphNode`, which provides:
@@ -196,8 +271,11 @@ All node types inherit from `CodeGraphNode`, which provides:
 | `serialize_edges()` | Live edges from Neo4j (requires saved node) |
 | `serialize_relationships()` | Static relationship descriptors (no DB call) |
 | `find_relationship_manager(source, relation_type, target)` | Find the neomodel relationship manager matching a relation type and target class |
-| `fetch_by_layer(layer)` | Fetch all persisted nodes of this type matching a layer |
-| `fetch_all_by_layer(layer)` | Fetch all nodes across all registered types matching a layer |
+| `fetch_by_tag(tag)` | Fetch all persisted nodes of this type matching a tag |
+| `fetch_all_by_tag(tag)` | Fetch all nodes across all registered types matching a tag |
+| `add_tag(tag)` | Add a tag, persist to Neo4j. Returns self for chaining |
+| `remove_tag(tag)` | Remove a tag, persist to Neo4j. Returns self for chaining |
+| `has_tag(tag)` | Check whether a tag is present |
 
 ## Testing
 
@@ -215,6 +293,23 @@ Neo4j credentials are loaded from a `.env` file via `python-dotenv`:
 NEO4J_URI=bolt://localhost:7687
 NEO4J_USER=neo4j
 NEO4J_PASSWORD=your-password
+```
+
+### PlantUML compilation tests
+
+Tests in `TestPngCompilation` compile exported PlantUML to PNG and
+save the results to `unit_test_data/`. These tests are automatically
+skipped if `tools/plantuml.jar` is not present or `java` is not on
+PATH. To run them:
+
+```bash
+# Download PlantUML jar (one-time setup)
+mkdir -p tools
+curl -L -o tools/plantuml.jar \
+  https://github.com/plantuml/plantuml/releases/download/v1.2024.8/plantuml-1.2024.8.jar
+
+# Run all tests (PNG compilation tests included if jar is present)
+pytest
 ```
 
 ## License

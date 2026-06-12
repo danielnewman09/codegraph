@@ -33,6 +33,7 @@ from codegraph.constants import (
 )
 from codegraph.graph import LayerGraph, CompositeEntry
 from codegraph.repository import GraphRepository
+from codegraph.plantuml import export_plantuml, PlantUMLExporter
 from codegraph.models import (
     ClassNode,
     InterfaceNode,
@@ -73,6 +74,9 @@ __all__ = [
     "CompositeEntry",
     # Repository
     "GraphRepository",
+    # PlantUML
+    "export_plantuml",
+    "PlantUMLExporter",
     # Config
     "NEO4J_URI",
     "NEO4J_USER",
