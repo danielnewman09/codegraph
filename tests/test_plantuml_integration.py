@@ -204,7 +204,7 @@ class TestPlantUMLIntegration:
         json_data = restored.serialize(fields="all")
         out_path = DATA_DIR / "design_graph_puml.json"
         out_path.write_text(
-            json.dumps(json_data, indent=2),
+            json.dumps(json_data, indent=2, sort_keys=True),
             encoding="utf-8",
         )
 
@@ -227,6 +227,17 @@ class TestPlantUMLIntegration:
         puml = export_plantuml(self.graph)
         out_path = FIXTURE_DIR / "plantuml_integration.png"
         _compile_plantuml_to_png(puml, out_path)
+        assert out_path.exists()
+        assert out_path.stat().st_size > 1000  # non-trivial PNG
+
+    @pytest.mark.skipif(not _plantuml_available(), reason="PlantUML jar or java not available")
+    def test_roundtrip_compile_to_png(self):
+        """Export → import → re-export, then compile the round-tripped diagram."""
+        puml = export_plantuml(self.graph)
+        restored = import_plantuml(puml)
+        puml2 = export_plantuml(restored)
+        out_path = FIXTURE_DIR / "plantuml_roundtrip.png"
+        _compile_plantuml_to_png(puml2, out_path)
         assert out_path.exists()
         assert out_path.stat().st_size > 1000  # non-trivial PNG
 

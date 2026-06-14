@@ -38,3 +38,7 @@ class FileNode(StructuredNode, CodeGraphNode):
 
     # --- Serialization contract ---
     _llm_fields: set[str] = {"name", "path", "source"}
+
+    def markdown_is_heading(self) -> bool:
+        """FileNode renders as a note — no heading."""
+        return False

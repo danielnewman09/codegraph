@@ -8,6 +8,7 @@ unit_test_data/
 docs/_build/
 tools/
 
-# plantuml round trip data based on
+# plantuml/markdown round trip data based on
 # files in the unit test data folder.
 tests/data/*_puml.json
+tests/data/*_md.json

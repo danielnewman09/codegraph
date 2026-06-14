@@ -526,9 +526,9 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         """
         props = dict(self.__properties__)
         if fields == "all":
-            result = {k: v for k, v in props.items()}
+            result = dict(sorted(props.items()))
         else:
-            result = {k: props[k] for k in self._llm_fields if k in props}
+            result = {k: props[k] for k in sorted(self._llm_fields) if k in props}
         result["type"] = type(self).__name__
 
         if hasattr(self, "element_id_property"):
@@ -839,3 +839,80 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
                     })
 
         return edges
+
+    # ── Markdown rendering ──────────────────────────────────────────────
+
+    _markdown_keyword: str = ""
+    """Capitalized heading keyword for Markdown export.
+
+    Subclasses MUST set this.  Examples: ``"Namespace"``, ``"Class"``,
+    ``"Interface"``, ``"Enum"``, ``"Function"``.
+    """
+
+    def markdown_is_heading(self) -> bool:
+        """Whether this node produces a Markdown heading during export.
+
+        Returns ``True`` for all node types except :class:`FileNode`,
+        which renders as a note in the ``## File Notes`` section.
+        """
+        return True
+
+    def markdown_body_type(self) -> str | None:
+        """What kind of body section to render after the heading.
+
+        Returns:
+            ``"compound"`` — ``**Public methods:**`` / ``**Public attributes:**``
+            ``"enum"`` — ``**Values:**`` section
+            ``None`` — no body section (namespaces, file nodes)
+        """
+        return "compound"
+
+    def to_markdown(self, depth: int) -> list[str]:
+        """Return Markdown heading and description lines for this node.
+
+        Called by :class:`~codegraph.markdown.MarkdownExporter` during
+        export.  The exporter handles child recursion, member lists,
+        and relationship rendering separately.
+
+        Args:
+            depth: Heading level (2 = ``##``, 3 = ``###``, etc.).
+
+        Returns:
+            A list of Markdown lines (heading + description).
+        """
+        keyword = self._markdown_keyword or _default_markdown_keyword(
+            type(self).__name__
+        )
+        qname = getattr(self, "qualified_name", None) or self.name
+        lines = [f"{'#' * depth} {keyword}: `{qname}`"]
+
+        # Walk common description sources: brief_description on compounds,
+        # description on namespaces.  FileNode has neither and returns empty.
+        desc = (
+            getattr(self, "brief_description", "")
+            or getattr(self, "description", "")
+        )
+        if desc:
+            lines.append(desc)
+
+        return lines
+
+
+def _default_markdown_keyword(node_type_name: str) -> str:
+    """Fallback when a node type hasn't set ``_markdown_keyword``."""
+    defaults: dict[str, str] = {
+        "NamespaceNode": "Namespace",
+        "ModuleNode": "Namespace",
+        "ClassNode": "Class",
+        "InterfaceNode": "Interface",
+        "EnumNode": "Enum",
+        "UnionNode": "Class",
+        "ConceptNode": "Class",
+        "FunctionNode": "Function",
+        "DefineNode": "Function",
+        "MethodNode": "Method",
+        "AttributeNode": "Attribute",
+        "EnumValueNode": "EnumValue",
+        "FileNode": "Note",
+    }
+    return defaults.get(node_type_name, "Class")

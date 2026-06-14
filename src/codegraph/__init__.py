@@ -36,6 +36,9 @@ from codegraph.repository import GraphRepository
 from codegraph.plantuml import (export_plantuml, import_plantuml,
                                 PlantUMLExporter, PlantUMLImporter,
                                 PlantUMLParseError, ParseDiagnostic)
+from codegraph.markdown import (export_markdown, import_markdown,
+                                MarkdownExporter, MarkdownImporter)
+from codegraph.format import export_graph, import_graph
 from codegraph.models import (
     ClassNode,
     InterfaceNode,
@@ -83,6 +86,14 @@ __all__ = [
     "PlantUMLImporter",
     "PlantUMLParseError",
     "ParseDiagnostic",
+    # Markdown
+    "export_markdown",
+    "import_markdown",
+    "MarkdownExporter",
+    "MarkdownImporter",
+    # Unified format
+    "export_graph",
+    "import_graph",
     # Config
     "NEO4J_URI",
     "NEO4J_USER",

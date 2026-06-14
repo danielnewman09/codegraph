@@ -132,6 +132,8 @@ class ClassNode(CompoundNode):
 
     _llm_fields = {"qualified_name", "name", "kind", "tags", "brief_description", "base_classes", "visibility"}
 
+    _markdown_keyword = "Class"
+
     # --- ClassNode relationships ---------------------------------------------
     #
     # Each relationship is documented as:  descriptor → target  (predicate)
@@ -237,6 +239,10 @@ class EnumNode(CompoundNode):
     module = StringProperty(default="")
 
     _llm_fields = {"qualified_name", "name", "kind", "tags", "brief_description", "visibility"}
+
+    def markdown_body_type(self) -> str | None:
+        """Enum has a **Values:** section instead of methods/attributes."""
+        return "enum"
 
     # --- EnumNode relationships ----------------------------------------------
     #
