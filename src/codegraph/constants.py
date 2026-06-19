@@ -82,9 +82,9 @@ SOURCE_TYPE_KEYS: set[str] = {k for k, _ in SOURCE_TYPES}
 # removed independently as the code evolves.
 # ---------------------------------------------------------------------------
 
-TAGS: list[str] = ["design", "as-built", "dependency", "scaffold"]
+TAGS: list[str] = ["design", "as-built", "dependency", "scaffold", "codebase"]
 
-Tag = Literal["design", "as-built", "dependency", "scaffold"]
+Tag = Literal["design", "as-built", "dependency", "scaffold", "codebase"]
 
 # Backward-compatible aliases
 
