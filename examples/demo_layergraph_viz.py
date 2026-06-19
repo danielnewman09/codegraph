@@ -56,7 +56,16 @@ def main() -> None:
     #
     # Also prefix FileNode refids to avoid key collisions with
     # NamespaceNode qualified_names that share the same value.
+    # ── Filter and normalise ─────────────────────────────────────────
     for item in nodes_data:
+        # Remap parser tags to codegraph's valid tag vocabulary
+        item["tags"] = [
+            "as-built" if t == "codebase" else t
+            for t in item.get("tags", [])
+        ]
+        if not item.get("tags"):
+            item["tags"] = ["as-built"]
+
         if item["type"] == "FileNode":
             old_refid = item.get("refid", item.get("name", ""))
             item["refid"] = f"file:{old_refid}"
