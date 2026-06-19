@@ -15,3 +15,7 @@ tests/data/*_md.json
 
 # tool integration test outputs
 unit_test_data/tools_*
+
+# Demo output files
+demo_calculator.html
+demo_screenshot.png
