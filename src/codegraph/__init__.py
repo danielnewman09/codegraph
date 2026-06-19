@@ -39,6 +39,7 @@ from codegraph.plantuml import (export_plantuml, import_plantuml,
 from codegraph.markdown import (export_markdown, import_markdown,
                                 MarkdownExporter, MarkdownImporter)
 from codegraph.format import export_graph, import_graph
+from codegraph.viz import export_html
 from codegraph.tools import CodeGraphDispatcher, ToolDispatcher, create_dispatcher
 from codegraph.models import (
     ClassNode,
@@ -95,6 +96,8 @@ __all__ = [
     # Unified format
     "export_graph",
     "import_graph",
+    # HTML visualisation
+    "export_html",
     # Tools
     "CodeGraphDispatcher",
     "ToolDispatcher",

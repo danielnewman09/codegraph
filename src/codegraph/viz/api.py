@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 import jinja2
-from jinja2 import Markup
+from markupsafe import Markup
 
 from codegraph.graph import LayerGraph
 from codegraph.viz.transform import layer_graph_to_cytoscape
