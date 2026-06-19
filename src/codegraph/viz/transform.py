@@ -193,7 +193,7 @@ def _build_node(entry: CompositeEntry, parent_id: str | None, layer: str) -> dic
 
     # Compound nodes with children → UML label
     if entry.children:
-        by_kind = _build_member_data(entry)
+        by_kind = _build_member_data(entry, layer=layer)
         if by_kind:
             stereo_key = _CODEGRAPH_STEREOTYPE_MAP.get(kind, "")
             is_dep = (layer == "dependency")
@@ -218,11 +218,16 @@ def _build_edge(source_qname: str, target_key: str, relation_type: str) -> dict:
     }
 
 
-def _build_member_data(entry: CompositeEntry) -> dict[str, list[dict]]:
+def _build_member_data(entry: CompositeEntry, *, layer: str) -> dict[str, list[dict]]:
     """Extract member dicts from entry.children for UML label building.
 
     Groups by canonical UML kind using _CODEGRAPH_KIND_GROUP.
     Skips entity-kind children (nested classes, enums, etc.).
+
+    Args:
+        entry: The parent CompositeEntry whose children to extract.
+        layer: The graph layer (e.g. ``"design"``, ``"dependency"``)
+            to record on each member for type-origin markers.
     """
     by_kind: dict[str, list[dict]] = {}
     for _type_key, children in entry.children.items():
@@ -231,7 +236,6 @@ def _build_member_data(entry: CompositeEntry) -> dict[str, list[dict]]:
             if m_kind in _ENTITY_KINDS:
                 continue
             norm = _CODEGRAPH_KIND_GROUP.get(m_kind, m_kind)
-            layer = getattr(child_entry.node, "layer", getattr(entry.node, "layer", "design"))
             by_kind.setdefault(norm, []).append({
                 "name": getattr(child_entry.node, "name", ""),
                 "type_signature": getattr(child_entry.node, "type_signature", ""),
