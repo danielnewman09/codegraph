@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/cytoscape@3.30.4/dist/cytoscape.min.js"></script>
+  <script src="https://unpkg.com/layout-base@2.0.1/layout-base.js"></script>
+  <script src="https://unpkg.com/cose-base@2.2.0/cose-base.js"></script>
+  <script src="https://unpkg.com/cytoscape-fcose@2.2.0/cytoscape-fcose.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/cytoscape-node-html-label@1.2.2/dist/cytoscape-node-html-label.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+    body {
+      font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+      background: #1a1a2e;
+      color: #e2e8f0;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 16px;
+      background: #16213e;
+      border-bottom: 1px solid #334155;
+      flex-shrink: 0;
+    }
+    header h1 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+    header .tag-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: #3b82f6;
+      color: #fff;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    #cy {
+      flex: 1;
+      width: 100%;
+      min-height: 0;
+    }
+    .uml-box-label { border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Codegraph</h1>
+    <span class="tag-badge">{{ tag }}</span>
+  </header>
+  <div id="cy"></div>
+  <script>
+    const elements = {{ elements_json }};
+    const styles = {{ styles_json }};
+
+    document.addEventListener('DOMContentLoaded', function() {
+      const cy = cytoscape({
+        container: document.getElementById('cy'),
+        elements: elements,
+        style: styles,
+        layout: {
+          name: 'fcose',
+          animate: true,
+          animationDuration: 500,
+          nodeDimensionsIncludeLabels: true,
+        },
+      });
+
+      cy.ready(function() {
+        cy.fit();
+
+        // HTML labels for member-bearing UML boxes
+        if (cy.nodeHtmlLabel) {
+          cy.nodeHtmlLabel([
+            {
+              query: 'node[has_members="true"]',
+              halign: 'center',
+              valign: 'center',
+              halignBox: 'center',
+              valignBox: 'center',
+              cssClass: 'uml-box-label',
+              tpl: function(data) {
+                return data.html_label || data.label || '';
+              }
+            }
+          ]);
+        }
+
+        // After HTML labels render, resize nodes to fit
+        setTimeout(function() {
+          const labelDivs = document.querySelectorAll('.uml-box-label');
+          cy.nodes('[has_members="true"]').forEach(function(node, i) {
+            const div = labelDivs[i];
+            if (!div) return;
+            const inner = div.firstElementChild || div;
+            const w = inner.offsetWidth + 2;
+            const h = inner.offsetHeight + 2;
+            node.style({ 'width': w + 'px', 'height': h + 'px' });
+          });
+        }, 100);
+      });
+    });
+  </script>
+</body>
+</html>
