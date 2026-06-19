@@ -1,14 +1,19 @@
 """Cytoscape.js visualization for codegraph LayerGraphs.
 
 Provides LayerGraph → Cytoscape element transform, UML HTML label
-builders, and Cytoscape stylesheet generation.
+builders, Cytoscape stylesheet generation, and the ``export_html()``
+public API for writing self-contained HTML graph visualisations.
 """
+
+from codegraph.viz.api import export_html, main
 
 __all__ = [
     "layer_graph_to_cytoscape",
     "KIND_COLORS",
     "EDGE_COLORS",
     "cy_stylesheet",
+    "export_html",
+    "main",
 ]
 
 
