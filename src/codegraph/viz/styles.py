@@ -95,25 +95,9 @@ def cy_stylesheet(*, size: str = "large") -> list[dict]:
 
     ec = EDGE_COLORS
 
-    # Dynamic width/height functions for UML boxes.
-    _member_label_dim = (
-        "function(ele) {"
-        "  const ctx = document.createElement('canvas').getContext('2d');"
-        f"  ctx.font = '{member_font}px \"JetBrains Mono\", monospace';"
-        "  const label = ele.data('label') || '';"
-        "  const lines = label.split('\\n');"
-        "  let maxW = 0;"
-        "  lines.forEach(l => { maxW = Math.max(maxW, ctx.measureText(l).width); });"
-        "  return Math.max(Math.ceil(maxW * 1.45), 50);"
-        "}"
-    )
-    _member_label_height = (
-        "function(ele) {"
-        "  const label = ele.data('label') || '';"
-        "  const lines = label.split('\\n');"
-        "  return Math.max(lines.length * 15 + 18, 40);"
-        "}"
-    )
+    # UML box defaults — actual dimensions set by post-render DOM
+    # measurement in the template (see graph.html.j2 setTimeout block).
+    _uml_default_w, _uml_default_h = 200, 60
 
     styles: list[dict] = []
 
@@ -161,8 +145,8 @@ def cy_stylesheet(*, size: str = "large") -> list[dict]:
                 "font-size": f"{member_font}px",
                 "font-family": '"JetBrains Mono", "Fira Code", "Cascadia Code", monospace',
                 "text-justification": "left",
-                "width": _member_label_dim,
-                "height": _member_label_height,
+                "width": _uml_default_w,
+                "height": _uml_default_h,
                 "padding": "2px",
                 "border-style": border_style,
                 "border-width": 4 if layer == "design" else 3,

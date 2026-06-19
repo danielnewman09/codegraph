@@ -133,7 +133,8 @@ def _walk_entry(
     members ARE emitted as edges from the parent.
     """
     node = entry.node
-    qname = getattr(node, "qualified_name", None) or getattr(node, "name", "")
+    uid = node._uid_value()
+    qname = uid if uid is not None else (getattr(node, "qualified_name", None) or getattr(node, "name", ""))
     if qname in seen:
         return
     seen.add(qname)
@@ -148,9 +149,12 @@ def _walk_entry(
             continue
         edges.append(_build_edge(qname, target_key, rel_type))
 
-    # Emit references from collapsed members
+    # Emit references from collapsed members — use a counter
+    # for unique edge IDs since multiple members may share target.
+    member_edge_idx = 0
     for _src, tgt, rel in _collect_skipped_member_refs(entry):
-        edges.append(_build_edge(qname, tgt, rel))
+        member_edge_idx += 1
+        edges.append(_build_edge(qname, tgt, rel, suffix=f"_m{member_edge_idx}"))
 
     # Recurse into composed children that get their own nodes
     for _type_key, children in entry.children.items():
@@ -171,7 +175,9 @@ def _walk_entry(
 def _build_node(entry: CompositeEntry, parent_id: str | None, layer: str) -> dict:
     """Build a Cytoscape node data dict from a CompositeEntry."""
     node = entry.node
-    qname = getattr(node, "qualified_name", "") or getattr(node, "name", "")
+    # Use the same UID as LayerGraph._node_key for consistent edge target resolution.
+    uid = node._uid_value()
+    qname = uid if uid is not None else (getattr(node, "qualified_name", "") or getattr(node, "name", ""))
     name = getattr(node, "name", "")
     kind = getattr(node, "kind", "")
 
@@ -206,11 +212,11 @@ def _build_node(entry: CompositeEntry, parent_id: str | None, layer: str) -> dic
     return {"data": data}
 
 
-def _build_edge(source_qname: str, target_key: str, relation_type: str) -> dict:
+def _build_edge(source_qname: str, target_key: str, relation_type: str, suffix: str = "") -> dict:
     """Build a Cytoscape edge data dict."""
     return {
         "data": {
-            "id": f"e_{source_qname}_{target_key}_{relation_type}",
+            "id": f"e_{source_qname}_{target_key}_{relation_type}{suffix}",
             "source": source_qname,
             "target": target_key,
             "label": relation_type,
