@@ -36,6 +36,9 @@ packages = ["src/codegraph"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "integration: marks tests that require Neo4j",
+]
 
 [tool.coverage.run]
 source = ["codegraph"]

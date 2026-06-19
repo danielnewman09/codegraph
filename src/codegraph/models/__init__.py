@@ -11,6 +11,7 @@ from codegraph.models.implementation import ImplementationNode
 from codegraph.models.namespace import NamespaceNode
 from codegraph.models.file import FileNode
 from codegraph.models.parameter import ParameterNode
+from codegraph.models.literal import LiteralNode
 
 __all__ = [
     # Base
@@ -34,4 +35,5 @@ __all__ = [
     "NamespaceNode",
     "FileNode",
     "ParameterNode",
+    "LiteralNode",
 ]

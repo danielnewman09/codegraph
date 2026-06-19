@@ -41,6 +41,7 @@ UNCLASSIFIED_KINDS: list[tuple[str, str]] = [
     ("primitive", "Primitive Type"),
     ("type_alias", "Type Alias"),
     ("type_parameter", "Type Parameter"),
+    ("literal", "Literal Value"),
 ]
 
 # ---------------------------------------------------------------------------
@@ -81,9 +82,9 @@ SOURCE_TYPE_KEYS: set[str] = {k for k, _ in SOURCE_TYPES}
 # removed independently as the code evolves.
 # ---------------------------------------------------------------------------
 
-TAGS: list[str] = ["design", "as-built", "dependency"]
+TAGS: list[str] = ["design", "as-built", "dependency", "scaffold"]
 
-Tag = Literal["design", "as-built", "dependency"]
+Tag = Literal["design", "as-built", "dependency", "scaffold"]
 
 # Backward-compatible aliases
 

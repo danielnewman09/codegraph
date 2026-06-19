@@ -28,7 +28,7 @@ from codegraph.graph import LayerGraph
 
 
 def export_graph(graph: LayerGraph, format: str = "markdown",
-                 fields: str = "llm") -> str:
+                 fields: str = "llm", **kwargs: object) -> str:
     """Export a :class:`LayerGraph` to a string in the given format.
 
     Args:
@@ -37,9 +37,10 @@ def export_graph(graph: LayerGraph, format: str = "markdown",
             ``"puml"``, ``"json"``, or ``"json_nested"``.
         fields: Which property fields to include for node details.
             ``"llm"`` (default) — only ``_llm_fields``.
-            ``"all"`` — every defined property (format-dependent which
-            fields are excluded; Markdown always excludes refid,
-            doc_embedding, component_id).
+            ``"all"`` — every defined property.
+        **kwargs: Format-specific options.
+            ``public_only`` (bool) — Markdown only: hide non-public
+            members (default ``True``).
 
     Returns:
         A string in the requested format.
@@ -51,7 +52,9 @@ def export_graph(graph: LayerGraph, format: str = "markdown",
 
     if fmt in ("markdown", "md"):
         from codegraph.markdown import export_markdown
-        return export_markdown(graph, fields=fields)
+        public_only = kwargs.get("public_only", True)
+        return export_markdown(graph, fields=fields,
+                              public_only=bool(public_only))
 
     if fmt in ("plantuml", "puml"):
         from codegraph.plantuml import export_plantuml

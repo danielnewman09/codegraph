@@ -39,6 +39,7 @@ from codegraph.plantuml import (export_plantuml, import_plantuml,
 from codegraph.markdown import (export_markdown, import_markdown,
                                 MarkdownExporter, MarkdownImporter)
 from codegraph.format import export_graph, import_graph
+from codegraph.tools import CodeGraphDispatcher, ToolDispatcher, create_dispatcher
 from codegraph.models import (
     ClassNode,
     InterfaceNode,
@@ -94,6 +95,10 @@ __all__ = [
     # Unified format
     "export_graph",
     "import_graph",
+    # Tools
+    "CodeGraphDispatcher",
+    "ToolDispatcher",
+    "create_dispatcher",
     # Config
     "NEO4J_URI",
     "NEO4J_USER",
