@@ -146,6 +146,7 @@ def cy_stylesheet(*, size: str = "large") -> list[dict]:
     # -- UML box nodes (compounds with members) --
     for layer, border_style, border_color, bg_color in [
         ("design", "dashed", "#4a5568", _BG_SURFACE),
+        ("as-built", "solid", "#3b82f6", _BG_SURFACE),
         ("dependency", "double", "#009688", "#1a2332"),
     ]:
         styles.append({
