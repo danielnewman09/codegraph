@@ -61,17 +61,37 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
     Provides shared fields, serialization, relationship introspection,
     and a registry for type-dispatched deserialization.
 
+    Identity model:
+        Every node has a ``uid`` ``UniqueIdProperty`` that serves as the
+        cross-codebase-stable primary key.  ``uid`` is computed
+        *automatically* in the :meth:`save` hook from the node's
+        ``_identity_fields`` (e.g. ``qualified_name`` + ``argsstring``
+        for functions/methods), so callers never need to pass it.
+
+        The human-readable ``qualified_name`` / ``refid`` fields remain
+        as regular indexed properties for queryability — they are no longer
+        the uniqueness constraint.
+
     Attributes:
         name: Short name of the node (e.g. 'Widget', 'draw', 'widget.h').
-        refid: External reference ID from the source system (e.g. Doxygen refid).
-            FileNode overrides this as UniqueIdProperty.
-        source: Name of the project this node belongs to (e.g. 'codegraph', 'llvm').
+        refid: External reference ID from the source system (e.g. Doxygen
+            refid).  Regular indexed StringProperty (FileNode).
+        source: Name of the project this node belongs to.
+        uid: Deterministic SHA-1 hash of the node's identity fields — the
+            cross-codebase-stable unique key used for edge resolution.
 
     Subclasses must:
     - Declare ``_llm_fields`` as a class-level ``set[str]`` of field names
+    - Declare ``_identity_fields`` as a class-level ``tuple[str, ...]`` of
+      field names to hash into ``uid``
     """
 
     _llm_fields: set[str] = set()
+
+    # Fields whose values are hashed (in order) to produce ``uid``.
+    # Subclasses override this.  For functions/methods it includes
+    # ``argsstring`` so that overloads get distinct uids.
+    _identity_fields: tuple[str, ...] = ()
 
     # ── Identity ────────────────────────────────────────────────────────────
     name = StringProperty(
@@ -315,6 +335,14 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
             # and overriding it on concrete classes breaks the internal
             # creation path.  Instead, save_new() (below) provides
             # the single-node creation API.
+            # Inject save() — same MRO-shadowing rationale as delete()
+            # above: StructuredNode precedes CodeGraphNode in the MRO of
+            # every concrete subclass, so a save() defined on CodeGraphNode
+            # would be shadowed.  Putting it in the concrete class's
+            # __dict__ makes it the first entry found.
+            if "save" not in cls.__dict__:
+                cls.save = CodeGraphNode._save
+
             if "delete" not in cls.__dict__:
                 cls.delete = CodeGraphNode._delete
 
@@ -368,6 +396,61 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
             )
         node = cls(**kwargs)
         return node.save()
+
+    # ── UID computation ────────────────────────────────────────────────
+
+    def _compute_uid(self) -> str:
+        """Compute deterministic uid from identity fields without saving.
+
+        Derives a SHA-1 hash from the node's ``_identity_fields``
+        (e.g. ``qualified_name`` + normalised ``argsstring`` for
+        functions/methods).  Returns an empty string if the primary
+        identity field is empty, signalling the caller to leave the
+        ``UniqueIdProperty`` auto-generated value untouched.
+
+        Returns:
+            The 40-character hex hash string, or ``""`` if identity
+            fields are empty.
+        """
+        from codegraph.uid import compute_uid, normalize_argsstring
+
+        identity_fields = getattr(type(self), "_identity_fields", ())
+        parts: list[str] = []
+        for field in identity_fields:
+            val = getattr(self, field, None)
+            if val is None:
+                val = ""
+            val = str(val)
+            if field == "argsstring":
+                val = normalize_argsstring(val)
+            parts.append(val)
+        return compute_uid(*parts)
+
+    # ── Save (uid computation hook) ────────────────────────────────────
+
+    def _save(self) -> "CodeGraphNode":
+        """Save this node to Neo4j, computing ``uid`` from identity fields.
+
+        Before delegating to neomodel's ``StructuredNode.save()``, derives
+        a deterministic SHA-1 hash from the node's ``_identity_fields``
+        and assigns it to ``uid``.  This makes the same logical symbol in
+        different codebases produce the same ``uid``, enabling
+        cross-codebase edge resolution.
+
+        If all identity-field values are empty (e.g. a node constructed
+        without a ``qualified_name``), the ``UniqueIdProperty``
+        auto-generated random value is left untouched.
+
+        Returns:
+            This node instance (after saving).
+        """
+        from neomodel.sync_.node import StructuredNode
+
+        computed = self._compute_uid()
+        if computed:
+            self.uid = computed
+
+        return StructuredNode.save(self)
 
     def _delete(self) -> "CodeGraphNode":
         """Delete this node from Neo4j, cascading to composed children first.
@@ -531,6 +614,15 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
             result = {k: props[k] for k in sorted(self._llm_fields) if k in props}
         result["type"] = type(self).__name__
 
+        # Always include the uid property (e.g. ``uid``) so that
+        # roundtrip deserialization and edge target resolution work
+        # regardless of the *fields* selection.  ``uid`` is a deterministic
+        # hash — it is included for resolution, not for LLM readability.
+        uid_prop = type(self)._uid_prop()
+        uid_value = self._uid_value()
+        if uid_prop and uid_value and uid_prop not in result:
+            result[uid_prop] = uid_value
+
         if hasattr(self, "element_id_property"):
             all_edges = self.serialize_edges()
             if nested:
@@ -545,12 +637,6 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
             result["edges"] = []
 
         if nested:
-            # Ensure uid property is included for roundtrip target resolution
-            uid_prop = type(self)._uid_prop()
-            uid_value = self._uid_value()
-            if uid_prop and uid_value and uid_prop not in result:
-                result[uid_prop] = uid_value
-
             # Cycle detection
             if _seen is None:
                 _seen = set()
@@ -643,7 +729,19 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
             compat_data["tags"] = [compat_data.pop("layer")]
         filtered = {k: v for k, v in compat_data.items()
                     if k not in skip and k in target_cls.defined_properties()}
-        return target_cls(**filtered)
+        node = target_cls(**filtered)
+
+        # Compute deterministic uid from identity fields when not
+        # explicitly provided in the input data.  This allows
+        # LayerGraph.deserialize() to resolve edge targets by uid
+        # without requiring the caller to pre-compute hashes.
+        uid_prop = target_cls._uid_prop()
+        if uid_prop and uid_prop not in data:
+            computed = node._compute_uid()
+            if computed:
+                setattr(node, uid_prop, computed)
+
+        return node
 
     @classmethod
     def serialize_relationships(cls) -> list[dict]:

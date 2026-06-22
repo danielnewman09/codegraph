@@ -342,12 +342,13 @@ class MarkdownExporter:
             if rel_type in _NESTING_REL_TYPES:
                 continue
             label = _INLINE_REL_TYPES.get(rel_type)
+            display_key = self.graph.resolve_target_name(target_key)
             if label:
-                lines.append(f"**{label}:** `{target_key}`")
+                lines.append(f"**{label}:** `{display_key}`")
             else:
                 source_qname = getattr(entry.node, "qualified_name", None) or entry.node.name
                 self._rel_lines.append(
-                    f"- `{source_qname}` → `{target_key}` **{rel_type.lower()}**"
+                    f"- `{source_qname}` → `{display_key}` **{rel_type.lower()}**"
                 )
         return lines
 

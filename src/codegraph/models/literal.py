@@ -37,9 +37,10 @@ class LiteralNode(StructuredNode, CodeGraphNode):
     """A primitive/builtin literal value — Neo4j label ``:Literal``.
 
     Attributes:
-        qualified_name: Unique identifier, typically ``"literal::<value>"``
-            (e.g. ``"literal::30"``, ``"literal::true"``, ``"literal::0.0"``).
-        name: Short display name (same as value, e.g. ``"30"``).
+        qualified_name: Human-readable identifier, typically
+            ``"literal::<value>"`` (e.g. ``"literal::30"``,
+            ``"literal::true"``, ``"literal::0.0"``) — indexed, not unique.
+        uid: Deterministic SHA-1 hash — the cross-codebase-stable unique key.
         kind: Defaults to ``"literal"``.
         value: The raw literal value as a string (e.g. ``"30"``, ``"true"``,
             ``"0.0"``, ``"hello"``).  Stored as a string for uniformity;
@@ -50,8 +51,15 @@ class LiteralNode(StructuredNode, CodeGraphNode):
     """
 
     # --- Identity ---
-    qualified_name = UniqueIdProperty()
+    uid = UniqueIdProperty()
+    qualified_name = StringProperty(
+        default="", index=True,
+        help_text="Human-readable identifier, typically 'literal::<value>'.",
+    )
     kind = StringProperty(default="literal")
+
+    # --- Identity fields for uid computation ---
+    _identity_fields: tuple[str, ...] = ("qualified_name",)
 
     # --- Literal value ---
     value = StringProperty(

@@ -37,17 +37,26 @@ class ImplementationNode(StructuredNode, CodeGraphNode):
             embedding = impl_nodes[0].impl_embedding
 
     Attributes:
-        qualified_name: Unique identifier matching the parent node's qualified_name.
-            Used to MERGE on upsert and to correlate back to the owning
-            method/function/compound. Must be unique across all ImplementationNodes.
+        qualified_name: Human-readable identifier matching the parent
+            node's ``qualified_name`` (indexed).
+        uid: Deterministic SHA-1 hash — the cross-codebase-stable unique
+            key, computed from ``qualified_name``.
         kind: Always "implementation".
         implementation: Full source code body of the method/function.
         impl_embedding: Vector embedding of the implementation source code.
     """
 
     # --- Identity ---
-    qualified_name = UniqueIdProperty()
+    uid = UniqueIdProperty()
+    qualified_name = StringProperty(
+        default="", index=True,
+        help_text="Human-readable identifier matching the parent node's "
+                  "qualified_name.",
+    )
     kind = StringProperty(default="implementation")
+
+    # --- Identity fields for uid computation ---
+    _identity_fields: tuple[str, ...] = ("qualified_name",)
 
     # --- Source code ---
     implementation = StringProperty(

@@ -4,7 +4,7 @@ Parameters have no outgoing relationships of their own.
 They are identified by a composite of (position, member_refid) rather than
 a single unique property."""
 
-from neomodel import StructuredNode, StringProperty, IntegerProperty
+from neomodel import StructuredNode, StringProperty, IntegerProperty, UniqueIdProperty
 
 from codegraph.models.tags import CodeGraphNode
 
@@ -13,18 +13,23 @@ class ParameterNode(StructuredNode, CodeGraphNode):
     """A function/method parameter.
 
     Parameters have no outgoing relationships of their own.
-    They are identified by a composite of (position, member_refid) rather
-    than a single unique property.
+    They are identified by a composite of (position, member_refid) which
+    is hashed into ``uid``.
 
     Attributes:
+        uid: Deterministic SHA-1 hash of ``member_refid`` + ``position``.
         position: Zero-based position in the parameter list.
         type: Type string for the parameter (e.g. "int", "const std::string&").
         default_value: Default value expression, if any.
         member_refid: Reference ID of the parent method/function.
     """
 
-    # No UniqueIdProperty — parameters don't have a natural single key.
-    # Use a composite lookup (position + member_refid) in the repository.
+    # --- Identity ---
+    uid = UniqueIdProperty()
+
+    # --- Identity fields for uid computation ---
+    _identity_fields: tuple[str, ...] = ("member_refid", "position")
+
     position = IntegerProperty(required=True)
     type = StringProperty(default="")
     default_value = StringProperty(default="")

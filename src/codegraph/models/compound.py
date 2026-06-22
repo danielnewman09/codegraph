@@ -11,6 +11,7 @@ from neomodel import (
     ArrayProperty, FloatProperty, UniqueIdProperty, RelationshipTo, RelationshipFrom,
 )
 
+
 from codegraph.models.tags import CodeGraphNode
 
 
@@ -18,7 +19,10 @@ class CompoundNode(StructuredNode, CodeGraphNode):
     """Common fields and serialization for all compound node types.
 
     Attributes:
-        qualified_name: Unique identifier for the compound.
+        qualified_name: Human-readable fully-qualified name (indexed, not
+            unique).  Used as an identity-field input to ``uid``.
+        uid: Deterministic SHA-1 hash — the cross-codebase-stable unique
+            key, computed automatically on save.
         kind: Node kind (e.g. "class", "struct", "interface", "concept").
         tags: Provenance tags (e.g. ["design"], ["design", "as-built"],
             ["dependency"]). Multiple tags allowed — a node can belong to
@@ -36,8 +40,16 @@ class CompoundNode(StructuredNode, CodeGraphNode):
     """
 
     # --- Identity ---
-    qualified_name = UniqueIdProperty()
+    uid = UniqueIdProperty()
+    qualified_name = StringProperty(
+        default="", index=True,
+        help_text="Human-readable fully-qualified name. Indexed for lookup; "
+                  "the unique key is `uid`.",
+    )
     kind = StringProperty(required=True)
+
+    # --- Identity fields for uid computation ---
+    _identity_fields: tuple[str, ...] = ("qualified_name",)
 
     # --- Tags & provenance ---
     tags = ArrayProperty(StringProperty(), default=list,

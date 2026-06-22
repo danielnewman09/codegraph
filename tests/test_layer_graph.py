@@ -11,6 +11,14 @@ from codegraph.models.file import FileNode
 from codegraph.models.member import AttributeNode, EnumValueNode, MethodNode
 from codegraph.models.namespace import NamespaceNode
 from codegraph.models.tags import CodeGraphNode
+from codegraph.uid import compute_uid, normalize_argsstring
+
+
+def _uid(qname: str, argsstring: str | None = None) -> str:
+    """Compute the deterministic uid for a fixture node from its identity."""
+    if argsstring is not None:
+        return compute_uid(qname, normalize_argsstring(argsstring))
+    return compute_uid(qname)
 
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
@@ -24,7 +32,7 @@ def _count_all_entries(graph: LayerGraph) -> int:
 
 
 def _find_entry(graph: LayerGraph, key: str) -> CompositeEntry | None:
-    """Find a CompositeEntry by node key across the entire tree."""
+    """Find a CompositeEntry by uid key across the entire tree."""
     for entry in graph._all_entries():
         if LayerGraph._node_key(entry.node) == key:
             return entry
@@ -34,46 +42,52 @@ def _find_entry(graph: LayerGraph, key: str) -> CompositeEntry | None:
 class TestNodeKey:
     """Tests for LayerGraph._node_key()."""
 
-    def test_file_node_dict_uses_refid(self):
-        result = LayerGraph._node_key({"type": "FileNode", "refid": "file-main", "path": "/src/main.h", "name": "main.h"})
-        assert result == "file-main"
+    def test_file_node_dict_uses_uid(self):
+        result = LayerGraph._node_key({"type": "FileNode", "uid": "abc123", "refid": "file-main", "path": "/src/main.h", "name": "main.h"})
+        assert result == "abc123"
 
-    def test_file_node_dict_falls_back_to_name_without_refid(self):
+    def test_file_node_dict_falls_back_to_name_without_uid(self):
         result = LayerGraph._node_key({"type": "FileNode", "path": "/src/main.h", "name": "main.h"})
         assert result == "main.h"
 
-    def test_class_node_dict_uses_qualified_name(self):
-        result = LayerGraph._node_key({"type": "ClassNode", "qualified_name": "ns::Widget", "name": "Widget"})
-        assert result == "ns::Widget"
+    def test_class_node_dict_uses_uid(self):
+        result = LayerGraph._node_key({"type": "ClassNode", "uid": "def456", "qualified_name": "ns::Widget", "name": "Widget"})
+        assert result == "def456"
 
-    def test_class_node_dict_falls_back_to_name_without_qualified_name(self):
+    def test_class_node_dict_falls_back_to_name_without_uid(self):
         result = LayerGraph._node_key({"type": "ClassNode", "name": "Widget"})
         assert result == "Widget"
 
-    def test_method_node_dict_uses_qualified_name(self):
-        result = LayerGraph._node_key({"type": "MethodNode", "qualified_name": "ns::Widget::draw", "name": "draw"})
-        assert result == "ns::Widget::draw"
+    def test_method_node_dict_uses_uid(self):
+        result = LayerGraph._node_key({"type": "MethodNode", "uid": "ghi789", "qualified_name": "ns::Widget::draw", "name": "draw"})
+        assert result == "ghi789"
 
-    def test_namespace_node_dict_uses_qualified_name(self):
-        result = LayerGraph._node_key({"type": "NamespaceNode", "qualified_name": "calc", "name": "calc"})
-        assert result == "calc"
+    def test_namespace_node_dict_uses_uid(self):
+        result = LayerGraph._node_key({"type": "NamespaceNode", "uid": "jkl012", "qualified_name": "calc", "name": "calc"})
+        assert result == "jkl012"
 
-    def test_file_node_instance_uses_refid(self):
+    def test_file_node_instance_uses_uid(self):
+        """Unsaved FileNode: uid is auto-generated (random), _node_key returns it."""
         node = FileNode(name="test.h", path="/src/test.h", refid="file-test-h")
         result = LayerGraph._node_key(node)
-        assert result == "file-test-h"
+        # uid is auto-generated UniqueIdProperty — non-empty string
+        assert isinstance(result, str)
+        assert len(result) > 0
 
-    def test_class_node_instance_uses_qualified_name(self):
+    def test_class_node_instance_uses_uid(self):
+        """Unsaved ClassNode: uid is auto-generated (random), _node_key returns it."""
         node = ClassNode(name="Widget", kind="class", qualified_name="ns::Widget")
         result = LayerGraph._node_key(node)
-        assert result == "ns::Widget"
+        assert isinstance(result, str)
+        assert len(result) > 0
 
-    def test_parameter_node_falls_back_to_name(self):
-        """ParameterNode has no UniqueIdProperty, so _node_key falls back to name."""
+    def test_parameter_node_uses_uid(self):
+        """ParameterNode now has uid UniqueIdProperty, so _node_key returns uid."""
         from codegraph.models.parameter import ParameterNode
         node = ParameterNode(name="argc", position=0, type="int")
         result = LayerGraph._node_key(node)
-        assert result == "argc"
+        assert isinstance(result, str)
+        assert len(result) > 0
 
 
 class TestTagValidation:
@@ -120,19 +134,19 @@ class TestDeserialize:
             data = json.load(f)
         graph = LayerGraph.deserialize(data)
         # Spot-check some nodes by finding them in the tree
-        engine = _find_entry(graph, "calc::CalculatorEngine")
+        engine = _find_entry(graph, _uid("calc::CalculatorEngine"))
         assert engine is not None
         assert type(engine.node).__name__ == "ClassNode"
 
-        file_entry = _find_entry(graph, "file-calc-engine")
+        file_entry = _find_entry(graph, compute_uid("/src/calc/calculator_engine.h"))
         assert file_entry is not None
         assert type(file_entry.node).__name__ == "FileNode"
 
-        icalc = _find_entry(graph, "calc::ICalculator")
+        icalc = _find_entry(graph, _uid("calc::ICalculator"))
         assert icalc is not None
         assert type(icalc.node).__name__ == "InterfaceNode"
 
-        add_entry = _find_entry(graph, "calc::CalculatorEngine::add")
+        add_entry = _find_entry(graph, _uid("calc::CalculatorEngine::add", "(double a, double b)"))
         assert add_entry is not None
         assert type(add_entry.node).__name__ == "MethodNode"
 
@@ -142,14 +156,14 @@ class TestDeserialize:
             data = json.load(f)
         graph = LayerGraph.deserialize(data)
 
-        engine = _find_entry(graph, "calc::CalculatorEngine")
+        engine = _find_entry(graph, _uid("calc::CalculatorEngine"))
         assert engine is not None
         # CalculatorEngine COMPOSES MethodNode (add, validateInput)
         assert "MethodNode" in engine.children
-        assert "calc::CalculatorEngine::add" in engine.children["MethodNode"]
+        assert _uid("calc::CalculatorEngine::add", "(double a, double b)") in engine.children["MethodNode"]
         # CalculatorEngine COMPOSES AttributeNode (precision)
         assert "AttributeNode" in engine.children
-        assert "calc::CalculatorEngine::precision" in engine.children["AttributeNode"]
+        assert _uid("calc::CalculatorEngine::precision") in engine.children["AttributeNode"]
 
     def test_non_composes_edges_as_references(self):
         """Non-COMPOSES edges should be stored as references, not children."""
@@ -157,7 +171,7 @@ class TestDeserialize:
             data = json.load(f)
         graph = LayerGraph.deserialize(data)
 
-        engine = _find_entry(graph, "calc::CalculatorEngine")
+        engine = _find_entry(graph, _uid("calc::CalculatorEngine"))
         assert engine is not None
         ref_types = {r[0] for r in engine.references}
         assert "REALIZES" in ref_types
@@ -173,10 +187,10 @@ class TestDeserialize:
         graph = LayerGraph.deserialize(data)
 
         # "calc::CalculatorEngine::add" is composed by CalculatorEngine, not at root
-        assert "calc::CalculatorEngine::add" not in graph.entries
-        assert "calc::CalculatorEngine::precision" not in graph.entries
+        assert _uid("calc::CalculatorEngine::add", "(double a, double b)") not in graph.entries
+        assert _uid("calc::CalculatorEngine::precision") not in graph.entries
         # NamespaceNode "calc" should be a root entry
-        assert "calc" in graph.entries
+        assert _uid("calc") in graph.entries
 
     def test_entries_are_composite_entries(self):
         """Root entries should be CompositeEntry instances."""
@@ -306,11 +320,13 @@ class TestSerializeFields:
         """Default serialize() includes only _llm_fields per node."""
         data = [
             {"type": "ClassNode", "name": "Engine", "kind": "class",
-             "qualified_name": "ns::Engine", "tags": ["design"]},
+             "qualified_name": "ns::Engine", "tags": ["design"],
+             "uid": _uid("ns::Engine")},
             {"type": "MethodNode", "name": "run", "kind": "method",
              "qualified_name": "ns::Engine::run", "tags": ["design"],
+             "uid": _uid("ns::Engine::run", ""),
              "edges": [{"relation_type": "COMPOSES", "target_type": "MethodNode",
-                         "target_local_id": "ns::Engine::run"}]},
+                         "target_local_id": _uid("ns::Engine::run", "")}]},
         ]
         graph = LayerGraph.deserialize(data)
         output = graph.serialize()
@@ -369,11 +385,11 @@ class TestSerializeFields:
         """fields parameter propagates through composes children."""
         data = [
             {"type": "NamespaceNode", "name": "ns", "kind": "namespace",
-             "qualified_name": "ns",
+             "qualified_name": "ns", "uid": _uid("ns"),
              "edges": [{"relation_type": "COMPOSES", "target_type": "ClassNode",
-                         "target_local_id": "ns::Widget"}]},
+                         "target_local_id": _uid("ns::Widget")}]},
             {"type": "ClassNode", "name": "Widget", "kind": "class",
-             "qualified_name": "ns::Widget", "module": "mymod"},
+             "qualified_name": "ns::Widget", "module": "mymod", "uid": _uid("ns::Widget")},
         ]
         graph = LayerGraph.deserialize(data)
 
@@ -456,12 +472,12 @@ class TestFromNeo4j:
         result = LayerGraph.from_neo4j("design")
         # Methods should be nested under their parent ClassNode,
         # not appear as root entries
-        add_entry = _find_entry(result, "calc::CalculatorEngine::add")
+        add_entry = _find_entry(result, _uid("calc::CalculatorEngine::add", "(double a, double b)"))
         assert add_entry is not None
         # The method should NOT be at the root level
         assert "calc::CalculatorEngine::add" not in result.entries
         # The parent class should contain the method
-        engine_entry = _find_entry(result, "calc::CalculatorEngine")
+        engine_entry = _find_entry(result, _uid("calc::CalculatorEngine"))
         assert engine_entry is not None
         assert "MethodNode" in engine_entry.children
 
@@ -571,7 +587,7 @@ class TestDeserializeNested:
         nested = graph.serialize()
 
         restored = LayerGraph.deserialize(nested)
-        engine = _find_entry(restored, "calc::CalculatorEngine")
+        engine = _find_entry(restored, _uid("calc::CalculatorEngine"))
         assert engine is not None
         assert "MethodNode" in engine.children
         assert "AttributeNode" in engine.children
@@ -585,7 +601,7 @@ class TestDeserializeNested:
         nested = graph.serialize()
 
         restored = LayerGraph.deserialize(nested)
-        engine = _find_entry(restored, "calc::CalculatorEngine")
+        engine = _find_entry(restored, _uid("calc::CalculatorEngine"))
         assert engine is not None
         ref_types = {r[0] for r in engine.references}
         assert "REALIZES" in ref_types

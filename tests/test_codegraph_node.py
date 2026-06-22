@@ -348,12 +348,12 @@ class TestUidAccessors:
     """Tests for _uid_prop and _uid_value."""
 
     def test_uid_prop_for_class_node(self):
-        """ClassNode has qualified_name as UniqueIdProperty."""
-        assert ClassNode._uid_prop() == "qualified_name"
+        """ClassNode has uid as UniqueIdProperty (route B)."""
+        assert ClassNode._uid_prop() == "uid"
 
     def test_uid_prop_for_file_node(self):
-        """FileNode has refid as UniqueIdProperty."""
-        assert FileNode._uid_prop() == "refid"
+        """FileNode has uid as UniqueIdProperty (route B)."""
+        assert FileNode._uid_prop() == "uid"
 
     def test_uid_value_returns_stored_uid(self):
         """_uid_value returns the auto-generated uid after save."""
@@ -466,18 +466,18 @@ class TestSerializeNested:
         cls = ClassNode(name="UidClass", kind="class", qualified_name="ns::UidClass").save()
         try:
             result = cls.serialize(nested=True)
-            # ClassNode uid is qualified_name, which is in _llm_fields so already present
-            assert "qualified_name" in result
+            # uid is the UniqueIdProperty — always included for resolution
+            assert "uid" in result
         finally:
             cls.delete()
 
     def test_nested_includes_uid_for_file_node(self):
-        """FileNode.serialize(nested=True) includes refid even though it's not in _llm_fields."""
+        """FileNode.serialize(nested=True) includes uid even though it's not in _llm_fields."""
         f = FileNode(name="uidtest.h", path="/src/uidtest.h").save()
         try:
             result = f.serialize(nested=True)
             # FileNode has no COMPOSES relationships, but nested=True still ensures uid
-            assert "refid" in result
+            assert "uid" in result
         finally:
             f.delete()
 

@@ -553,7 +553,9 @@ class PlantUMLExporter:
 
         source_qname = getattr(source_node, "qualified_name", None) or source_node.name
         source_alias = self._aliases.get(source_qname) or _sanitize_alias(source_qname)
-        target_alias = _sanitize_alias(target_key)
+        # Resolve uid-based target key to a human-readable name
+        display_key = self.graph.resolve_target_name(target_key)
+        target_alias = _sanitize_alias(display_key)
 
         arrow = _REL_TYPE_TO_ARROW.get(rel_type, "..>")
         label = rel_type.lower()

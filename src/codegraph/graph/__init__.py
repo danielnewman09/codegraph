@@ -131,17 +131,12 @@ class LayerGraph:
     def _node_key(obj) -> str:
         """Derive a stable local key from a node instance or raw dict.
 
-        Uses the node's UniqueIdProperty value (``qualified_name`` for
-        compounds/members/namespaces, ``refid`` for FileNode) as the key,
-        falling back to ``name`` for node types that lack a UniqueIdProperty
-        (e.g. ParameterNode) or for dicts that omit the uid field.
-
-        For dicts (raw JSON data), the uid property name is resolved via
-        the type registry so that the correct field is consulted regardless
-        of node type.
+        For dicts (raw JSON data), resolves the ``uid`` field via the
+        type registry.  Falls back to ``name`` only when the dict has
+        no ``uid`` (e.g. ParameterNode before save).
 
         For CodeGraphNode instances, delegates to ``_uid_value()`` which
-        returns the value of the node's UniqueIdProperty.
+        returns the value of the node's ``uid`` UniqueIdProperty.
 
         Args:
             obj: A CodeGraphNode instance or a raw dict with ``type``
@@ -163,6 +158,31 @@ class LayerGraph:
             return uid
         # Fallback for types without UniqueIdProperty (e.g. ParameterNode)
         return obj.name
+
+    def resolve_target_name(self, target_key: str) -> str:
+        """Resolve a target key (uid hash) to a human-readable display name.
+
+        Looks up *target_key* in the flat entry index and returns the
+        node's ``qualified_name``, ``refid``, or ``name`` — whichever is
+        most descriptive.  Falls back to *target_key* itself if the entry
+        is not in the graph (e.g. a filtered-out neighbour).
+
+        Args:
+            target_key: The target node's key (typically a uid hash).
+
+        Returns:
+            A human-readable display name for the target node.
+        """
+        flat = self._flat_index()
+        entry = flat.get(target_key)
+        if entry is not None:
+            node = entry.node
+            return (
+                getattr(node, "qualified_name", None)
+                or getattr(node, "refid", None)
+                or node.name
+            )
+        return target_key
 
     @staticmethod
     def _walk_entries(entry: CompositeEntry) -> Iterator[CompositeEntry]:
@@ -330,18 +350,32 @@ class LayerGraph:
         return cls(tags=tags or frozenset({"design"}), entries=root_entries)
 
     @classmethod
-    def _deserialize_flat(cls, data: list[dict]) -> "LayerGraph":
+    def _deserialize_flat(
+        cls,
+        data: list[dict],
+        *,
+        create_missing: bool = False,
+    ) -> "LayerGraph":
         """Deserialize from the flat JSON format (edges with target_local_id).
 
         Args:
             data: A list of dicts in flat format, where COMPOSES edges
                 create nesting and other edges become references.
+            create_missing: When True, auto-create scaffold nodes (with
+                ``tags=["scaffold"]``) for edge targets that don't
+                resolve to any node in *data*.  This allows partial graphs
+                that reference external nodes to be deserialized without
+                manually pre-creating placeholder nodes.
 
         Returns:
             A LayerGraph with the nested composition structure.
         """
         key_to_entry: dict[str, CompositeEntry] = {}
         uid_to_key: dict[str, str] = {}
+        # Secondary lookup: maps identity-field values (qualified_name,
+        # refid, path) to keys, so LLM-produced edges whose target_uid
+        # is a human-readable identifier (not a uid hash) can resolve.
+        identity_to_key: dict[str, str] = {}
         tags: frozenset[str] = frozenset()
 
         # Phase 1: create all CompositeEntry instances (nodes only, no edges yet)
@@ -354,6 +388,12 @@ class LayerGraph:
             uid = node._uid_value()
             if uid:
                 uid_to_key[uid] = key
+
+            # Build identity_to_key from common identity fields
+            for field in ("qualified_name", "refid", "path"):
+                val = node_data.get(field) or getattr(node, field, None)
+                if val:
+                    identity_to_key[val] = key
 
             # Infer tags from node data (backward compat: "layer" field)
             if not tags:
@@ -372,10 +412,18 @@ class LayerGraph:
             source_entry = key_to_entry[source_key]
 
             for edge in node_data.get("edges", []):
-                # Resolve target key
+                # Resolve target key: try uid hash, then identity field
                 target_key = edge.get("target_local_id")
                 if target_key is None and "target_uid" in edge:
                     target_key = uid_to_key.get(edge["target_uid"])
+                if target_key is None and "target_uid" in edge:
+                    target_key = identity_to_key.get(edge["target_uid"])
+
+                # Auto-create scaffold node for unresolved target
+                if target_key is None and create_missing and "target_uid" in edge:
+                    target_key = cls._create_missing_scaffold(
+                        edge, key_to_entry, uid_to_key, identity_to_key
+                    )
 
                 if target_key is None:
                     continue
@@ -406,8 +454,149 @@ class LayerGraph:
 
         return cls(tags=tags or frozenset({"design"}), entries=root_entries)
 
+    @staticmethod
+    def _classify_literal(value: str) -> str:
+        """Classify a literal value string as int, float, boolean, or string."""
+        value = value.strip()
+        if value.lower() in ("true", "false"):
+            return "boolean"
+        try:
+            int(value)
+            return "int"
+        except ValueError:
+            pass
+        try:
+            float(value)
+            return "float"
+        except ValueError:
+            pass
+        return "string"
+
+    @staticmethod
+    def _create_missing_scaffold(
+        edge: dict,
+        key_to_entry: dict[str, CompositeEntry],
+        uid_to_key: dict[str, str],
+        identity_to_key: dict[str, str],
+    ) -> str | None:
+        """Create a scaffold node for an unresolved edge target.
+
+        Builds a minimal node dict from the edge's ``target_type`` and
+        ``target_uid``, deserializes it (which computes the deterministic
+        ``uid``), and registers it in all lookup dicts.
+
+        The scaffold gets ``tags=["scaffold"]`` so it can be identified
+        and later reconciled with real design nodes.
+
+        Args:
+            edge: The unresolved edge dict with ``target_uid`` and
+                ``target_type``.
+            key_to_entry: Global index to add the scaffold to.
+            uid_to_key: UID hash → key mapping to update.
+            identity_to_key: Identity field → key mapping to update.
+
+        Returns:
+            The scaffold's key, or None if creation failed.
+        """
+        target_type = edge.get("target_type", "")
+        target_uid = edge.get("target_uid", "")
+        if not target_type or not target_uid:
+            return None
+
+        target_cls = CodeGraphNode._registry.get(target_type)
+        if not target_cls:
+            return None
+
+        # Build minimal scaffold dict
+        scaffold_data: dict = {"type": target_type, "tags": ["scaffold"]}
+
+        # Set the first identity field to target_uid (e.g. qualified_name)
+        identity_fields = getattr(target_cls, "_identity_fields", ())
+        if identity_fields:
+            scaffold_data[identity_fields[0]] = target_uid
+
+        # Set name from last :: segment
+        scaffold_data["name"] = (
+            target_uid.rsplit("::", 1)[-1] if "::" in target_uid else target_uid
+        )
+
+        # Set kind defaults for compound/member types
+        kind_defaults = {
+            "ClassNode": "class",
+            "CompoundNode": "class",
+            "InterfaceNode": "interface",
+            "EnumNode": "enum",
+            "AttributeNode": "attribute",
+            "MemberNode": "attribute",
+            "MethodNode": "method",
+            "FunctionNode": "function",
+            "LiteralNode": "literal",
+        }
+        if target_type in kind_defaults and "kind" in target_cls.defined_properties():
+            scaffold_data["kind"] = kind_defaults[target_type]
+
+        # LiteralNode needs a value with basic type classification
+        if target_type == "LiteralNode":
+            # Strip "literal::" prefix if present for the raw value
+            raw_value = (
+                target_uid.split("::", 1)[1]
+                if target_uid.startswith("literal::")
+                else target_uid
+            )
+            scaffold_data["value"] = raw_value
+            scaffold_data["value_type"] = LayerGraph._classify_literal(raw_value)
+
+        # Deserialize (computes deterministic uid)
+        scaffold_node = CodeGraphNode.deserialize(scaffold_data)
+        # Use the node instance's key (uid hash), not the dict key (name),
+        # so that _flat_index() can find the scaffold.
+        scaffold_key = LayerGraph._node_key(scaffold_node)
+
+        key_to_entry[scaffold_key] = CompositeEntry(node=scaffold_node)
+
+        uid = scaffold_node._uid_value()
+        if uid:
+            uid_to_key[uid] = scaffold_key
+        identity_to_key[target_uid] = scaffold_key
+
+        # For member types with a "::"-separated qualified_name, also
+        # create a parent ClassNode scaffold (if not already present)
+        # and nest the member under it via COMPOSES.  This follows the
+        # codegraph convention that members belong to compounds.
+        if "::" in target_uid and target_type in (
+            "AttributeNode", "MemberNode", "MethodNode", "FunctionNode",
+        ):
+            parent_name = target_uid.rsplit("::", 1)[0]
+            if parent_name:
+                # Find or create the parent ClassNode
+                parent_key = identity_to_key.get(parent_name)
+                if parent_key is None:
+                    parent_edge = {
+                        "target_uid": parent_name,
+                        "target_type": "ClassNode",
+                        "relation_type": "COMPOSES",
+                    }
+                    parent_key = LayerGraph._create_missing_scaffold(
+                        parent_edge, key_to_entry, uid_to_key, identity_to_key
+                    )
+                if parent_key is not None:
+                    # Nest the member under the parent ClassNode
+                    parent_entry = key_to_entry[parent_key]
+                    if target_type not in parent_entry.children:
+                        parent_entry.children[target_type] = {}
+                    parent_entry.children[target_type][scaffold_key] = (
+                        key_to_entry[scaffold_key]
+                    )
+
+        return scaffold_key
+
     @classmethod
-    def deserialize(cls, data: list[dict]) -> "LayerGraph":
+    def deserialize(
+        cls,
+        data: list[dict],
+        *,
+        create_missing: bool = False,
+    ) -> "LayerGraph":
         """Deserialize from a list of dicts (as produced by ``serialize()``).
 
         Pure deserialization — no database interaction.  Infers tags from
@@ -424,6 +613,8 @@ class LayerGraph:
         Args:
             data: A list of dicts, each a serialized node with ``type``,
                 properties, and optionally ``edges`` and ``composes``.
+            create_missing: When True, auto-create scaffold nodes for
+                edge targets that don't resolve to any node in *data*.
 
         Returns:
             A LayerGraph containing the deserialized nodes in a nested
@@ -435,7 +626,7 @@ class LayerGraph:
         if has_nested:
             return cls._deserialize_nested(data)
 
-        return cls._deserialize_flat(data)
+        return cls._deserialize_flat(data, create_missing=create_missing)
 
     # ── to_neo4j ───────────────────────────────────────────────────────
 

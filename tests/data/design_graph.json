@@ -6,7 +6,8 @@
     "refid": "file-calc-engine",
     "language": "cpp",
     "source": "calculator",
-    "edges": []
+    "edges": [],
+    "uid": "8d9117b15068384c0097502569ac3b84cba83023"
   },
   {
     "type": "FileNode",
@@ -15,7 +16,8 @@
     "refid": "file-icalc",
     "language": "cpp",
     "source": "calculator",
-    "edges": []
+    "edges": [],
+    "uid": "5b0af7e51fcd3f6d84ee1c3b41433c5e67700c44"
   },
   {
     "type": "FileNode",
@@ -24,7 +26,8 @@
     "refid": "file-operation",
     "language": "cpp",
     "source": "calculator",
-    "edges": []
+    "edges": [],
+    "uid": "ca439ea7d456f1e9103c099c4ef4063926f5e1ab"
   },
   {
     "type": "FileNode",
@@ -33,7 +36,8 @@
     "refid": "file-calc-result",
     "language": "cpp",
     "source": "calculator",
-    "edges": []
+    "edges": [],
+    "uid": "3b3647ade12b0a85f6d00ff2ff0d7e9fe1b7d770"
   },
   {
     "type": "FileNode",
@@ -42,7 +46,8 @@
     "refid": "file-base-window",
     "language": "cpp",
     "source": "calculator",
-    "edges": []
+    "edges": [],
+    "uid": "9fe226bcc674bb1e91013b6c03bf30f3fd903788"
   },
   {
     "type": "FileNode",
@@ -51,7 +56,8 @@
     "refid": "file-calc-window",
     "language": "cpp",
     "source": "calculator",
-    "edges": []
+    "edges": [],
+    "uid": "188a981185be013981fb386a3a484a4ce4d08369"
   },
   {
     "type": "NamespaceNode",
@@ -64,32 +70,33 @@
       {
         "relation_type": "COMPOSES",
         "target_type": "ClassNode",
-        "target_local_id": "calc::CalculatorEngine"
+        "target_local_id": "5a48a82bec82d481c90ca27c9829a240062923c7"
       },
       {
         "relation_type": "COMPOSES",
         "target_type": "ClassNode",
-        "target_local_id": "calc::CalculatorResult"
+        "target_local_id": "47d43750e265974ca7023d6496674e15246e22a8"
       },
       {
         "relation_type": "COMPOSES",
         "target_type": "InterfaceNode",
-        "target_local_id": "calc::ICalculator"
+        "target_local_id": "b82d618ffe7555d0f239613be2c07eada185ec16"
       },
       {
         "relation_type": "COMPOSES",
         "target_type": "EnumNode",
-        "target_local_id": "calc::Operation"
+        "target_local_id": "55992d4b678cd6ba7e0394b35352507eaaa88fd8"
       },
       {
         "relation_type": "COMPOSES",
         "target_type": "FunctionNode",
-        "target_local_id": "calc::formatResult"
+        "target_local_id": "14b6f24b25c26e098a5e6b6afe2d94f84f17b787"
       }
     ],
     "tags": [
       "design"
-    ]
+    ],
+    "uid": "67bd35f4e0d46c01211e579e2c880293befeb58b"
   },
   {
     "type": "NamespaceNode",
@@ -102,17 +109,18 @@
       {
         "relation_type": "COMPOSES",
         "target_type": "ClassNode",
-        "target_local_id": "ui::BaseWindow"
+        "target_local_id": "ac2b6dd48d208c654dda71b4b3405e593d029cd1"
       },
       {
         "relation_type": "COMPOSES",
         "target_type": "ClassNode",
-        "target_local_id": "ui::CalculatorWindow"
+        "target_local_id": "1ff7afb7e8ae8a2ffd950a4a4de7fd2b58a43c3e"
       }
     ],
     "tags": [
       "design"
-    ]
+    ],
+    "uid": "636117b25f17da7e91194e091cdb8dc49769a815"
   },
   {
     "type": "InterfaceNode",
@@ -129,17 +137,18 @@
       {
         "relation_type": "COMPOSES",
         "target_type": "MethodNode",
-        "target_local_id": "calc::ICalculator::calculate"
+        "target_local_id": "908276a9da05638f3e373e089491c96e7872e882"
       },
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "file-icalc"
+        "target_local_id": "5b0af7e51fcd3f6d84ee1c3b41433c5e67700c44"
       }
     ],
     "tags": [
       "design"
-    ]
+    ],
+    "uid": "b82d618ffe7555d0f239613be2c07eada185ec16"
   },
   {
     "type": "ClassNode",
@@ -158,37 +167,38 @@
       {
         "relation_type": "REALIZES",
         "target_type": "InterfaceNode",
-        "target_local_id": "calc::ICalculator"
+        "target_local_id": "b82d618ffe7555d0f239613be2c07eada185ec16"
       },
       {
         "relation_type": "DEPENDS_ON",
         "target_type": "ClassNode",
-        "target_local_id": "calc::CalculatorResult"
+        "target_local_id": "47d43750e265974ca7023d6496674e15246e22a8"
       },
       {
         "relation_type": "COMPOSES",
         "target_type": "MethodNode",
-        "target_local_id": "calc::CalculatorEngine::add"
+        "target_local_id": "1939760fc558a42f1f9e53f6c5b6094a46fd6a34"
       },
       {
         "relation_type": "COMPOSES",
         "target_type": "MethodNode",
-        "target_local_id": "calc::CalculatorEngine::validateInput"
+        "target_local_id": "01c3d12dd99a920a087cc30b6d543418ca36a9fd"
       },
       {
         "relation_type": "COMPOSES",
         "target_type": "AttributeNode",
-        "target_local_id": "calc::CalculatorEngine::precision"
+        "target_local_id": "e60ebc46b10a43502695e1966270acfdd9ffa034"
       },
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "file-calc-engine"
+        "target_local_id": "8d9117b15068384c0097502569ac3b84cba83023"
       }
     ],
     "tags": [
       "design"
-    ]
+    ],
+    "uid": "5a48a82bec82d481c90ca27c9829a240062923c7"
   },
   {
     "type": "ClassNode",
@@ -207,22 +217,23 @@
       {
         "relation_type": "COMPOSES",
         "target_type": "AttributeNode",
-        "target_local_id": "calc::CalculatorResult::value"
+        "target_local_id": "1cf4f100f0537d2d10aaed6427fcd1d8cac739aa"
       },
       {
         "relation_type": "COMPOSES",
         "target_type": "MethodNode",
-        "target_local_id": "calc::CalculatorResult::get_value"
+        "target_local_id": "47b04b935c60a9a0f88a00bd52228f4586e1c7ef"
       },
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "file-calc-result"
+        "target_local_id": "3b3647ade12b0a85f6d00ff2ff0d7e9fe1b7d770"
       }
     ],
     "tags": [
       "design"
-    ]
+    ],
+    "uid": "47d43750e265974ca7023d6496674e15246e22a8"
   },
   {
     "type": "EnumNode",
@@ -238,22 +249,23 @@
       {
         "relation_type": "COMPOSES",
         "target_type": "EnumValueNode",
-        "target_local_id": "calc::Operation::ADD"
+        "target_local_id": "457271d81151302ad76de91fd8f9b41e2cf0c886"
       },
       {
         "relation_type": "COMPOSES",
         "target_type": "EnumValueNode",
-        "target_local_id": "calc::Operation::SUBTRACT"
+        "target_local_id": "10780e25949b5e7d838cb7d8eb359a33b58ac635"
       },
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "file-operation"
+        "target_local_id": "ca439ea7d456f1e9103c099c4ef4063926f5e1ab"
       }
     ],
     "tags": [
       "design"
-    ]
+    ],
+    "uid": "55992d4b678cd6ba7e0394b35352507eaaa88fd8"
   },
   {
     "type": "EnumValueNode",
@@ -266,7 +278,8 @@
     "edges": [],
     "tags": [
       "design"
-    ]
+    ],
+    "uid": "457271d81151302ad76de91fd8f9b41e2cf0c886"
   },
   {
     "type": "EnumValueNode",
@@ -279,7 +292,8 @@
     "edges": [],
     "tags": [
       "design"
-    ]
+    ],
+    "uid": "10780e25949b5e7d838cb7d8eb359a33b58ac635"
   },
   {
     "type": "FunctionNode",
@@ -295,12 +309,13 @@
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "file-calc-engine"
+        "target_local_id": "8d9117b15068384c0097502569ac3b84cba83023"
       }
     ],
     "tags": [
       "design"
-    ]
+    ],
+    "uid": "14b6f24b25c26e098a5e6b6afe2d94f84f17b787"
   },
   {
     "type": "ClassNode",
@@ -318,17 +333,18 @@
       {
         "relation_type": "COMPOSES",
         "target_type": "MethodNode",
-        "target_local_id": "ui::BaseWindow::show"
+        "target_local_id": "e708451fcdea53e44a93e84ba6fa703890276986"
       },
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "file-base-window"
+        "target_local_id": "9fe226bcc674bb1e91013b6c03bf30f3fd903788"
       }
     ],
     "tags": [
       "design"
-    ]
+    ],
+    "uid": "ac2b6dd48d208c654dda71b4b3405e593d029cd1"
   },
   {
     "type": "ClassNode",
@@ -346,37 +362,38 @@
       {
         "relation_type": "INHERITS_FROM",
         "target_type": "ClassNode",
-        "target_local_id": "ui::BaseWindow"
+        "target_local_id": "ac2b6dd48d208c654dda71b4b3405e593d029cd1"
       },
       {
         "relation_type": "DEPENDS_ON",
         "target_type": "ClassNode",
-        "target_local_id": "calc::CalculatorEngine"
+        "target_local_id": "5a48a82bec82d481c90ca27c9829a240062923c7"
       },
       {
         "relation_type": "COMPOSES",
         "target_type": "AttributeNode",
-        "target_local_id": "ui::CalculatorWindow::display"
+        "target_local_id": "94f8adf8976e1128dbc55226d9381aa84d6bf027"
       },
       {
         "relation_type": "COMPOSES",
         "target_type": "AttributeNode",
-        "target_local_id": "ui::CalculatorWindow::currentInput"
+        "target_local_id": "aea579da422145d4f522f532dd86bb9f737e83ab"
       },
       {
         "relation_type": "COMPOSES",
         "target_type": "MethodNode",
-        "target_local_id": "ui::CalculatorWindow::handleEquals"
+        "target_local_id": "9316f6b19df248961d2aebf8155ec1d69af3fc97"
       },
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "file-calc-window"
+        "target_local_id": "188a981185be013981fb386a3a484a4ce4d08369"
       }
     ],
     "tags": [
       "design"
-    ]
+    ],
+    "uid": "1ff7afb7e8ae8a2ffd950a4a4de7fd2b58a43c3e"
   },
   {
     "type": "MethodNode",
@@ -392,12 +409,13 @@
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "file-icalc"
+        "target_local_id": "5b0af7e51fcd3f6d84ee1c3b41433c5e67700c44"
       }
     ],
     "tags": [
       "design"
-    ]
+    ],
+    "uid": "908276a9da05638f3e373e089491c96e7872e882"
   },
   {
     "type": "MethodNode",
@@ -413,12 +431,13 @@
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "file-calc-engine"
+        "target_local_id": "8d9117b15068384c0097502569ac3b84cba83023"
       }
     ],
     "tags": [
       "design"
-    ]
+    ],
+    "uid": "1939760fc558a42f1f9e53f6c5b6094a46fd6a34"
   },
   {
     "type": "MethodNode",
@@ -434,12 +453,13 @@
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "file-calc-engine"
+        "target_local_id": "8d9117b15068384c0097502569ac3b84cba83023"
       }
     ],
     "tags": [
       "design"
-    ]
+    ],
+    "uid": "01c3d12dd99a920a087cc30b6d543418ca36a9fd"
   },
   {
     "type": "AttributeNode",
@@ -454,12 +474,13 @@
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "file-calc-engine"
+        "target_local_id": "8d9117b15068384c0097502569ac3b84cba83023"
       }
     ],
     "tags": [
       "design"
-    ]
+    ],
+    "uid": "e60ebc46b10a43502695e1966270acfdd9ffa034"
   },
   {
     "type": "AttributeNode",
@@ -474,12 +495,13 @@
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "file-calc-result"
+        "target_local_id": "3b3647ade12b0a85f6d00ff2ff0d7e9fe1b7d770"
       }
     ],
     "tags": [
       "design"
-    ]
+    ],
+    "uid": "1cf4f100f0537d2d10aaed6427fcd1d8cac739aa"
   },
   {
     "type": "MethodNode",
@@ -495,12 +517,13 @@
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "file-calc-result"
+        "target_local_id": "3b3647ade12b0a85f6d00ff2ff0d7e9fe1b7d770"
       }
     ],
     "tags": [
       "design"
-    ]
+    ],
+    "uid": "47b04b935c60a9a0f88a00bd52228f4586e1c7ef"
   },
   {
     "type": "MethodNode",
@@ -516,12 +539,13 @@
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "file-base-window"
+        "target_local_id": "9fe226bcc674bb1e91013b6c03bf30f3fd903788"
       }
     ],
     "tags": [
       "design"
-    ]
+    ],
+    "uid": "e708451fcdea53e44a93e84ba6fa703890276986"
   },
   {
     "type": "AttributeNode",
@@ -536,12 +560,13 @@
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "file-calc-window"
+        "target_local_id": "188a981185be013981fb386a3a484a4ce4d08369"
       }
     ],
     "tags": [
       "design"
-    ]
+    ],
+    "uid": "94f8adf8976e1128dbc55226d9381aa84d6bf027"
   },
   {
     "type": "AttributeNode",
@@ -556,12 +581,13 @@
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "file-calc-window"
+        "target_local_id": "188a981185be013981fb386a3a484a4ce4d08369"
       }
     ],
     "tags": [
       "design"
-    ]
+    ],
+    "uid": "aea579da422145d4f522f532dd86bb9f737e83ab"
   },
   {
     "type": "MethodNode",
@@ -577,11 +603,12 @@
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "file-calc-window"
+        "target_local_id": "188a981185be013981fb386a3a484a4ce4d08369"
       }
     ],
     "tags": [
       "design"
-    ]
+    ],
+    "uid": "9316f6b19df248961d2aebf8155ec1d69af3fc97"
   }
 ]

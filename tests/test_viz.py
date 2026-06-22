@@ -5,6 +5,7 @@ are marked with ``@pytest.mark.integration``.
 """
 
 import json
+import os
 import tempfile
 from pathlib import Path
 
@@ -157,7 +158,7 @@ def test_layer_graph_to_cytoscape_single_class():
     result = layer_graph_to_cytoscape(graph)
     assert len(result["nodes"]) == 1
     node_data = result["nodes"][0]["data"]
-    assert node_data["id"] == "calc::Calculator"
+    assert node_data["qualified_name"] == "calc::Calculator"
     assert node_data["label"] == "Calculator"
     assert node_data["kind"] == "class"
     assert node_data["layer"] == "design"
@@ -253,11 +254,11 @@ def test_layer_graph_to_cytoscape_with_namespace():
     result = layer_graph_to_cytoscape(graph)
     assert len(result["nodes"]) == 2
     ns_data = next(
-        n["data"] for n in result["nodes"] if n["data"]["id"] == "calc"
+        n["data"] for n in result["nodes"] if n["data"]["qualified_name"] == "calc"
     )
     assert ns_data["is_namespace"] == "true"
     cls_data = next(
-        n["data"] for n in result["nodes"] if n["data"]["id"] == "calc::Calculator"
+        n["data"] for n in result["nodes"] if n["data"]["qualified_name"] == "calc::Calculator"
     )
     assert cls_data.get("parent") == "calc"
 
@@ -396,7 +397,7 @@ def test_export_html_writes_valid_file():
 
     try:
         result_path = export_html("design", output_path, size="small")
-        assert result_path == output_path
+        assert os.path.realpath(result_path) == os.path.realpath(output_path)
         html = Path(output_path).read_text(encoding="utf-8")
 
         # Structural checks
@@ -415,8 +416,8 @@ def test_export_html_empty_tag_produces_valid_file():
         output_path = f.name
 
     try:
-        result_path = export_html("nonexistent_tag_xyz", output_path)
-        assert result_path == output_path
+        result_path = export_html("scaffold", output_path)
+        assert os.path.realpath(result_path) == os.path.realpath(output_path)
         html = Path(output_path).read_text(encoding="utf-8")
         assert "<!DOCTYPE html>" in html
         assert 'id="cy"' in html

@@ -16,13 +16,13 @@ class FileNode(StructuredNode, CodeGraphNode):
     """A source file in the codebase.
 
     Attributes:
-        refid: Auto-generated unique identifier. Acts as the primary key
-            for looking up files in Neo4j and as the ``target_uid`` in
-            DEFINED_IN edges from compounds and members. Overrides
-            CodeGraphNode.refid as UniqueIdProperty.
+        refid: External reference ID from the source system (e.g. Doxygen
+            refid).  Regular indexed StringProperty.
+        uid: Deterministic SHA-1 hash of the file ``path`` — the
+            cross-codebase-stable unique key.
         name: The basename of the file (e.g. ``"widget.h"``).
         path: The absolute or project-relative path to the file
-            (e.g. ``"/src/widget.h"``).
+            (e.g. ``"/src/widget.h"``) — used as the identity-field input.
         language: The programming language of the file as a lowercase string
             (e.g. ``"cpp"``, ``"python"``, ``"java"``).
         source: Name of the project this file belongs to
@@ -30,7 +30,14 @@ class FileNode(StructuredNode, CodeGraphNode):
     """
 
     # --- Identity ---
-    refid = UniqueIdProperty()
+    uid = UniqueIdProperty()
+    refid = StringProperty(
+        default="", index=True,
+        help_text="External reference ID from the source system (e.g. Doxygen).",
+    )
+
+    # --- Identity fields for uid computation ---
+    _identity_fields: tuple[str, ...] = ("path",)
 
     # --- File metadata ---
     path = StringProperty(default="")

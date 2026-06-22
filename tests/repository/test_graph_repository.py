@@ -13,6 +13,14 @@ from codegraph.models.compound import ClassNode, InterfaceNode, EnumNode
 from codegraph.models.member import MethodNode, AttributeNode
 from codegraph.models.namespace import NamespaceNode
 from codegraph.repository import GraphRepository
+from codegraph.uid import compute_uid, normalize_argsstring
+
+
+def _uid(qname: str, argsstring: str | None = None) -> str:
+    """Compute the deterministic uid for a fixture node."""
+    if argsstring is not None:
+        return compute_uid(qname, normalize_argsstring(argsstring))
+    return compute_uid(qname)
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 FIXTURE = DATA_DIR / "design_graph.json"
@@ -39,7 +47,7 @@ def _nodes_of_type(graph: LayerGraph, type_name: str):
 
 
 def _find_entry(graph: LayerGraph, key: str) -> CompositeEntry | None:
-    """Find a CompositeEntry by node key across the entire tree."""
+    """Find a CompositeEntry by uid key across the entire tree."""
     for entry in graph._all_entries():
         if LayerGraph._node_key(entry.node) == key:
             return entry
@@ -207,25 +215,25 @@ class TestGetByNeighbourhood:
         under the class."""
         result = repo.get_by_neighbourhood("calc::CalculatorEngine::add")
         # The method should NOT be a root entry
-        method_entry = _find_entry(result, "calc::CalculatorEngine::add")
+        method_entry = _find_entry(result, _uid("calc::CalculatorEngine::add", "(double a, double b)"))
         assert method_entry is not None
         # The method should be nested under the parent class, not at root
-        assert "calc::CalculatorEngine::add" not in result.entries
+        assert _uid("calc::CalculatorEngine::add", "(double a, double b)") not in result.entries
         # The parent class should be in the graph
-        engine_entry = _find_entry(result, "calc::CalculatorEngine")
+        engine_entry = _find_entry(result, _uid("calc::CalculatorEngine"))
         assert engine_entry is not None
         # The method should appear under the class's "MethodNode" children
         assert "MethodNode" in engine_entry.children
-        assert "calc::CalculatorEngine::add" in engine_entry.children["MethodNode"]
+        assert _uid("calc::CalculatorEngine::add", "(double a, double b)") in engine_entry.children["MethodNode"]
 
     def test_class_seed_discovers_parent_namespace(self, repo, seeded_graph):
         """When a ClassNode is the seed, the parent NamespaceNode should be
         discovered via incoming COMPOSES."""
         result = repo.get_by_neighbourhood("calc::CalculatorEngine")
-        calc_entry = _find_entry(result, "calc")
+        calc_entry = _find_entry(result, _uid("calc"))
         assert calc_entry is not None
         assert "ClassNode" in calc_entry.children
-        assert "calc::CalculatorEngine" in calc_entry.children["ClassNode"]
+        assert _uid("calc::CalculatorEngine") in calc_entry.children["ClassNode"]
 
 
 # ── get_by_kind ──────────────────────────────────────────────────────────────

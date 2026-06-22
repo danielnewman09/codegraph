@@ -13,7 +13,8 @@ class NamespaceNode(StructuredNode, CodeGraphNode):
     """A namespace entity — namespace, package, or module.
 
     Attributes:
-        qualified_name: Unique identifier for the namespace.
+        qualified_name: Human-readable fully-qualified name (indexed).
+        uid: Deterministic SHA-1 hash — the cross-codebase-stable unique key.
         kind: Namespace kind (defaults to "namespace").
         tags: Provenance tags (e.g. ["design"], ["as-built"]).
             Multiple tags allowed.
@@ -21,7 +22,12 @@ class NamespaceNode(StructuredNode, CodeGraphNode):
         description: Human-readable description of the namespace.
     """
 
-    qualified_name = UniqueIdProperty()
+    qualified_name = StringProperty(
+        default="", index=True,
+        help_text="Human-readable fully-qualified name. Indexed for lookup; "
+                  "the unique key is `uid`.",
+    )
+    uid = UniqueIdProperty()
     kind = StringProperty(default="namespace")
     tags = ArrayProperty(StringProperty(), default=list,
         help_text="Provenance tags: 'design', 'as-built', 'dependency'.")
@@ -56,3 +62,6 @@ class NamespaceNode(StructuredNode, CodeGraphNode):
 
     # --- Serialization contract ---
     _llm_fields: set[str] = {"qualified_name", "name", "kind", "tags", "description"}
+
+    # --- Identity fields for uid computation ---
+    _identity_fields: tuple[str, ...] = ("qualified_name",)

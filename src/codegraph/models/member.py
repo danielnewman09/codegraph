@@ -12,6 +12,7 @@ from neomodel import (
     RelationshipTo, RelationshipFrom,
 )
 
+
 from codegraph.models.tags import CodeGraphNode
 
 
@@ -19,7 +20,10 @@ class MemberNode(StructuredNode, CodeGraphNode):
     """Common fields and serialization for all member node types.
 
     Attributes:
-        qualified_name: Unique identifier for the member.
+        qualified_name: Human-readable fully-qualified name (indexed, not
+            unique).  Used as an identity-field input to ``uid``.
+        uid: Deterministic SHA-1 hash — the cross-codebase-stable unique
+            key, computed automatically on save.
         kind: Node kind (e.g. "method", "attribute", "function").
         tags: Provenance tags (e.g. ["design"], ["design", "as-built"],
             ["dependency"]). Multiple tags allowed — a node can belong to
@@ -38,8 +42,18 @@ class MemberNode(StructuredNode, CodeGraphNode):
     """
 
     # --- Identity ---
-    qualified_name = UniqueIdProperty()
+    uid = UniqueIdProperty()
+    qualified_name = StringProperty(
+        default="", index=True,
+        help_text="Human-readable fully-qualified name. Indexed for lookup; "
+                  "the unique key is `uid`.",
+    )
     kind = StringProperty(required=True)
+
+    # --- Identity fields for uid computation ---
+    # Subclasses that have signatures (MethodNode, FunctionNode) override
+    # this to include `argsstring` so overloads get distinct uids.
+    _identity_fields: tuple[str, ...] = ("qualified_name",)
 
     # --- Tags & provenance ---
     tags = ArrayProperty(StringProperty(), default=list,
@@ -132,6 +146,9 @@ class MethodNode(MemberNode):
     is_virtual = BooleanProperty(default=False)
     is_inline = BooleanProperty(default=False)
     is_explicit = BooleanProperty(default=False)
+
+    # Include argsstring in uid so overloads get distinct identities
+    _identity_fields = ("qualified_name", "argsstring")
 
     _llm_fields = {
         "qualified_name", "name", "kind", "tags", "brief_description",
@@ -238,6 +255,9 @@ class FunctionNode(MemberNode):
     kind = StringProperty(default="function")
     type_signature = StringProperty(default="")
     argsstring = StringProperty(default="")
+
+    # Include argsstring in uid so overloads get distinct identities
+    _identity_fields = ("qualified_name", "argsstring")
 
     _llm_fields = {
         "qualified_name", "name", "kind", "tags", "brief_description",

@@ -26,6 +26,23 @@ def setup_neomodel():
     config = get_config()
     config.database_url = f"bolt://{user}:{password}@{host}"
 
+    # Drop ALL existing constraints and indexes so that a schema change
+    # (e.g. qualified_name going from UniqueIdProperty to StringProperty)
+    # doesn't collide with stale constraints from a previous session.
+    try:
+        results, _ = db.cypher_query(
+            "SHOW CONSTRAINTS YIELD name RETURN name"
+        )
+        for r in results:
+            db.cypher_query(f"DROP CONSTRAINT {r[0]} IF EXISTS")
+        results, _ = db.cypher_query(
+            'SHOW INDEXES YIELD name, type WHERE type <> "LOOKUP" RETURN name'
+        )
+        for r in results:
+            db.cypher_query(f"DROP INDEX {r[0]} IF EXISTS")
+    except Exception:
+        pass  # best-effort — ignore if Neo4j is empty/fresh
+
     # Install labels (creates constraints/indexes)
     db.install_all_labels()
 

@@ -76,6 +76,21 @@ def layer_graph_to_cytoscape(graph: LayerGraph) -> dict:
     edges: list[dict] = []
     seen: set[str] = set()
 
+    # Build a mapping from uid to display name (qualified_name/refid/name),
+    # so edge target keys (which are uids) can be resolved to human-readable
+    # names for the Cytoscape edge labels.
+    key_to_display: dict[str, str] = {}
+    for entry in graph._all_entries():
+        node = entry.node
+        display = (
+            getattr(node, "qualified_name", None)
+            or getattr(node, "refid", None)
+            or node.name
+        )
+        uid = node._uid_value()
+        if uid:
+            key_to_display[uid] = display
+
     # Determine the layer name from graph tags (single tag per export).
     layer = next(iter(graph.tags)) if graph.tags else "design"
 
@@ -83,7 +98,7 @@ def layer_graph_to_cytoscape(graph: LayerGraph) -> dict:
         if _is_excluded(entry.node):
             continue
         _walk_entry(entry, parent_id=None, nodes=nodes, edges=edges,
-                    seen=seen, layer=layer)
+                    seen=seen, layer=layer, key_to_display=key_to_display)
 
     return {"nodes": nodes, "edges": edges}
 
@@ -125,6 +140,7 @@ def _walk_entry(
     edges: list[dict],
     seen: set[str],
     layer: str,
+    key_to_display: dict[str, str] | None = None,
 ) -> None:
     """Recursively walk a CompositeEntry, emitting Cytoscape nodes and edges.
 
@@ -133,8 +149,7 @@ def _walk_entry(
     members ARE emitted as edges from the parent.
     """
     node = entry.node
-    uid = node._uid_value()
-    qname = uid if uid is not None else (getattr(node, "qualified_name", None) or getattr(node, "name", ""))
+    qname = getattr(node, "qualified_name", None) or getattr(node, "refid", None) or getattr(node, "name", "")
     if qname in seen:
         return
     seen.add(qname)
@@ -147,14 +162,16 @@ def _walk_entry(
     for rel_type, target_key, target_type in entry.references:
         if target_type == "ImplementationNode":
             continue
-        edges.append(_build_edge(qname, target_key, rel_type))
+        resolved = (key_to_display or {}).get(target_key, target_key)
+        edges.append(_build_edge(qname, resolved, rel_type))
 
     # Emit references from collapsed members — use a counter
     # for unique edge IDs since multiple members may share target.
     member_edge_idx = 0
     for _src, tgt, rel in _collect_skipped_member_refs(entry):
         member_edge_idx += 1
-        edges.append(_build_edge(qname, tgt, rel, suffix=f"_m{member_edge_idx}"))
+        resolved = (key_to_display or {}).get(tgt, tgt)
+        edges.append(_build_edge(qname, resolved, rel, suffix=f"_m{member_edge_idx}"))
 
     # Recurse into composed children that get their own nodes
     for _type_key, children in entry.children.items():
@@ -164,7 +181,8 @@ def _walk_entry(
                 continue
             child_parent = qname if _is_namespace(node) else parent_id
             _walk_entry(child_entry, parent_id=child_parent,
-                       nodes=nodes, edges=edges, seen=seen, layer=layer)
+                       nodes=nodes, edges=edges, seen=seen, layer=layer,
+                       key_to_display=key_to_display)
 
 
 # ---------------------------------------------------------------------------
@@ -175,9 +193,9 @@ def _walk_entry(
 def _build_node(entry: CompositeEntry, parent_id: str | None, layer: str) -> dict:
     """Build a Cytoscape node data dict from a CompositeEntry."""
     node = entry.node
-    # Use the same UID as LayerGraph._node_key for consistent edge target resolution.
-    uid = node._uid_value()
-    qname = uid if uid is not None else (getattr(node, "qualified_name", "") or getattr(node, "name", ""))
+    # Use qualified_name (or refid/name) as the Cytoscape id —
+    # human-readable and consistent with edge source/target.
+    qname = getattr(node, "qualified_name", "") or getattr(node, "refid", "") or getattr(node, "name", "")
     name = getattr(node, "name", "")
     kind = getattr(node, "kind", "")
 
