@@ -5,7 +5,7 @@ builders, Cytoscape stylesheet generation, and the ``export_html()``
 public API for writing self-contained HTML graph visualisations.
 """
 
-from codegraph.viz.api import export_html, main
+from codegraph.viz.api import export_html, export_html_from_json, main
 
 __all__ = [
     "layer_graph_to_cytoscape",
@@ -13,6 +13,7 @@ __all__ = [
     "EDGE_COLORS",
     "cy_stylesheet",
     "export_html",
+    "export_html_from_json",
     "main",
 ]
 

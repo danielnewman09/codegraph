@@ -515,10 +515,13 @@ class LayerGraph:
         if identity_fields:
             scaffold_data[identity_fields[0]] = target_uid
 
-        # Set name from last :: segment
-        scaffold_data["name"] = (
-            target_uid.rsplit("::", 1)[-1] if "::" in target_uid else target_uid
-        )
+        # Set name from last :: or . segment
+        if "::" in target_uid:
+            scaffold_data["name"] = target_uid.rsplit("::", 1)[-1]
+        elif "." in target_uid and not target_uid.startswith("literal::"):
+            scaffold_data["name"] = target_uid.rsplit(".", 1)[-1]
+        else:
+            scaffold_data["name"] = target_uid
 
         # Set kind defaults for compound/member types
         kind_defaults = {
@@ -559,14 +562,22 @@ class LayerGraph:
             uid_to_key[uid] = scaffold_key
         identity_to_key[target_uid] = scaffold_key
 
-        # For member types with a "::"-separated qualified_name, also
+        # For member types with a "::" or "."-separated qualified_name, also
         # create a parent ClassNode scaffold (if not already present)
         # and nest the member under it via COMPOSES.  This follows the
         # codegraph convention that members belong to compounds.
-        if "::" in target_uid and target_type in (
+        # Handles both "::" (C++ convention) and "." (notional convention)
+        # separators — the decompose LLM sometimes uses "." even though
+        # the prompt asks for "::".
+        if target_type in (
             "AttributeNode", "MemberNode", "MethodNode", "FunctionNode",
         ):
-            parent_name = target_uid.rsplit("::", 1)[0]
+            if "::" in target_uid:
+                parent_name = target_uid.rsplit("::", 1)[0]
+            elif "." in target_uid and not target_uid.startswith("literal::"):
+                parent_name = target_uid.rsplit(".", 1)[0]
+            else:
+                parent_name = None
             if parent_name:
                 # Find or create the parent ClassNode
                 parent_key = identity_to_key.get(parent_name)

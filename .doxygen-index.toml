@@ -1,0 +1,7 @@
+[project]
+name = "codegraph"
+language = "python"
+input_paths = ["src"]
+
+[codegraph-html]
+output_dir = "codegraph"

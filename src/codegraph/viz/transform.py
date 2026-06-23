@@ -20,6 +20,7 @@ from codegraph.viz.labels import (
     _CODEGRAPH_KIND_GROUP,
     _CODEGRAPH_STEREOTYPE_MAP,
     _ENTITY_KINDS,
+    build_function_label,
     build_uml_html,
 )
 
@@ -31,8 +32,16 @@ _NAMESPACE_KINDS: frozenset[str] = frozenset(k for k, _ in CG_NAMESPACE_KINDS_TU
 _COMPOUND_KINDS: frozenset[str] = frozenset(k for k, _ in CG_COMPOUND_KINDS_TUPLES)
 
 # Node types to exclude from the visualisation entirely.
+# FileNode is excluded: file→object relationships are surfaced in the
+# detail panel ("Defined in") rather than as FileNode + INCLUDES edges,
+# which duplicated composition/ownership and added clutter without
+# structural value.
+# ParameterNode is excluded: parameter info is shown in the function's
+# UML label (name: type per line) and in class UML member lines.
 _EXCLUDED_NODE_TYPES: frozenset[str] = frozenset({
     "ImplementationNode",
+    "FileNode",
+    "ParameterNode",
 })
 
 
@@ -108,18 +117,40 @@ def layer_graph_to_cytoscape(graph: LayerGraph) -> dict:
 # ---------------------------------------------------------------------------
 
 
+def _child_gets_own_node(parent_is_namespace: bool, child_entry: CompositeEntry) -> bool:
+    """Return True if *child_entry* is emitted as its own Cytoscape node.
+
+    Leaf members (methods, attributes, free functions, ...) are normally
+    collapsed into their parent compound's UML label and never walked.
+    Namespaces, however, render no UML label, so their composed children
+    (including free functions) must be emitted as nodes; otherwise they
+    vanish from the graph and any edge pointing at them dangles, which
+    makes Cytoscape abort the whole canvas.
+    """
+    child_kind = getattr(child_entry.node, "kind", "")
+    return (
+        parent_is_namespace
+        or child_kind in _ENTITY_KINDS
+        or child_kind in _NAMESPACE_KINDS
+        or _is_compound(child_entry.node)
+    )
+
+
 def _collect_skipped_member_refs(entry: CompositeEntry) -> list[tuple[str, str, str]]:
     """Collect references from leaf members that are collapsed into UML label.
 
     These members won't be walked by _walk_entry, so their references
     need to be collected here and re-attached to the parent compound.
+    Must stay consistent with :func:`_child_gets_own_node` so a member is
+    either walked (emitting its own references) or collapsed (refs collected
+    here) — never both, never neither.
     """
+    parent_is_namespace = _is_namespace(entry.node)
     refs: list[tuple[str, str, str]] = []
     for _type_key, children in entry.children.items():
         for _child_key, child_entry in children.items():
-            child_kind = getattr(child_entry.node, "kind", "")
             # If this child will be walked as a separate node, skip it
-            if child_kind in _ENTITY_KINDS or child_kind in _NAMESPACE_KINDS or _is_compound(child_entry.node):
+            if _child_gets_own_node(parent_is_namespace, child_entry):
                 continue
             # Collect references from collapsed member
             for rel_type, tgt_key, tgt_type in child_entry.references:
@@ -173,13 +204,17 @@ def _walk_entry(
         resolved = (key_to_display or {}).get(tgt, tgt)
         edges.append(_build_edge(qname, resolved, rel, suffix=f"_m{member_edge_idx}"))
 
-    # Recurse into composed children that get their own nodes
+    # Recurse into composed children that get their own nodes.
+    # Namespace children are all emitted as nodes (namespaces render no
+    # UML label to collapse members into); compound children only emit
+    # entity/namespace/compound kinds (leaf members collapse into the
+    # parent compound's UML label).
+    is_namespace = _is_namespace(node)
     for _type_key, children in entry.children.items():
         for _child_key, child_entry in children.items():
-            child_kind = getattr(child_entry.node, "kind", "")
-            if child_kind not in _ENTITY_KINDS and child_kind not in _NAMESPACE_KINDS and not _is_compound(child_entry.node):
+            if not _child_gets_own_node(is_namespace, child_entry):
                 continue
-            child_parent = qname if _is_namespace(node) else parent_id
+            child_parent = qname if is_namespace else parent_id
             _walk_entry(child_entry, parent_id=child_parent,
                        nodes=nodes, edges=edges, seen=seen, layer=layer,
                        key_to_display=key_to_display)
@@ -207,6 +242,12 @@ def _build_node(entry: CompositeEntry, parent_id: str | None, layer: str) -> dic
         "layer": layer,
     }
 
+    # Source file (for the detail-panel "Defined in" section).  Empty for
+    # nodes that aren't tied to a single file (e.g. namespaces).
+    file_path = getattr(node, "file_path", "") or ""
+    if file_path:
+        data["file_path"] = file_path
+
     if parent_id:
         data["parent"] = parent_id
 
@@ -214,6 +255,15 @@ def _build_node(entry: CompositeEntry, parent_id: str | None, layer: str) -> dic
     if _is_namespace(node):
         data["is_namespace"] = "true"
         return {"data": data}
+
+    # Free functions — render a UML-style box showing parameters as line
+    # items, mirroring the class-member layout but for a single callable.
+    if kind == "function":
+        argsstring = getattr(node, "argsstring", "") or ""
+        type_sig = getattr(node, "type_signature", "") or ""
+        if argsstring:
+            data["html_label"] = build_function_label(name, argsstring, type_sig)
+            data["has_members"] = "true"
 
     # Compound nodes with children → UML label
     if entry.children:

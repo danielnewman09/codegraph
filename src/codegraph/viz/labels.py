@@ -308,16 +308,179 @@ def build_uml_html(
             lines.append(f'<div>{_format_member_html(m, m.get("_suffix", ""))}</div>')
 
     kind_border = KIND_BORDER_COLORS.get(owner_kind, "transparent")
+    # Max-width roughly 80 monospace chars at 9px font (≈ 440px), matching
+    # PEP 8's line-length convention.  white-space:normal + word-wrap let
+    # long member signatures break so the label grows taller rather than
+    # wider — preventing the Cytoscape canvas from being pushed out by a
+    # single oversized node.
     wrapper = (
         '<div style="'
         "font-family:JetBrains Mono,monospace;"
         "font-size:9px;"
         "line-height:1.3;"
         "padding:2px;"
-        "white-space:nowrap;"
+        "white-space:normal;"
+        "max-width:440px;"
+        "word-wrap:break-word;"
         "border-radius:5px;"
         f"outline:3px solid {kind_border};"
         'outline-offset:-2px;'
         '">'
     )
     return wrapper + "\n".join(lines) + "</div>"
+
+
+# ---------------------------------------------------------------------------
+# Function label builder
+# ---------------------------------------------------------------------------
+
+# Border colour for free-function nodes.
+_FUNCTION_BORDER_COLOR = "#48c9b0"
+
+
+def build_function_label(
+    func_name: str,
+    argsstring: str,
+    type_signature: str,
+) -> str:
+    """Build an HTML label for a free function, showing parameters as line items.
+
+    Like :func:`build_uml_html`, this produces a rich label for the
+    ``cytoscape-node-html-label`` extension.  Parameters are laid out
+    one per line with their type annotations; the return type is shown
+    after a separator.
+
+    Args:
+        func_name: The function's short name (e.g. ``"apply_operator"``).
+        argsstring: The Python-style argument string, typically from the
+            parser's ``_extract_args`` (e.g. ``"(op: Operator, left: float)"``).
+        type_signature: The return-type string (e.g. ``"float"``,
+            ``"None"``) — empty for void.
+
+    Returns:
+        An HTML string for the function's Cytoscape node label.
+    """
+    import html as html_mod
+
+    mc = _MEMBER_COLORS
+    lines: list[str] = []
+
+    # Stereotype
+    lines.append(
+        f'<div style="color:{mc["stereotype"]};font-size:9px;text-align:center">'
+        '\u00ABfunction\u00BB</div>'
+    )
+
+    # Function name header
+    lines.append(
+        f'<div style="color:{mc["classname"]};font-weight:bold;text-align:center">'
+        f'{html_mod.escape(func_name)}</div>'
+    )
+
+    # Parse parameters from argsstring: ("p1: T1, p2: T2 = D2", ...)
+    inner = argsstring.strip()
+    if inner.startswith("(") and inner.endswith(")"):
+        inner = inner[1:-1].strip()
+    params: list[dict] = []
+    if inner:
+        for part in _split_param_list(inner):
+            p_dict = _parse_param_part(part)
+            if p_dict:
+                params.append(p_dict)
+
+    sep = (
+        f'<hr style="border:none;border-top:1px solid {mc["separator"]};margin:2px 0">'
+    )
+
+    if params:
+        lines.append(sep)
+        for p in params:
+            # Parameter name in method-colour, type in type-colour.
+            name_html = f'<span style="color:{mc["method_name"]}">{html_mod.escape(p["name"])}</span>'
+            if p.get("type"):
+                type_html = f'<span style="color:{mc["type_sig"]}">{html_mod.escape(p["type"])}</span>'
+                line = f"  {name_html}: {type_html}"
+            else:
+                line = f"  {name_html}"
+            if p.get("default"):
+                line += f' = <span style="color:{mc["args"]}">{html_mod.escape(p["default"])}</span>'
+            lines.append(f'<div>{line}</div>')
+
+    # Return type
+    ret = type_signature.strip() if type_signature else ""
+    if ret and ret.lower() not in ("none", "void"):
+        lines.append(sep)
+        ret_html = (
+            f'<span style="color:{mc["type_sig"]}">\u2192 {html_mod.escape(ret)}</span>'
+        )
+        lines.append(f'<div style="text-align:right">{ret_html}</div>')
+
+    # Max-width roughly 80 monospace chars at 9px font (≈ 440px),
+    # matching PEP 8's line-length convention.  white-space:normal +
+    # word-wrap let long parameter lines break, growing the label
+    # taller rather than wider.
+    wrapper = (
+        '<div style="'
+        "font-family:JetBrains Mono,monospace;"
+        "font-size:9px;"
+        "line-height:1.3;"
+        "padding:2px;"
+        "white-space:normal;"
+        "max-width:440px;"
+        "word-wrap:break-word;"
+        "border-radius:5px;"
+        f"outline:3px solid {_FUNCTION_BORDER_COLOR};"
+        'outline-offset:-2px;'
+        '">'
+    )
+    return wrapper + "\n".join(lines) + "</div>"
+
+
+def _split_param_list(inner: str) -> list[str]:
+    """Split a Python parameter string on commas, ignoring commas inside
+    brackets (for generic types like ``List[int]``)."""
+    parts: list[str] = []
+    depth = 0
+    current: list[str] = []
+    for ch in inner:
+        if ch == "," and depth == 0:
+            parts.append("".join(current).strip())
+            current = []
+        else:
+            if ch in ("<", "[", "{", "("):
+                depth += 1
+            elif ch in (">", "]", "}", ")"):
+                depth -= 1
+            current.append(ch)
+    rest = "".join(current).strip()
+    if rest:
+        parts.append(rest)
+    return parts
+
+
+def _parse_param_part(part: str) -> dict | None:
+    """Parse a single parameter string like ``"op: Operator"`` or
+    ``"level: VerificationLevel = VerificationLevel.STRICT"``."""
+    part = part.strip()
+    if not part:
+        return None
+
+    default = ""
+    if "=" in part:
+        # Split on first = only.
+        eq_idx = part.index("=")
+        default = part[eq_idx + 1:].strip()
+        part = part[:eq_idx].strip()
+
+    name = part
+    ptype = ""
+    if ":" in part:
+        # Split on first : only (type hints like ``Callable[[int], str]``
+        # may contain : inside brackets).
+        colon_idx = part.index(":")
+        name = part[:colon_idx].strip()
+        ptype = part[colon_idx + 1:].strip()
+
+    if not name:
+        return None
+    return {"name": name, "type": ptype, "default": default}

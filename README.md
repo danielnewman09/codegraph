@@ -64,13 +64,24 @@ node.has_tag("design")     # False
 Every node inherits from `CodeGraphNode`, which provides `serialize()`,
 `deserialize()`, and relationship introspection.
 
-| Category | Node types | UID property |
+Each node has a deterministic `uid` (SHA-1 hash of identity fields)
+that is stable across codebases — the same logical symbol produces the
+same `uid` regardless of where it was loaded from.  Human-readable
+fields (`qualified_name`, `refid`) are indexed but not unique.
+
+| Category | Node types | Identity fields |
 |---|---|---|
 | Compound | `ClassNode`, `InterfaceNode`, `EnumNode`, `UnionNode`, `ModuleNode` | `qualified_name` |
-| Member | `MethodNode`, `AttributeNode`, `EnumValueNode`, `FunctionNode`, `DefineNode` | `qualified_name` |
+| Member | `MethodNode`, `FunctionNode` | `qualified_name` + `argsstring` (normalised types) |
+| Member | `AttributeNode`, `EnumValueNode`, `DefineNode` | `qualified_name` |
 | Namespace | `NamespaceNode` | `qualified_name` |
-| File | `FileNode` | `refid` |
-| Parameter | `ParameterNode` | `name` |
+| File | `FileNode` | `path` |
+| Parameter | `ParameterNode` | `member_refid` + `position` |
+
+Method and function nodes include the normalised `argsstring` in their
+uid computation, so overloads with the same name but different parameter
+types get distinct uids.  Parameter names and default values are stripped;
+only the types are retained.
 
 ## LayerGraph
 
@@ -203,11 +214,7 @@ serialized node with a `type` discriminator:
 Each edge has:
 - `relation_type` — Neo4j relationship label (e.g. `COMPOSES`, `INHERITS_FROM`, `DEFINED_IN`)
 - `target_type` — the node class of the target
-- `target_local_id` — the lookup key for the target node (`name` for most
-  nodes, `path` for `FileNode`)
-
-When deserializing output from `serialize()`, edges use `target_uid` (the
-Neo4j unique ID) instead of `target_local_id`. Both formats are accepted.
+- `target_local_id` — the target node's `uid` (deterministic hash of identity fields)
 
 ## PlantUML Export / Import
 
@@ -276,6 +283,99 @@ java -jar tools/plantuml.jar -tpng diagram.puml
 
 Or programmatically via the test suite, which compiles exported
 PlantUML to PNG files in `unit_test_data/`.
+
+## HTML Visualization
+
+`codegraph-html` is a command-line tool that reads a code-graph JSON
+file and produces a self-contained interactive HTML visualisation using
+[Cytoscape.js](https://js.cytoscape.org/).  No Neo4j connection required —
+it loads directly from JSON.
+
+### Configuration
+
+The tool reads a config file from the project directory, in priority
+order:
+
+1. **`.codegraph.toml`** (standalone codegraph config):
+
+   ```toml
+   [project]
+   name = "design"
+   output_dir = "build/docs"
+   ```
+
+2. **`.doxygen-index.toml`** (the config used by
+   [Doxygen-Dependency-Parser](https://github.com/danielnewman09/Doxygen-Dependency-Parser)'s
+   `doxygen-index` tool). When `.codegraph.toml` is absent, the HTML
+   output directory is taken from the optional `[codegraph-html]`
+   section (defaulting to `"codegraph"`), and the project name from
+   `[project].name`:
+
+   ```toml
+   [project]
+   name = "codegraph"
+   language = "python"
+   input_paths = ["src"]
+
+   [codegraph-html]
+   output_dir = "codegraph"
+   ```
+
+This lets a project keep a single `.doxygen-index.toml` for both the
+parser and the HTML renderer.
+
+- **`name`** — the project / graph name, used for the input JSON filename
+  (`{output_dir}/{name}.json`) and the default output HTML filename
+  (`{output_dir}/{name}.html`).
+- **`output_dir`** — directory containing the code-graph JSON file.
+
+### Usage
+
+```bash
+# Auto-detect .codegraph.toml or .doxygen-index.toml in the current dir
+codegraph-html
+
+# Use a config file in another directory
+codegraph-html --project-dir ../my-project
+
+# Override the output path
+codegraph-html --output custom.html
+
+# Use compact layout
+codegraph-html --size small
+```
+
+### Example workflow
+
+```bash
+# 1. Generate a code-graph JSON (e.g. via LayerGraph.serialize())
+python -c '
+import json
+from codegraph import LayerGraph
+graph = LayerGraph.from_neo4j("design")
+with open("build/docs/design.json", "w") as f:
+    json.dump(graph.serialize(), f, indent=2)
+'
+
+# 2. Render as HTML
+codegraph-html
+# → writes build/docs/design.html
+```
+
+### Python API
+
+You can also call the export functions directly:
+
+```python
+from codegraph.viz import export_html_from_json
+
+# Load from JSON file → HTML (no Neo4j needed)
+export_html_from_json("path/to/graph.json", "output.html")
+
+# Or fetch from Neo4j by tag → HTML
+from codegraph.viz import export_html
+export_html("design", "design.html")
+```
 
 ## CodeGraphNode API
 

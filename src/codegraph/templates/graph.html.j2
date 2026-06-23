@@ -43,58 +43,630 @@
       text-transform: uppercase;
       font-weight: 600;
     }
+    header .stats {
+      margin-left: auto;
+      font-size: 11px;
+      color: #718096;
+    }
     #cy {
       flex: 1;
       width: 100%;
       min-height: 0;
     }
     .uml-box-label { border-radius: 4px; }
+
+    /* ---- Control panel ---- */
+    #panel {
+      position: absolute;
+      top: 56px;
+      left: 12px;
+      width: 238px;
+      max-height: calc(100vh - 80px);
+      overflow-y: auto;
+      background: rgba(22, 33, 62, 0.96);
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 10px;
+      z-index: 10;
+      font-size: 11px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+      backdrop-filter: blur(4px);
+    }
+    #panel.collapsed { width: 36px; height: 36px; overflow: hidden; padding: 0; }
+    #panel .panel-toggle {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      cursor: pointer;
+      color: #94a3b8;
+      font-size: 14px;
+      line-height: 1;
+      user-select: none;
+    }
+    #panel.collapsed .panel-toggle { top: 8px; left: 10px; right: auto; font-size: 16px; }
+    #panel h2 {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #64748b;
+      margin: 10px 0 6px;
+      border-bottom: 1px solid #243049;
+      padding-bottom: 4px;
+    }
+    #panel h2:first-of-type { margin-top: 0; }
+    #panel .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-bottom: 4px;
+    }
+    #panel button {
+      flex: 1 1 auto;
+      min-width: 60px;
+      padding: 5px 6px;
+      font-family: inherit;
+      font-size: 10px;
+      color: #cbd5e1;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background .12s, border-color .12s;
+    }
+    #panel button:hover { background: #283449; border-color: #475569; }
+    #panel button.active {
+      background: #3b82f6;
+      border-color: #3b82f6;
+      color: #fff;
+      font-weight: 700;
+    }
+    #panel button.danger.active { background: #e74c3c; border-color: #e74c3c; }
+    #panel input[type=text], #panel select {
+      width: 100%;
+      padding: 5px 6px;
+      font-family: inherit;
+      font-size: 11px;
+      color: #e2e8f0;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 4px;
+    }
+    #panel input[type=text]:focus, #panel select:focus { outline: none; border-color: #3b82f6; }
+    #panel select { cursor: pointer; }
+    #panel label.chk {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 0;
+      cursor: pointer;
+      color: #cbd5e1;
+    }
+    #panel .hint {
+      font-size: 9px;
+      color: #64748b;
+      line-height: 1.4;
+      margin-top: 4px;
+    }
+
+    /* ---- Info panel (right) ---- */
+    #info {
+      position: absolute;
+      top: 56px;
+      right: 12px;
+      width: 300px;
+      max-height: calc(100vh - 80px);
+      overflow-y: auto;
+      background: rgba(22, 33, 62, 0.96);
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 12px;
+      z-index: 10;
+      font-size: 11px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+      display: none;
+    }
+    #info .info-close {
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      cursor: pointer;
+      color: #94a3b8;
+      font-size: 14px;
+    }
+    #info .info-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #f1c40f;
+      word-break: break-word;
+      margin-bottom: 2px;
+      padding-right: 16px;
+    }
+    #info .info-qname {
+      font-size: 10px;
+      color: #94a3b8;
+      word-break: break-word;
+      margin-bottom: 8px;
+    }
+    #info .info-meta {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    #info .pill {
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      background: #243049;
+      color: #cbd5e1;
+      text-transform: capitalize;
+    }
+    #info h3 {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #64748b;
+      margin: 10px 0 4px;
+      border-bottom: 1px solid #243049;
+      padding-bottom: 3px;
+    }
+    #info .rel {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 3px 4px;
+      border-radius: 4px;
+      cursor: pointer;
+      color: #cbd5e1;
+    }
+    #info .rel:hover { background: #1e293b; }
+    #info .rel .rel-label { color: #f0b27a; font-size: 9px; }
+    #info .rel .rel-node { color: #5dade2; word-break: break-word; text-align: right; }
+    #info .empty { color: #64748b; font-style: italic; }
   </style>
 </head>
 <body>
   <header>
     <h1>Codegraph</h1>
     <span class="tag-badge">{{ tag }}</span>
+    <span class="stats" id="stats"></span>
   </header>
   <div id="cy"></div>
+
+  <div id="panel">
+    <span class="panel-toggle" id="panelToggle" title="Collapse/expand">▾</span>
+
+    <h2>Namespace</h2>
+    <select id="nsSelect">
+      <option value="all">— All (namespaces hidden) —</option>
+      <option value="everything">— Show everything —</option>
+    </select>
+    <div class="hint">Default hides namespace containers. Pick a namespace to isolate it and its 1-hop neighborhood.</div>
+
+    <h2>Layout</h2>
+    <div class="btn-row">
+      <button data-layout="fcose">fCoSE</button>
+      <button data-layout="force" class="danger">Force (live)</button>
+    </div>
+    <div class="btn-row">
+      <button data-layout="circle">Circle</button>
+      <button data-layout="grid">Grid</button>
+    </div>
+    <div class="btn-row">
+      <button data-layout="concentric">Concentric</button>
+      <button data-layout="breadthfirst">Tree</button>
+    </div>
+    <div class="hint" id="layoutHint">fCoSE: balanced one-shot. Force (live): grab nodes and the graph reflows — best for teasing apart relationships.</div>
+
+    <h2>View</h2>
+    <div class="btn-row">
+      <button id="btnFit">Fit</button>
+      <button id="btnLabels">Hide labels</button>
+      <button id="btnClear">Clear focus</button>
+    </div>
+    <label class="chk"><input type="checkbox" id="chkHighlight" checked> Highlight neighborhood on click</label>
+
+    <h2>Find</h2>
+    <input type="text" id="search" placeholder="Filter by name…">
+    <div class="hint" id="searchHint">Highlights matching nodes and their direct neighbors; dims the rest. Enter to focus-fit.</div>
+  </div>
+
+  <div id="info">
+    <span class="info-close" id="infoClose">✕</span>
+    <div class="info-title" id="infoTitle"></div>
+    <div class="info-qname" id="infoQname"></div>
+    <div class="info-meta" id="infoMeta"></div>
+    <h3>Incoming</h3>
+    <div id="infoIn"></div>
+    <h3>Outgoing</h3>
+    <div id="infoOut"></div>
+  </div>
+
   <script>
     const elements = {{ elements_json }};
     const styles = {{ styles_json }};
+
+    // Extra interaction styles appended to the stylesheet for highlight/fade/filter.
+    const extraStyles = [
+      { selector: 'node.faded',  style: { 'opacity': 0.12 } },
+      { selector: 'edge.faded',  style: { 'opacity': 0.05, 'line-color': '#2a2a3e', 'target-arrow-color': '#2a2a3e' } },
+      { selector: 'node.highlighted', style: { 'border-color': '#f1c40f', 'border-width': 4, 'overlay-color': '#f1c40f', 'overlay-opacity': 0.22 } },
+      { selector: 'edge.highlighted', style: { 'width': 3, 'line-color': '#f1c40f', 'target-arrow-color': '#f1c40f', 'font-size': '10px', 'color': '#f1c40f', 'text-outline-color': '#1a1a2e' } },
+      { selector: 'node.matched', style: { 'border-color': '#2ecc71', 'border-width': 4, 'overlay-color': '#2ecc71', 'overlay-opacity': 0.25 } },
+      { selector: 'edge.no-label', style: { 'label': '' } },
+      // A namespace node that has been detached from its children (so
+      // it's no longer a container) — render as a compact labeled pill.
+      { selector: 'node.detached', style: {
+          'width': 70, 'height': 26, 'shape': 'roundrectangle',
+          'text-valign': 'center', 'text-halign': 'center',
+          'padding': '0', 'font-size': '10px', 'font-weight': 'bold'
+        } }
+    ];
 
     document.addEventListener('DOMContentLoaded', function() {
       const cy = cytoscape({
         container: document.getElementById('cy'),
         elements: elements,
-        style: styles,
-        layout: {
-          name: 'fcose',
-          animate: true,
-          animationDuration: 500,
-          nodeDimensionsIncludeLabels: true,
-        },
+        style: styles.concat(extraStyles),
+        // Cheap instant layout; the real layout runs on the visible
+        // subset in cy.ready once namespaces are hidden.
+        layout: { name: 'grid', animate: false, spacingFactor: 1.1 },
       });
 
-      cy.ready(function() {
-        cy.fit();
+      let currentLayout = null;
+      let activeLayoutName = 'fcose';
+      let hideLabels = false;
+      let highlightEnabled = true;
+      let activeNode = null;       // node chosen by click-highlight
+      let searchQuery = null;      // active search filter
 
-        // HTML labels for member-bearing UML boxes
+      document.getElementById('stats').textContent =
+        cy.nodes().length + ' nodes · ' + cy.edges().length + ' edges';
+
+      // ============================================================
+      // Visibility / namespace views
+      // ============================================================
+      //
+      // Cytoscape compound parents cascade both .hide() and .remove()
+      // to their descendants, so we can't manipulate a namespace
+      // container while its children are attached. The fix: detach all
+      // compound parenting (clear `parent` data) before hiding, which
+      // turns namespaces into plain nodes that hide/show safely. We
+      // re-attach (restore `parent`) only for the "show everything"
+      // view so the container boxes come back.
+
+      // Remember the original parent of every node so we can re-attach.
+      const originalParent = {};
+      cy.nodes().forEach(function(n){ const p = n.data('parent'); if (p) originalParent[n.id()] = p; });
+
+      function detachAll() {
+        cy.nodes().forEach(function(n){ if (n.data('parent')) n.move({parent: null}); });
+        cy.nodes('[is_namespace="true"]').addClass('detached');
+      }
+      function attachAll() {
+        cy.nodes('[is_namespace="true"]').removeClass('detached');
+        cy.nodes().forEach(function(n){ const p = originalParent[n.id()]; if (p) n.move({parent: p}); });
+      }
+
+      // The cytoscape-node-html-label plugin doesn't hide labels for
+      // .hide()-hidden nodes (it has no hide/show handler and never
+      // sets `display`). Mirror node visibility onto the UML label divs
+      // ourselves so hidden nodes don't leave stray labels on screen.
+      // Div i corresponds to cy.nodes('[has_members="true"]')[i].
+      function syncLabelVisibility() {
+        const divs = document.querySelectorAll('.uml-box-label');
+        if (!divs.length) return;
+        const hm = cy.nodes('[has_members="true"]');
+        hm.forEach(function(n, i){
+          const d = divs[i];
+          if (d) d.style.display = n.hidden() ? 'none' : '';
+        });
+      }
+
+      function applyView(v) {
+        // Reset: re-attach containers and show everything.
+        attachAll();
+        cy.elements().show();
+        if (v === 'everything') return;          // containers + all visible
+        if (v === 'all') {
+          // Namespaces hidden: detach all compound parenting first so
+          // hiding namespace nodes can't cascade to their children.
+          detachAll();
+          const nsNodes = cy.nodes('[is_namespace="true"]');
+          nsNodes.hide();
+          cy.edges().filter(function(e){
+            return e.source().data('is_namespace') || e.target().data('is_namespace');
+          }).hide();
+          return;
+        }
+        // Focus namespace v: show its full compositional subtree
+        // (N + all compound descendants, nesting preserved) plus the
+        // 1-hop external neighbours of that subtree (for coupling).
+        const nsNode = cy.getElementById(v);
+        if (!nsNode || nsNode.empty()) return;
+        const subtree = nsNode.union(nsNode.descendants());
+        // Detach N from its ancestor so the ancestor (and everything
+        // outside the subtree) can be hidden without cascading into N.
+        if (nsNode.data('parent')) nsNode.move({ parent: null });
+        // External 1-hop neighbours of the subtree (non-namespace),
+        // detached from their own (hidden) parents so they can be shown.
+        const external = subtree.connectedEdges()
+          .connectedNodes().not(subtree).not('[is_namespace="true"]');
+        external.forEach(function(n){ if (n.data('parent')) n.move({ parent: null }); });
+        const visibleNodes = subtree.union(external);
+        cy.elements().hide();
+        visibleNodes.show();
+        // Edges with at least one endpoint in the subtree and both
+        // endpoints visible (internal subtree edges + cross edges to
+        // external neighbours); excludes external↔external edges.
+        cy.edges().filter(function(e){
+          return (subtree.contains(e.source()) || subtree.contains(e.target()))
+              && visibleNodes.contains(e.source()) && visibleNodes.contains(e.target());
+        }).show();
+      }
+
+      // ---- Namespace dropdown ----
+      const nsSelect = document.getElementById('nsSelect');
+      const nsNodes = cy.nodes('[is_namespace="true"]').sort(function(a, b){
+        const qa = a.data('qualified_name') || a.id();
+        const qb = b.data('qualified_name') || b.id();
+        return qa < qb ? -1 : (qa > qb ? 1 : 0);
+      });
+      nsNodes.forEach(function(n){
+        const opt = document.createElement('option');
+        opt.value = n.id();
+        opt.textContent = n.data('qualified_name') || n.id();
+        nsSelect.appendChild(opt);
+      });
+
+      nsSelect.addEventListener('change', function() {
+        applyView(nsSelect.value);
+        syncLabelVisibility();
+        clearFocus();
+        runLayout(activeLayoutName);
+      });
+
+      // Apply the default (namespaces hidden) immediately, before the
+      // real layout runs.
+      applyView('all');
+
+      // ============================================================
+      // Layouts
+      // ============================================================
+
+      const layouts = {
+        fcose: function() {
+          return { name: 'fcose', animate: true, animationDuration: 600,
+                   nodeDimensionsIncludeLabels: true, randomize: false };
+        },
+        force: function() {
+          // Continuous ("forced") physics: drag a node and neighbours reflow.
+          return {
+            name: 'cose', animate: true, animationDuration: 0,
+            infinite: true, randomize: false, fit: false,
+            ungrabifyWhileSimulating: false,
+            nodeRepulsion: function() { return 9000; },
+            idealEdgeLength: function() { return 90; },
+            edgeElasticity: function() { return 0.45; },
+            gravity: 0.25, numIter: 1, padding: 30
+          };
+        },
+        circle: function() {
+          return { name: 'circle', animate: true, padding: 30,
+                   radius: function(n){ return Math.max(120, n * 8); } };
+        },
+        grid: function() {
+          return { name: 'grid', animate: true, padding: 30, avoidOverlap: true };
+        },
+        concentric: function() {
+          return { name: 'concentric', animate: true, padding: 30,
+                   concentric: function(n){ return n.degree(false); },
+                   levelWidth: function(){ return 2; } };
+        },
+        breadthfirst: function() {
+          return { name: 'breadthfirst', animate: true, padding: 30,
+                   directed: true, maximal: true, circle: false, spacingFactor: 1.1 };
+        }
+      };
+
+      function stopLayout() {
+        if (currentLayout) { try { currentLayout.stop(); } catch(e){} currentLayout = null; }
+      }
+
+      // Layouts run on the currently visible subgraph only, so hidden
+      // namespaces don't leave gaps or distort the force computation.
+      function runLayout(name) {
+        stopLayout();
+        const opts = layouts[name] ? layouts[name]() : { name: name };
+        currentLayout = cy.elements(':visible').layout(opts);
+        currentLayout.run();
+        if (name !== 'force') {
+          currentLayout.one('layoutstop', function(){
+            syncLabelVisibility();
+            cy.animate({ fit: { eles: cy.elements(':visible'), padding: 30 } }, { duration: 300 });
+          });
+        }
+      }
+
+      const layoutBtns = document.querySelectorAll('#panel button[data-layout]');
+      layoutBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          layoutBtns.forEach(function(b){ b.classList.remove('active'); });
+          btn.classList.add('active');
+          activeLayoutName = btn.dataset.layout;
+          runLayout(activeLayoutName);
+        });
+      });
+      document.querySelector('#panel button[data-layout="fcose"]').classList.add('active');
+
+      // ============================================================
+      // View buttons
+      // ============================================================
+
+      document.getElementById('btnFit').addEventListener('click', function() {
+        cy.animate({ fit: { eles: cy.elements(':visible'), padding: 30 } }, { duration: 300 });
+      });
+
+      const btnLabels = document.getElementById('btnLabels');
+      btnLabels.addEventListener('click', function() {
+        hideLabels = !hideLabels;
+        btnLabels.classList.toggle('active', hideLabels);
+        btnLabels.textContent = hideLabels ? 'Show labels' : 'Hide labels';
+        cy.edges().toggleClass('no-label', hideLabels);
+      });
+
+      document.getElementById('btnClear').addEventListener('click', clearFocus);
+
+      document.getElementById('chkHighlight').addEventListener('change', function(e) {
+        highlightEnabled = e.target.checked;
+        if (!highlightEnabled) clearFocus();
+      });
+
+      const panel = document.getElementById('panel');
+      document.getElementById('panelToggle').addEventListener('click', function() {
+        panel.classList.toggle('collapsed');
+      });
+
+      // ============================================================
+      // Highlight neighborhood
+      // ============================================================
+
+      function applyFocus() {
+        cy.elements().removeClass('faded highlighted');
+        if (!activeNode && !searchQuery) { hideInfo(); return; }
+
+        const focusEles = cy.collection();
+        if (activeNode) {
+          focusEles.merge(activeNode.closedNeighborhood());
+        }
+        if (searchQuery) {
+          const matched = cy.nodes(':visible').filter(function(n){
+            const lbl = (n.data('label') || '').toLowerCase();
+            const qn  = (n.data('qualified_name') || '').toLowerCase();
+            return lbl.indexOf(searchQuery) >= 0 || qn.indexOf(searchQuery) >= 0;
+          });
+          matched.addClass('matched');
+          matched.forEach(function(n){ focusEles.merge(n.closedNeighborhood()); });
+        }
+
+        if (focusEles.empty()) {
+          cy.elements().removeClass('faded highlighted');
+          return;
+        }
+        focusEles.addClass('highlighted');
+        cy.elements().not(focusEles).addClass('faded');
+      }
+
+      function clearFocus() {
+        activeNode = null;
+        searchQuery = null;
+        document.getElementById('search').value = '';
+        cy.elements().removeClass('faded highlighted matched');
+        hideInfo();
+      }
+
+      cy.on('tap', 'node', function(evt) {
+        if (!highlightEnabled) { showInfo(evt.target); return; }
+        activeNode = evt.target;
+        applyFocus();
+        showInfo(evt.target);
+      });
+      cy.on('tap', function(evt) {
+        if (evt.target === cy) { clearFocus(); }   // tapped blank canvas
+      });
+
+      // ============================================================
+      // Search
+      // ============================================================
+
+      const searchInput = document.getElementById('search');
+      let searchTimer = null;
+      searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(function() {
+          const q = searchInput.value.trim().toLowerCase();
+          searchQuery = q.length ? q : null;
+          cy.elements().removeClass('matched');
+          applyFocus();
+        }, 120);
+      });
+      searchInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          const matched = cy.nodes('.matched');
+          if (matched.length) cy.animate({ fit: { eles: matched.union(matched.neighborhood()), padding: 40 } }, { duration: 300 });
+        }
+        if (e.key === 'Escape') { clearFocus(); searchInput.blur(); }
+      });
+
+      // ============================================================
+      // Info panel
+      // ============================================================
+
+      function showInfo(node) {
+        const info = document.getElementById('info');
+        document.getElementById('infoTitle').textContent = node.data('label') || node.id();
+        document.getElementById('infoQname').textContent = node.data('qualified_name') || node.id();
+
+        const meta = document.getElementById('infoMeta');
+        meta.innerHTML = '';
+        const kind = node.data('kind'), layer = node.data('layer');
+        if (kind)  meta.innerHTML += '<span class="pill">' + kind + '</span>';
+        if (layer) meta.innerHTML += '<span class="pill">' + layer + '</span>';
+        meta.innerHTML += '<span class="pill">' + node.degree(false) + ' deg</span>';
+
+        const inEl = document.getElementById('infoIn');
+        const outEl = document.getElementById('infoOut');
+        inEl.innerHTML = ''; outEl.innerHTML = '';
+
+        const incoming = node.incomers('edge');
+        const outgoing = node.outgoers('edge');
+
+        if (incoming.length === 0) inEl.innerHTML = '<div class="empty">none</div>';
+        incoming.forEach(function(e) {
+          const src = e.source();
+          const row = document.createElement('div');
+          row.className = 'rel';
+          row.innerHTML = '<span class="rel-label">' + (e.data('label') || '') + '</span>' +
+                          '<span class="rel-node">' + (src.data('label') || src.id()) + '</span>';
+          row.addEventListener('click', function(){ cy.animate({ center: { eles: src } }, { duration: 200 }); src.select(); });
+          inEl.appendChild(row);
+        });
+
+        if (outgoing.length === 0) outEl.innerHTML = '<div class="empty">none</div>';
+        outgoing.forEach(function(e) {
+          const tgt = e.target();
+          const row = document.createElement('div');
+          row.className = 'rel';
+          row.innerHTML = '<span class="rel-label">' + (e.data('label') || '') + '</span>' +
+                          '<span class="rel-node">' + (tgt.data('label') || tgt.id()) + '</span>';
+          row.addEventListener('click', function(){ cy.animate({ center: { eles: tgt } }, { duration: 200 }); tgt.select(); });
+          outEl.appendChild(row);
+        });
+
+        info.style.display = 'block';
+      }
+      function hideInfo() { document.getElementById('info').style.display = 'none'; }
+      document.getElementById('infoClose').addEventListener('click', function(){ clearFocus(); });
+
+      // ============================================================
+      // Init: real layout on visible subgraph + HTML labels + resize
+      // ============================================================
+
+      cy.ready(function() {
+        runLayout('fcose');
+
         if (cy.nodeHtmlLabel) {
           cy.nodeHtmlLabel([
             {
               query: 'node[has_members="true"]',
-              halign: 'center',
-              valign: 'center',
-              halignBox: 'center',
-              valignBox: 'center',
+              halign: 'center', valign: 'center',
+              halignBox: 'center', valignBox: 'center',
               cssClass: 'uml-box-label',
-              tpl: function(data) {
-                return data.html_label || data.label || '';
-              }
+              tpl: function(data) { return data.html_label || data.label || ''; }
             }
           ]);
         }
 
-        // After HTML labels render, resize nodes to fit
         setTimeout(function() {
           const labelDivs = document.querySelectorAll('.uml-box-label');
           cy.nodes('[has_members="true"]').forEach(function(node, i) {
@@ -105,7 +677,9 @@
             const h = inner.offsetHeight + 2;
             node.style({ 'width': w + 'px', 'height': h + 'px' });
           });
-        }, 100);
+          syncLabelVisibility();
+          cy.animate({ fit: { eles: cy.elements(':visible'), padding: 30 } }, { duration: 300 });
+        }, 120);
       });
     });
   </script>

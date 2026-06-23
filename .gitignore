@@ -19,3 +19,10 @@ unit_test_data/tools_*
 # Demo output files
 demo_calculator.html
 demo_screenshot.png
+
+# HTML export output
+tests/data/design_graph.html
+
+build/
+codegraph/
+.DS_Store

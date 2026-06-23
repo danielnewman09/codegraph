@@ -16,7 +16,7 @@ from codegraph.models import ClassNode, MethodNode, AttributeNode, NamespaceNode
 from codegraph.viz.transform import layer_graph_to_cytoscape
 from codegraph.viz.styles import cy_stylesheet, KIND_COLORS, EDGE_COLORS
 from codegraph.viz.labels import build_uml_html
-from codegraph.viz import export_html
+from codegraph.viz import export_html, export_html_from_json
 
 
 # ---------------------------------------------------------------------------
@@ -454,3 +454,152 @@ def test_cy_stylesheet_darken():
     assert _darken("#ff0000", 0.5) == "#7f0000"
     # factor=0 should produce black
     assert _darken("#abcdef", 0.0) == "#000000"
+
+
+# ---------------------------------------------------------------------------
+# export_html_from_json tests (no Neo4j required)
+# ---------------------------------------------------------------------------
+
+
+def test_export_html_from_json_writes_valid_file(tmp_path):
+    """export_html_from_json reads a JSON file and writes valid HTML."""
+    from codegraph.uid import compute_uid
+
+    # Minimal graph data with uid fields
+    data = [
+        {"type": "ClassNode", "name": "Engine", "kind": "class",
+         "qualified_name": "ns::Engine", "tags": ["design"],
+         "uid": compute_uid("ns::Engine"), "edges": []},
+    ]
+    json_path = tmp_path / "graph.json"
+    json_path.write_text(json.dumps(data), encoding="utf-8")
+
+    html_path = tmp_path / "out.html"
+    result = export_html_from_json(str(json_path), str(html_path), title="test")
+
+    assert os.path.realpath(result) == os.path.realpath(str(html_path))
+    html = html_path.read_text(encoding="utf-8")
+    assert "<!DOCTYPE html>" in html
+    assert "cytoscape" in html.lower()
+    assert 'id="cy"' in html
+    assert "ns::Engine" in html  # node appears in the graph
+
+
+def test_export_html_from_json_uses_filename_as_title(tmp_path):
+    """When title is None, the JSON filename stem is used."""
+    data = [
+        {"type": "NamespaceNode", "name": "ns", "kind": "namespace",
+         "qualified_name": "ns", "tags": ["design"],
+         "uid": "x", "edges": []},
+    ]
+    json_path = tmp_path / "my_project.json"
+    json_path.write_text(json.dumps(data), encoding="utf-8")
+    html_path = tmp_path / "out.html"
+    export_html_from_json(str(json_path), str(html_path))
+
+    html = html_path.read_text(encoding="utf-8")
+    assert "my_project" in html
+
+
+def test_export_html_from_json_function_signature():
+    """export_html_from_json has the expected parameters."""
+    import inspect
+    sig = inspect.signature(export_html_from_json)
+    params = list(sig.parameters.keys())
+    assert "json_path" in params
+    assert "output_path" in params
+    assert "title" in params
+    assert "size" in params
+
+
+# ---------------------------------------------------------------------------
+# CLI config tests
+# ---------------------------------------------------------------------------
+
+
+def test_cli_config_loads_valid_toml(tmp_path):
+    """load_config reads .codegraph.toml and returns HtmlExportConfig."""
+    from codegraph.viz.cli_config import load_config
+
+    (tmp_path / ".codegraph.toml").write_text(
+        '[project]\nname = "mygraph"\noutput_dir = "build"\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "build").mkdir()
+
+    config, project_dir = load_config(tmp_path)
+    assert config.name == "mygraph"
+    assert config.output_dir == (tmp_path / "build").resolve()
+    assert project_dir == tmp_path
+
+
+def test_cli_config_missing_file_exits(tmp_path, capsys):
+    """Missing .codegraph.toml prints an error and exits."""
+    from codegraph.viz.cli_config import load_config
+
+    with pytest.raises(SystemExit):
+        load_config(tmp_path)
+
+
+def test_cli_config_missing_name_exits(tmp_path, capsys):
+    """Config without 'name' field exits with an error."""
+    from codegraph.viz.cli_config import load_config
+
+    (tmp_path / ".codegraph.toml").write_text(
+        '[project]\noutput_dir = "build"\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(SystemExit):
+        load_config(tmp_path)
+
+
+def test_cli_config_reads_doxygen_index_toml(tmp_path):
+    """load_config falls back to .doxygen-index.toml [codegraph-html]."""
+    from codegraph.viz.cli_config import load_config
+
+    (tmp_path / ".doxygen-index.toml").write_text(
+        '[project]\nname = "codegraph"\nlanguage = "python"\n'
+        'input_paths = ["src"]\n\n'
+        '[codegraph-html]\noutput_dir = "codegraph"\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "codegraph").mkdir()
+
+    config, project_dir = load_config(tmp_path)
+    assert config.name == "codegraph"
+    assert config.output_dir == (tmp_path / "codegraph").resolve()
+    assert config.source_file == ".doxygen-index.toml"
+    assert project_dir == tmp_path
+
+
+def test_cli_config_doxygen_index_default_output(tmp_path):
+    """.doxygen-index.toml without [codegraph-html] defaults to 'codegraph'."""
+    from codegraph.viz.cli_config import load_config
+
+    (tmp_path / ".doxygen-index.toml").write_text(
+        '[project]\nname = "proj"\n', encoding="utf-8",
+    )
+
+    config, _ = load_config(tmp_path)
+    assert config.name == "proj"
+    assert config.output_dir == (tmp_path / "codegraph").resolve()
+
+
+def test_cli_config_codegraph_toml_takes_precedence(tmp_path):
+    """When both configs exist, .codegraph.toml wins."""
+    from codegraph.viz.cli_config import load_config
+
+    (tmp_path / ".codegraph.toml").write_text(
+        '[project]\nname = "primary"\noutput_dir = "out1"\n',
+        encoding="utf-8",
+    )
+    (tmp_path / ".doxygen-index.toml").write_text(
+        '[project]\nname = "secondary"\n\n'
+        '[codegraph-html]\noutput_dir = "out2"\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "out1").mkdir()
+
+    config, _ = load_config(tmp_path)
+    assert config.name == "primary"
+    assert config.source_file == ".codegraph.toml"

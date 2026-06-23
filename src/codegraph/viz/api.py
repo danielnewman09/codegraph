@@ -1,11 +1,16 @@
 """Cytoscape.js HTML export for codegraph LayerGraphs.
 
-Provides ``export_html()`` for writing self-contained interactive graph
-visualisations, and a ``main()`` entry point for CLI usage.
+Provides ``export_html_from_json()`` and ``export_html()`` for writing
+self-contained interactive graph visualisations, plus a ``main()``
+CLI entry point that reads ``.codegraph.toml`` for configuration.
 
-Usage::
+Usage (from JSON file)::
 
-    from codegraph.viz import export_html
+    from codegraph.viz import export_html_from_json
+
+    export_html_from_json("path/to/graph.json", "graph.html")
+
+Usage (from Neo4j)::
 
     export_html("design", "design.html")
     export_html("as-built", "/tmp/asbuilt.html", size="small")
@@ -23,6 +28,37 @@ from markupsafe import Markup
 from codegraph.graph import LayerGraph
 from codegraph.viz.transform import layer_graph_to_cytoscape
 from codegraph.viz.styles import cy_stylesheet
+
+
+def export_html_from_json(
+    json_path: str | Path,
+    output_path: str | Path,
+    *,
+    title: str | None = None,
+    size: str = "large",
+) -> str:
+    """Load a LayerGraph from a JSON file, render as self-contained HTML.
+
+    Args:
+        json_path: Path to a code-graph JSON file (serialised
+            ``LayerGraph`` output — a list of node dicts).
+        output_path: Path for the output HTML file.
+        title: Page title (defaults to the JSON filename stem).
+        size: ``"large"`` (full-page graph) or ``"small"`` (compact).
+
+    Returns:
+        The absolute path to the written HTML file.
+    """
+    json_path = Path(json_path)
+    with json_path.open(encoding="utf-8") as f:
+        data = json.load(f)
+
+    graph = LayerGraph.deserialize(data)
+
+    if title is None:
+        title = json_path.stem
+
+    return _render_html(graph, title, output_path, size=size)
 
 
 def export_html(
@@ -46,16 +82,25 @@ def export_html(
     Raises:
         RuntimeError: If the template file cannot be found.
     """
-    # 1. Fetch graph from Neo4j
     graph = LayerGraph.from_neo4j(tag)
+    return _render_html(graph, tag, output_path, size=size)
 
-    # 2. Transform to Cytoscape elements
+
+def _render_html(
+    graph: LayerGraph,
+    title: str,
+    output_path: str | Path,
+    *,
+    size: str = "large",
+) -> str:
+    """Shared renderer — transform graph to Cytoscape, write HTML."""
+    # 1. Transform to Cytoscape elements
     cy_data = layer_graph_to_cytoscape(graph)
 
-    # 3. Build stylesheet
+    # 2. Build stylesheet
     styles = cy_stylesheet(size=size)
 
-    # 4. Load and render template
+    # 3. Load and render template
     template_dir = Path(__file__).resolve().parent.parent / "templates"
     if not template_dir.is_dir():
         raise RuntimeError(
@@ -68,13 +113,13 @@ def export_html(
     template = env.get_template("graph.html.j2")
 
     html = template.render(
-        title=f"Codegraph — {tag}",
-        tag=tag,
+        title=f"Codegraph — {title}",
+        tag=title,
         elements_json=Markup(json.dumps(cy_data["nodes"] + cy_data["edges"])),
         styles_json=Markup(json.dumps(styles)),
     )
 
-    # 5. Write output
+    # 4. Write output
     out_path = Path(output_path).resolve()
     out_path.write_text(html, encoding="utf-8")
 
@@ -82,44 +127,68 @@ def export_html(
 
 
 def main(argv: list[str] | None = None) -> None:
-    """CLI entry point for ``codegraph-viz``.
+    """CLI entry point for ``codegraph-html``.
+
+    Reads ``.codegraph.toml`` (or, failing that, the ``[codegraph-html]``
+    section of ``.doxygen-index.toml``) from the current directory (or
+    ``--project-dir``) to discover the project name and output
+    directory.  The code-graph JSON is expected at
+    ``{output_dir}/{name}.json``.  HTML is written to
+    ``{output_dir}/{name}.html`` by default, or ``--output`` to
+    override.
 
     Usage::
 
-        codegraph-viz <tag> [--output <path>] [--size large|small]
-
-    Reads Neo4j credentials from ``.env`` in the current directory
-    (via codegraph's existing ``python-dotenv`` setup in ``config.py``).
+        codegraph-html                              # auto-detect config
+        codegraph-html --project-dir ../my-project  # use config elsewhere
+        codegraph-html --output custom.html         # override output path
+        codegraph-html --size small                 # compact layout
     """
+    import argparse
+
     if argv is None:
         argv = sys.argv[1:]
 
-    if not argv or argv[0] in ("-h", "--help"):
-        print("Usage: codegraph-viz <tag> [--output <path>] [--size large|small]")
-        print()
-        print("  tag       Provenance tag: design, as-built, dependency")
-        print("  --output  Output path (default: graph.html)")
-        print("  --size    large or small (default: large)")
-        sys.exit(0)
+    parser = argparse.ArgumentParser(
+        prog="codegraph-html",
+        description="Export a code-graph JSON file as an interactive HTML visualisation.",
+    )
+    parser.add_argument(
+        "--project-dir", default=".",
+        help="Project root containing .codegraph.toml or .doxygen-index.toml "
+             "(default: current directory)",
+    )
+    parser.add_argument(
+        "--output", default=None,
+        help="Output HTML path (default: {output_dir}/{name}.html)",
+    )
+    parser.add_argument(
+        "--size", default="large", choices=["large", "small"],
+        help="Layout size (default: large)",
+    )
+    args = parser.parse_args(argv)
 
-    tag = argv[0]
-    output = "graph.html"
-    size = "large"
+    from codegraph.viz.cli_config import load_config
 
-    # Simple arg parsing
-    i = 1
-    while i < len(argv):
-        if argv[i] == "--output" and i + 1 < len(argv):
-            output = argv[i + 1]
-            i += 2
-        elif argv[i] == "--size" and i + 1 < len(argv):
-            size = argv[i + 1]
-            i += 2
-        else:
-            print(f"Unknown argument: {argv[i]}", file=sys.stderr)
-            sys.exit(1)
+    config, project_dir = load_config(args.project_dir)
 
-    result = export_html(tag, output, size=size)
+    json_path = config.output_dir / f"{config.name}.json"
+    if not json_path.exists():
+        print(
+            f"Error: code-graph JSON not found: {json_path}\n"
+            f"  (configured via {config.source_file} in {project_dir})",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if args.output:
+        output_path = args.output
+    else:
+        output_path = config.output_dir / f"{config.name}.html"
+
+    result = export_html_from_json(
+        json_path, output_path, title=config.name, size=args.size,
+    )
     print(f"Graph written to {result}")
 
 
