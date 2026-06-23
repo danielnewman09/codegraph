@@ -1,0 +1,133 @@
+2026-06-23 10:53:36 WARNING  backend_migrated.constraints — Neo4j not reachable — skipping migrated constraint setup
+2026-06-23 10:53:36 DEBUG    ticketing.app — ProjectMeta seeding failed
+Traceback (most recent call last):
+  File "/Users/danielnewman/dev/ticketing_system/ticketing/app.py", line 122, in _seed_project_meta
+    node = ProjectMeta.get_singleton()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/ticketing_system/backend_migrated/models/project.py", line 101, in get_singleton
+    node = cls.nodes.get(refid="project")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neomodel/sync_/match.py", line 1643, in get
+    result = self._get(limit=2, lazy=lazy, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neomodel/sync_/match.py", line 1633, in _get
+    results = [node for node in ast._execute(lazy)]
+                                ^^^^^^^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neomodel/sync_/match.py", line 1321, in _execute
+    results, prop_names = db.cypher_query(
+                          ^^^^^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neomodel/sync_/database.py", line 185, in wrapper
+    return func(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neomodel/sync_/database.py", line 829, in cypher_query
+    results, meta = self._run_cypher_query(
+                    ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neomodel/sync_/database.py", line 890, in _run_cypher_query
+    raise exc_info[1].with_traceback(exc_info[2])
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neomodel/sync_/database.py", line 868, in _run_cypher_query
+    response: Result = session.run(
+                       ^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neo4j/_sync/work/session.py", line 305, in run
+    self._connect(self._config.default_access_mode)
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neo4j/_sync/work/session.py", line 126, in _connect
+    super()._connect(
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neo4j/_sync/work/workspace.py", line 181, in _connect
+    self._connection = self._pool.acquire(**acquire_kwargs_)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neo4j/_sync/io/_pool.py", line 678, in acquire
+    return self._acquire(
+           ^^^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neo4j/_sync/io/_pool.py", line 418, in _acquire
+    return connection_creator()
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neo4j/_sync/io/_pool.py", line 231, in connection_creator
+    connection = self.opener(
+                 ^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neo4j/_sync/io/_pool.py", line 638, in opener
+    return Bolt.open(
+           ^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neo4j/_sync/io/_bolt.py", line 425, in open
+    connection.hello()
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neo4j/_sync/io/_bolt5.py", line 735, in hello
+    self.fetch_all()
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neo4j/_sync/io/_bolt.py", line 882, in fetch_all
+    detail_delta, summary_delta = self.fetch_message()
+                                  ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neo4j/_sync/io/_bolt.py", line 867, in fetch_message
+    res = self._process_message(tag, fields)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neo4j/_sync/io/_bolt5.py", line 1202, in _process_message
+    response.on_failure(summary_metadata or {})
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neo4j/_sync/io/_common.py", line 304, in on_failure
+    raise self._hydrate_error(metadata)
+neo4j.exceptions.AuthError: {neo4j_code: Neo.ClientError.Security.Unauthorized} {message: Unsupported authentication token, missing key `credentials`} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+2026-06-23 10:53:36 INFO     ticketing.app — Starting Ticketing dashboard for project 'codegraph' (Neo4j backend)
+2026-06-23 10:54:13 INFO     ticketing.app — Neo4j connection closed.
+2026-06-23 10:54:36 WARNING  backend_migrated.constraints — Neo4j not reachable — skipping migrated constraint setup
+2026-06-23 10:54:36 DEBUG    ticketing.app — ProjectMeta seeding failed
+Traceback (most recent call last):
+  File "/Users/danielnewman/dev/ticketing_system/ticketing/app.py", line 122, in _seed_project_meta
+    node = ProjectMeta.get_singleton()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/ticketing_system/backend_migrated/models/project.py", line 101, in get_singleton
+    node = cls.nodes.get(refid="project")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neomodel/sync_/match.py", line 1643, in get
+    result = self._get(limit=2, lazy=lazy, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neomodel/sync_/match.py", line 1633, in _get
+    results = [node for node in ast._execute(lazy)]
+                                ^^^^^^^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neomodel/sync_/match.py", line 1321, in _execute
+    results, prop_names = db.cypher_query(
+                          ^^^^^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neomodel/sync_/database.py", line 185, in wrapper
+    return func(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neomodel/sync_/database.py", line 829, in cypher_query
+    results, meta = self._run_cypher_query(
+                    ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neomodel/sync_/database.py", line 890, in _run_cypher_query
+    raise exc_info[1].with_traceback(exc_info[2])
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neomodel/sync_/database.py", line 868, in _run_cypher_query
+    response: Result = session.run(
+                       ^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neo4j/_sync/work/session.py", line 305, in run
+    self._connect(self._config.default_access_mode)
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neo4j/_sync/work/session.py", line 126, in _connect
+    super()._connect(
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neo4j/_sync/work/workspace.py", line 181, in _connect
+    self._connection = self._pool.acquire(**acquire_kwargs_)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neo4j/_sync/io/_pool.py", line 678, in acquire
+    return self._acquire(
+           ^^^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neo4j/_sync/io/_pool.py", line 418, in _acquire
+    return connection_creator()
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neo4j/_sync/io/_pool.py", line 231, in connection_creator
+    connection = self.opener(
+                 ^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neo4j/_sync/io/_pool.py", line 638, in opener
+    return Bolt.open(
+           ^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neo4j/_sync/io/_bolt.py", line 425, in open
+    connection.hello()
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neo4j/_sync/io/_bolt5.py", line 735, in hello
+    self.fetch_all()
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neo4j/_sync/io/_bolt.py", line 882, in fetch_all
+    detail_delta, summary_delta = self.fetch_message()
+                                  ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neo4j/_sync/io/_bolt.py", line 867, in fetch_message
+    res = self._process_message(tag, fields)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neo4j/_sync/io/_bolt5.py", line 1202, in _process_message
+    response.on_failure(summary_metadata or {})
+  File "/Users/danielnewman/dev/.venv/lib/python3.12/site-packages/neo4j/_sync/io/_common.py", line 304, in on_failure
+    raise self._hydrate_error(metadata)
+neo4j.exceptions.AuthError: {neo4j_code: Neo.ClientError.Security.Unauthorized} {message: Unsupported authentication token, missing key `credentials`} {gql_status: 50N42} {gql_status_description: error: general processing exception - unexpected error. Unexpected error has occurred. See debug log for details.}
+2026-06-23 10:54:36 INFO     ticketing.app — Starting Ticketing dashboard for project 'codegraph' (Neo4j backend)
+2026-06-23 10:57:56 INFO     ticketing.app — Neo4j connection closed.
+2026-06-23 10:57:59 DEBUG    ticketing.app — sync_neo4j_config: database_url refreshed for /Users/danielnewman/dev/codegraph
+2026-06-23 10:57:59 INFO     backend_migrated.constraints — Migrated node type constraints and indexes ensured
+2026-06-23 10:58:00 INFO     ticketing.app — Starting Ticketing dashboard for project 'codegraph' (Neo4j backend)

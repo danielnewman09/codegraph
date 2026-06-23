@@ -9,6 +9,7 @@ import sys
 
 _SUBCOMMANDS = {
     "viz": "codegraph.viz:main",
+    "db": "codegraph.db_cli:main",
 }
 
 
@@ -18,6 +19,7 @@ def main() -> None:
         print()
         print("Subcommands:")
         print("  viz    Export a Cytoscape.js HTML graph visualisation")
+        print("  db     Manage the project-local Neo4j Docker container")
         sys.exit(0)
 
     cmd = sys.argv[1]

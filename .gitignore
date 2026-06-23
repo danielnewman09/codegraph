@@ -24,5 +24,10 @@ demo_screenshot.png
 tests/data/design_graph.html
 
 build/
-codegraph/
+/codegraph/
+
+# Neo4j Docker data (codegraph-db)
+/codegraph/neo4j/
+
 .DS_Store
+.env

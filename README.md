@@ -394,6 +394,133 @@ All node types inherit from `CodeGraphNode`, which provides:
 | `remove_tag(tag)` | Remove a tag, persist to Neo4j. Returns self for chaining |
 | `has_tag(tag)` | Check whether a tag is present |
 
+## Neo4j Docker Container (codegraph-db)
+
+`codegraph-db` is a command-line tool that manages a project-local Neo4j
+Docker container.  Each project gets its own container named
+`neo4j-<project_name>` with the Neo4j data files bind-mounted under
+`<project_root>/codegraph/neo4j/`.  This keeps every project's graph
+data self-contained and portable — stop the container, and the database
+files persist on disk; start it again, and the database is loaded from
+the persisted files.
+
+### Prerequisites
+
+* Docker Desktop (or Docker Engine + CLI) running locally.
+* A `.codegraph.toml` or `.doxygen-index.toml` in the project root
+  with a `[project].name` field.
+
+### Configuration
+
+The `[codegraph-db]` section (in either config file) customises the
+Docker settings.  All fields are optional:
+
+```toml
+[codegraph-db]
+image = "neo4j:5-community"   # Docker image (default: neo4j:5-community)
+bolt_port = 7687              # Host Bolt port  (default: 7687)
+http_port = 7474              # Host HTTP port  (default: 7474)
+password = "codegraph-dev"   # Initial password (default: codegraph)
+```
+
+If you run multiple codegraph-backed projects simultaneously, give
+each project different `bolt_port` / `http_port` values to avoid
+conflicts.
+
+### Directory layout
+
+```
+<project_root>/
+└── codegraph/
+    └── neo4j/
+        ├── data/       →  /data        (database files — persisted)
+        ├── logs/       →  /logs        (server logs)
+        ├── import/     →  /import      (bulk-import CSVs)
+        └── plugins/    →  /plugins     (APOC, etc.)
+```
+
+The `codegraph/neo4j/` directory is automatically git-ignored.
+
+### Commands
+
+```bash
+# Initialise directories and pull the image (optional — start does this too)
+codegraph-db init
+
+# Create and start the container (loads persisted data if present)
+codegraph-db start
+
+# Stop the container (data is preserved on disk)
+codegraph-db stop
+
+# Restart
+codegraph-db restart
+
+# Show status, ports, and Bolt connectivity
+codegraph-db status
+
+# View logs (add -f to follow)
+codegraph-db logs -f
+
+# Open an interactive Cypher shell
+codegraph-db shell
+
+# Print / open the Neo4j Browser
+codegraph-db browser
+
+# Remove the container (data files are preserved)
+codegraph-db rm --force
+```
+
+All commands accept `--project-dir DIR` to target a project other
+than the current directory.
+
+### .env management
+
+On `start` and `init`, `codegraph-db` updates the project's `.env` file
+with a managed block so that `codegraph` itself connects to the right
+container:
+
+```bash
+# >>> codegraph-db >>>
+NEO4J_URI=bolt://localhost:7687
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=codegraph-dev
+# <<< codegraph-db <<<
+```
+
+Lines outside the managed block are preserved.  Repeated `start` calls
+are idempotent — the block is replaced, not duplicated.
+
+### Typical workflow
+
+```bash
+# 1. Start the project's Neo4j container
+codegraph-db start
+
+# 2. Load graph data into Neo4j
+python scripts/load_api_to_neo4j.py
+
+# 3. Query / visualise
+python -c '
+from codegraph import LayerGraph
+design = LayerGraph.from_neo4j("design")
+'
+
+# 4. Stop when done — data is preserved
+codegraph-db stop
+```
+
+### Python module entry point
+
+You can also invoke the tool via the package's `__main__`:
+
+```bash
+python -m codegraph db start
+python -m codegraph db status
+python -m codegraph db stop
+```
+
 ## Testing
 
 ```bash
