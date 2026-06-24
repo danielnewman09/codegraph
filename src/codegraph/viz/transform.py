@@ -38,10 +38,15 @@ _COMPOUND_KINDS: frozenset[str] = frozenset(k for k, _ in CG_COMPOUND_KINDS_TUPL
 # structural value.
 # ParameterNode is excluded: parameter info is shown in the function's
 # UML label (name: type per line) and in class UML member lines.
+# AssertionNode and TestStepNode are excluded: they are leaf children of
+# TestNode and are surfaced in the detail panel rather than as separate
+# Cytoscape nodes, keeping the graph focused on structural relationships.
 _EXCLUDED_NODE_TYPES: frozenset[str] = frozenset({
     "ImplementationNode",
     "FileNode",
     "ParameterNode",
+    "AssertionNode",
+    "TestStepNode",
 })
 
 

@@ -1,0 +1,15 @@
+{
+  "type": "AssertionNode",
+  "qualified_name": "tests::test_member::TestUpdate::test_single_field::post_0",
+  "name": "post_0",
+  "kind": "assertion",
+  "phase": "post",
+  "order": 0,
+  "operator": "==",
+  "description": "The updated field value matches the new value.",
+  "tags": ["as-built"],
+  "edges": [
+    {"relation_type": "LEFT_OPERAND", "target_uid": "calc::CalculatorEngine::result", "target_type": "AttributeNode"},
+    {"relation_type": "RIGHT_OPERAND", "target_uid": "literal::30", "target_type": "LiteralNode"}
+  ]
+}

@@ -2,6 +2,7 @@
 name = "codegraph"
 language = "python"
 input_paths = ["src"]
+test_paths = ["tests"]
 
 [codegraph-html]
 output_dir = "codegraph"

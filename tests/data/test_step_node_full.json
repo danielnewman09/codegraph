@@ -1,0 +1,14 @@
+{
+  "type": "TestStepNode",
+  "qualified_name": "tests::test_member::TestUpdate::test_single_field::step_0",
+  "name": "step_0",
+  "kind": "test_step",
+  "order": 0,
+  "description": "Call engine.set_target(30) to set the target value.",
+  "body_start": 45,
+  "body_end": 48,
+  "tags": ["as-built"],
+  "edges": [
+    {"relation_type": "CALLEE", "target_uid": "calc::CalculatorEngine::set_target", "target_type": "MethodNode"}
+  ]
+}

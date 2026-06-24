@@ -1,0 +1,68 @@
+[
+  {
+    "type": "NamespaceNode",
+    "qualified_name": "tests::test_member",
+    "name": "test_member",
+    "kind": "namespace",
+    "tags": ["as-built"],
+    "edges": [],
+    "composes": [
+      {
+        "type": "TestNode",
+        "qualified_name": "tests::test_member::TestUpdate::test_single_field",
+        "name": "test_single_field",
+        "kind": "test",
+        "test_name": "test_single_field",
+        "test_module": "tests.test_member",
+        "method": "automated",
+        "description": "Verifies that updating a single field on a node persists the change.",
+        "tags": ["as-built"],
+        "edges": [
+          {"relation_type": "VERIFIES", "target_uid": "calc::CalculatorEngine::set_target", "target_type": "MethodNode"}
+        ],
+        "composes": [
+          {
+            "type": "TestFixtureNode",
+            "qualified_name": "tests::test_member::TestUpdate::test_single_field::fixture_engine",
+            "name": "engine",
+            "kind": "test_fixture",
+            "type_signature": "CalculatorEngine",
+            "description": "Direct instance of CalculatorEngine. Created via engine = CalculatorEngine(). The primary subject of all assertions in this test.",
+            "tags": ["as-built"],
+            "edges": [
+              {"relation_type": "OF_TYPE", "target_uid": "calc::CalculatorEngine", "target_type": "ClassNode"},
+              {"relation_type": "DEFINED_IN", "target_type": "TestStepNode"}
+            ]
+          },
+          {
+            "type": "AssertionNode",
+            "qualified_name": "tests::test_member::TestUpdate::test_single_field::post_0",
+            "name": "post_0",
+            "kind": "assertion",
+            "phase": "post",
+            "order": 0,
+            "operator": "==",
+            "description": "The updated field value matches the new value.",
+            "tags": ["as-built"],
+            "edges": [
+              {"relation_type": "LEFT_OPERAND", "target_uid": "calc::CalculatorEngine::result", "target_type": "AttributeNode"},
+              {"relation_type": "RIGHT_OPERAND", "target_uid": "literal::30", "target_type": "LiteralNode"}
+            ]
+          },
+          {
+            "type": "TestStepNode",
+            "qualified_name": "tests::test_member::TestUpdate::test_single_field::step_0",
+            "name": "step_0",
+            "kind": "test_step",
+            "order": 0,
+            "description": "Call engine.set_target(30) to set the target value.",
+            "tags": ["as-built"],
+            "edges": [
+              {"relation_type": "CALLEE", "target_uid": "calc::CalculatorEngine::set_target", "target_type": "MethodNode"}
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

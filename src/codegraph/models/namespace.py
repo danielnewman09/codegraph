@@ -56,6 +56,7 @@ class NamespaceNode(StructuredNode, CodeGraphNode):
     modules     = RelationshipTo('codegraph.models.compound.ModuleNode', 'COMPOSES')
     functions   = RelationshipTo('codegraph.models.member.FunctionNode', 'COMPOSES')
     namespaces  = RelationshipTo('NamespaceNode', 'COMPOSES')
+    tests       = RelationshipTo('codegraph.models.test.TestNode', 'COMPOSES')
 
     # Incoming composition (parent namespace for nesting)
     parent_namespace = RelationshipFrom('NamespaceNode', 'COMPOSES')

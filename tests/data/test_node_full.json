@@ -1,0 +1,15 @@
+{
+  "type": "TestNode",
+  "qualified_name": "tests::test_member::TestUpdate::test_single_field",
+  "name": "test_single_field",
+  "kind": "test",
+  "test_name": "test_single_field",
+  "test_module": "tests.test_member",
+  "method": "automated",
+  "description": "Verifies that updating a single field on a node persists the change.",
+  "file_path": "/tests/test_member/test_update.py",
+  "line_number": 42,
+  "doc_embedding": [],
+  "tags": ["as-built"],
+  "edges": []
+}

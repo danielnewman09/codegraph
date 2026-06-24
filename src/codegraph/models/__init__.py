@@ -12,6 +12,7 @@ from codegraph.models.namespace import NamespaceNode
 from codegraph.models.file import FileNode
 from codegraph.models.parameter import ParameterNode
 from codegraph.models.literal import LiteralNode
+from codegraph.models.test import TestNode, AssertionNode, TestStepNode, TestFixtureNode
 
 __all__ = [
     # Base
@@ -31,6 +32,11 @@ __all__ = [
     "DefineNode",
     # Implementation
     "ImplementationNode",
+    # Tests
+    "TestNode",
+    "AssertionNode",
+    "TestStepNode",
+    "TestFixtureNode",
     # Other
     "NamespaceNode",
     "FileNode",

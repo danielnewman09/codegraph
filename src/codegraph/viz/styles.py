@@ -30,6 +30,10 @@ KIND_COLORS: dict[str, str] = {
     "concept": "#9b59b6",
     "union": "#e67e22",
     "define": "#a0aec0",
+    "test": "#e91e63",
+    "assertion": "#ff9800",
+    "test_step": "#00bcd4",
+    "test_fixture": "#8e24aa",
 }
 
 EDGE_COLORS: dict[str, str] = {
@@ -48,6 +52,13 @@ EDGE_COLORS: dict[str, str] = {
     "SPECIALIZES": "#9b59b6",
     "ENFORCES_CONCEPT": "#9b59b6",
     "TEMPLATE_PARAM": "#9b59b6",
+    "VERIFIES": "#e91e63",
+    "LEFT_OPERAND": "#ff9800",
+    "RIGHT_OPERAND": "#ff9800",
+    "CALLEE": "#00bcd4",
+    "CALLER": "#00bcd4",
+    "OF_TYPE": "#26a69a",
+    "CHECKED_BY": "#ff9800",
     "default": "#555",
 }
 
@@ -247,6 +258,23 @@ def cy_stylesheet(*, size: str = "large") -> list[dict]:
                         "target-arrow-shape": "triangle-tee", "width": 2},
         "TEMPLATE_PARAM": {"line-style": "dashed", "line-color": ec["TEMPLATE_PARAM"],
                            "target-arrow-color": ec["TEMPLATE_PARAM"], "width": 1},
+        "VERIFIES": {"line-style": "solid", "line-color": ec["VERIFIES"],
+                      "target-arrow-color": ec["VERIFIES"],
+                      "target-arrow-shape": "triangle", "width": 2},
+        "LEFT_OPERAND": {"line-style": "dotted", "line-color": ec["LEFT_OPERAND"],
+                         "target-arrow-color": ec["LEFT_OPERAND"], "width": 1},
+        "RIGHT_OPERAND": {"line-style": "dotted", "line-color": ec["RIGHT_OPERAND"],
+                          "target-arrow-color": ec["RIGHT_OPERAND"], "width": 1},
+        "CALLEE": {"line-style": "dashed", "line-color": ec["CALLEE"],
+                    "target-arrow-color": ec["CALLEE"], "width": 1.5},
+        "CALLER": {"line-style": "dashed", "line-color": ec["CALLER"],
+                    "target-arrow-color": ec["CALLER"],
+                    "target-arrow-shape": "circle", "width": 1.5},
+        "OF_TYPE": {"line-style": "dotted", "line-color": ec["OF_TYPE"],
+                    "target-arrow-color": ec["OF_TYPE"],
+                    "target-arrow-shape": "diamond", "width": 1},
+        "CHECKED_BY": {"line-style": "dashed", "line-color": ec["CHECKED_BY"],
+                      "target-arrow-color": ec["CHECKED_BY"], "width": 1},
     }
 
     for label, override in _EDGE_STYLE_OVERRIDES.items():

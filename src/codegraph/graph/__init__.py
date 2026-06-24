@@ -672,10 +672,35 @@ class LayerGraph:
             for relation_type, target_key, target_type in entry.references:
                 target_entry = flat.get(target_key)
                 if target_entry is not None:
-                    manager = CodeGraphNode.find_relationship_manager(
-                        source_node, relation_type, target_entry.node
-                    )
-                    manager.connect(target_entry.node)
+                    try:
+                        manager = CodeGraphNode.find_relationship_manager(
+                            source_node, relation_type, target_entry.node
+                        )
+                        manager.connect(target_entry.node)
+                    except ValueError:
+                        # Fallback: raw Cypher for polymorphic relationships
+                        # declared on a base class (e.g. INSTANCE_OF on
+                        # CompoundNode) where the concrete target subclass
+                        # (e.g. ClassNode) is not matched by
+                        # find_relationship_manager's exact-name check.
+                        # neomodel's inherited labels still make .all()
+                        # work for querying; this fallback covers the write
+                        # path.
+                        from neomodel import db
+                        db.cypher_query(
+                            f"MATCH (s), (t) "
+                            f"WHERE elementId(s) = $src "
+                            f"AND elementId(t) = $tgt "
+                            f"MERGE (s)-[:{relation_type}]->(t)",
+                            {
+                                "src": db.parse_element_id(
+                                    source_node.element_id
+                                ),
+                                "tgt": db.parse_element_id(
+                                    target_entry.node.element_id
+                                ),
+                            },
+                        )
 
     # ── Serialization ──────────────────────────────────────────────────
 

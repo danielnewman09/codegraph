@@ -31,6 +31,13 @@ MEMBER_KINDS: list[tuple[str, str]] = [
     ("function", "Function"),
 ]
 
+TEST_KINDS: list[tuple[str, str]] = [
+    ("test", "Test"),
+    ("assertion", "Assertion"),
+    ("test_step", "Test Step"),
+    ("test_fixture", "Test Fixture"),
+]
+
 NAMESPACE_KINDS: list[tuple[str, str]] = [
     ("namespace", "Namespace"),
     ("package", "Package"),
@@ -44,12 +51,15 @@ UNCLASSIFIED_KINDS: list[tuple[str, str]] = [
     ("literal", "Literal Value"),
 ]
 
+TEST_KIND_KEYS: set[str] = {k for k, _ in TEST_KINDS}
+
 # ---------------------------------------------------------------------------
 # Composed node kinds
 # ---------------------------------------------------------------------------
 
 NODE_KINDS: list[tuple[str, str]] = (
     COMPOUND_KINDS + MEMBER_KINDS + NAMESPACE_KINDS + UNCLASSIFIED_KINDS
+    + TEST_KINDS
 )
 NODE_KIND_KEYS: set[str] = {k for k, _ in NODE_KINDS}
 
@@ -62,6 +72,8 @@ TYPE_KINDS: set[str] = {
     "abstract_class", "concept", "enum", "enum_class", "union", "type_alias",
 }
 VALUE_KINDS: set[str] = {"method", "variable", "define", "enumvalue", "function"}
+
+TEST_KIND_SET: set[str] = {k for k, _ in TEST_KINDS}
 
 # ---------------------------------------------------------------------------
 # Source provenance
@@ -118,6 +130,14 @@ PREDICATE_TO_REL_TYPE: dict[str, str] = {
     "template_param": "TEMPLATE_PARAM",
     "enforces_concept": "ENFORCES_CONCEPT",
     "implements": "IMPLEMENTS",
+    "of_type": "OF_TYPE",
+    "checked_by": "CHECKED_BY",
+    "defined_in": "DEFINED_IN",
+    "verifies": "VERIFIES",
+    "left_operand": "LEFT_OPERAND",
+    "right_operand": "RIGHT_OPERAND",
+    "callee": "CALLEE",
+    "caller": "CALLER",
 }
 
 PREDICATES: list[str] = list(PREDICATE_TO_REL_TYPE.keys())
@@ -138,6 +158,14 @@ DEFAULT_PREDICATES: list[tuple[str, str]] = [
     ("type_argument", "A template accepts a type argument at a given position"),
     ("template_param", "A template declares a type parameter slot"),
     ("enforces_concept", "A type parameter is constrained by a C++20 concept"),
+    ("of_type", "A test fixture variable is of the given type (fixture to class/enum/namespace/etc.)"),
+    ("checked_by", "A test fixture variable is checked by an assertion (fixture to assertion)"),
+    ("defined_in", "A test fixture variable is defined within a test step (fixture to step)"),
+    ("verifies", "A test verifies / exercises a code node (test → method, function, class)"),
+    ("left_operand", "The subject (left-hand side) of a test assertion comparison"),
+    ("right_operand", "The expected value (right-hand side) of a test assertion comparison"),
+    ("callee", "A test step calls the target function/method"),
+    ("caller", "A test step is invoked by the target entity"),
 ]
 
 # ---------------------------------------------------------------------------
@@ -284,4 +312,29 @@ CONSTRAINTS_AND_INDEXES: list[str] = [
     "CREATE VECTOR INDEX doc_embedding IF NOT EXISTS FOR (n:Method|Function) ON (n.doc_embedding) OPTIONS {indexConfig: {`vector.dimensions`: 1536, `vector.similarity_function`: 'cosine'}}",
     # Vector search — implementation embeddings on implementation nodes
     "CREATE VECTOR INDEX impl_embedding IF NOT EXISTS FOR (n:Implementation) ON (n.impl_embedding) OPTIONS {indexConfig: {`vector.dimensions`: 1536, `vector.similarity_function`: 'cosine'}}",
+    # Lookup indexes for Test nodes
+    "CREATE INDEX test_qualified IF NOT EXISTS FOR (t:Test) ON (t.qualified_name)",
+    "CREATE INDEX test_name IF NOT EXISTS FOR (t:Test) ON (t.name)",
+    "CREATE INDEX test_kind IF NOT EXISTS FOR (t:Test) ON (t.kind)",
+    "CREATE INDEX test_test_name IF NOT EXISTS FOR (t:Test) ON (t.test_name)",
+    "CREATE INDEX test_module IF NOT EXISTS FOR (t:Test) ON (t.test_module)",
+    "CREATE INDEX test_tags IF NOT EXISTS FOR (t:Test) ON (t.tags)",
+    "CREATE INDEX test_source IF NOT EXISTS FOR (t:Test) ON (t.source)",
+    # Lookup indexes for Assertion nodes
+    "CREATE INDEX assertion_qualified IF NOT EXISTS FOR (a:Assertion) ON (a.qualified_name)",
+    "CREATE INDEX assertion_kind IF NOT EXISTS FOR (a:Assertion) ON (a.kind)",
+    "CREATE INDEX assertion_phase IF NOT EXISTS FOR (a:Assertion) ON (a.phase)",
+    "CREATE INDEX assertion_tags IF NOT EXISTS FOR (a:Assertion) ON (a.tags)",
+    # Lookup indexes for TestStep nodes
+    "CREATE INDEX teststep_qualified IF NOT EXISTS FOR (s:TestStep) ON (s.qualified_name)",
+    "CREATE INDEX teststep_kind IF NOT EXISTS FOR (s:TestStep) ON (s.kind)",
+    "CREATE INDEX teststep_tags IF NOT EXISTS FOR (s:TestStep) ON (s.tags)",
+    # Lookup indexes for TestFixture nodes
+    "CREATE INDEX testfixture_qualified IF NOT EXISTS FOR (f:TestFixture) ON (f.qualified_name)",
+    "CREATE INDEX testfixture_kind IF NOT EXISTS FOR (f:TestFixture) ON (f.kind)",
+    "CREATE INDEX testfixture_tags IF NOT EXISTS FOR (f:TestFixture) ON (f.tags)",
+    # Full-text search — test descriptions and assertions
+    "CREATE FULLTEXT INDEX test_search IF NOT EXISTS FOR (n:Test) ON EACH [n.name, n.qualified_name, n.test_name, n.description]",
+    # Vector search — test doc embeddings
+    "CREATE VECTOR INDEX test_embedding IF NOT EXISTS FOR (n:Test) ON (n.doc_embedding) OPTIONS {indexConfig: {`vector.dimensions`: 1536, `vector.similarity_function`: 'cosine'}}",
 ]

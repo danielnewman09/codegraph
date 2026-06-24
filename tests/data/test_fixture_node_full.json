@@ -1,0 +1,10 @@
+{
+  "type": "TestFixtureNode",
+  "qualified_name": "tests::test_widget_ops::test_create_widget::widget",
+  "name": "widget",
+  "kind": "test_fixture",
+  "type_signature": "Widget",
+  "description": "Direct instance of Widget class created via widget = Widget(name='test'). The primary test subject - all assertions operate on this object's state and method outputs.",
+  "tags": ["as-built"],
+  "edges": []
+}

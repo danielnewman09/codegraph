@@ -1012,5 +1012,9 @@ def _default_markdown_keyword(node_type_name: str) -> str:
         "AttributeNode": "Attribute",
         "EnumValueNode": "EnumValue",
         "FileNode": "Note",
+        "TestNode": "Test",
+        "AssertionNode": "Assertion",
+        "TestStepNode": "TestStep",
+        "TestFixtureNode": "TestFixture",
     }
     return defaults.get(node_type_name, "Class")
