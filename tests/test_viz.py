@@ -13,10 +13,10 @@ import pytest
 
 from codegraph.graph import LayerGraph, CompositeEntry
 from codegraph.models import ClassNode, MethodNode, AttributeNode, NamespaceNode
-from codegraph.viz.transform import layer_graph_to_cytoscape
-from codegraph.viz.styles import cy_stylesheet, KIND_COLORS, EDGE_COLORS
-from codegraph.viz.labels import build_uml_html
-from codegraph.viz import export_html, export_html_from_json
+from codegraph.export.viz.transform import layer_graph_to_cytoscape
+from codegraph.export.viz.styles import cy_stylesheet, KIND_COLORS, EDGE_COLORS
+from codegraph.export.viz.labels import build_uml_html
+from codegraph.export.viz import export_html, export_html_from_json
 
 
 # ---------------------------------------------------------------------------
@@ -427,9 +427,9 @@ def test_export_html_empty_tag_produces_valid_file():
 
 def test_jinja2_template_exists():
     """The graph.html.j2 template is packaged with the module."""
-    import codegraph.viz
+    import codegraph.export.viz
     template_dir = (
-        Path(codegraph.viz.__file__).resolve().parent.parent / "templates"
+        Path(codegraph.export.viz.__file__).resolve().parent.parent / "templates"
     )
     assert template_dir.is_dir(), f"Template directory not found: {template_dir}"
     assert (template_dir / "graph.html.j2").is_file()
@@ -447,7 +447,7 @@ def test_export_html_function_signature():
 
 def test_cy_stylesheet_darken():
     """The _darken helper produces correct colors."""
-    from codegraph.viz.styles import _darken
+    from codegraph.export.viz.styles import _darken
 
     assert _darken("#ffffff", 0.5) == "#7f7f7f"
     assert _darken("#000000", 1.0) == "#000000"
@@ -519,7 +519,7 @@ def test_export_html_from_json_function_signature():
 
 def test_cli_config_loads_valid_toml(tmp_path):
     """load_config reads .codegraph.toml and returns HtmlExportConfig."""
-    from codegraph.viz.cli_config import load_config
+    from codegraph.export.viz.cli_config import load_config
 
     (tmp_path / ".codegraph.toml").write_text(
         '[project]\nname = "mygraph"\noutput_dir = "build"\n',
@@ -535,7 +535,7 @@ def test_cli_config_loads_valid_toml(tmp_path):
 
 def test_cli_config_missing_file_exits(tmp_path, capsys):
     """Missing .codegraph.toml prints an error and exits."""
-    from codegraph.viz.cli_config import load_config
+    from codegraph.export.viz.cli_config import load_config
 
     with pytest.raises(SystemExit):
         load_config(tmp_path)
@@ -543,7 +543,7 @@ def test_cli_config_missing_file_exits(tmp_path, capsys):
 
 def test_cli_config_missing_name_exits(tmp_path, capsys):
     """Config without 'name' field exits with an error."""
-    from codegraph.viz.cli_config import load_config
+    from codegraph.export.viz.cli_config import load_config
 
     (tmp_path / ".codegraph.toml").write_text(
         '[project]\noutput_dir = "build"\n',
@@ -555,7 +555,7 @@ def test_cli_config_missing_name_exits(tmp_path, capsys):
 
 def test_cli_config_reads_doxygen_index_toml(tmp_path):
     """load_config falls back to .doxygen-index.toml [codegraph-html]."""
-    from codegraph.viz.cli_config import load_config
+    from codegraph.export.viz.cli_config import load_config
 
     (tmp_path / ".doxygen-index.toml").write_text(
         '[project]\nname = "codegraph"\nlanguage = "python"\n'
@@ -574,7 +574,7 @@ def test_cli_config_reads_doxygen_index_toml(tmp_path):
 
 def test_cli_config_doxygen_index_default_output(tmp_path):
     """.doxygen-index.toml without [codegraph-html] defaults to 'codegraph'."""
-    from codegraph.viz.cli_config import load_config
+    from codegraph.export.viz.cli_config import load_config
 
     (tmp_path / ".doxygen-index.toml").write_text(
         '[project]\nname = "proj"\n', encoding="utf-8",
@@ -587,7 +587,7 @@ def test_cli_config_doxygen_index_default_output(tmp_path):
 
 def test_cli_config_codegraph_toml_takes_precedence(tmp_path):
     """When both configs exist, .codegraph.toml wins."""
-    from codegraph.viz.cli_config import load_config
+    from codegraph.export.viz.cli_config import load_config
 
     (tmp_path / ".codegraph.toml").write_text(
         '[project]\nname = "primary"\noutput_dir = "out1"\n',

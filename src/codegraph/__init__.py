@@ -7,8 +7,8 @@ via get_session() and cypher_query(), and constants (kinds, tags, predicates,
 schema DDL, language specializations).
 """
 
-from codegraph.config import NEO4J_PASSWORD, NEO4J_URI, NEO4J_USER
-from codegraph.connection import cypher_query, get_session, verify_connectivity
+from codegraph.persistence.config import NEO4J_PASSWORD, NEO4J_URI, NEO4J_USER
+from codegraph.persistence.connection import cypher_query, get_session, verify_connectivity
 from codegraph.constants import (
     COMPOUND_KINDS,
     CONSTRAINTS_AND_INDEXES,
@@ -32,14 +32,14 @@ from codegraph.constants import (
     valid_specializations,
 )
 from codegraph.graph import LayerGraph, CompositeEntry
-from codegraph.repository import GraphRepository
-from codegraph.plantuml import (export_plantuml, import_plantuml,
+from codegraph.persistence.repository import GraphRepository
+from codegraph.export.plantuml import (export_plantuml, import_plantuml,
                                 PlantUMLExporter, PlantUMLImporter,
                                 PlantUMLParseError, ParseDiagnostic)
-from codegraph.markdown import (export_markdown, import_markdown,
+from codegraph.export.markdown import (export_markdown, import_markdown,
                                 MarkdownExporter, MarkdownImporter)
-from codegraph.format import export_graph, import_graph
-from codegraph.viz import export_html
+from codegraph.export.format import export_graph, import_graph
+from codegraph.export.viz import export_html
 from codegraph.tools import CodeGraphDispatcher, ToolDispatcher, create_dispatcher
 from codegraph.models import (
     ClassNode,

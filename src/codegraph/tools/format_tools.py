@@ -79,7 +79,7 @@ IMPORT_SCHEMA = {
 
 
 def handle_import(ctx, tool_input: dict) -> str:
-    from codegraph.format import import_graph as format_import_graph
+    from codegraph.export.format import import_graph as format_import_graph
 
     text = tool_input["text"]
     fmt = tool_input["format"]

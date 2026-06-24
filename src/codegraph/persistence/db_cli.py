@@ -32,7 +32,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from codegraph.docker import (
+from codegraph.persistence.docker import (
     Neo4jContainerConfig,
     browser_url,
     init_project,

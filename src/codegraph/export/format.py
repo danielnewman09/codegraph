@@ -12,7 +12,7 @@ Formats
 
 Example::
 
-    from codegraph.format import export_graph, import_graph
+    from codegraph.export.format import export_graph, import_graph
 
     puml = export_graph(graph, format="plantuml")
     md = export_graph(graph, format="markdown")
@@ -51,13 +51,13 @@ def export_graph(graph: LayerGraph, format: str = "markdown",
     fmt = format.lower()
 
     if fmt in ("markdown", "md"):
-        from codegraph.markdown import export_markdown
+        from codegraph.export.markdown import export_markdown
         public_only = kwargs.get("public_only", True)
         return export_markdown(graph, fields=fields,
                               public_only=bool(public_only))
 
     if fmt in ("plantuml", "puml"):
-        from codegraph.plantuml import export_plantuml
+        from codegraph.export.plantuml import export_plantuml
         return export_plantuml(graph, fields=fields)
 
     if fmt in ("json", "json_nested"):
@@ -98,11 +98,11 @@ def import_graph(text: str, format: str = "markdown",
     fmt = format.lower()
 
     if fmt in ("markdown", "md"):
-        from codegraph.markdown import import_markdown
+        from codegraph.export.markdown import import_markdown
         return import_markdown(text, tags=tags, strict=strict)
 
     if fmt in ("plantuml", "puml"):
-        from codegraph.plantuml import import_plantuml
+        from codegraph.export.plantuml import import_plantuml
         return import_plantuml(text, tags=tags, strict=strict)
 
     if fmt in ("json", "json_nested"):

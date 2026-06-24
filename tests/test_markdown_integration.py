@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 
 from codegraph.graph import LayerGraph
-from codegraph.markdown import export_markdown, import_markdown
+from codegraph.export.markdown import export_markdown, import_markdown
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 FIXTURE = DATA_DIR / "design_graph.json"

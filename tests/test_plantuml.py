@@ -20,7 +20,7 @@ from codegraph.models.member import (
 )
 from codegraph.models.namespace import NamespaceNode
 from codegraph.models.file import FileNode
-from codegraph.plantuml import (
+from codegraph.export.plantuml import (
     export_plantuml,
     import_plantuml,
     PlantUMLExporter,

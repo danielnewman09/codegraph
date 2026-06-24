@@ -11,9 +11,9 @@ import json
 from collections.abc import Callable
 from contextlib import contextmanager
 
-from codegraph.repository import GraphRepository
-from codegraph.connection import get_session
-from codegraph.format import export_graph, import_graph as format_import_graph
+from codegraph.persistence.repository import GraphRepository
+from codegraph.persistence.connection import get_session
+from codegraph.export.format import export_graph, import_graph as format_import_graph
 from codegraph.graph import LayerGraph
 
 

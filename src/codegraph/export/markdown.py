@@ -65,7 +65,7 @@ import re
 
 from codegraph.graph import CompositeEntry, LayerGraph
 from codegraph.models.tags import CodeGraphNode
-from codegraph.plantuml import PlantUMLParseError, ParseDiagnostic
+from codegraph.export.plantuml import PlantUMLParseError, ParseDiagnostic
 
 # ── Constants ────────────────────────────────────────────────────────────
 

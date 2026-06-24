@@ -8,8 +8,8 @@ Dispatches subcommands.  Currently supports:
 import sys
 
 _SUBCOMMANDS = {
-    "viz": "codegraph.viz:main",
-    "db": "codegraph.db_cli:main",
+    "viz": "codegraph.export.viz:main",
+    "db": "codegraph.persistence.db_cli:main",
 }
 
 

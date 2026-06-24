@@ -16,7 +16,7 @@ from codegraph.constants import (
     NAMESPACE_KINDS as CG_NAMESPACE_KINDS_TUPLES,
 )
 from codegraph.graph import CompositeEntry, LayerGraph
-from codegraph.viz.labels import (
+from codegraph.export.viz.labels import (
     _CODEGRAPH_KIND_GROUP,
     _CODEGRAPH_STEREOTYPE_MAP,
     _ENTITY_KINDS,

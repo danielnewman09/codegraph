@@ -2,16 +2,16 @@
 
 Provides connection management for all Neo4j interactions. Configuration
 comes from environment variables (``NEO4J_URI``, ``NEO4J_USER``,
-``NEO4J_PASSWORD``) set once at import time by :mod:`codegraph.config`.
+``NEO4J_PASSWORD``) set once at import time by :mod:`codegraph.persistence.config`.
 
-This module supplements :class:`~codegraph.repository.GraphRepository`
+This module supplements :class:`~codegraph.persistence.repository.GraphRepository`
 (which handles ORM reads via neomodel) with direct Cypher access for
 queries that don't fit the neomodel model (e.g. TRACES_TO traversals,
 stats, aggregation).
 
 Usage::
 
-    from codegraph.connection import get_session, cypher_query
+    from codegraph.persistence.connection import get_session, cypher_query
 
     # Raw Cypher via session context manager
     with get_session() as session:
@@ -21,7 +21,7 @@ Usage::
     results, meta = cypher_query("MATCH (n:Class) RETURN n.name AS name")
 
     # ORM reads (unchanged)
-    from codegraph.repository import GraphRepository
+    from codegraph.persistence.repository import GraphRepository
     repo = GraphRepository()
     graph = repo.get_by_tag("design")
 """
@@ -51,7 +51,7 @@ def get_session():
 
     Now becomes::
 
-        from codegraph.connection import get_session
+        from codegraph.persistence.connection import get_session
         with get_session() as ns:
             result = ns.run("MATCH ...")
 
@@ -111,6 +111,6 @@ def _ensure_driver() -> None:
     ``cypher_query()`` and test only the import path.
     """
     if db.driver is None:
-        from codegraph.config import config
+        from codegraph.persistence.config import config
         if config.database_url:
             db.set_connection(url=config.database_url)

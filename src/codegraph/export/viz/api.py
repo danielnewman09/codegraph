@@ -6,7 +6,7 @@ CLI entry point that reads ``.codegraph.toml`` for configuration.
 
 Usage (from JSON file)::
 
-    from codegraph.viz import export_html_from_json
+    from codegraph.export.viz import export_html_from_json
 
     export_html_from_json("path/to/graph.json", "graph.html")
 
@@ -26,8 +26,8 @@ import jinja2
 from markupsafe import Markup
 
 from codegraph.graph import LayerGraph
-from codegraph.viz.transform import layer_graph_to_cytoscape
-from codegraph.viz.styles import cy_stylesheet
+from codegraph.export.viz.transform import layer_graph_to_cytoscape
+from codegraph.export.viz.styles import cy_stylesheet
 
 
 def export_html_from_json(
@@ -168,7 +168,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
 
-    from codegraph.viz.cli_config import load_config
+    from codegraph.export.viz.cli_config import load_config
 
     config, project_dir = load_config(args.project_dir)
 

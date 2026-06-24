@@ -23,7 +23,7 @@ import pytest
 
 from codegraph.graph import LayerGraph
 from codegraph.models.tags import CodeGraphNode
-from codegraph.plantuml import export_plantuml, import_plantuml
+from codegraph.export.plantuml import export_plantuml, import_plantuml
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 FIXTURE = DATA_DIR / "design_graph.json"

@@ -16,14 +16,14 @@ from codegraph.models.member import (
 )
 from codegraph.models.namespace import NamespaceNode
 from codegraph.models.file import FileNode
-from codegraph.markdown import (
+from codegraph.export.markdown import (
     export_markdown,
     import_markdown,
     MarkdownExporter,
     MarkdownImporter,
 )
-from codegraph.plantuml import PlantUMLParseError, ParseDiagnostic
-from codegraph.format import export_graph, import_graph
+from codegraph.export.plantuml import PlantUMLParseError, ParseDiagnostic
+from codegraph.export.format import export_graph, import_graph
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 

@@ -12,7 +12,7 @@ from codegraph.graph import LayerGraph, CompositeEntry
 from codegraph.models.compound import ClassNode, InterfaceNode, EnumNode
 from codegraph.models.member import MethodNode, AttributeNode
 from codegraph.models.namespace import NamespaceNode
-from codegraph.repository import GraphRepository
+from codegraph.persistence.repository import GraphRepository
 from codegraph.uid import compute_uid, normalize_argsstring
 
 
