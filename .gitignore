@@ -35,3 +35,4 @@ build/
 # Coverage reports
 .coverage
 htmlcov/
+codegraph/logs/

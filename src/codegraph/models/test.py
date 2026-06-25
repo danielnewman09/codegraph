@@ -219,6 +219,18 @@ class TestNode(StructuredNode, CodeGraphNode):
 
     _markdown_keyword = "Test"
 
+    # --- Queries ---
+
+    @classmethod
+    def fetch_by_tag(cls, tag: str):
+        """Return all TestNodes whose ``tags`` array contains *tag*.
+
+        neomodel's ``ArrayProperty`` doesn't support a native
+        array-membership filter, so we fetch all nodes and filter in
+        Python.  Fine for the expected cardinality (hundreds of tests).
+        """
+        return [n for n in cls.nodes.all() if tag in (n.tags or [])]
+
 
 # ══════════════════════════════════════════════════════════════════════════
 # AssertionNode — a pre/post-condition assertion in a test

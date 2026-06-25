@@ -240,7 +240,32 @@
       "presentation": { "reveal": "silent" },
       "problemMatcher": []
     },
-
+    {
+      "label": "codegraph: enrich",
+      "detail": "Enrich test descriptions for all as-built tests using the configured LLM (with full trace logs).",
+      "type": "shell",
+      "command": "codegraph-enrich",
+      "args": ["--all", "--tag", "as-built", "--log-dir", "${workspaceFolder}/codegraph/logs"],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": { "PATH": "${env:HOME}/dev/.venv/bin:${env:PATH}" }
+      },
+      "group": { "kind": "build" },
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      "problemMatcher": []
+    },
+    {
+      "label": "codegraph: full rebuild (with enrich)",
+      "detail": "Start Neo4j, reindex from scratch, enrich test descriptions, then run tests + coverage.",
+      "dependsOn": [
+        "codegraph: neo4j start",
+        "codegraph: reindex",
+        "codegraph: enrich",
+        "codegraph: coverage"
+      ],
+      "dependsOrder": "sequence",
+      "problemMatcher": []
+    },
     {
       "label": "codegraph: full rebuild",
       "detail": "Start Neo4j, reindex from scratch, then run tests + coverage.",
