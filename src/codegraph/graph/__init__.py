@@ -148,21 +148,26 @@ class LayerGraph:
         if isinstance(obj, dict):
             type_name = obj.get("type")
             if type_name and type_name in CodeGraphNode._registry:
-                uid_prop = CodeGraphNode._registry[type_name]._uid_prop()
+                model_cls = CodeGraphNode._registry[type_name]
+                uid_prop = model_cls._uid_prop()
                 if uid_prop and uid_prop in obj:
                     return obj[uid_prop]
                 # uid_prop exists but not in dict (e.g. LLM outputs
                 # that lack a pre-computed "uid" hash).  Deserialize
-                # the dict to compute the deterministic uid and use
-                # that as the key so every node gets a unique key.
+                # the dict to compute the deterministic uid only when
+                # the dict has the primary identity field — otherwise
+                # deserialization produces a random auto-generated uid,
+                # breaking the Phase 1 / Phase 2 key stability.
                 if uid_prop:
-                    try:
-                        node = CodeGraphNode.deserialize(obj)
-                        uid = node._uid_value()
-                        if uid:
-                            return uid
-                    except Exception:
-                        pass
+                    identity_fields = getattr(model_cls, "_identity_fields", ())
+                    if identity_fields and obj.get(identity_fields[0]):
+                        try:
+                            node = CodeGraphNode.deserialize(obj)
+                            uid = node._uid_value()
+                            if uid:
+                                return uid
+                        except Exception:
+                            pass
             return obj.get("name", "")
         # CodeGraphNode instance — use the UniqueIdProperty value
         uid = obj._uid_value()

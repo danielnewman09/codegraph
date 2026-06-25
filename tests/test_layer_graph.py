@@ -46,9 +46,11 @@ class TestNodeKey:
         result = LayerGraph._node_key({"type": "FileNode", "uid": "abc123", "refid": "file-main", "path": "/src/main.h", "name": "main.h"})
         assert result == "abc123"
 
-    def test_file_node_dict_falls_back_to_name_without_uid(self):
+    def test_file_node_dict_computes_uid_from_path(self):
+        """When uid/refid is absent but path (identity field) is present,
+        _node_key deserializes and returns the deterministic uid hash."""
         result = LayerGraph._node_key({"type": "FileNode", "path": "/src/main.h", "name": "main.h"})
-        assert result == "main.h"
+        assert result == compute_uid("/src/main.h")
 
     def test_class_node_dict_uses_uid(self):
         result = LayerGraph._node_key({"type": "ClassNode", "uid": "def456", "qualified_name": "ns::Widget", "name": "Widget"})
