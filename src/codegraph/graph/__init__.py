@@ -151,6 +151,18 @@ class LayerGraph:
                 uid_prop = CodeGraphNode._registry[type_name]._uid_prop()
                 if uid_prop and uid_prop in obj:
                     return obj[uid_prop]
+                # uid_prop exists but not in dict (e.g. LLM outputs
+                # that lack a pre-computed "uid" hash).  Deserialize
+                # the dict to compute the deterministic uid and use
+                # that as the key so every node gets a unique key.
+                if uid_prop:
+                    try:
+                        node = CodeGraphNode.deserialize(obj)
+                        uid = node._uid_value()
+                        if uid:
+                            return uid
+                    except Exception:
+                        pass
             return obj.get("name", "")
         # CodeGraphNode instance — use the UniqueIdProperty value
         uid = obj._uid_value()
