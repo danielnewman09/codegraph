@@ -35,13 +35,14 @@ codegraph-html = "codegraph.export.viz:main"
 codegraph-db = "codegraph.persistence.db_cli:main"
 codegraph-enrich = "codegraph_enrich.__main__:main"
 codegraph-requirements = "codegraph_requirements.__main__:main"
+codegraph-mine = "codegraph_mine.__main__:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-cov>=5.0", "sphinx>=7.0"]
 enrich = ["llm-caller"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/codegraph", "src/codegraph_enrich", "src/codegraph_requirements"]
+packages = ["src/codegraph", "src/codegraph_enrich", "src/codegraph_requirements", "src/codegraph_mine", "src/codegraph_project"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -50,7 +51,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["codegraph", "codegraph_enrich", "codegraph_requirements"]
+source = ["codegraph", "codegraph_enrich", "codegraph_requirements", "codegraph_mine", "codegraph_project"]
 omit = ["*/type_parser.py"]
 
 [tool.coverage.report]

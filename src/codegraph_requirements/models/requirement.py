@@ -119,8 +119,6 @@ class HLR(StructuredNode, CodeGraphNode):
     #
     #  • COMPOSES (incoming) — Component → HLR
     #    The project component this requirement belongs to.
-    #    String reference to the ticketing system's Component model —
-    #    the relationship is traversable via raw Cypher regardless.
     #
     #  • COMPOSES (outgoing) — HLR → CompoundNode
     #    The design-graph nodes (classes, interfaces, enums) that this
@@ -131,7 +129,7 @@ class HLR(StructuredNode, CodeGraphNode):
         "codegraph_requirements.models.requirement.LLR", "COMPOSES"
     )
     component = RelationshipFrom(
-        "backend_migrated.models.component.Component", "COMPOSES"
+        "codegraph_project.models.component.Component", "COMPOSES"
     )
     design_compounds = RelationshipTo(
         "codegraph.models.compound.CompoundNode", "COMPOSES"
