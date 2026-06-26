@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 
 from codegraph_enrich import TestEnricher, enrichment_available

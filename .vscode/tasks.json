@@ -74,7 +74,7 @@
       "detail": "Clear existing as-built graph data and re-index from scratch.",
       "type": "shell",
       "command": "doxygen-index",
-      "args": ["project", ".", "--format", "neo4j", "--source", "as-built", "--clear"],
+      "args": ["project", ".", "--format", "neo4j", "--source", "as-built", "--clear", "--yes"],
       "options": {
         "cwd": "${workspaceFolder}",
         "env": { "PATH": "${env:HOME}/dev/.venv/bin:${env:PATH}" }

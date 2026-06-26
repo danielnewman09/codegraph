@@ -521,6 +521,26 @@ python -m codegraph db status
 python -m codegraph db stop
 ```
 
+### Backup & Restore
+
+The knowledge graph is a destructive target — re-indexing can clobber
+enriched data, and `--clear` wipes the entire database.  Automated
+backups protect against data loss.
+
+```bash
+# Manual backup (portable logical dump)
+scripts/backup-neo4j.sh
+
+# Restore from a backup
+scripts/restore-neo4j.sh codegraph/neo4j/backups/neo4j-<timestamp>.dump
+```
+
+Daily automated backups run at 03:00 via launchd (keep last 7 dumps).
+The dump→restore pipeline has been validated end-to-end (21,187 nodes,
+3,227 `as-built` tagged, all 11 relationship types intact).
+
+Full documentation: [`docs/operations/neo4j-backup.md`](docs/operations/neo4j-backup.md)
+
 ## Testing
 
 ```bash

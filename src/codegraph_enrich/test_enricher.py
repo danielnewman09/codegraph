@@ -51,6 +51,8 @@ Guidelines:
 - Focus on the *purpose* and *why* — not implementation syntax.
 - Use clear, plain English suitable for non-developer stakeholders.
 - Connect each element to the code under test when possible.
+- For the test itself: what behavior does it verify and why is that
+  verification important?
 - For fixtures: what the variable represents and why it is needed.
 - For steps: what action is performed and how it advances the test.
 - For assertions: what condition is being verified and why it matters.
@@ -84,10 +86,57 @@ class TestEnricher(GraphEnricher):
 
     One :class:`TestNode` at a time — fetches its fixtures, steps, and
     assertions, builds a batched prompt with peer context, calls the
-    LLM, and saves updated descriptions.
+    LLM, and saves updated descriptions.  Also enriches the test node's
+    own description.
     """
 
     __test__ = False  # prevent pytest collection
+
+    # ------------------------------------------------------------------
+    # Hooks: also enrich the test node itself
+    # ------------------------------------------------------------------
+
+    def _should_enrich_target(self, target) -> bool:
+        return True
+
+    def _build_target_section(
+        self, target, children: dict[str, list]
+    ) -> str:
+        """Prompt section that asks the LLM to describe the test itself."""
+        from codegraph_enrich.base import GraphEnricher
+
+        qn = self.node_name(target)
+        field_label = self.enrichment_field.capitalize()
+        current = getattr(target, self.enrichment_field, "") or "(none)"
+
+        # Gather context: what does this test verify?
+        verifies = self._fetch_verifies(target)
+        verifies_lines = ""
+        if verifies:
+            verifies_lines = "\n".join(
+                f"  - {v['qualified_name']} ({v['kind']})"
+                for v in verifies
+            )
+
+        # Gather child counts for context
+        fixture_count = len(children.get("fixtures", []))
+        step_count = len(children.get("steps", []))
+        assertion_count = len(children.get("assertions", []))
+
+        return f"""
+## Test Node (the test itself)
+
+Generate a concise one-sentence description of test "{qn}":
+what it verifies and why it matters to the correctness
+of the code under test.
+
+- Test: {qn}
+- Module: {getattr(target, 'test_module', '') or '(unknown)'}
+- Current {self.enrichment_field}: {current}
+- Code under test:
+{verifies_lines or '  (none)'}
+- Children: {fixture_count} fixtures, {step_count} steps, {assertion_count} assertions
+"""
 
     # ------------------------------------------------------------------
     # System prompt

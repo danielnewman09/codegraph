@@ -371,6 +371,30 @@ class GraphEnricher(ABC):
         ...
 
     # ------------------------------------------------------------------
+    # Optional hooks (subclasses may override)
+    # ------------------------------------------------------------------
+
+    def _should_enrich_target(self, target) -> bool:
+        """Return True if the target (parent) node itself should be enriched.
+
+        The base implementation returns False — only composed children
+        are enriched.  Override in subclasses (e.g. TestEnricher) to
+        also generate a description for the parent node.
+        """
+        return False
+
+    def _build_target_section(
+        self, target, children: dict[str, list[Any]]
+    ) -> str:
+        """Return a prompt section that asks the LLM to describe the
+        target node itself.  Called only when :meth:`_should_enrich_target`
+        returns True and the target actually needs enrichment.
+
+        Override in subclasses — the base returns an empty string.
+        """
+        return ""
+
+    # ------------------------------------------------------------------
     # Template methods
     # ------------------------------------------------------------------
 
@@ -440,6 +464,21 @@ class GraphEnricher(ABC):
                     ))
                     summary.total_skipped += 1
 
+        # --- 2b. Optionally include the target node itself ---
+        if self._should_enrich_target(target):
+            if _needs_enrichment(target):
+                to_enrich["target"] = [target]
+            else:
+                summary.results.append(EnrichmentResult(
+                    qualified_name=target_name,
+                    node_type="target",
+                    field=self.enrichment_field,
+                    old_description=getattr(target, self.enrichment_field, ""),
+                    skipped=True,
+                    skip_reason="Already has a description",
+                ))
+                summary.total_skipped += 1
+
         total_to_enrich = sum(len(v) for v in to_enrich.values())
         if total_to_enrich == 0:
             return summary
@@ -470,6 +509,10 @@ class GraphEnricher(ABC):
         user_prompt = self._build_prompt(
             target, children, to_enrich,
         )
+        # Append the target-node section if applicable
+        target_section = self._build_target_section(target, children)
+        if target_section:
+            user_prompt += "\n" + target_section
 
         # Scale max_tokens to the batch size so the JSON response
         # isn't truncated.  ~100 tokens per description + overhead.
@@ -625,7 +668,11 @@ def _singular(plural: str) -> str:
     'fixture'
     >>> _singular("steps")
     'step'
+    >>> _singular("target")
+    'target'
     """
+    if plural == "target":
+        return "target"
     if plural.endswith("ies"):
         return plural[:-3] + "y"
     if plural.endswith("ses"):
