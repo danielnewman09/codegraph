@@ -87,7 +87,103 @@ def main(argv: list[str] | None = None) -> None:
         "--allow-thinking", action="store_true",
         help="Allow the model to produce reasoning/thinking output.",
     )
+    mine_parser.add_argument(
+        "--agentic", action="store_true",
+        help="Use agentic tool-loop flow: LLM explores the codegraph with "
+             "tools before submitting results.",
+    )
     mine_parser.set_defaults(func=_cmd_mine)
+
+    # ── composite ───────────────────────────────────────────────────
+    comp_parser = sub.add_parser(
+        "composite",
+        help="Mine composite technical requirements from HLR clusters",
+    )
+    comp_parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Mine composite HLRs for all namespaces with ≥2 child HLRs.",
+    )
+    comp_parser.add_argument(
+        "--namespace",
+        default=None,
+        help="Qualified name of a single namespace to mine a composite HLR for.",
+    )
+    comp_parser.add_argument(
+        "--tag",
+        default=None,
+        help="Only consider HLRs with this provenance tag (e.g. 'as-built').",
+    )
+    comp_parser.add_argument(
+        "--model", default="",
+        help="LLM model override (default: llm-caller configured model).",
+    )
+    comp_parser.add_argument(
+        "--dry-run", action="store_true",
+        help="Build prompts and simulate without calling the LLM.",
+    )
+    comp_parser.add_argument(
+        "--overwrite", action="store_true",
+        help="Overwrite existing composite requirements.",
+    )
+    comp_parser.add_argument(
+        "--max-tokens", type=int, default=16384,
+        help="Maximum tokens per LLM response (default: 16384).",
+    )
+    comp_parser.add_argument(
+        "--log-dir", default=None,
+        help="Directory for prompt + response trace logs.",
+    )
+    comp_parser.add_argument(
+        "--allow-thinking", action="store_true",
+        help="Allow the model to produce reasoning/thinking output.",
+    )
+    comp_parser.add_argument(
+        "--agentic", action="store_true",
+        help="Use agentic tool-loop flow: LLM explores the codegraph with "
+             "tools before submitting results.",
+    )
+    comp_parser.set_defaults(func=_cmd_composite)
+
+    # ── components ───────────────────────────────────────────────────
+    components_parser = sub.add_parser(
+        "components",
+        help="Mine functional Components from the full HLR landscape",
+    )
+    components_parser.add_argument(
+        "--tag", default=None,
+        help="Only consider HLRs with this provenance tag (e.g. 'as-built').",
+    )
+    components_parser.add_argument(
+        "--model", default="",
+        help="LLM model override (default: llm-caller configured model).",
+    )
+    components_parser.add_argument(
+        "--dry-run", action="store_true",
+        help="Build prompt and simulate without calling the LLM.",
+    )
+    components_parser.add_argument(
+        "--overwrite", action="store_true",
+        help="Overwrite existing mined Components.",
+    )
+    components_parser.add_argument(
+        "--max-tokens", type=int, default=16384,
+        help="Maximum tokens per LLM response (default: 16384).",
+    )
+    components_parser.add_argument(
+        "--log-dir", default=None,
+        help="Directory for prompt + response trace logs.",
+    )
+    components_parser.add_argument(
+        "--allow-thinking", action="store_true",
+        help="Allow the model to produce reasoning/thinking output.",
+    )
+    components_parser.add_argument(
+        "--agentic", action="store_true",
+        help="Use agentic tool-loop flow: LLM explores the codegraph with "
+             "tools before submitting results.",
+    )
+    components_parser.set_defaults(func=_cmd_components)
 
     # ── report ────────────────────────────────────────────────────────
     report_parser = sub.add_parser(
@@ -100,6 +196,10 @@ def main(argv: list[str] | None = None) -> None:
     report_parser.add_argument(
         "-o", "--output", default=None,
         help="Write the report to a file (default: stdout).",
+    )
+    report_parser.add_argument(
+        "--no-composite", action="store_true",
+        help="Exclude composite HLRs from the report.",
     )
     report_parser.set_defaults(func=_cmd_report)
 
@@ -166,6 +266,7 @@ def _cmd_mine(args) -> None:
         dry_run=args.dry_run,
         overwrite=args.overwrite,
         max_tokens=args.max_tokens,
+        agentic=getattr(args, 'agentic', False),
     )
 
     if args.compound:
@@ -198,11 +299,107 @@ def _cmd_mine(args) -> None:
         print(json.dumps(summary.to_dict(), indent=2))
 
 
+def _cmd_composite(args) -> None:
+    """Handle the ``composite`` subcommand."""
+    if not args.namespace and not args.all:
+        print(
+            "Error: --namespace or --all is required",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if not mining_available():
+        print(
+            "LLM mining is not configured.\n"
+            "Set LLM_API_KEY (and optionally LLM_BASE_URL, LLM_MODEL, "
+            "LLM_BACKEND).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    _check_neo4j()
+
+    from codegraph_mine import CompositeHLRMiner
+
+    log_dir = args.log_dir or os.environ.get("MINE_LOG_DIR")
+    miner = CompositeHLRMiner(
+        log_dir=log_dir,
+        disable_thinking=not args.allow_thinking,
+    )
+    common = dict(
+        model=args.model,
+        dry_run=args.dry_run,
+        overwrite=args.overwrite,
+        max_tokens=args.max_tokens,
+        agentic=getattr(args, 'agentic', False),
+    )
+
+    if args.namespace:
+        from codegraph.models.namespace import NamespaceNode
+
+        ns_node = NamespaceNode.nodes.get_or_none(
+            qualified_name=args.namespace
+        )
+        if ns_node is None:
+            print(
+                f"Namespace not found: {args.namespace}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        result = miner.mine_one(ns_node, **common)
+        print(json.dumps(result.to_dict(), indent=2))
+    else:
+        filters = {}
+        if args.tag:
+            filters["tag"] = args.tag
+
+        summary = miner.mine_all(**common, **filters)
+        print(json.dumps(summary.to_dict(), indent=2))
+
+
+def _cmd_components(args) -> None:
+    """Handle the ``components`` subcommand."""
+    if not mining_available():
+        print(
+            "LLM mining is not configured.\n"
+            "Set LLM_API_KEY (and optionally LLM_BASE_URL, LLM_MODEL, "
+            "LLM_BACKEND).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    _check_neo4j()
+
+    from codegraph_mine import ComponentMiner
+
+    log_dir = args.log_dir or os.environ.get("MINE_LOG_DIR")
+    miner = ComponentMiner(
+        log_dir=log_dir,
+        disable_thinking=not args.allow_thinking,
+    )
+    common = dict(
+        model=args.model,
+        dry_run=args.dry_run,
+        overwrite=args.overwrite,
+        max_tokens=args.max_tokens,
+        agentic=getattr(args, 'agentic', False),
+    )
+
+    # Component miner is a global operation — one target (ProjectMeta)
+    summary = miner.mine_all(**common)
+    print(json.dumps(summary.to_dict(), indent=2))
+
+
 def _cmd_report(args) -> None:
     """Handle the ``report`` subcommand."""
     _check_neo4j()
 
-    md = generate_report(tag=args.tag, output=args.output)
+    md = generate_report(
+        tag=args.tag,
+        output=args.output,
+        include_composite=not args.no_composite,
+    )
     if not args.output:
         print(md)
 

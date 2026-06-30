@@ -52,8 +52,10 @@ if _dotenv_path.exists():
 
 from codegraph_mine.base import MineResult, MineSummary, RequirementMiner
 from codegraph_mine.llr_miner import LLRMiner
-from codegraph_mine.schemas import MinedLLR, MinedRequirements
-from codegraph_mine.persistence import persist_mined_requirements
+from codegraph_mine.composite_miner import CompositeHLRMiner
+from codegraph_mine.component_miner import ComponentMiner
+from codegraph_mine.schemas import MinedLLR, MinedRequirements, MinedCompositeHLR, MinedComponent, MinedComponents
+from codegraph_mine.persistence import persist_mined_requirements, persist_composite_hlr, persist_mined_components
 from codegraph_mine.report import generate_report
 
 
@@ -75,9 +77,16 @@ __all__ = [
     "MineSummary",
     "RequirementMiner",
     "LLRMiner",
+    "CompositeHLRMiner",
+    "ComponentMiner",
     "MinedLLR",
     "MinedRequirements",
+    "MinedCompositeHLR",
+    "MinedComponent",
+    "MinedComponents",
     "persist_mined_requirements",
+    "persist_composite_hlr",
+    "persist_mined_components",
     "generate_report",
     "mining_available",
 ]

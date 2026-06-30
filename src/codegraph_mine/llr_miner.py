@@ -57,13 +57,13 @@ Guidelines:
 Response format — return ONLY a JSON object (no markdown, no explanation):
 
 {
-  "hlr_description": "The ClassNode system shall provide a complete data model for representing program classes including their members, relationships, serialization, and persistence lifecycle.",
+  "hlr_description": "The <ClassName> shall provide a complete data model for representing <domain concept>, including <key capabilities inferred from tests>.",
   "llrs": [
     {
-      "description": "The ClassNode shall support serialization of its composed methods and attributes so that roundtrip fidelity is maintained.",
+      "description": "The <ClassName> shall support <specific behavior> so that <outcome/condition> is maintained.",
       "verified_by": [
-        "compound.test_class_composes_method.test_class_composes_method",
-        "compound.test_class_composes_attribute.test_class_composes_attribute"
+        "<test_module>.<test_class>.<test_method>",
+        "<test_module>.<test_class>.<test_method>"
       ]
     },
     ...
@@ -102,6 +102,138 @@ class LLRMiner(RequirementMiner):
     @property
     def system_prompt(self) -> str:
         return _MINING_SYSTEM_PROMPT
+
+    # ------------------------------------------------------------------
+    # Agentic mining configuration
+    # ------------------------------------------------------------------
+
+    @property
+    def _final_tool_name(self) -> str:
+        return "submit_mined_requirements"
+
+    @property
+    def _final_tool_schema(self) -> dict:
+        return {
+            "name": "submit_mined_requirements",
+            "description": (
+                "Submit the mined HLR and LLRs for the compound. "
+                "Call this after analyzing all test evidence."
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "hlr_description": {
+                        "type": "string",
+                        "minLength": 10,
+                        "description": "High-level requirement for the compound.",
+                    },
+                    "llrs": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "description": {
+                                    "type": "string",
+                                    "minLength": 10,
+                                    "description": "Low-level requirement text.",
+                                },
+                                "verified_by": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "TestNode qualified_names that verify this LLR.",
+                                },
+                            },
+                            "required": ["description"],
+                        },
+                    },
+                },
+                "required": ["hlr_description", "llrs"],
+            },
+        }
+
+    @property
+    def _exploration_tool_names(self) -> list[str]:
+        """Tools the LLM can use to explore the codegraph during agentic mining.
+
+        - get_compound: inspect the compound's members and structure
+        - find_inheritance: understand type hierarchy
+        - find_callers_and_callees: understand method call graph
+        """
+        return ["get_compound", "find_inheritance", "find_callers_and_callees"]
+
+    def _build_initial_message(self, target, context: dict) -> str:
+        """Build the initial message with test evidence as seed context.
+
+        The test evidence (descriptions, steps, assertions, fixtures) is
+        provided directly because no existing tool queries test nodes.
+        The LLM can then use exploration tools to understand the compound's
+        structure before submitting requirements.
+        """
+        compound_name = context["compound_name"]
+        compound_kind = context.get("compound_kind", "class")
+        tests = context.get("tests", [])
+
+        lines = [
+            f"Analyze the following {len(tests)} tests for the {compound_kind} "
+            f"`{compound_name}` and infer low-level requirements.",
+            "",
+            f"Use the exploration tools to inspect the compound's structure "
+            f"and relationships, then call `{self._final_tool_name}` to submit "
+            f"the HLR and LLRs.",
+            "",
+        ]
+
+        # Include the full test evidence (same as batch prompt)
+        lines.append("## Test Evidence:")
+        lines.append("")
+        for i, test in enumerate(tests):
+            lines.append(f"### Test {i + 1}: {test['qualified_name']}")
+            lines.append(f"Name: {test['test_name']}")
+            lines.append(f"Module: {test['test_module']}")
+            lines.append(f"Description: {test['description'] or '(none)'}")
+            lines.append("")
+
+            if test["verifies"]:
+                lines.append("Verifies:")
+                for v in test["verifies"]:
+                    lines.append(f"  - {v['qualified_name']} ({v['kind']})")
+                lines.append("")
+
+            if test["fixtures"]:
+                lines.append("Fixtures:")
+                for f in test["fixtures"]:
+                    type_info = f" ({f['type_signature']})" if f["type_signature"] else ""
+                    desc_info = f" — {f['description']}" if f["description"] else ""
+                    lines.append(f"  - {f['name']}{type_info}{desc_info}")
+                lines.append("")
+
+            if test["steps"]:
+                lines.append("Steps:")
+                for s in sorted(test["steps"], key=lambda x: x["order"]):
+                    callee_str = ""
+                    if s["callees"]:
+                        callee_names = [c["qualified_name"] for c in s["callees"]]
+                        callee_str = f" → {', '.join(callee_names)}"
+                    desc_info = f": {s['description']}" if s["description"] else ""
+                    lines.append(f"  - step_{s['order']}{callee_str}{desc_info}")
+                lines.append("")
+
+            if test["assertions"]:
+                lines.append("Assertions:")
+                for a in sorted(test["assertions"], key=lambda x: x["order"]):
+                    desc_info = f" — {a['description']}" if a["description"] else ""
+                    lines.append(f"  - {a['phase']} {a['operator']}{desc_info}")
+                lines.append("")
+
+            lines.append("---")
+            lines.append("")
+
+        lines.append(
+            f"Every test MUST appear in exactly one LLR's `verified_by` list. "
+            f"Use the exploration tools to understand the compound, then call "
+            f"`{self._final_tool_name}` with the HLR and LLRs."
+        )
+        return "\n".join(lines)
 
     # ------------------------------------------------------------------
     # Target discovery

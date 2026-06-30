@@ -32,25 +32,33 @@ from neomodel import db
 log = logging.getLogger(__name__)
 
 
-def generate_report(*, tag: str = "as-built", output: str | None = None) -> str:
+def generate_report(*, tag: str = "as-built", output: str | None = None,
+                    include_composite: bool = True) -> str:
     """Generate a markdown report of all mined requirements.
 
     Queries all HLRs with the given provenance tag, walks their LLRs
     and linked TestNodes, and renders a structured report.
 
+    If ``include_composite`` is True, also queries composite HLRs
+    (HLRs with the ``"composite"`` tag) and renders a
+    ``Composite Technical Requirements`` section showing the
+    composite → child HLR hierarchy.
+
     Args:
         tag: Provenance tag to filter HLRs by (default ``"as-built"``).
-        output: Optional file path to write the report to.  If provided,
-            the report is written to disk; the markdown string is still
-            returned.
+        output: Optional file path to write the report to.
+        include_composite: If True, include a composite HLRs section.
 
     Returns:
         The full markdown report as a string.
     """
     hlr_data = _fetch_hlrs_with_llrs(tag)
     uncovered = _fetch_compounds_without_requirements(tag)
+    composite_data = (
+        _fetch_composite_hlrs(tag) if include_composite else []
+    )
 
-    md = _render_report(hlr_data, uncovered, tag)
+    md = _render_report(hlr_data, uncovered, tag, composite_data)
 
     if output:
         with open(output, "w") as f:
@@ -187,6 +195,72 @@ def _fetch_compounds_without_requirements(tag: str) -> list[dict]:
     return uncovered
 
 
+def _fetch_composite_hlrs(tag: str) -> list[dict]:
+    """Fetch all composite HLRs with their child HLRs.
+
+    Composite HLRs carry the ``"composite"`` tag.  Each composite HLR
+    composes one or more child HLRs via ``COMPOSES`` edges.  This
+    function returns a list of composite HLR dicts, each with its
+    description, rationale (if present), and a list of child HLR
+    summaries.
+
+    Returns a list of dicts, each with:
+        name, description, refid, child_hlrs (list of dicts with
+        name, description, compound).
+    """
+    query = """
+    MATCH (h:HLR)
+    WHERE 'composite' IN h.tags AND $tag IN h.tags
+    OPTIONAL MATCH (h)-[:COMPOSES]->(child:HLR)
+    WHERE NOT 'composite' IN child.tags
+    OPTIONAL MATCH (child)-[:COMPOSES]->(c)
+    WHERE c:ClassNode OR c:InterfaceNode OR c:EnumNode OR c:UnionNode
+    OPTIONAL MATCH (h)-[:COMPOSES]->(ns:NamespaceNode)
+    RETURN h, child, c, ns
+    ORDER BY h.name, child.name
+    """
+    try:
+        results, _ = db.cypher_query(query, {"tag": tag})
+    except Exception as exc:
+        log.error("_fetch_composite_hlrs: query failed: %s", exc)
+        return []
+
+    composite_map: dict[str, dict] = {}
+    for row in results:
+        h_node, child_node, c_node, ns_node = row
+
+        h_refid = h_node.get("refid", "")
+        if h_refid not in composite_map:
+            ns_name = ns_node.get("qualified_name", "") if ns_node else ""
+            composite_map[h_refid] = {
+                "name": h_node.get("name", ""),
+                "description": h_node.get("description", ""),
+                "refid": h_refid,
+                "namespace": ns_name,
+                "child_hlrs": {},
+            }
+
+        if child_node:
+            child_refid = child_node.get("refid", "")
+            if child_refid not in composite_map[h_refid]["child_hlrs"]:
+                compound_name = c_node.get("qualified_name", "") if c_node else ""
+                composite_map[h_refid]["child_hlrs"][child_refid] = {
+                    "name": child_node.get("name", ""),
+                    "description": child_node.get("description", ""),
+                    "refid": child_refid,
+                    "compound": compound_name,
+                }
+
+    result: list[dict] = []
+    for comp in sorted(composite_map.values(), key=lambda c: c["name"]):
+        comp["child_hlrs"] = sorted(
+            comp["child_hlrs"].values(), key=lambda h: h["name"]
+        )
+        result.append(comp)
+
+    return result
+
+
 # ══════════════════════════════════════════════════════════════════════════
 # Rendering
 # ══════════════════════════════════════════════════════════════════════════
@@ -196,6 +270,7 @@ def _render_report(
     hlrs: list[dict],
     uncovered: list[dict],
     tag: str,
+    composite_hlrs: list[dict] | None = None,
 ) -> str:
     """Render the full markdown report."""
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
@@ -227,19 +302,69 @@ def _render_report(
     # ── Table of Contents ──
     lines.append("## Table of Contents")
     lines.append("")
-    for i, hlr in enumerate(hlrs):
-        comp = hlr.get("compound", "")
-        comp_str = f" — `{comp}`" if comp else ""
-        lines.append(
-            f"{i + 1}. [{hlr['name']}](#hlr-{_anchor(hlr['name'])})"
-            f"{comp_str} ({len(hlr['llrs'])} LLRs)"
-        )
-    if uncovered:
+    if composite_hlrs:
+        lines.append(f"1. [Composite Technical Requirements](#composite-technical-requirements)")
+        lines.append(f"2. [Per-Compound HLRs](#per-compound-hlrs)")
+        if uncovered:
+            lines.append(f"3. [Uncovered Compounds](#uncovered-compounds)")
         lines.append("")
-        lines.append("### [Uncovered Compounds](#uncovered-compounds)")
-    lines.append("")
+    else:
+        for i, hlr in enumerate(hlrs):
+            comp = hlr.get("compound", "")
+            comp_str = f" — `{comp}`" if comp else ""
+            lines.append(
+                f"{i + 1}. [{hlr['name']}](#hlr-{_anchor(hlr['name'])})"
+                f"{comp_str} ({len(hlr['llrs'])} LLRs)"
+            )
+        if uncovered:
+            lines.append("")
+            lines.append("### [Uncovered Compounds](#uncovered-compounds)")
+        lines.append("")
     lines.append("---")
     lines.append("")
+
+    # ── Composite HLRs section ──
+    if composite_hlrs:
+        lines.append("## Composite Technical Requirements")
+        lines.append("")
+        lines.append(
+            f"{len(composite_hlrs)} composite HLRs synthesised from "
+            f"per-compound HLR clusters."
+        )
+        lines.append("")
+
+        for comp in composite_hlrs:
+            ns = comp.get("namespace", "")
+            ns_str = f" — `{ns}`" if ns else ""
+            lines.append(
+                f"### {comp['name']}{{#composite-{_anchor(comp['name'])}}}"
+            )
+            lines.append("")
+            lines.append(f"**Description:** {comp['description']}")
+            lines.append("")
+            if ns_str:
+                lines.append(f"**Namespace:** `{ns}`")
+                lines.append("")
+            child_count = len(comp["child_hlrs"])
+            lines.append(f"**Child HLRs:** {child_count}")
+            lines.append("")
+
+            for j, child in enumerate(comp["child_hlrs"]):
+                comp_str = f" (`{child['compound']}`)" if child["compound"] else ""
+                lines.append(f"{j + 1}. **{child['name']}**{comp_str}")
+                lines.append(f"   {child['description']}")
+                lines.append("")
+
+            lines.append("---")
+            lines.append("")
+
+        lines.append("## Per-Compound HLRs")
+        lines.append("")
+        lines.append(
+            f"{total_hlrs} per-compound HLRs with {total_llrs} LLRs "
+            f"and {len(all_test_qns)} distinct tests."
+        )
+        lines.append("")
 
     # ── HLR detail sections ──
     for hlr in hlrs:

@@ -44,6 +44,9 @@ layer graph, an HLR whose Component is also in the graph appears as a
 child of that Component's ``CompositeEntry``; otherwise the HLR is a
 root entry.  The ``COMPOSES`` edges between HLR and LLR create the
 nested structure that ``layer_graph_to_cytoscape()`` renders.
+    Composite HLRs (tagged ``"composite"``) nest child HLRs via the
+    same ``COMPOSES`` edge, extending the hierarchy upward:
+    ``CompositeHLR → HLR → LLR → TestNode``.
 
 NOTE: Before creating or querying nodes, neomodel's database connection
 must be configured (by importing ``codegraph.config`` or calling
@@ -123,6 +126,20 @@ class HLR(StructuredNode, CodeGraphNode):
     #  • COMPOSES (outgoing) — HLR → CompoundNode
     #    The design-graph nodes (classes, interfaces, enums) that this
     #    requirement composes.
+    #
+    #  • COMPOSES (outgoing) — HLR → HLR (composite nesting)
+    #    A composite/technical HLR composes one or more child HLRs,
+    #    creating a multi-level requirement hierarchy:
+    #
+    #        CompositeHLR -[:COMPOSES]-> HLR -[:COMPOSES]-> LLR -[:COMPOSES]-> TestNode
+    #
+    #    Composite HLRs carry the ``"composite"`` tag to distinguish
+    #    them from per-compound HLRs.  The LayerGraph system renders
+    #    these as nested CompositeEntry trees, the same way it renders
+    #    Namespace → Class → Method nesting.
+    #
+    #  • COMPOSES (incoming) — HLR → HLR (parent composite)
+    #    The parent composite HLR that this HLR is nested under, if any.
     # --------------------------------------------------------------------------
 
     llrs = RelationshipTo(
@@ -133,6 +150,13 @@ class HLR(StructuredNode, CodeGraphNode):
     )
     design_compounds = RelationshipTo(
         "codegraph.models.compound.CompoundNode", "COMPOSES"
+    )
+    # Composite HLR nesting: a composite HLR owns child HLRs
+    sub_hlrs = RelationshipTo(
+        "codegraph_requirements.models.requirement.HLR", "COMPOSES"
+    )
+    parent_hlr = RelationshipFrom(
+        "codegraph_requirements.models.requirement.HLR", "COMPOSES"
     )
 
     # --- Serialization contract ---
