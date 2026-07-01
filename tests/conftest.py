@@ -114,6 +114,10 @@ def test_neo4j_container():
 
     The container is torn down automatically when the session ends.
     """
+    # codegraph:test-desc conftest.test_neo4j_container::step_0
+    # Sets up the Neo4j container environment, including checking Docker availability,
+    # composing the container, and confirming bolt reachability, which establishes the
+    # test precondition.
     if os.environ.get("CODEGRAPH_TEST_SKIP_CONTAINER", "").lower() in ("1", "true", "yes"):
         # Caller explicitly wants to use their own Neo4j instance.
         yield

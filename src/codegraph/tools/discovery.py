@@ -135,6 +135,23 @@ LIST_SOURCES_SCHEMA = {
 }
 
 
+LIST_NAMESPACES_SCHEMA = {
+    "name": "list_namespaces",
+    "description": (
+        "List all namespace nodes with entity counts. Returns compact JSON "
+        "(qualified_name, name, entity_count, sub_namespace_count) for every "
+        "namespace in the graph, sorted by entity_count descending. Use this "
+        "to discover which namespaces are large enough to be business components "
+        "without pulling the full graph."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+    },
+}
+
+
 FIND_INHERITANCE_SCHEMA = {
     "name": "find_inheritance",
     "description": (
@@ -383,6 +400,34 @@ def handle_list_sources(ctx: CodeGraphDispatcher, _tool_input: dict) -> str:
         return json.dumps({"error": "Failed to list sources"})
 
 
+def handle_list_namespaces(ctx: CodeGraphDispatcher, _tool_input: dict) -> str:
+    """List all namespace nodes with entity counts."""
+    try:
+        with ctx.session() as session:
+            result = session.run(
+                "MATCH (n:NamespaceNode) "
+                "OPTIONAL MATCH (n)-[:COMPOSES]->(c) "
+                "WHERE c.kind IN ['class','interface','enum','union','struct','concept','module','function','namespace'] "
+                "WITH n, count(c) AS entity_count "
+                "OPTIONAL MATCH (n)-[:COMPOSES]->(s:NamespaceNode) "
+                "RETURN n.qualified_name AS qualified_name, n.name AS name, "
+                "entity_count, count(s) AS sub_namespace_count "
+                "ORDER BY entity_count DESC"
+            )
+            results: list[dict] = []
+            for record in result:
+                results.append({
+                    "qualified_name": record["qualified_name"],
+                    "name": record["name"],
+                    "entity_count": record["entity_count"],
+                    "sub_namespace_count": record["sub_namespace_count"],
+                })
+            return json.dumps({"results": results, "count": len(results)})
+    except Exception:
+        log.warning("list_namespaces: Neo4j query failed", exc_info=True)
+        return json.dumps({"error": "Failed to list namespaces"})
+
+
 def handle_find_inheritance(ctx: CodeGraphDispatcher, tool_input: dict) -> str:
     """Find parents and children in the inheritance hierarchy."""
     qname = tool_input.get("qualified_name", "")
@@ -491,6 +536,10 @@ def register_all(dispatcher: CodeGraphDispatcher) -> None:
     disp.register(
         "find_inheritance", FIND_INHERITANCE_SCHEMA,
         lambda inp: handle_find_inheritance(disp, inp),
+    )
+    disp.register(
+        "list_namespaces", LIST_NAMESPACES_SCHEMA,
+        lambda inp: handle_list_namespaces(disp, inp),
     )
     disp.register(
         "find_callers_and_callees", FIND_CALLERS_CALLEES_SCHEMA,

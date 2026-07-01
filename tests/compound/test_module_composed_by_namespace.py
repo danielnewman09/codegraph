@@ -10,7 +10,13 @@ from codegraph.models.compound import ModuleNode
 from codegraph.models.namespace import NamespaceNode
 
 
+# codegraph:test-desc compound.test_module_composed_by_namespace.test_module_composed_by_namespace
+# Verifies that a module correctly references its parent namespace and has exactly one
+# parent, ensuring proper composition of module and namespace structures.
 def test_module_composed_by_namespace():
+    # codegraph:test-desc compound.test_module_composed_by_namespace.test_module_composed_by_namespace::step_0
+    # Sets up the test by initializing the ns_node and module_node fixtures, preparing
+    # the environment for subsequent assertions on the module's parent relationship.
     ns_node = NamespaceNode(
         name="calc",
         kind="namespace",
@@ -28,7 +34,13 @@ def test_module_composed_by_namespace():
 
     # Verify incoming COMPOSES from child side
     parents = module_node.parent_namespace.all()
+    # codegraph:test-desc compound.test_module_composed_by_namespace.test_module_composed_by_namespace::post_0
+    # Verifies that the module has exactly one parent, confirming the module is
+    # correctly attached to a single namespace as intended.
     assert len(parents) == 1
+    # codegraph:test-desc compound.test_module_composed_by_namespace.test_module_composed_by_namespace::post_1
+    # Verifies that the module's parent is the expected namespace node, ensuring the
+    # correct parent assignment in the module-namespace composition.
     assert parents[0]._uid_value() == ns_node._uid_value()
 
 

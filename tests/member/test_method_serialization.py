@@ -14,8 +14,14 @@ from codegraph.models.tags import CodeGraphNode
 FIXTURE_DIR = Path(__file__).resolve().parent.parent.parent / "unit_test_data"
 
 
+# codegraph:test-desc member.test_method_serialization.test_method_node_roundtrip
+# Verifies that a MethodNode can be serialized and then deserialized without losing
+# data, ensuring correctness in the persist-restore lifecycle of code elements.
 def test_method_node_roundtrip():
     # 1. Build a MethodNode
+    # codegraph:test-desc member.test_method_serialization.test_method_node_roundtrip::step_0
+    # Creates the original MethodNode instance that will be serialized and deserialized,
+    # setting up the fundamental object for the roundtrip test.
     original = MethodNode(
         name="draw",
         kind="method",
@@ -37,13 +43,27 @@ def test_method_node_roundtrip():
     roundtripped = CodeGraphNode.deserialize(data)
 
     # 4. Assert type is correct
+    # codegraph:test-desc member.test_method_serialization.test_method_node_roundtrip::post_0
+    # Checks that the deserialized result is an instance of MethodNode, ensuring that
+    # the deserialization process correctly reconstructs the node type.
     assert isinstance(roundtripped, MethodNode)
+    # codegraph:test-desc member.test_method_serialization.test_method_node_roundtrip::post_1
+    # Verifies that the serialized data contains a 'type' field set to 'MethodNode',
+    # ensuring that the type information is correctly preserved during serialization.
     assert data["type"] == "MethodNode"
 
     # 5. Assert fields roundtrip
+    # codegraph:test-desc member.test_method_serialization.test_method_node_roundtrip::post_2
+    # Confirms that the original MethodNode and the roundtripped node are equal after
+    # deserialization, establishing that the serialization-deserialization cycle
+    # preserves all attributes and content.
     assert original.serialize() == roundtripped.serialize(), (
         f"Mismatch:\n  expected: {original.serialize()}\n  actual:   {roundtripped.serialize()}"
     )
+    # codegraph:test-desc member.test_method_serialization.test_method_node_roundtrip::step_1
+    # Serializes the original MethodNode to a dictionary using the serialize method,
+    # producing the data that will later be deserialized and compared to verify
+    # roundtrip integrity.
     print("✓ PASS: MethodNode roundtrip — serialize/deserialize preserves type and fields")
 
 
