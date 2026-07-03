@@ -163,8 +163,9 @@ class MethodNode(MemberNode):
     #    Traversed via ``parent_compound`` / ``parent_interface``.
     #
     #  ── Call-callee ──
-    #  • INVOKES  — MethodNode(caller) → MethodNode(callee)
-    #    Call-callee relationship.  The source method invokes the target method.
+    #  • INVOKES  — MethodNode/FunctionNode(caller) → MethodNode/FunctionNode(callee)
+    #    Call-callee relationship.  Methods and free functions can invoke
+    #    each other.
     #
     #  ── Type relationships ──
     #  • HAS_ARGUMENT  — MethodNode → ClassNode
@@ -182,6 +183,8 @@ class MethodNode(MemberNode):
 
     # Call-callee
     invokes = RelationshipTo('MethodNode', 'INVOKES')
+    invokes_function = RelationshipTo('FunctionNode', 'INVOKES')
+    invoked_by_function = RelationshipFrom('FunctionNode', 'INVOKES')
 
     # Type relationships
     has_argument = RelationshipTo('codegraph.models.compound.ClassNode', 'HAS_ARGUMENT')
@@ -270,10 +273,21 @@ class FunctionNode(MemberNode):
     #  • COMPOSES (incoming)  — NamespaceNode → this FunctionNode
     #    The parent namespace owns this function.
     #    Traversed via ``parent_namespace``.
+    #
+    #  ── Call-callee ──
+    #  • INVOKES  — FunctionNode/MethodNode(caller) → FunctionNode/MethodNode(callee)
+    #    Call-callee relationship.  Free functions and methods can invoke
+    #    each other.
     # --------------------------------------------------------------------------
 
     # Incoming composition
     parent_namespace = RelationshipFrom('codegraph.models.namespace.NamespaceNode', 'COMPOSES')
+
+    # Call-callee
+    invokes_method = RelationshipTo('MethodNode', 'INVOKES')
+    invokes_function = RelationshipTo('FunctionNode', 'INVOKES')
+    invoked_by_method = RelationshipFrom('MethodNode', 'INVOKES')
+    invoked_by_function = RelationshipFrom('FunctionNode', 'INVOKES')
 
 
 class DefineNode(MemberNode):
