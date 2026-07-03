@@ -15,6 +15,9 @@ Usage::
     codegraph-db browser [--project-dir DIR] [--no-open]
     codegraph-db init   [--project-dir DIR] [--no-pull]
     codegraph-db rm     [--project-dir DIR] [--force]
+    codegraph-db backup [--project-dir DIR] [--mode dump|tar] [--keep N]
+    codegraph-db restore [--project-dir DIR] [backup_file]
+    codegraph-db backups [--project-dir DIR]
 
 Configuration is read from ``.codegraph.toml`` or
 ``.doxygen-index.toml`` in the project directory.  An optional
@@ -34,12 +37,15 @@ import sys
 
 from codegraph.persistence.docker import (
     Neo4jContainerConfig,
+    backup_database,
     browser_url,
     init_project,
+    list_backups,
     load_container_config,
     open_shell,
     remove_container,
     restart_container,
+    restore_database,
     show_logs,
     show_status,
     start_container,
@@ -162,6 +168,46 @@ def main(argv: list[str] | None = None) -> None:
         help="Remove even if the container is currently running.",
     )
 
+    # --- backup ---
+    p_backup = sub.add_parser(
+        "backup", help="Create a database backup (dump or tar).",
+        description=(
+            "Create a backup of the Neo4j database. The container is briefly "
+            "stopped for a consistent snapshot, then restarted."
+        ),
+    )
+    _add_project_dir_arg(p_backup)
+    p_backup.add_argument(
+        "--mode", choices=["dump", "tar"], default="dump",
+        help="Backup mode: 'dump' (logical neo4j-admin dump, default) or "
+             "'tar' (filesystem-level tar.gz).",
+    )
+    p_backup.add_argument(
+        "--keep", type=int, default=None,
+        help="Rotate backups: keep only the last N files of this mode.",
+    )
+
+    # --- restore ---
+    p_restore = sub.add_parser(
+        "restore", help="Restore the database from a backup file.",
+        description=(
+            "Restore the Neo4j database from a backup file. WARNING: this "
+            "destroys the current database. A safety backup is created first."
+        ),
+    )
+    _add_project_dir_arg(p_restore)
+    p_restore.add_argument(
+        "backup_file", nargs="?", default="",
+        help="Backup file to restore. If omitted, lists available backups.",
+    )
+
+    # --- backups ---
+    p_backups = sub.add_parser(
+        "backups", help="List available backup files.",
+        description="List all backup files with size, mode, and timestamp.",
+    )
+    _add_project_dir_arg(p_backups)
+
     args = parser.parse_args(argv)
 
     cfg: Neo4jContainerConfig = load_container_config(args.project_dir)
@@ -184,6 +230,29 @@ def main(argv: list[str] | None = None) -> None:
         init_project(cfg, pull=not args.no_pull)
     elif args.command == "rm":
         remove_container(cfg, force=args.force)
+    elif args.command == "backup":
+        backup_database(cfg, mode=args.mode, keep=args.keep)
+    elif args.command == "restore":
+        if not args.backup_file:
+            # List available backups if no file specified.
+            backups = list_backups(cfg)
+            if not backups:
+                print("No backups found.")
+            else:
+                print(f"Available backups in {cfg.neo4j_dir / 'backups'}:")
+                for b in backups:
+                    print(f"  {b['name']}  ({b['size_human']}, {b['mode']}, {b['mtime']})")
+                print(f"\nUsage: codegraph-db restore <backup_file>")
+        else:
+            restore_database(cfg, args.backup_file)
+    elif args.command == "backups":
+        backups = list_backups(cfg)
+        if not backups:
+            print("No backups found.")
+        else:
+            print(f"Backups in {cfg.neo4j_dir / 'backups'}:")
+            for b in backups:
+                print(f"  {b['name']}  ({b['size_human']}, {b['mode']}, {b['mtime']})")
 
 
 if __name__ == "__main__":

@@ -691,3 +691,308 @@ def init_project(cfg: Neo4jContainerConfig, *, pull: bool = True) -> None:
     update_env_file(cfg)
     print(f"\n.env updated at {cfg.project_dir / '.env'}")
     print("\nRun 'codegraph-db start' to launch the container.")
+
+
+# ---------------------------------------------------------------------------
+# Backup / Restore / List
+# ---------------------------------------------------------------------------
+
+#: Subdirectory under ``codegraph/neo4j/`` for backup files.
+BACKUP_SUBDIR = "backups"
+
+#: Neo4j logical database name (Community Edition always uses "neo4j").
+_DB_NAME = "neo4j"
+
+
+def _backup_dir(cfg: Neo4jContainerConfig) -> Path:
+    """Return the backup directory, creating it if necessary."""
+    d = cfg.neo4j_dir / BACKUP_SUBDIR
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def backup_database(
+    cfg: Neo4jContainerConfig,
+    *,
+    mode: str = "dump",
+    keep: int | None = None,
+) -> Path:
+    """Create a backup of the Neo4j database.
+
+    Two modes are supported:
+
+    - ``mode="dump"`` (default): a logical dump via ``neo4j-admin
+      database dump``.  Produces a portable, consistent ``.dump`` file
+      that can be restored to any Neo4j 5.x Community instance.  The
+      container is briefly stopped (typically < 30 s downtime).
+    - ``mode="tar"``: a fast filesystem-level tar of the entire data
+      directory.  Also requires the container to be stopped.
+
+    After the backup is created, the container is restarted and the
+    backup file's integrity is verified (for dump mode).
+
+    Args:
+        cfg: Resolved container configuration.
+        mode: ``"dump"`` or ``"tar"``.
+        keep: If set, rotate backups of the same mode keeping only the
+            last *keep* files.
+
+    Returns:
+        The path to the created backup file.
+
+    Raises:
+        RuntimeError: If the container is not running or the backup
+            fails.
+    """
+    from datetime import datetime
+
+    if not docker_available():
+        raise RuntimeError("Docker daemon is not running or docker is not on PATH.")
+
+    state = _container_state(cfg)
+    if state != "running":
+        raise RuntimeError(
+            f"Container {cfg.container_name} is not running (state: {state}). "
+            "Start it first with codegraph-db start."
+        )
+
+    bdir = _backup_dir(cfg)
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+
+    print(f"=== Neo4j backup started at {datetime.now().isoformat()} ===")
+    print(f"  Mode:      {mode}")
+    print(f"  Container: {cfg.container_name}")
+    print(f"  Backups:   {bdir}")
+
+    # Stop the container for a consistent snapshot.
+    print(f"Stopping {cfg.container_name} ...")
+    _docker("stop", cfg.container_name)
+
+    backup_file: Path
+    try:
+        if mode == "dump":
+            print("Creating logical dump via neo4j-admin ...")
+            _docker(
+                "run", "--rm",
+                "-v", f"{cfg.neo4j_dir / 'data'}:/data",
+                "-v", f"{bdir}:/backups",
+                cfg.image,
+                "neo4j-admin", "database", "dump", _DB_NAME,
+                "--to-path=/backups",
+            )
+            # neo4j-admin names the dump "<dbname>.dump"
+            backup_file = bdir / f"neo4j-{timestamp}.dump"
+            (bdir / f"{_DB_NAME}.dump").rename(backup_file)
+
+            # Integrity check: Neo4j 5.x dumps use Zstandard (magic: DZV1).
+            with open(backup_file, "rb") as f:
+                magic = f.read(4)
+            if magic == b"DZV1":
+                print(f"Integrity: header check PASSED (Neo4j 5.x Zstd dump)")
+            else:
+                print(f"WARNING: unexpected dump header {magic!r} - file may be corrupt")
+
+        elif mode == "tar":
+            print("Creating tar backup of data directory ...")
+            backup_file = bdir / f"neo4j-data-{timestamp}.tar.gz"
+            subprocess.run(
+                ["tar", "-czf", str(backup_file),
+                 "-C", str(cfg.neo4j_dir), "data"],
+                check=True,
+            )
+        else:
+            raise ValueError(f"Unknown backup mode: {mode!r}. Use 'dump' or 'tar'.")
+
+    except Exception:
+        # Always restart the container even if the backup fails.
+        print(f"Starting {cfg.container_name} (after backup failure) ...")
+        _docker("start", cfg.container_name)
+        raise
+
+    # Restart the container.
+    print(f"Starting {cfg.container_name} ...")
+    _docker("start", cfg.container_name)
+
+    size = backup_file.stat().st_size
+    size_str = f"{size / 1024 / 1024:.1f} MB" if size > 1024 * 1024 else f"{size / 1024:.1f} KB"
+    print(f"Backup: {backup_file}  ({size_str})")
+
+    # Retention: rotate old backups of the same mode.
+    if keep is not None and keep > 0:
+        print(f"Rotating backups: keeping last {keep} ...")
+        if mode == "dump":
+            pattern = "neo4j-*.dump"
+        else:
+            pattern = "neo4j-data-*.tar.gz"
+        files = sorted(bdir.glob(pattern), key=lambda p: p.stat().st_mtime, reverse=True)
+        for old in files[keep:]:
+            print(f"  Deleting {old.name}")
+            old.unlink()
+
+    print(f"=== Backup complete at {datetime.now().isoformat()} ===")
+    return backup_file
+
+
+def restore_database(
+    cfg: Neo4jContainerConfig,
+    backup_file: str | Path,
+) -> Path:
+    """Restore the Neo4j database from a backup file.
+
+    **WARNING**: This destroys the current database.  The function:
+
+    1. Creates a safety tar backup of the current state.
+    2. Stops the container.
+    3. Wipes the data directory.
+    4. Restores from the backup (``.dump`` via neo4j-admin, or ``.tar.gz``
+       via tar extraction).
+    5. Fixes permissions.
+    6. Restarts the container.
+
+    Args:
+        cfg: Resolved container configuration.
+        backup_file: Path to the backup file.  If relative, resolved
+            against the backup directory.
+
+    Returns:
+        The resolved path of the backup file that was restored.
+
+    Raises:
+        FileNotFoundError: If the backup file does not exist.
+        RuntimeError: If the container is not available.
+        ValueError: If the backup format is unrecognized.
+    """
+    from datetime import datetime
+
+    if not docker_available():
+        raise RuntimeError("Docker daemon is not running or docker is not on PATH.")
+
+    bdir = _backup_dir(cfg)
+    backup_path = Path(backup_file)
+    if not backup_path.is_absolute():
+        backup_path = bdir / backup_path
+    if not backup_path.exists():
+        raise FileNotFoundError(
+            f"Backup file not found: {backup_path}"
+            f"{chr(10)}Available backups:{chr(10)}"
+            f"{list_backups(cfg)}"
+        )
+
+    data_dir = cfg.neo4j_dir / "data"
+
+    print(f"=== Restore started at {datetime.now().isoformat()} ===")
+    print(f"  Backup:  {backup_path}")
+    print(f"  Data:    {data_dir}")
+
+    # Safety backup of current state before restore.
+    print("\nCreating safety backup of current state before restore ...")
+    try:
+        backup_database(cfg, mode="tar")
+    except Exception as exc:
+        print(f"WARNING: safety backup failed: {exc}")
+        print("  Proceeding with restore anyway.")
+
+    # Stop the container.
+    _docker("stop", cfg.container_name, check=False)
+
+    # Wipe current data.
+    print("Wiping current data ...")
+    if data_dir.exists():
+        shutil.rmtree(data_dir)
+    data_dir.mkdir(parents=True, exist_ok=True)
+
+    # Restore.
+    if backup_path.name.endswith(".dump"):
+        print("Restoring from neo4j-admin dump ...")
+        # neo4j-admin load requires --from-path to be a directory containing
+        # the dump named <dbname>.dump.  Create a staging dir.
+        import tempfile
+        with tempfile.TemporaryDirectory() as staging:
+            staging_path = Path(staging)
+            shutil.copy2(backup_path, staging_path / f"{_DB_NAME}.dump")
+            _docker(
+                "run", "--rm",
+                "-v", f"{data_dir}:/data",
+                "-v", f"{staging_path}:/backups:ro",
+                cfg.image,
+                "neo4j-admin", "database", "load", _DB_NAME,
+                "--from-path=/backups",
+                "--overwrite-destination=true",
+            )
+    elif backup_path.name.endswith(".tar.gz"):
+        print("Restoring from tar archive ...")
+        subprocess.run(
+            ["tar", "-xzf", str(backup_path),
+             "-C", str(cfg.neo4j_dir)],
+            check=True,
+        )
+    else:
+        raise ValueError(
+            f"Unrecognized backup format: {backup_path.name} "
+            "(expected .dump or .tar.gz)"
+        )
+
+    # Fix permissions.
+    print("Fixing permissions ...")
+    for p in data_dir.rglob("*"):
+        try:
+            p.chmod(0o644 if p.is_file() else 0o755)
+        except OSError:
+            pass
+
+    # Restart.
+    print(f"Starting {cfg.container_name} ...")
+    _docker("start", cfg.container_name)
+
+    print(f"\n=== Restore complete at {datetime.now().isoformat()} ===")
+    print("Neo4j is starting - wait ~10s for it to become ready.")
+    return backup_path
+
+
+def list_backups(cfg: Neo4jContainerConfig) -> list[dict]:
+    """List available backup files with metadata.
+
+    Args:
+        cfg: Resolved container configuration.
+
+    Returns:
+        A list of dicts, each with keys:
+        ``name``, ``path``, ``size_bytes``, ``size_human``, ``mode``
+        ("dump" or "tar"), and ``mtime`` (ISO timestamp).
+        Sorted newest-first.
+    """
+    from datetime import datetime
+
+    bdir = cfg.neo4j_dir / BACKUP_SUBDIR
+    if not bdir.exists():
+        return []
+
+    result: list[dict] = []
+    for p in bdir.iterdir():
+        if not p.is_file():
+            continue
+        if p.name.endswith(".dump"):
+            mode = "dump"
+        elif p.name.endswith(".tar.gz"):
+            mode = "tar"
+        else:
+            continue
+        stat = p.stat()
+        size = stat.st_size
+        if size > 1024 * 1024:
+            size_human = f"{size / 1024 / 1024:.1f} MB"
+        elif size > 1024:
+            size_human = f"{size / 1024:.1f} KB"
+        else:
+            size_human = f"{size} B"
+        result.append({
+            "name": p.name,
+            "path": str(p),
+            "size_bytes": size,
+            "size_human": size_human,
+            "mode": mode,
+            "mtime": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+        })
+
+    result.sort(key=lambda x: x["mtime"], reverse=True)
+    return result
