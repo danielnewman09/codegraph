@@ -195,7 +195,7 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
             types matching the given tag.
         """
         result: list[CodeGraphNode] = []
-        for node_cls in cls._registry.values():
+        for node_cls in list(cls._registry.values()):
             result.extend(node_cls.fetch_by_tag(tag))
         return result
 
@@ -273,7 +273,10 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
             A flat list of CodeGraphNode instances matching the given source.
         """
         result: list[CodeGraphNode] = []
-        for node_cls in cls._registry.values():
+        # Snapshot the registry to avoid "dictionary changed size during
+        # iteration" when a neomodel query triggers a lazy model import
+        # that registers a new node type mid-iteration.
+        for node_cls in list(cls._registry.values()):
             if "source" in node_cls.defined_properties():
                 result.extend(node_cls.nodes.filter(source=source))
         return result
@@ -295,7 +298,7 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
             (and optionally tag).
         """
         result: list[CodeGraphNode] = []
-        for node_cls in cls._registry.values():
+        for node_cls in list(cls._registry.values()):
             props = node_cls.defined_properties()
             if "kind" not in props:
                 continue
@@ -1016,5 +1019,8 @@ def _default_markdown_keyword(node_type_name: str) -> str:
         "AssertionNode": "Assertion",
         "TestStepNode": "TestStep",
         "TestFixtureNode": "TestFixture",
+        "Component": "Component",
+        "HLR": "HLR",
+        "LLR": "LLR",
     }
     return defaults.get(node_type_name, "Class")

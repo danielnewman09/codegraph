@@ -164,6 +164,10 @@ class HLR(StructuredNode, CodeGraphNode):
 
     _markdown_keyword = "HLR"
 
+    def markdown_body_type(self) -> str | None:
+        """HLR has no method/attribute body section."""
+        return None
+
     @classmethod
     def from_llm_dict(cls, data: dict) -> "HLR":
         """Construct an HLR from an LLM tool-call dict.
@@ -273,6 +277,10 @@ class LLR(StructuredNode, CodeGraphNode):
     _llm_fields: set[str] = {"name", "description", "tags"}
 
     _markdown_keyword = "LLR"
+
+    def markdown_body_type(self) -> str | None:
+        """LLR has no method/attribute body section."""
+        return None
 
     @classmethod
     def from_llm_dict(cls, data: dict) -> "LLR":

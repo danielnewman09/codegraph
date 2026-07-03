@@ -88,3 +88,9 @@ class Component(StructuredNode, CodeGraphNode):
     _llm_fields: set[str] = {
         "name", "description", "namespace", "tags",
     }
+
+    _markdown_keyword = "Component"
+
+    def markdown_body_type(self) -> str | None:
+        """Component has no method/attribute body section."""
+        return None

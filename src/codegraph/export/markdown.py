@@ -80,6 +80,13 @@ _KEYWORD_TO_NODE_TYPE: dict[str, str] = {
     "union": "UnionNode",
     "concept": "ConceptNode",
     "note": "FileNode",
+    "component": "Component",
+    "hlr": "HLR",
+    "llr": "LLR",
+    "test": "TestNode",
+    "assertion": "AssertionNode",
+    "teststep": "TestStepNode",
+    "testfixture": "TestFixtureNode",
 }
 
 # Node type → default kind
@@ -132,6 +139,19 @@ _LABEL_TO_REL_TYPE: dict[str, str] = {
 
 # Fields excluded from markdown output
 _NON_HUMAN_READABLE: set[str] = {"refid", "doc_embedding", "component_id"}
+
+# Fields already captured by the heading or description text —
+# not emitted as `- key: value` property lines.
+_HEADING_FIELDS: set[str] = {"name", "description", "brief_description"}
+
+# Lazy-import mapping for node types defined in external packages.
+# The importer triggers these imports on first encounter so that the
+# CodeGraphNode registry contains the class before deserialization.
+_LAZY_IMPORTS: dict[str, str] = {
+    "HLR": "codegraph_requirements.models.requirement",
+    "LLR": "codegraph_requirements.models.requirement",
+    "Component": "codegraph_project.models.component",
+}
 
 
 # ── Markdown Exporter ────────────────────────────────────────────────────
@@ -217,6 +237,9 @@ class MarkdownExporter:
 
         # Inline relationships (Inherits from / Implements)
         lines.extend(self._emit_inline_rels(entry))
+
+        # Extra properties (namespace, tags, etc.)
+        lines.extend(self._emit_properties(entry))
 
         # Recurse into non-member children (classes inside namespaces, etc.)
         for child_type, type_children in entry.children.items():
@@ -352,6 +375,38 @@ class MarkdownExporter:
                 )
         return lines
 
+    # ── Extra properties ──────────────────────────────────────────────
+
+    def _emit_properties(self, entry: CompositeEntry) -> list[str]:
+        """Emit ``- key: value`` lines for _llm_fields not captured elsewhere.
+
+        The heading already carries ``name``, and the description text
+        carries ``description`` / ``brief_description``.  Any remaining
+        ``_llm_fields`` (e.g. ``namespace`` on Component, ``tags``) are
+        emitted as property lines so that import can restore them.
+
+        ``tags`` is serialised as a comma-separated list.
+        """
+        node = entry.node
+        lines: list[str] = []
+        llm_fields = getattr(type(node), "_llm_fields", set())
+        props = type(node).defined_properties()
+        for key in sorted(llm_fields):
+            if key in _HEADING_FIELDS or key in _NON_HUMAN_READABLE:
+                continue
+            if key not in props:
+                continue
+            value = getattr(node, key, None)
+            if value is None or value == "" or value == []:
+                continue
+            if key == "tags":
+                tags_list = list(value) if value else []
+                if tags_list:
+                    lines.append(f"- tags: {', '.join(tags_list)}")
+            else:
+                lines.append(f"- {key}: {value}")
+        return lines
+
 
 # ── Markdown Importer ─────────────────────────────────────────────────────
 
@@ -391,7 +446,9 @@ class MarkdownImporter:
 
         heading_re = re.compile(
             r'^(#{2,})\s+'
-            r'(Namespace|Class|Interface|Enum|Function|Module|Union|Concept|Note)'
+            r'(Namespace|Class|Interface|Enum|Function|Module|Union|Concept|Note'
+            r'|Component|HLR|LLR|Test|Assertion|TestStep|TestFixture'
+            r')'
             r':\s+`([^`]+)`'
         )
 
@@ -515,14 +572,25 @@ class MarkdownImporter:
             if stack and section is None:
                 # Plain text after heading = description
                 if not stripped.startswith("- ") and not stripped.startswith("`"):
-                    # Set brief_description on current node
+                    # Set description on current node — use brief_description
+                    # for compound nodes, or description for requirement/
+                    # component nodes that don't have brief_description.
                     node = stack[-1][2].node
-                    existing = getattr(node, "brief_description", "")
-                    if not existing:
-                        try:
-                            setattr(node, "brief_description", stripped)
-                        except AttributeError:
-                            pass
+                    props = type(node).defined_properties()
+                    if "brief_description" in props:
+                        existing = getattr(node, "brief_description", "")
+                        if not existing:
+                            try:
+                                setattr(node, "brief_description", stripped)
+                            except AttributeError:
+                                pass
+                    elif "description" in props:
+                        existing = getattr(node, "description", "")
+                        if not existing:
+                            try:
+                                setattr(node, "description", stripped)
+                            except AttributeError:
+                                pass
                     continue
 
                 # Property line: - key: value
@@ -613,15 +681,30 @@ class MarkdownImporter:
 
     @staticmethod
     def _apply_property(node: CodeGraphNode, key: str, value: str) -> None:
-        """Set property on node if it exists."""
+        """Set property on node if it exists.
+
+        For ``tags`` (an ArrayProperty), parses the comma-separated
+        string into a list before assignment.
+        """
         props = type(node).defined_properties()
-        if key in props:
+        if key not in props:
+            return
+        if key == "tags":
+            tag_list = [t.strip() for t in value.split(",") if t.strip()]
+            setattr(node, key, tag_list)
+        else:
             setattr(node, key, value)
 
     # ── Node creation ─────────────────────────────────────────────────
 
     def _create_node(self, node_type: str, name: str,
                      qname: str) -> CodeGraphNode:
+        # Lazy-import model classes from external packages so that the
+        # CodeGraphNode registry contains them before deserialization.
+        if node_type in _LAZY_IMPORTS and node_type not in CodeGraphNode._registry:
+            import importlib
+            importlib.import_module(_LAZY_IMPORTS[node_type])
+
         data: dict = {
             "type": node_type,
             "name": name,
