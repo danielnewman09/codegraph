@@ -610,8 +610,14 @@ class MarkdownImporter:
                            f"Relationship source {src_qname!r} not found")
                 continue
             if tgt_entry is None:
-                self._diag(rel_line, "error",
-                           f"Relationship target {tgt_qname!r} not found")
+                # Target not in this document — may be a cross-document
+                # reference (e.g. tests → design-layer LLRs/classes).
+                # Store the reference anyway; to_neo4j() will resolve
+                # it via Neo4j lookup at persist time.
+                self._diag(rel_line, "warning",
+                           f"Relationship target {tgt_qname!r} not found "
+                           f"in document — will attempt Neo4j lookup")
+                src_entry.references.append((rel_type, tgt_qname, ""))
                 continue
 
             tgt_type = type(tgt_entry.node).__name__

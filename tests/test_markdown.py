@@ -1071,11 +1071,12 @@ class TestMarkdownDiagnostics:
         importer = MarkdownImporter()
         md = "### Class: `A`\n## Relationships\n- `A` → `B` **depends_on**\n"
         importer.import_markdown(md)
-        errors = [d for d in importer.diagnostics if d.severity == "error"]
+        errors = [d for d in importer.diagnostics if d.severity == "warning"]
         # codegraph:test-desc test_markdown.TestMarkdownDiagnostics.test_dangling_relationship_target::post_0
-        # Ensures that at least one diagnostic error is reported when a dangling
+        # Ensures that at least one diagnostic warning is reported when a dangling
         # relationship target exists, validating that the importer correctly identifies
-        # broken references.
+        # broken references (now stored as warnings so cross-document references can
+        # be resolved at Neo4j persist time).
         assert len(errors) >= 1
 
     # codegraph:test-desc test_markdown.TestMarkdownDiagnostics.test_strict_mode_raises

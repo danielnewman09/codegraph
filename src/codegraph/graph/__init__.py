@@ -665,8 +665,16 @@ class LayerGraph:
         connects COMPOSES children via the parent's relationship manager
         and connects reference edges via ``find_relationship_manager()``.
         """
-        # Build a flat index for resolving reference targets
+        # Build flat indexes for resolving reference targets.
+        # uid_index: keyed by node uid (from _node_key).
+        # qname_index: keyed by qualified_name (for markdown-imported
+        #   references that use qnames, not uids).
         flat = self._flat_index()
+        qname_index: dict[str, CompositeEntry] = {}
+        for entry in self._all_entries():
+            qname = getattr(entry.node, "qualified_name", None)
+            if qname:
+                qname_index[qname] = entry
 
         # Phase 1: save all nodes
         for entry in self._all_entries():
@@ -687,7 +695,7 @@ class LayerGraph:
 
             # Connect references
             for relation_type, target_key, target_type in entry.references:
-                target_entry = flat.get(target_key)
+                target_entry = flat.get(target_key) or qname_index.get(target_key)
                 if target_entry is not None:
                     try:
                         manager = CodeGraphNode.find_relationship_manager(
@@ -716,6 +724,33 @@ class LayerGraph:
                                 "tgt": db.parse_element_id(
                                     target_entry.node.element_id
                                 ),
+                            },
+                        )
+                else:
+                    # Cross-document reference: target not in this graph.
+                    # Look up the target in Neo4j by qualified_name or name
+                    # (e.g. tests referencing design-layer LLRs/classes
+                    # ingested from a separate markdown file).
+                    # LLR/HLR/Component nodes use `name`; ClassNode/
+                    # FunctionNode use `qualified_name`.
+                    from neomodel import db
+                    results, _ = db.cypher_query(
+                        "MATCH (t) "
+                        "WHERE t.qualified_name = $qname OR t.name = $qname "
+                        "RETURN elementId(t) LIMIT 1",
+                        {"qname": target_key},
+                    )
+                    if results:
+                        db.cypher_query(
+                            f"MATCH (s), (t) "
+                            f"WHERE elementId(s) = $src "
+                            f"AND elementId(t) = $tgt "
+                            f"MERGE (s)-[:{relation_type}]->(t)",
+                            {
+                                "src": db.parse_element_id(
+                                    source_node.element_id
+                                ),
+                                "tgt": db.parse_element_id(results[0][0]),
                             },
                         )
 
