@@ -63,6 +63,55 @@ class GraphRepository:
                 return node
         return None
 
+    def get_hlr_subtree(self, refid: str) -> LayerGraph:
+        """Fetch the full requirements subtree for an HLR.
+
+        Performs multi-hop COMPOSES traversal starting from the HLR:
+        HLR → LLRs → TestNodes → AssertionNodes / TestStepNodes.
+        Then expands 1-hop neighbours on the leaf nodes to include
+        scaffold/design nodes referenced by LEFT_OPERAND, RIGHT_OPERAND,
+        and CALLEE edges.
+
+        Args:
+            refid: The HLR's ``uid`` (deterministic unique ID) or legacy ``refid``
+                (hex UUID string).  Tries ``uid`` first, then ``refid``.
+
+        Returns:
+            A LayerGraph containing the full requirements tree and its
+            scaffold neighbours, or an empty LayerGraph if the HLR is
+            not found.
+        """
+        from codegraph_requirements.models import HLR
+
+        hlr = HLR.nodes.get_or_none(uid=refid)
+        if hlr is None:
+            # Also try lookup by refid for backwards compatibility
+            hlr = HLR.nodes.get_or_none(refid=refid)
+        if hlr is None:
+            return LayerGraph(tags=frozenset({"design"}))
+
+        # Phase 1: multi-hop COMPOSES traversal from HLR
+        seen_uids: set[str] = set()
+        queue: list[CodeGraphNode] = [hlr]
+        composes_reachable: list[CodeGraphNode] = []
+
+        while queue:
+            node = queue.pop(0)
+            uid = node._uid_value()
+            if not uid or uid in seen_uids:
+                continue
+            seen_uids.add(uid)
+            composes_reachable.append(node)
+
+            for child in node.walk_composes():
+                child_uid = child._uid_value()
+                if child_uid and child_uid not in seen_uids:
+                    queue.append(child)
+
+        # Phase 2: pass all visited nodes to _build_layer_graph for
+        # 1-hop expansion (scaffold neighbours via LEFT_OPERAND etc.)
+        return self._build_layer_graph(composes_reachable)
+
     @staticmethod
     def _build_layer_graph(seeds: list[CodeGraphNode]) -> LayerGraph:
         """Build a LayerGraph from seed nodes plus 1-hop neighbors.

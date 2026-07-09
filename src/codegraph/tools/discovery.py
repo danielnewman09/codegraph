@@ -191,6 +191,28 @@ FIND_CALLERS_CALLEES_SCHEMA = {
     },
 }
 
+GET_HLR_SUBTREE_SCHEMA = {
+    "name": "get_hlr_subtree",
+    "description": (
+        "Fetch the full requirements subtree for an HLR refid. "
+        "Returns the HLR, all its LLRs, test nodes, assertions, test steps, "
+        "and scaffold/design nodes reachable via COMPOSES, LEFT_OPERAND, "
+        "RIGHT_OPERAND, and CALLEE edges.  Use this to retrieve the complete "
+        "existing picture before decomposing, designing, or enriching a "
+        "requirement."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "refid": {
+                "type": "string",
+                "description": "The HLR refid (hex UUID string).",
+            },
+        },
+        "required": ["refid"],
+    },
+}
+
 
 # ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -508,6 +530,28 @@ def handle_find_callers_callees(ctx: CodeGraphDispatcher, tool_input: dict) -> s
         return json.dumps({"error": f"Caller/callee lookup failed for {qname}"})
 
 
+def handle_get_hlr_subtree(ctx: CodeGraphDispatcher, tool_input: dict) -> str:
+    """Fetch the full requirements subtree for an HLR refid.
+
+    Uses ``GraphRepository.get_hlr_subtree()`` to do a multi-hop COMPOSES
+    traversal, then serializes the resulting LayerGraph to JSON.
+    """
+    from codegraph.export.format import export_graph
+
+    refid = tool_input.get("refid", "")
+    if not refid:
+        return json.dumps({"error": "refid is required"})
+
+    try:
+        graph = ctx.repo.get_hlr_subtree(refid)
+        ctx.current_graph = graph  # cache
+        result = export_graph(graph, format="json")
+        return result
+    except Exception as exc:
+        log.exception("get_hlr_subtree failed for refid '%s'", refid)
+        return json.dumps({"error": str(exc)})
+
+
 # ── Registration ──────────────────────────────────────────────────────────
 
 def register_all(dispatcher: CodeGraphDispatcher) -> None:
@@ -544,4 +588,8 @@ def register_all(dispatcher: CodeGraphDispatcher) -> None:
     disp.register(
         "find_callers_and_callees", FIND_CALLERS_CALLEES_SCHEMA,
         lambda inp: handle_find_callers_callees(disp, inp),
+    )
+    disp.register(
+        "get_hlr_subtree", GET_HLR_SUBTREE_SCHEMA,
+        lambda inp: handle_get_hlr_subtree(disp, inp),
     )

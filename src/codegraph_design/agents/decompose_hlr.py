@@ -364,6 +364,39 @@ scaffold references, the decomposition is invalid.
 </HARD-VALIDATION>
 
 You MUST use the decompose_requirement tool to return your result.
+
+{existing_context_section}
+
+<EXISTING-CONTEXT>
+When existing_context is provided, the HLR already has some LLRs, tests,
+assertions, steps, and/or scaffold nodes.  Your job is to **complete** the
+requirements picture — do NOT duplicate what already exists.
+
+Rules for completing partial decompositions:
+
+1. **Existing LLRs are DONE** — do not re-describe or re-create them.
+   They are listed for your awareness only.
+2. **LLRs without tests** — create verification stubs (tests, assertions,
+   steps) for any LLR that has none.  Use the same notional references
+   as the existing scaffold nodes where possible.
+3. **Tests without pre/post conditions** — add missing assertions.
+   Reuse existing scaffold node qualified_names when appropriate.
+4. **New LLRs** — if the HLR is not fully covered by existing LLRs,
+   create additional LLRs to fill the gaps.  Follow all normal
+   decomposition rules (atomic, interface contracts, verification stubs).
+5. **Scaffold consistency** — when creating new verification stubs, use
+   the same notional reference names that the existing scaffold nodes
+   use (e.g. if ``Thermostat::current_reading`` already exists as a
+   scaffold AttributeNode, use it in your LEFT_OPERAND edges rather than
+   inventing ``Thermostat::reading``).  Creating NEW scaffold references
+   is allowed for new concepts the existing ones don't cover.
+
+Your output's ``nodes`` list should contain BOTH the nodes you create
+AND the existing nodes (so the full picture is visible).  The existing
+nodes in your output must match the existing_context EXACTLY — same
+refid/qualified_name, same type, same edges.  This ensures the
+persistence layer can upsert correctly.
+</EXISTING-CONTEXT>
 """
 
 TOOL_DEFINITION = {
@@ -678,10 +711,240 @@ def validate_decomposition(nodes: list[dict]) -> list[DecompositionViolation]:
     return violations
 
 
+def _load_existing_requirements_tree(hlr) -> dict:
+    """Load the full existing requirements tree for an HLR from the codegraph repository.
+
+    Uses ``GraphRepository.get_hlr_subtree()`` which does a multi-hop
+    COMPOSES traversal and returns a LayerGraph.  We walk the graph to
+    extract the same dict format that ``_format_existing_context()``
+    consumes.
+
+    Returns a dict with keys:
+    - ``llrs``: list of LLR summaries (refid, description, tags)
+    - ``tests_by_llr``: dict of LLR refid → list of test summaries
+    - ``scaffolds``: list of scaffold node summaries (qualified_name, kind)
+    """
+    from codegraph.persistence.repository import GraphRepository
+
+    repo = GraphRepository()
+    refid = hlr.refid
+
+    try:
+        graph = repo.get_hlr_subtree(refid)
+    except Exception:
+        log.warning("get_hlr_subtree failed for %s, returning empty tree", refid[:8])
+        return {"llrs": [], "tests_by_llr": {}, "scaffolds": []}
+
+    # Build a flat lookup: uid → node
+    uid_to_node: dict[str, object] = {}
+    for entry in graph._all_entries():
+        node = entry.node
+        uid = node._uid_value()
+        if uid:
+            uid_to_node[uid] = node
+
+    # Walk entries to extract LLRs, tests, assertions, steps
+    llr_summaries: list[dict] = []
+    tests_by_llr: dict[str, list[dict]] = {}
+
+    for entry in graph._all_entries():
+        node = entry.node
+        node_type = type(node).__name__
+
+        # LLRs
+        if node_type == "LLR":
+            llr_summaries.append({
+                "refid": getattr(node, "refid", "") or "",
+                "description": getattr(node, "description", "") or "",
+                "tags": list(getattr(node, "tags", [])) or [],
+            })
+
+    # Walk tests per LLR (LLR children)
+    for entry in graph._all_entries():
+        node = entry.node
+        node_type = type(node).__name__
+        if node_type != "LLR":
+            continue
+        llr_refid = getattr(node, "refid", "") or ""
+
+        # Find TestNode children of this LLR
+        for child_type, children in entry.children.items():
+            if child_type != "TestNode":
+                continue
+            for child_key, child_entry in children.items():
+                test_node = child_entry.node
+                test_dict = {
+                    "method": getattr(test_node, "method", "") or "automated",
+                    "test_name": getattr(test_node, "test_name", "") or "",
+                    "description": getattr(test_node, "description", "") or "",
+                    "preconditions": [],
+                    "actions": [],
+                    "postconditions": [],
+                }
+
+                # Find AssertionNode children
+                for achild_type, achildren in child_entry.children.items():
+                    if achild_type == "AssertionNode":
+                        for akey, aentry in achildren.items():
+                            an = aentry.node
+                            phase = getattr(an, "phase", "") or "post"
+                            cond = {
+                                "subject_qualified_name": "",
+                                "operator": getattr(an, "operator", "") or "==",
+                                "expected_value": "",
+                                "phase": phase,
+                            }
+                            # Extract LEFT_OPERAND / RIGHT_OPERAND from references
+                            for rel, target_key, _ttype in aentry.references:
+                                target_node = uid_to_node.get(target_key.split(":", 1)[1] if ":" in target_key else "")
+                                if target_node is None:
+                                    target_node = uid_to_node.get(target_key)
+                                tqn = getattr(target_node, "qualified_name", "") or "" if target_node else target_key
+                                if rel == "LEFT_OPERAND":
+                                    cond["subject_qualified_name"] = tqn
+                                elif rel == "RIGHT_OPERAND":
+                                    val = getattr(target_node, "value", "") if target_node else ""
+                                    cond["expected_value"] = val or tqn
+                            if phase == "pre":
+                                test_dict["preconditions"].append(cond)
+                            else:
+                                test_dict["postconditions"].append(cond)
+
+                    elif achild_type == "TestStepNode":
+                        for skey, sentry in achildren.items():
+                            sn = sentry.node
+                            callee_qn = ""
+                            for rel, target_key, _ttype in sentry.references:
+                                if rel == "CALLEE":
+                                    target_node = uid_to_node.get(target_key.split(":", 1)[1] if ":" in target_key else "")
+                                    if target_node is None:
+                                        target_node = uid_to_node.get(target_key)
+                                    callee_qn = getattr(target_node, "qualified_name", "") or "" if target_node else target_key
+                            test_dict["actions"].append({
+                                "description": getattr(sn, "description", "") or "",
+                                "callee_qualified_name": callee_qn,
+                            })
+
+                tests_by_llr.setdefault(llr_refid, []).append(test_dict)
+
+    # Scaffold nodes
+    scaffold_summaries: list[dict] = []
+    for entry in graph._all_entries():
+        node = entry.node
+        tags = list(getattr(node, "tags", [])) or []
+        if "scaffold" not in tags:
+            continue
+        qn = getattr(node, "qualified_name", "") or ""
+        scaffold_summaries.append({
+            "qualified_name": qn,
+            "kind": type(node).__name__,
+            "tags": tags,
+        })
+
+    return {
+        "llrs": llr_summaries,
+        "tests_by_llr": tests_by_llr,
+        "scaffolds": scaffold_summaries,
+    }
+
+
+def _format_existing_context(tree: dict) -> str:
+    """Format the existing requirements tree into a prompt section.
+
+    Returns an empty string if there are no existing LLRs.
+    """
+    llrs = tree.get("llrs", [])
+    if not llrs:
+        return ""
+
+    tests_by_llr = tree.get("tests_by_llr", {})
+    scaffolds = tree.get("scaffolds", [])
+
+    lines = [
+        "## Existing Requirements Tree",
+        "",
+        "The following requirements and tests **already exist** for this HLR.",
+        "Complete the gaps — do NOT duplicate existing LLRs or tests.",
+        "",
+    ]
+
+    # LLRs with tests
+    for llr in llrs:
+        refid = llr["refid"]
+        short_refid = refid[:8] if len(refid) >= 8 else refid
+        tests = tests_by_llr.get(refid, [])
+        status = f"{len(tests)} test(s)" if tests else "⚠ NO TESTS — create verification stubs"
+        lines.append(f"### LLR {short_refid} [{status}]")
+        lines.append("")
+        lines.append(f"{llr['description']}")
+        lines.append("")
+
+        for t in tests:
+            label = t.get("test_name", "") or t.get("method", "?")
+            lines.append(f"#### Test: `{label}` [{t['method']}]")
+            if t.get("description"):
+                lines.append(f"  {t['description']}")
+
+            pre = t.get("preconditions", [])
+            post = t.get("postconditions", [])
+            actions = t.get("actions", [])
+
+            if pre:
+                lines.append("  Pre-conditions:")
+                for c in pre:
+                    sqn = c.get("subject_qualified_name", "?")
+                    op = c.get("operator", "==")
+                    ev = c.get("expected_value", "?")
+                    lines.append(f"    - {sqn} {op} {ev}")
+            elif not pre and not actions and not post:
+                lines.append("  ⚠ No pre-conditions — add at least one pre-condition")
+
+            if actions:
+                lines.append("  Actions:")
+                for a in actions:
+                    desc = a.get("description", "?")
+                    callee = a.get("callee_qualified_name", "")
+                    line = f"    - {desc}"
+                    if callee:
+                        line += f" → {callee}"
+                    lines.append(line)
+            elif not pre and not actions and not post:
+                lines.append("  ⚠ No actions — add at least one test step")
+
+            if post:
+                lines.append("  Post-conditions:")
+                for c in post:
+                    sqn = c.get("subject_qualified_name", "?")
+                    op = c.get("operator", "==")
+                    ev = c.get("expected_value", "?")
+                    lines.append(f"    - {sqn} {op} {ev}")
+            elif not pre and not actions and not post:
+                lines.append("  ⚠ No post-conditions — add at least one post-condition")
+
+            lines.append("")
+
+    # Scaffold nodes
+    if scaffolds:
+        lines.append("### Existing Scaffold Nodes")
+        lines.append("")
+        lines.append("These notional references already exist in the graph.")
+        lines.append("Reuse them when creating new verification stubs — do NOT invent")
+        lines.append("alternate names for the same concept.")
+        lines.append("")
+        for s in scaffolds:
+            qn = s.get("qualified_name", "?")
+            kind = s.get("kind", "?")
+            lines.append(f"- `{qn}` ({kind})")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
 def decompose(
     description: str,
     component: str = "",
     dependency_context: dict | None = None,
+    existing_context: dict | None = None,
     model: str = "",
     prompt_log_file: str = "",
 ) -> DecomposedRequirement:
@@ -691,6 +954,9 @@ def decompose(
         description: The HLR description text.
         component: Name of the architectural component this HLR belongs to.
         dependency_context: Optional dict with dependency assessment context.
+        existing_context: Optional dict with the existing requirements tree
+            (LLRs, tests, scaffold nodes) loaded from Neo4j.  When provided,
+            the agent will complete gaps rather than start from scratch.
         model: LLM model identifier to use.
         prompt_log_file: Path to write raw prompt/response for debugging.
 
@@ -704,8 +970,11 @@ def decompose(
         )
     user_content += _format_dependency_context(dependency_context or {})
 
+    # Build existing-context section for the system prompt
+    existing_section = _format_existing_context(existing_context or {})
+
     result = call_tool(
-        system=SYSTEM_PROMPT,
+        system=SYSTEM_PROMPT.replace("{existing_context_section}", existing_section),
         messages=[
             {
                 "role": "user",
@@ -778,6 +1047,15 @@ def decompose_and_persist_hlr(
 
     dep_ctx = getattr(hlr, "dependency_context", None)
 
+    # --- Load existing requirements tree for enrichment ---
+    existing_tree = _load_existing_requirements_tree(hlr)
+    log.info(
+        "decompose_and_persist_hlr: existing tree has %d LLRs, %d tests-by-llr groups, %d scaffolds",
+        len(existing_tree.get("llrs", [])),
+        len(existing_tree.get("tests_by_llr", {})),
+        len(existing_tree.get("scaffolds", [])),
+    )
+
     prompt_log_file = ""
     if log_dir:
         import os
@@ -789,6 +1067,7 @@ def decompose_and_persist_hlr(
         description=hlr_description,
         component=component_name,
         dependency_context=dep_ctx,
+        existing_context=existing_tree,
         model=model,
         prompt_log_file=prompt_log_file,
     )
