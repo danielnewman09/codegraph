@@ -434,24 +434,43 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
     def _save(self) -> "CodeGraphNode":
         """Save this node to Neo4j, computing ``uid`` from identity fields.
 
-        Before delegating to neomodel's ``StructuredNode.save()``, derives
-        a deterministic SHA-1 hash from the node's ``_identity_fields``
-        and assigns it to ``uid``.  This makes the same logical symbol in
-        different codebases produce the same ``uid``, enabling
-        cross-codebase edge resolution.
+        When ``_compute_uid()`` produces a deterministic non-empty hash,
+        uses a ``MERGE`` on ``uid`` for idempotent create-or-update — the
+        same logical symbol in different codebases produces the same
+        ``uid``, and re-ingesting the same node updates rather than
+        duplicating.
 
-        If all identity-field values are empty (e.g. a node constructed
-        without a ``qualified_name``), the ``UniqueIdProperty``
-        auto-generated random value is left untouched.
+        Falls back to neomodel's ``StructuredNode.save()`` when the
+        identity fields are empty (auto-generated random uid).
 
         Returns:
             This node instance (after saving).
         """
+        from neomodel import db
         from neomodel.sync_.node import StructuredNode
 
         computed = self._compute_uid()
         if computed:
             self.uid = computed
+            # Use MERGE on uid for idempotent create-or-update.
+            # neomodel's StructuredNode.create() uses a plain CREATE
+            # which would violate the uniqueness constraint on re-ingest.
+            labels = ":".join(type(self).inherited_labels())
+            props = type(self).deflate(
+                self.__properties__, self, skip_empty=True
+            )
+            query = (
+                f"MERGE (n:{labels} {{uid: $uid}})"
+                f" SET n = $props RETURN n"
+            )
+            results, _ = db.cypher_query(
+                query, {"uid": computed, "props": props}
+            )
+            if results and results[0]:
+                # Hydrate the element_id so subsequent saves use the
+                # update path (neomodel's save checks hasattr(element_id_property)).
+                self.element_id_property = results[0][0].element_id
+            return self
 
         return StructuredNode.save(self)
 

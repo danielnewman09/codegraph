@@ -13,6 +13,9 @@ from codegraph.models.file import FileNode
 from codegraph.models.member import MethodNode, AttributeNode, EnumValueNode
 from codegraph.models.namespace import NamespaceNode
 from codegraph.models.tags import CodeGraphNode
+from codegraph.uid import compute_uid
+import codegraph_requirements.models.requirement  # noqa: F401 — registers HLR/LLR
+from codegraph_requirements.models.requirement import HLR, LLR
 
 
 class TestFindRelationshipManager:
@@ -723,6 +726,84 @@ class TestUidAccessors:
         # non-empty value, which matches expected behavior for a valid unique
         # identifier.
         assert len(uid) > 0
+
+    # ── HLR/LLR deterministic uid tests ───────────────────────────────
+
+    def test_uid_prop_for_hlr(self):
+        """HLR has uid as UniqueIdProperty (same pattern as ClassNode)."""
+        assert HLR._uid_prop() == "uid"
+
+    def test_uid_prop_for_llr(self):
+        """LLR has uid as UniqueIdProperty (same pattern as ClassNode)."""
+        assert LLR._uid_prop() == "uid"
+
+    def test_hlr_identity_fields(self):
+        """HLR._identity_fields is ("name",) — deterministic uid from name."""
+        assert HLR._identity_fields == ("name",)
+
+    def test_llr_identity_fields(self):
+        """LLR._identity_fields is ("name",) — deterministic uid from name."""
+        assert LLR._identity_fields == ("name",)
+
+    def test_hlr_computes_deterministic_uid(self):
+        """HLR.save() computes uid = SHA-1(name)."""
+        name = "Test HLR Uid"
+        hlr = HLR(name=name, description="desc", tags=["design"]).save()
+        try:
+            expected = compute_uid(name)
+            assert hlr.uid == expected
+            assert hlr._uid_value() == expected
+        finally:
+            hlr.delete()
+
+    def test_llr_computes_deterministic_uid(self):
+        """LLR.save() computes uid = SHA-1(name)."""
+        name = "Test LLR Uid"
+        llr = LLR(name=name, description="desc", tags=["design"]).save()
+        try:
+            expected = compute_uid(name)
+            assert llr.uid == expected
+            assert llr._uid_value() == expected
+        finally:
+            llr.delete()
+
+    def test_hlr_save_idempotent(self):
+        """Re-saving an HLR with the same name updates, does not duplicate."""
+        name = "Idempotent HLR Uid Test"
+        hlr1 = HLR(name=name, description="first", tags=["design"]).save()
+        try:
+            uid_after_first = hlr1.uid
+
+            # Re-save a new instance with the same name
+            hlr2 = HLR(name=name, description="second", tags=["design"]).save()
+            try:
+                # Same uid — it was an upsert
+                assert hlr2.uid == uid_after_first
+                # Description should be updated
+                assert hlr2.description == "second"
+            finally:
+                hlr2.delete()
+        finally:
+            hlr1.delete()
+
+    def test_llr_save_idempotent(self):
+        """Re-saving an LLR with the same name updates, does not duplicate."""
+        name = "Idempotent LLR Uid Test"
+        llr1 = LLR(name=name, description="first", tags=["design"]).save()
+        try:
+            uid_after_first = llr1.uid
+
+            # Re-save a new instance with the same name
+            llr2 = LLR(name=name, description="second", tags=["design"]).save()
+            try:
+                # Same uid — it was an upsert
+                assert llr2.uid == uid_after_first
+                # Description should be updated
+                assert llr2.description == "second"
+            finally:
+                llr2.delete()
+        finally:
+            llr1.delete()
 
 
 class TestWalkComposes:
