@@ -1,26 +1,19 @@
-"""codegraph_design — tools for design discovery.
+"""Codegraph design package — agents, tools, and prompts for HLR decomposition
+and object-oriented design.
 
-Mirrors the structure of ``ticketing_system/backend_migrated/`` with
-tools and dispatchers for the design discovery workflow.
+Provides:
 
-The package provides:
-
-- :class:`DesignDiscoveryDispatcher` — extends CodeGraphDispatcher with
-  requirements-level discovery tools (search, dependency traversal,
-  traceability, context assembly).
-
-The discovery workflow is orchestrated by the Pi subagent
-``code-analysis.design-discovery``, which calls the ``codegraph_discover``
-MCP tool. No Python agent class is needed — the tools are the backend,
-and the Pi subagent provides the LLM-driven orchestration.
-
-For programmatic (non-LLM) use, call the dispatcher directly::
-
-    from codegraph_design.tools.dispatcher import DesignDiscoveryDispatcher
-
-    d = DesignDiscoveryDispatcher()
-    result = d.dispatch("build_design_context", {
-        "feature_description": "Add PlantUML export",
-        "component_name": "Architecture Diagram Generator",
-    })
+* :mod:`codegraph_design.agents.decompose_hlr` — decompose HLRs into LLRs
+  with verification stubs.
+* :mod:`codegraph_design.agents.design_oo` — produce OO class designs and
+  resolve notional verification stubs to qualified design names.
+* :mod:`codegraph_design.agents.design_oo_prompt` — prompt-section builders
+  for the design agent (as-built, namespace, intercomponent, existing).
+* :mod:`codegraph_design.tools.dispatcher` — dispatchers that combine
+  codegraph query tools with design-validation and verification-resolution
+  tools.
+* :mod:`codegraph_design.tools.design_tools` — validate_design,
+  check_class_name, produce_oo_design.
+* :mod:`codegraph_design.tools.verification_tools` — draft_verifications,
+  commit_design_and_verifications.
 """
