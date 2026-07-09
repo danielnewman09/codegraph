@@ -159,6 +159,21 @@ class HLR(StructuredNode, CodeGraphNode):
         "codegraph_requirements.models.requirement.HLR", "COMPOSES"
     )
 
+    #  • DEPENDS_ON (outgoing) — HLR → HLR
+    #    This HLR's functionality relies on the depended-on HLR being
+    #    satisfied.  Distinct from COMPOSES (which expresses parent-child
+    #    decomposition, not dependency).  Enables dependency-aware design
+    #    ordering, impact analysis, and context assembly.
+    depends_on_hlrs = RelationshipTo(
+        "codegraph_requirements.models.requirement.HLR", "DEPENDS_ON"
+    )
+    #  • DEPENDS_ON (incoming) — HLR → HLR
+    #    Other HLRs that depend on this one.  Used for reverse traversal
+    #    (impact analysis: "who depends on this HLR?").
+    depended_on_by_hlrs = RelationshipFrom(
+        "codegraph_requirements.models.requirement.HLR", "DEPENDS_ON"
+    )
+
     # --- Serialization contract ---
     _llm_fields: set[str] = {"name", "description", "tags"}
 

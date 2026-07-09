@@ -55,6 +55,24 @@ python scripts/generate_hlr_feedback_docs.py
 # → previous feedback archived to generated/feedback_docs/archive/
 ```
 
+### `generate_requirement_docs.py`
+
+Finalizes the full requirement document set from chain output. Takes the design + tests markdown produced by the `decompose-hlr` agent (via the `design-workflow` chain) and generates the complete document set: authored design/tests markdown, discovery context, and all generated artifacts (coverage report, HLR docs, feedback docs). After generating, ingests into Neo4j and runs verification scripts.
+
+```bash
+# From chain output (with ---DESIGN---/---TESTS--- delimiters)
+python scripts/generate_requirement_docs.py --feature "my_feature" \
+    --chain-output /path/to/chain_result.md --context-doc /path/to/context.md
+
+# From separate files
+python scripts/generate_requirement_docs.py --feature "my_feature" \
+    --design-doc design.md --tests-doc tests.md --context-doc context.md
+
+# Documents only, skip Neo4j ingestion
+python scripts/generate_requirement_docs.py --feature "my_feature" \
+    --design-doc design.md --tests-doc tests.md --skip-ingest
+```
+
 ---
 
 ## Coverage Evaluation
@@ -102,6 +120,7 @@ One-time script: writes enriched test descriptions from Neo4j back into test sou
 | Review requirements with feedback | `python scripts/generate_hlr_feedback_docs.py` |
 | Evaluate test coverage | `python scripts/evaluate_design_coverage.py` |
 | Regenerate everything | See pipeline below |
+| Finalize docs from chain output | `python scripts/generate_requirement_docs.py --feature ...` |
 
 **Full regeneration pipeline:**
 
@@ -117,4 +136,17 @@ python scripts/generate_hlr_feedback_docs.py
 
 # 3. Verify integrity
 python scripts/verify_callee_granularity.py
+```
+
+**Design workflow pipeline (chain → finalize):**
+
+```bash
+# 1. Run the design-workflow chain (discover → decompose → review)
+#    via Pi: subagent chain code-analysis.design-workflow, task: "feature description"
+
+# 2. Finalize the chain output into the full document set
+python scripts/generate_requirement_docs.py \
+    --feature "my_feature" \
+    --chain-output /path/to/chain_result.md \
+    --context-doc /path/to/discovery_context.md
 ```
