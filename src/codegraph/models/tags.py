@@ -950,7 +950,13 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
                 is_outgoing = isinstance(val, RelationshipTo)
                 manager = getattr(self, name)
 
-                for target in manager.all():
+                try:
+                    targets = list(manager.all())
+                except Exception:
+                    # Skip nodes that can't be inflated (e.g. conflicting labels)
+                    continue
+
+                for target in targets:
                     edges.append({
                         "relation_type": val.definition["relation_type"],
                         "target_uid": target._uid_value(),
@@ -1003,7 +1009,21 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         keyword = self._markdown_keyword or _default_markdown_keyword(
             type(self).__name__
         )
-        qname = getattr(self, "qualified_name", None) or self.name
+        qname = getattr(self, "qualified_name", None) or self.name or ""
+        if not qname:
+            # No qualified name available — use the description to
+            # generate a stable fallback so the markdown round-trips.
+            desc = (
+                getattr(self, "brief_description", "")
+                or getattr(self, "description", "")
+            )
+            if desc:
+                # Use first 40 chars of description as a stable slug
+                import hashlib
+                slug = hashlib.sha1(desc.encode()).hexdigest()[:8]
+                qname = f"{keyword.lower()}_{slug}"
+            else:
+                qname = f"{keyword.lower()}_unnamed"
         lines = [f"{'#' * depth} {keyword}: `{qname}`"]
 
         # Walk common description sources: brief_description on compounds,

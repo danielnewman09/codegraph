@@ -449,7 +449,7 @@ class MarkdownImporter:
             r'(Namespace|Class|Interface|Enum|Function|Module|Union|Concept|Note'
             r'|Component|HLR|LLR|Test|Assertion|TestStep|TestFixture'
             r')'
-            r':\s+`([^`]+)`'
+            r':\s+`([^`]*)`'
         )
 
         # Inline property patterns

@@ -261,6 +261,23 @@ _ARROW_PATTERNS: list[str] = [
 # ── Helpers ──────────────────────────────────────────────────────────────
 
 
+def _short_display_name(node) -> str:
+    """Return the short display name for a node.
+
+    If ``node.name`` equals ``node.qualified_name`` (common when the
+    markdown importer can't split on ``::`` for Python-style dotted
+    names), extract the last segment as the short name.
+    """
+    name = getattr(node, "name", "") or ""
+    qname = getattr(node, "qualified_name", "") or ""
+    if name == qname and ("." in qname or "::" in qname):
+        # Split on the last separator (prefer ::, fall back to .)
+        if "::" in qname:
+            return qname.rsplit("::", 1)[-1]
+        return qname.rsplit(".", 1)[-1]
+    return name
+
+
 def _sanitize_alias(name: str) -> str:
     """Convert a qualified name to a valid PlantUML alias.
 
@@ -286,6 +303,24 @@ def _visibility_prefix(visibility: str) -> str:
         The PlantUML visibility prefix (``+``, ``-``, ``#``).
     """
     return _VISIBILITY_MAP.get(visibility, "+")
+
+
+def _short_display_name(node) -> str:
+    """Return a compact display name for a node.
+
+    When ``name`` equals ``qualified_name`` (e.g. a design node where
+    the importer set both to the same FQN), extract just the short
+    name.  Otherwise return ``name`` as-is.
+    """
+    name = getattr(node, "name", "")
+    qn = getattr(node, "qualified_name", "")
+    if not name or not qn:
+        return name or qn or ""
+    if name == qn and "." in qn:
+        return qn.rsplit(".", 1)[-1]
+    if name == qn and "::" in qn:
+        return qn.rsplit("::", 1)[-1]
+    return name
 
 
 def _format_method(name: str, visibility: str = "",
@@ -431,7 +466,7 @@ class PlantUMLExporter:
         prefix = "  " * indent
         keyword = _NODE_TYPE_TO_PLANTUML.get(type(node).__name__, "package")
         stereotype = _NODE_TYPE_TO_STEREOTYPE.get(type(node).__name__)
-        display_name = node.name
+        display_name = _short_display_name(node)
 
         lines: list[str] = []
         if stereotype:
@@ -457,7 +492,7 @@ class PlantUMLExporter:
         prefix = "  " * indent
         keyword = _NODE_TYPE_TO_PLANTUML.get(node_type, "class")
         stereotype = _NODE_TYPE_TO_STEREOTYPE.get(node_type)
-        display_name = node.name
+        display_name = _short_display_name(node)
 
         lines: list[str] = []
         stereo = f" <<{stereotype}>>" if stereotype else ""
@@ -488,7 +523,7 @@ class PlantUMLExporter:
         """Emit an enum with its values."""
         node = entry.node
         prefix = "  " * indent
-        display_name = node.name
+        display_name = _short_display_name(node)
 
         lines: list[str] = []
         lines.append(f'{prefix}enum "{display_name}" as {alias} {{')
@@ -507,7 +542,7 @@ class PlantUMLExporter:
         """Emit a file node as a note."""
         node = entry.node
         prefix = "  " * indent
-        display_name = node.name
+        display_name = _short_display_name(node)
 
         lines: list[str] = []
         lines.append(f'{prefix}note "{display_name}" as {alias}')

@@ -572,7 +572,42 @@ def _update_scaffold_to_design(scaffold_node, design_dict: dict) -> bool:
 
 
 def _create_design_node_fresh(design_dict: dict) -> bool:
-    """Create a new design node with ``tags=["design"]``."""
+    """Create a new design node with ``tags=["design"]``.
+
+    Validates that ``type`` and ``kind`` are consistent — if they
+    conflict (e.g. ``type="ClassNode"`` + ``kind="enumvalue"``),
+    corrects ``type`` to match ``kind`` to avoid creating nodes
+    with conflicting Neo4j labels.
+    """
+    # ── Validate type/kind consistency ───────────────────────────────
+    _KIND_TO_TYPE: dict[str, str] = {
+        "namespace": "NamespaceNode",
+        "module": "ModuleNode",
+        "class": "ClassNode",
+        "union": "UnionNode",
+        "concept": "ConceptNode",
+        "function": "FunctionNode",
+        "define": "DefineNode",
+        "interface": "InterfaceNode",
+        "enum": "EnumNode",
+        "method": "MethodNode",
+        "attribute": "AttributeNode",
+        "enumvalue": "EnumValueNode",
+    }
+    dtype = design_dict.get("type", "")
+    dkind = design_dict.get("kind", "")
+    if dkind and dkind in _KIND_TO_TYPE:
+        expected_type = _KIND_TO_TYPE[dkind]
+        if dtype and dtype != expected_type:
+            log.warning(
+                "_create_design_node_fresh: correcting type %s -> %s "
+                "for %s (kind=%s)",
+                dtype, expected_type,
+                design_dict.get("qualified_name", "?"), dkind,
+            )
+            dtype = expected_type
+            design_dict["type"] = expected_type
+
     node_data = dict(design_dict)
     node_data["tags"] = ["design"]
     node_data.pop("composes", None)
@@ -748,6 +783,146 @@ def _reconcile_design_with_scaffold(
 
 
 # ══════════════════════════════════════════════════════════════════════════
+# Design artifact generation (markdown + PlantUML diagram)
+# ══════════════════════════════════════════════════════════════════════════
+
+
+def _generate_design_artifacts(hlr: HLR, design_nodes: list[dict]) -> dict:
+    """Generate design.md and architecture_class_diagram.puml for an HLR.
+
+    Derives the output directory from the HLR name (slugified) under
+    ``codegraph/requirements/{hlr_slug}/``.  Loads the design LayerGraph
+    from Neo4j for the namespace(s) found in the HLR's design compounds,
+    exports to Markdown and PlantUML, and renders a PNG.
+
+    Returns a dict with keys ``design_md``, ``puml``, ``png`` (paths or
+    error messages).
+    """
+    import re
+    import subprocess
+    from pathlib import Path
+
+    from codegraph.graph import LayerGraph
+    from codegraph.export.markdown import MarkdownExporter
+    from codegraph.export.plantuml import PlantUMLExporter
+
+    result: dict = {"design_md": "", "puml": "", "png": ""}
+
+    # ── Derive output directory from HLR name ─────────────────────────
+    hlr_name = hlr.name or "unnamed"
+    slug = re.sub(r'[^a-z0-9]+', '-', hlr_name.lower()).strip('-')
+    out_dir = Path("codegraph/requirements") / slug
+    diagrams_dir = out_dir / "diagrams"
+
+    try:
+        diagrams_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        log.warning("Failed to create output dir %s: %s", diagrams_dir, exc)
+        result["design_md"] = f"mkdir error: {exc}"
+        result["puml"] = f"mkdir error: {exc}"
+        return result
+
+    # ── Find the namespace from HLR's design compounds ──────────────
+    # After reconcile_design_nodes(), design compounds are persisted
+    # to Neo4j and linked to the HLR.  Derive their namespace from
+    # qualified_name and load the namespace subtree from Neo4j.
+    from codegraph.models.tags import CodeGraphNode
+
+    NamespaceNode = CodeGraphNode._registry.get("NamespaceNode")
+    namespace_qn: str | None = None
+
+    for dc in hlr.design_compounds.all():
+        qn = getattr(dc, "qualified_name", None)
+        if not qn:
+            continue
+        parts = qn.rsplit(".", 1)
+        if len(parts) == 2:
+            namespace_qn = parts[0]
+            break
+
+    if not namespace_qn or not NamespaceNode:
+        result["design_md"] = "no namespace found for HLR design compounds"
+        result["puml"] = "no namespace found for HLR design compounds"
+        return result
+
+    # ── Load design LayerGraph, keep only the namespace ────────────
+    try:
+        full_graph = LayerGraph.from_neo4j(tag="design")
+    except Exception as exc:
+        log.warning("Failed to load design LayerGraph: %s", exc)
+        result["design_md"] = f"LayerGraph load error: {exc}"
+        result["puml"] = f"LayerGraph load error: {exc}"
+        return result
+
+    # Keep only the namespace entry — its children include all
+    # the architecture classes.  Other root entries that happen to
+    # share the namespace prefix (e.g. test fixtures) are excluded.
+    filtered: dict = {}
+    for key, entry in full_graph.entries.items():
+        qn = getattr(entry.node, "qualified_name", "") or ""
+        ntype = type(entry.node).__name__
+        if ntype == "NamespaceNode" and qn == namespace_qn:
+            filtered[key] = entry
+
+    if not filtered:
+        result["design_md"] = f"namespace {namespace_qn} not in design graph"
+        result["puml"] = f"namespace {namespace_qn} not in design graph"
+        return result
+
+    graph = LayerGraph(tags=frozenset({"design"}), entries=filtered)
+    log.info("Loaded namespace %s subtree for HLR %s", namespace_qn, hlr.name)
+
+    # ── Export Markdown ──────────────────────────────────────────────
+    try:
+        exporter = MarkdownExporter(graph, public_only=True)
+        md_text = exporter.export()
+        md_path = out_dir / "design.md"
+        md_path.write_text(md_text, encoding="utf-8")
+        result["design_md"] = str(md_path)
+        log.info("Wrote design markdown: %s (%d bytes)", md_path, len(md_text))
+    except Exception as exc:
+        log.warning("Failed to export design markdown: %s", exc)
+        result["design_md"] = f"export error: {exc}"
+
+    # ── Export PlantUML ──────────────────────────────────────────────
+    try:
+        puml_exporter = PlantUMLExporter(graph)
+        puml_text = puml_exporter.export()
+        puml_path = diagrams_dir / "architecture_class_diagram.puml"
+        puml_path.write_text(puml_text, encoding="utf-8")
+        result["puml"] = str(puml_path)
+        log.info("Wrote PlantUML diagram: %s (%d bytes)", puml_path, len(puml_text))
+
+        # ── Render PNG ───────────────────────────────────────────
+        try:
+            subprocess.run(
+                ["plantuml", "-tpng", "architecture_class_diagram.puml"],
+                cwd=str(diagrams_dir.resolve()),
+                capture_output=True,
+                timeout=30,
+                check=True,
+            )
+            png_path = diagrams_dir / "architecture_class_diagram.png"
+            if png_path.exists():
+                result["png"] = str(png_path)
+                log.info("Rendered PNG: %s (%d bytes)", png_path,
+                         png_path.stat().st_size)
+            else:
+                result["png"] = "plantuml ran but no PNG produced"
+        except FileNotFoundError:
+            result["png"] = "plantuml not installed"
+        except subprocess.TimeoutExpired:
+            result["png"] = "plantuml timed out"
+        except subprocess.CalledProcessError as exc:
+            result["png"] = f"plantuml error: {exc.stderr.decode()[:200] if exc.stderr else exc}"
+    except Exception as exc:
+        log.warning("Failed to export PlantUML: %s", exc)
+        result["puml"] = f"export error: {exc}"
+
+    return result
+
+
+# ══════════════════════════════════════════════════════════════════════════
 # Full entry point — context loading + pipeline + persistence
 # ══════════════════════════════════════════════════════════════════════════
 
@@ -867,6 +1042,9 @@ def design_and_persist_hlr(
         recon["scaffold_retaged"], recon["scaffold_cleaned"],
     )
 
+    # ── Generate design artifacts (markdown + PlantUML diagram) ──────
+    artifacts = _generate_design_artifacts(hlr, result.design)
+
     return {
         "nodes_updated": recon["nodes_updated"],
         "nodes_created": recon["nodes_created"],
@@ -877,4 +1055,5 @@ def design_and_persist_hlr(
         "links_applied": links_applied,
         "scaffold_retaged": recon["scaffold_retaged"],
         "scaffold_cleaned": recon["scaffold_cleaned"],
+        "artifacts": artifacts,
     }

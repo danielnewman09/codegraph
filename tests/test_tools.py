@@ -40,7 +40,7 @@ class TestToolRegistration:
         # Verifies that the dispatcher's `all_tool_schemas` list contains exactly 21
         # tool schemas, confirming that all expected tools have been registered
         # correctly.
-        assert len(d.all_tool_schemas) == 21  # 10 original + 7 discovery + 4 lookup
+        assert len(d.all_tool_schemas) == 23  # 10 original + 7 discovery + 4 lookup + 2 container
 
     # codegraph:test-desc test_tools.TestToolRegistration.test_all_tools_have_names
     # This test verifies that every tool registered within the code-under-test's
