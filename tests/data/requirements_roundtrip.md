@@ -2,9 +2,11 @@
 
 ## HLR: `Diagram Generator`
 The Diagram Generator shall produce a unified PlantUML diagram from a codegraph project.
+- qualified_name: Diagram Generator
 - tags: design
 ### LLR: `DG-LLR-001`
 The generate operation accepts a project_id, queries Neo4j, and returns a PlantUML string. On connection failure it signals Neo4jConnectionError.
+- qualified_name: DG-LLR-001
 - tags: design
 #### Test: `vm::generate::test_valid`
 Invoke generate with a valid project_id and verify the returned string is a non-empty PlantUML diagram.
@@ -48,6 +50,7 @@ Invoke generate with project_id=test-project and default config.
 
 ### LLR: `DG-LLR-002`
 The generator produces byte-identical PlantUML output for identical input graph data and identical configuration.
+- qualified_name: DG-LLR-002
 - tags: design
 #### Test: `vm::det::test_identical`
 Invoke generate twice with the same project_id and config, then verify the two outputs are byte-identical.
@@ -90,6 +93,7 @@ Second invocation of generate with the same project_id and config.
 
 ### LLR: `DG-LLR-003`
 When output_path is provided, the generator writes the PlantUML content to a .puml file and returns the resolved path. On write failure it signals FileWriteError.
+- qualified_name: DG-LLR-003
 - tags: design
 #### Test: `vm::export::test_writes_file`
 Invoke generate with output_path set to a writable directory and verify a .puml file is created.

@@ -107,7 +107,13 @@
             "visibility": "public",
             "type": "MethodNode",
             "uid": "1939760fc558a42f1f9e53f6c5b6094a46fd6a34",
-            "edges": []
+            "edges": [
+              {
+                "relation_type": "DEFINED_IN",
+                "target_uid": "8d9117b15068384c0097502569ac3b84cba83023",
+                "target_type": "FileNode"
+              }
+            ]
           },
           {
             "argsstring": "(string input)",
@@ -122,7 +128,13 @@
             "visibility": "public",
             "type": "MethodNode",
             "uid": "01c3d12dd99a920a087cc30b6d543418ca36a9fd",
-            "edges": []
+            "edges": [
+              {
+                "relation_type": "DEFINED_IN",
+                "target_uid": "8d9117b15068384c0097502569ac3b84cba83023",
+                "target_type": "FileNode"
+              }
+            ]
           },
           {
             "brief_description": "The number of decimal places for result precision.",
@@ -136,7 +148,13 @@
             "visibility": "public",
             "type": "AttributeNode",
             "uid": "e60ebc46b10a43502695e1966270acfdd9ffa034",
-            "edges": []
+            "edges": [
+              {
+                "relation_type": "DEFINED_IN",
+                "target_uid": "8d9117b15068384c0097502569ac3b84cba83023",
+                "target_type": "FileNode"
+              }
+            ]
           }
         ]
       },
@@ -152,7 +170,18 @@
         "visibility": "public",
         "type": "ClassNode",
         "uid": "47d43750e265974ca7023d6496674e15246e22a8",
-        "edges": [],
+        "edges": [
+          {
+            "relation_type": "DEPENDS_ON",
+            "target_uid": "5a48a82bec82d481c90ca27c9829a240062923c7",
+            "target_type": "ClassNode"
+          },
+          {
+            "relation_type": "DEFINED_IN",
+            "target_uid": "3b3647ade12b0a85f6d00ff2ff0d7e9fe1b7d770",
+            "target_type": "FileNode"
+          }
+        ],
         "composes": [
           {
             "brief_description": "The computed numeric result.",
@@ -166,7 +195,13 @@
             "visibility": "public",
             "type": "AttributeNode",
             "uid": "1cf4f100f0537d2d10aaed6427fcd1d8cac739aa",
-            "edges": []
+            "edges": [
+              {
+                "relation_type": "DEFINED_IN",
+                "target_uid": "3b3647ade12b0a85f6d00ff2ff0d7e9fe1b7d770",
+                "target_type": "FileNode"
+              }
+            ]
           },
           {
             "argsstring": "",
@@ -181,7 +216,13 @@
             "visibility": "public",
             "type": "MethodNode",
             "uid": "47b04b935c60a9a0f88a00bd52228f4586e1c7ef",
-            "edges": []
+            "edges": [
+              {
+                "relation_type": "DEFINED_IN",
+                "target_uid": "3b3647ade12b0a85f6d00ff2ff0d7e9fe1b7d770",
+                "target_type": "FileNode"
+              }
+            ]
           }
         ]
       },
@@ -196,7 +237,13 @@
         "visibility": "public",
         "type": "InterfaceNode",
         "uid": "b82d618ffe7555d0f239613be2c07eada185ec16",
-        "edges": [],
+        "edges": [
+          {
+            "relation_type": "DEFINED_IN",
+            "target_uid": "5b0af7e51fcd3f6d84ee1c3b41433c5e67700c44",
+            "target_type": "FileNode"
+          }
+        ],
         "composes": [
           {
             "argsstring": "(Operation op, double a, double b)",
@@ -211,7 +258,13 @@
             "visibility": "public",
             "type": "MethodNode",
             "uid": "908276a9da05638f3e373e089491c96e7872e882",
-            "edges": []
+            "edges": [
+              {
+                "relation_type": "DEFINED_IN",
+                "target_uid": "5b0af7e51fcd3f6d84ee1c3b41433c5e67700c44",
+                "target_type": "FileNode"
+              }
+            ]
           }
         ]
       },
@@ -226,7 +279,13 @@
         "visibility": "public",
         "type": "EnumNode",
         "uid": "55992d4b678cd6ba7e0394b35352507eaaa88fd8",
-        "edges": [],
+        "edges": [
+          {
+            "relation_type": "DEFINED_IN",
+            "target_uid": "ca439ea7d456f1e9103c099c4ef4063926f5e1ab",
+            "target_type": "FileNode"
+          }
+        ],
         "composes": [
           {
             "brief_description": "Represents addition.",
@@ -269,7 +328,13 @@
         "visibility": "public",
         "type": "FunctionNode",
         "uid": "14b6f24b25c26e098a5e6b6afe2d94f84f17b787",
-        "edges": []
+        "edges": [
+          {
+            "relation_type": "DEFINED_IN",
+            "target_uid": "8d9117b15068384c0097502569ac3b84cba83023",
+            "target_type": "FileNode"
+          }
+        ]
       }
     ]
   },
@@ -297,7 +362,18 @@
         "visibility": "public",
         "type": "ClassNode",
         "uid": "ac2b6dd48d208c654dda71b4b3405e593d029cd1",
-        "edges": [],
+        "edges": [
+          {
+            "relation_type": "INHERITS_FROM",
+            "target_uid": "1ff7afb7e8ae8a2ffd950a4a4de7fd2b58a43c3e",
+            "target_type": "ClassNode"
+          },
+          {
+            "relation_type": "DEFINED_IN",
+            "target_uid": "9fe226bcc674bb1e91013b6c03bf30f3fd903788",
+            "target_type": "FileNode"
+          }
+        ],
         "composes": [
           {
             "argsstring": "",
@@ -312,7 +388,13 @@
             "visibility": "public",
             "type": "MethodNode",
             "uid": "e708451fcdea53e44a93e84ba6fa703890276986",
-            "edges": []
+            "edges": [
+              {
+                "relation_type": "DEFINED_IN",
+                "target_uid": "9fe226bcc674bb1e91013b6c03bf30f3fd903788",
+                "target_type": "FileNode"
+              }
+            ]
           }
         ]
       },
@@ -328,7 +410,23 @@
         "visibility": "public",
         "type": "ClassNode",
         "uid": "1ff7afb7e8ae8a2ffd950a4a4de7fd2b58a43c3e",
-        "edges": [],
+        "edges": [
+          {
+            "relation_type": "INHERITS_FROM",
+            "target_uid": "ac2b6dd48d208c654dda71b4b3405e593d029cd1",
+            "target_type": "ClassNode"
+          },
+          {
+            "relation_type": "DEPENDS_ON",
+            "target_uid": "5a48a82bec82d481c90ca27c9829a240062923c7",
+            "target_type": "ClassNode"
+          },
+          {
+            "relation_type": "DEFINED_IN",
+            "target_uid": "188a981185be013981fb386a3a484a4ce4d08369",
+            "target_type": "FileNode"
+          }
+        ],
         "composes": [
           {
             "brief_description": "The numeric display area showing input and results.",
@@ -342,7 +440,13 @@
             "visibility": "private",
             "type": "AttributeNode",
             "uid": "94f8adf8976e1128dbc55226d9381aa84d6bf027",
-            "edges": []
+            "edges": [
+              {
+                "relation_type": "DEFINED_IN",
+                "target_uid": "188a981185be013981fb386a3a484a4ce4d08369",
+                "target_type": "FileNode"
+              }
+            ]
           },
           {
             "brief_description": "The current input string being built by the user.",
@@ -356,7 +460,13 @@
             "visibility": "private",
             "type": "AttributeNode",
             "uid": "aea579da422145d4f522f532dd86bb9f737e83ab",
-            "edges": []
+            "edges": [
+              {
+                "relation_type": "DEFINED_IN",
+                "target_uid": "188a981185be013981fb386a3a484a4ce4d08369",
+                "target_type": "FileNode"
+              }
+            ]
           },
           {
             "argsstring": "",
@@ -371,7 +481,13 @@
             "visibility": "private",
             "type": "MethodNode",
             "uid": "9316f6b19df248961d2aebf8155ec1d69af3fc97",
-            "edges": []
+            "edges": [
+              {
+                "relation_type": "DEFINED_IN",
+                "target_uid": "188a981185be013981fb386a3a484a4ce4d08369",
+                "target_type": "FileNode"
+              }
+            ]
           }
         ]
       }
