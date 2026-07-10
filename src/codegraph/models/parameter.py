@@ -30,6 +30,10 @@ class ParameterNode(StructuredNode, CodeGraphNode):
     # --- Identity fields for uid computation ---
     _identity_fields: tuple[str, ...] = ("member_refid", "position")
 
+    qualified_name = StringProperty(
+        default="", index=True,
+        help_text="Qualified name for display/serialization.",
+    )
     position = IntegerProperty(required=True)
     type = StringProperty(default="")
     default_value = StringProperty(default="")

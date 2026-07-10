@@ -50,6 +50,8 @@ class LiteralNode(StructuredNode, CodeGraphNode):
         tags: Provenance tags (e.g. ``["scaffold"]``).
     """
 
+    _markdown_keyword = "Literal"
+
     # --- Identity ---
     uid = UniqueIdProperty()
     qualified_name = StringProperty(

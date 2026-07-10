@@ -63,8 +63,8 @@ class GraphRepository:
                 return node
         return None
 
-    def get_hlr_subtree(self, refid: str) -> LayerGraph:
-        """Fetch the full requirements subtree for an HLR.
+    def get_hlr_subtree(self, refid: str, tag: str = "") -> LayerGraph:
+        """Fetch the full requirements subtree for an HLR, optionally filtered by tag.
 
         Performs multi-hop COMPOSES traversal starting from the HLR:
         HLR → LLRs → TestNodes → AssertionNodes / TestStepNodes.
@@ -75,6 +75,10 @@ class GraphRepository:
         Args:
             refid: The HLR's ``uid`` (deterministic unique ID) or legacy ``refid``
                 (hex UUID string).  Tries ``uid`` first, then ``refid``.
+            tag: Optional tag to filter the subtree by.  When provided, only
+                nodes that carry this tag (plus their ancestors to preserve
+                tree structure) are included.  Use ``"scaffold"`` to see
+                scaffold nodes, ``"design"`` for design nodes, etc.
 
         Returns:
             A LayerGraph containing the full requirements tree and its
@@ -110,7 +114,14 @@ class GraphRepository:
 
         # Phase 2: pass all visited nodes to _build_layer_graph for
         # 1-hop expansion (scaffold neighbours via LEFT_OPERAND etc.)
-        return self._build_layer_graph(composes_reachable)
+        graph = self._build_layer_graph(composes_reachable)
+
+        # Phase 3: if tag is specified, filter entries to matching nodes
+        # and their ancestors (preserving the tree structure)
+        if tag:
+            graph = _filter_graph_by_tag(graph, tag)
+
+        return graph
 
     @staticmethod
     def _build_layer_graph(seeds: list[CodeGraphNode]) -> LayerGraph:
@@ -316,3 +327,157 @@ class GraphRepository:
             graph: The LayerGraph to persist.
         """
         graph.to_neo4j()
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Helper: filter LayerGraph entries by tag (preserving ancestry)
+# ══════════════════════════════════════════════════════════════════════════
+
+
+def _filter_graph_by_tag(graph: LayerGraph, tag: str) -> LayerGraph:
+    """Filter a LayerGraph to only entries whose node carries *tag*,
+    plus their ancestors (to preserve tree structure).
+
+    Returns a new LayerGraph with the same tags and the pruned entries.
+    """
+    # ── Collect tagged keys (walk entire tree, not just roots) ──
+    tagged_keys: set[str] = set()
+
+    def _collect_tagged(entry) -> None:
+        key = LayerGraph._node_key(entry.node)
+        node_tags: list[str] = getattr(entry.node, "tags", None) or []
+        if tag in node_tags:
+            tagged_keys.add(key)
+        for type_children in entry.children.values():
+            for child_entry in type_children.values():
+                _collect_tagged(child_entry)
+
+    for entry in graph.entries.values():
+        _collect_tagged(entry)
+
+    if not tagged_keys:
+        # No matches — return empty graph
+        return LayerGraph(tags=graph.tags)
+
+    # Walk from each root entry; keep entries that are ancestors of a tagged
+    # node or are themselves tagged
+    keep_keys: set[str] = set()
+
+    def _walk(entry, path: list[str]) -> bool:
+        """Return True if this entry or any descendant has the tag."""
+        key = LayerGraph._node_key(entry.node)
+        has_tag = key in tagged_keys
+        descendant_has = False
+        for type_children in entry.children.values():
+            for child_key, child_entry in type_children.items():
+                if _walk(child_entry, path + [key]):
+                    descendant_has = True
+        if has_tag or descendant_has:
+            keep_keys.add(key)
+            keep_keys.update(path)
+            return True
+        return False
+
+    for entry in graph.entries.values():
+        _walk(entry, [])
+
+    # Build filtered entries dict: prune children to only keep_keys
+    filtered: dict = {}
+
+    def _prune(entry):
+        key = LayerGraph._node_key(entry.node)
+        if key not in keep_keys:
+            return None
+        from codegraph.graph import CompositeEntry
+        new_entry = CompositeEntry(node=entry.node)
+        new_entry.references = list(entry.references)
+        for child_type, type_children in entry.children.items():
+            for child_key, child_entry in type_children.items():
+                if child_key in keep_keys:
+                    pruned = _prune(child_entry)
+                    if pruned is not None:
+                        new_entry.children.setdefault(child_type, {})[child_key] = pruned
+        return new_entry
+
+    for key, entry in graph.entries.items():
+        if key in keep_keys:
+            pruned = _prune(entry)
+            if pruned is not None:
+                filtered[key] = pruned
+
+    return LayerGraph(tags=graph.tags, entries=filtered)
+
+
+def _filter_graph_by_types(graph: LayerGraph, keep_types: frozenset[str]) -> LayerGraph:
+    """Filter a LayerGraph to only entries whose node type name is in *keep_types*,
+    plus their ancestors (to preserve tree structure).
+
+    Returns a new LayerGraph with the same tags and the pruned entries.
+
+    Example:
+        ``keep_types=frozenset({"HLR", "LLR"})`` returns a requirements-only
+        graph, stripping design classes, assertions, steps, and test nodes.
+    """
+    # Build a set of entry keys whose node type matches (walk entire tree)
+    matching_keys: set[str] = set()
+
+    def _collect_matching(entry) -> None:
+        key = LayerGraph._node_key(entry.node)
+        node_type_name = type(entry.node).__name__
+        if node_type_name in keep_types:
+            matching_keys.add(key)
+        for type_children in entry.children.values():
+            for child_entry in type_children.values():
+                _collect_matching(child_entry)
+
+    for entry in graph.entries.values():
+        _collect_matching(entry)
+
+    if not matching_keys:
+        return LayerGraph(tags=graph.tags)
+
+    # Walk from each root entry; keep matching entries + ancestors
+    keep_keys: set[str] = set()
+
+    def _walk(entry, path: list[str]) -> bool:
+        key = LayerGraph._node_key(entry.node)
+        has_match = key in matching_keys
+        descendant_has = False
+        for type_children in entry.children.values():
+            for child_key, child_entry in type_children.items():
+                if _walk(child_entry, path + [key]):
+                    descendant_has = True
+        if has_match or descendant_has:
+            keep_keys.add(key)
+            keep_keys.update(path)
+            return True
+        return False
+
+    for entry in graph.entries.values():
+        _walk(entry, [])
+
+    # Build filtered entries
+    from codegraph.graph import CompositeEntry
+    filtered: dict = {}
+
+    def _prune(entry):
+        key = LayerGraph._node_key(entry.node)
+        if key not in keep_keys:
+            return None
+        new_entry = CompositeEntry(node=entry.node)
+        new_entry.references = list(entry.references)
+        for child_type, type_children in entry.children.items():
+            for child_key, child_entry in type_children.items():
+                if child_key in keep_keys:
+                    pruned = _prune(child_entry)
+                    if pruned is not None:
+                        new_entry.children.setdefault(child_type, {})[child_key] = pruned
+        return new_entry
+
+    for key, entry in graph.entries.items():
+        if key in keep_keys:
+            pruned = _prune(entry)
+            if pruned is not None:
+                filtered[key] = pruned
+
+    return LayerGraph(tags=graph.tags, entries=filtered)

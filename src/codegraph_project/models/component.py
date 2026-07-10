@@ -44,6 +44,10 @@ class Component(StructuredNode, CodeGraphNode):
 
     # --- Description ---
     description = StringProperty(default="")
+    qualified_name = StringProperty(
+        default="", index=True,
+        help_text="Qualified name for display/serialization. Mirrors name for components.",
+    )
     namespace = StringProperty(default="",
         help_text="Code-level namespace this component maps to "
                   "(e.g. 'calculation_engine::').")
@@ -86,7 +90,7 @@ class Component(StructuredNode, CodeGraphNode):
 
     # --- Serialization contract ---
     _llm_fields: set[str] = {
-        "name", "description", "namespace", "tags",
+        "qualified_name", "name", "description", "namespace", "tags",
     }
 
     _markdown_keyword = "Component"

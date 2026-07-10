@@ -40,6 +40,10 @@ class FileNode(StructuredNode, CodeGraphNode):
     _identity_fields: tuple[str, ...] = ("path",)
 
     # --- File metadata ---
+    qualified_name = StringProperty(
+        default="", index=True,
+        help_text="Qualified name for display/serialization. Mirrors path for files.",
+    )
     path = StringProperty(default="")
     language = StringProperty(default="")
 
@@ -49,3 +53,7 @@ class FileNode(StructuredNode, CodeGraphNode):
     def markdown_is_heading(self) -> bool:
         """FileNode renders as a note — no heading."""
         return False
+
+    def _compute_qualified_name(self) -> str:
+        """Files use ``path`` as their qualified name."""
+        return self.path or self.name or ""

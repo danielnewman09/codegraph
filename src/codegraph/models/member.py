@@ -201,6 +201,8 @@ class AttributeNode(MemberNode):
         is_const: Whether the attribute is const.
     """
 
+    _markdown_keyword = "Attribute"
+
     kind = StringProperty(default="attribute")
     type_signature = StringProperty(default="")
     is_static = BooleanProperty(default=False)

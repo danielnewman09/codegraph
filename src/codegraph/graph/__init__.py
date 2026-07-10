@@ -168,6 +168,21 @@ class LayerGraph:
                                 return uid
                         except Exception:
                             pass
+                    # Identity field is empty — fall back to
+                    # ``name`` as a secondary identifier.  If both are
+                    # empty, raise an error: all such nodes would
+                    # collide on the same key (empty string).
+                    name_val = obj.get("name", "")
+                    if name_val:
+                        return name_val
+                    idf = identity_fields[0] if identity_fields else "name"
+                    raise ValueError(
+                        f"Node of type '{type_name}' has empty identity "
+                        f"field '{idf}' and empty 'name' — all such "
+                        f"nodes would collide on the same key. Set the "
+                        f"identity field before deserializing. "
+                        f"Dict keys: {sorted(obj.keys())}"
+                    )
             return obj.get("name", "")
         # CodeGraphNode instance — use the UniqueIdProperty value
         uid = obj._uid_value()
@@ -180,7 +195,7 @@ class LayerGraph:
         """Resolve a target key (uid hash) to a human-readable display name.
 
         Looks up *target_key* in the flat entry index and returns the
-        node's ``qualified_name``, ``refid``, or ``name`` — whichever is
+        node's ``name`` —
         most descriptive.  Falls back to *target_key* itself if the entry
         is not in the graph (e.g. a filtered-out neighbour).
 
@@ -193,12 +208,7 @@ class LayerGraph:
         flat = self._flat_index()
         entry = flat.get(target_key)
         if entry is not None:
-            node = entry.node
-            return (
-                getattr(node, "qualified_name", None)
-                or getattr(node, "refid", None)
-                or node.name
-            )
+            return entry.node.qualified_name
         return target_key
 
     @staticmethod
@@ -390,7 +400,7 @@ class LayerGraph:
         key_to_entry: dict[str, CompositeEntry] = {}
         uid_to_key: dict[str, str] = {}
         # Secondary lookup: maps identity-field values (qualified_name,
-        # refid, path) to keys, so LLM-produced edges whose target_uid
+        # name, path) to keys, so LLM-produced edges whose target_uid
         # is a human-readable identifier (not a uid hash) can resolve.
         identity_to_key: dict[str, str] = {}
         tags: frozenset[str] = frozenset()
@@ -406,11 +416,18 @@ class LayerGraph:
             if uid:
                 uid_to_key[uid] = key
 
-            # Build identity_to_key from common identity fields
-            for field in ("qualified_name", "refid", "path"):
+            # Build identity_to_key from the node type's identity fields
+            # so edge targets that use human-readable identifiers (not uid
+            # hashes) can resolve to the correct node.
+            for field in getattr(type(node), "_identity_fields", ()):
                 val = node_data.get(field) or getattr(node, field, None)
                 if val:
                     identity_to_key[val] = key
+            # Also index by name for cross-type lookups (e.g. LLM-produced
+            # edges that use bare names as target_uid)
+            name_val = node_data.get("name") or getattr(node, "name", None)
+            if name_val:
+                identity_to_key[name_val] = key
 
             # Infer tags from node data (backward compat: "layer" field)
             if not tags:
@@ -688,10 +705,32 @@ class LayerGraph:
             # Connect COMPOSES children
             for target_type, type_children in entry.children.items():
                 for child_key, child_entry in type_children.items():
-                    manager = CodeGraphNode.find_relationship_manager(
-                        source_node, "COMPOSES", child_entry.node
-                    )
-                    manager.connect(child_entry.node)
+                    try:
+                        manager = CodeGraphNode.find_relationship_manager(
+                            source_node, "COMPOSES", child_entry.node
+                        )
+                        manager.connect(child_entry.node)
+                    except ValueError:
+                        # Fallback: raw Cypher for COMPOSES connections
+                        # where no typed relationship manager exists
+                        # (e.g. AttributeNode → AttributeNode from a
+                        # markdown file where a scaffold attribute was
+                        # exported with a class-like body section).
+                        from neomodel import db
+                        db.cypher_query(
+                            f"MATCH (s), (t) "
+                            f"WHERE elementId(s) = $src "
+                            f"AND elementId(t) = $tgt "
+                            f"MERGE (s)-[:COMPOSES]->(t)",
+                            {
+                                "src": db.parse_element_id(
+                                    source_node.element_id
+                                ),
+                                "tgt": db.parse_element_id(
+                                    child_entry.node.element_id
+                                ),
+                            },
+                        )
 
             # Connect references
             for relation_type, target_key, target_type in entry.references:
@@ -859,11 +898,15 @@ class LayerGraph:
                 entry.children.setdefault(child_type, {})[child_key] = child_entry
                 child_keys.add(child_key)
 
-            # Non-COMPOSES references: use walk_edges()
+            # Non-COMPOSES references: use walk_edges(),
+            # but only outgoing edges — incoming edges are the
+            # reverse of another node's outgoing edge and would
+            # create spurious bidirectional references.
             for edge in node.walk_edges():
                 relation_type = edge["relation_type"]
-                # Skip COMPOSES (handled above) and lazy-loaded edges
                 if relation_type in ("COMPOSES", "HAS_IMPLEMENTATION"):
+                    continue
+                if not edge.get("is_outgoing", True):
                     continue
                 target_key = uid_to_key.get(edge["target_uid"])
                 if target_key and target_key in key_to_entry:

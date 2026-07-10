@@ -90,17 +90,13 @@ def layer_graph_to_cytoscape(graph: LayerGraph) -> dict:
     edges: list[dict] = []
     seen: set[str] = set()
 
-    # Build a mapping from uid to display name (qualified_name/refid/name),
+    # Build a mapping from uid to display name.
     # so edge target keys (which are uids) can be resolved to human-readable
     # names for the Cytoscape edge labels.
     key_to_display: dict[str, str] = {}
     for entry in graph._all_entries():
         node = entry.node
-        display = (
-            getattr(node, "qualified_name", None)
-            or getattr(node, "refid", None)
-            or node.name
-        )
+        display = node.name
         uid = node._uid_value()
         if uid:
             key_to_display[uid] = display
@@ -185,7 +181,7 @@ def _walk_entry(
     members ARE emitted as edges from the parent.
     """
     node = entry.node
-    qname = getattr(node, "qualified_name", None) or getattr(node, "refid", None) or getattr(node, "name", "")
+    qname = node.qualified_name
     if qname in seen:
         return
     seen.add(qname)
@@ -233,9 +229,9 @@ def _walk_entry(
 def _build_node(entry: CompositeEntry, parent_id: str | None, layer: str) -> dict:
     """Build a Cytoscape node data dict from a CompositeEntry."""
     node = entry.node
-    # Use qualified_name (or refid/name) as the Cytoscape id —
+    # Use qualified_name as the Cytoscape id —
     # human-readable and consistent with edge source/target.
-    qname = getattr(node, "qualified_name", "") or getattr(node, "refid", "") or getattr(node, "name", "")
+    qname = node.qualified_name
     name = getattr(node, "name", "")
     kind = getattr(node, "kind", "")
 

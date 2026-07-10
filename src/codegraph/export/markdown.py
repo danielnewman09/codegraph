@@ -87,6 +87,8 @@ _KEYWORD_TO_NODE_TYPE: dict[str, str] = {
     "assertion": "AssertionNode",
     "teststep": "TestStepNode",
     "testfixture": "TestFixtureNode",
+    "attribute": "AttributeNode",
+    "literal": "LiteralNode",
 }
 
 # Node type → default kind
@@ -103,6 +105,8 @@ _NODE_TYPE_TO_KIND: dict[str, str] = {
     "MethodNode": "method",
     "AttributeNode": "attribute",
     "EnumValueNode": "enumvalue",
+    "AttributeNode": "attribute",
+    "LiteralNode": "literal",
 }
 
 # Relationship types skipped in the Relationships section (handled by nesting)
@@ -175,13 +179,22 @@ class MarkdownExporter:
             ``"llm"`` (default) — text-based with descriptions.
             ``"all"`` — every defined property as ``- key: value`` lines.
         public_only: If ``True`` (default), hide non-public members.
+        leaf_types: Optional set of ``CodeGraphNode`` type name strings
+            (e.g. ``{"LLR"}``, ``{"TestNode"}``) at which the exporter
+            stops recursing into children.  Nodes of these types are
+            rendered with their heading + description but their children
+            are NOT emitted.  Use ``{"LLR"}`` to generate a
+            requirements-only document (no tests, assertions, or steps).
+            Defaults to empty set (full recursion — current behaviour).
     """
 
     def __init__(self, graph: LayerGraph, fields: str = "llm",
-                 public_only: bool = True):
+                 public_only: bool = True,
+                 leaf_types: frozenset[str] = frozenset()):
         self.graph = graph
         self.fields = fields
         self.public_only = public_only
+        self.leaf_types = leaf_types
         self._rel_lines: list[str] = []
         self._file_names: list[str] = []
 
@@ -242,6 +255,11 @@ class MarkdownExporter:
         lines.extend(self._emit_properties(entry))
 
         # Recurse into non-member children (classes inside namespaces, etc.)
+        # Skip recursion if this node type is a leaf
+        node_type_name = type(node).__name__
+        if node_type_name in self.leaf_types:
+            return lines
+
         for child_type, type_children in entry.children.items():
             if child_type not in _MEMBER_TYPES:
                 for child_entry in type_children.values():
@@ -370,8 +388,9 @@ class MarkdownExporter:
                 lines.append(f"**{label}:** `{display_key}`")
             else:
                 source_qname = getattr(entry.node, "qualified_name", None) or entry.node.name
+                target_type_str = f" ({target_type})" if target_type else ""
                 self._rel_lines.append(
-                    f"- `{source_qname}` → `{display_key}` **{rel_type.lower()}**"
+                    f"- `{source_qname}` → `{display_key}` **{rel_type.lower()}**{target_type_str}"
                 )
         return lines
 
@@ -439,7 +458,7 @@ class MarkdownImporter:
         stack: list[tuple[str, str, CompositeEntry, int]] = []
         root_entries: dict[str, CompositeEntry] = {}
         qname_to_entry: dict[str, CompositeEntry] = {}
-        pending_rels: list[tuple[str, str, str, int]] = []
+        pending_rels: list[tuple[str, str, str, str, int]] = []
 
         section: str | None = None
         # "methods", "attributes", "values", "files", "relationships"
@@ -448,6 +467,7 @@ class MarkdownImporter:
             r'^(#{2,})\s+'
             r'(Namespace|Class|Interface|Enum|Function|Module|Union|Concept|Note'
             r'|Component|HLR|LLR|Test|Assertion|TestStep|TestFixture'
+            r'|Attribute|Literal'
             r')'
             r':\s+`([^`]*)`'
         )
@@ -503,14 +523,14 @@ class MarkdownImporter:
                 mi = inherits_re.match(stripped)
                 if mi:
                     pending_rels.append(
-                        (stack[-1][0], mi.group(1), "INHERITS_FROM", line_no)
+                        (stack[-1][0], mi.group(1), "INHERITS_FROM", "", line_no)
                     )
                     continue
 
                 mi = implements_re.match(stripped)
                 if mi:
                     pending_rels.append(
-                        (stack[-1][0], mi.group(1), "REALIZES", line_no)
+                        (stack[-1][0], mi.group(1), "REALIZES", "", line_no)
                     )
                     continue
 
@@ -601,7 +621,7 @@ class MarkdownImporter:
                     continue
 
         # ── Resolve relationships ────────────────────────────────────
-        for src_qname, tgt_qname, rel_type, rel_line in pending_rels:
+        for src_qname, tgt_qname, rel_type, tgt_type, rel_line in pending_rels:
             src_entry = qname_to_entry.get(src_qname)
             tgt_entry = qname_to_entry.get(tgt_qname)
 
@@ -620,7 +640,7 @@ class MarkdownImporter:
                 src_entry.references.append((rel_type, tgt_qname, ""))
                 continue
 
-            tgt_type = type(tgt_entry.node).__name__
+            tgt_type = tgt_type or type(tgt_entry.node).__name__
             src_entry.references.append((rel_type, tgt_qname, tgt_type))
 
         if self._strict:
@@ -658,10 +678,10 @@ class MarkdownImporter:
     @staticmethod
     def _try_parse_relationship_line(
         line: str,
-    ) -> tuple[str, str, str] | None:
-        """Parse ``- `qname` → `qname` **label**``."""
+    ) -> tuple[str, str, str, str] | None:
+        """Parse ``- `qname` → `qname` **label** (target_type)``."""
         m = re.match(
-            r'^-\s*`([^`]+)`\s*→\s*`([^`]+)`\s*\*\*(\w+)\*\*\s*$',
+            r'^-\s*`([^`]+)`\s*→\s*`([^`]+)`\s*\*\*(\w+)\*\*\s*(?:\((\w+)\))?\s*$',
             line,
         )
         if m:
@@ -669,7 +689,8 @@ class MarkdownImporter:
             target = m.group(2)
             label = m.group(3).lower().replace(" ", "_")
             rel_type = _LABEL_TO_REL_TYPE.get(label, label.upper())
-            return (source, target, rel_type)
+            target_type = m.group(4) or ""
+            return (source, target, rel_type, target_type)
         return None
 
     @staticmethod
@@ -722,7 +743,25 @@ class MarkdownImporter:
             data["kind"] = kind
         if node_type == "FileNode":
             data["path"] = name
-        return CodeGraphNode.deserialize(data)
+        node = CodeGraphNode.deserialize(data)
+
+        # Initialize required StringProperty fields to empty string so
+        # that ``to_neo4j()`` does not raise ``RequiredProperty`` during
+        # ``deflate()``.  HLR, LLR, and Component all declare
+        # ``description = StringProperty(required=True)`` — if the
+        # description line is absent from the markdown (e.g. a heading
+        # immediately followed by another heading), the property stays
+        # ``None`` and ingestion fails.
+        from neomodel import StringProperty
+        for pname, prop in type(node).defined_properties().items():
+            if not isinstance(prop, StringProperty):
+                continue
+            if not getattr(prop, "required", False):
+                continue
+            if getattr(node, pname, None) is None:
+                setattr(node, pname, "")
+
+        return node
 
     def _create_file_entry(
         self, name: str,
@@ -808,7 +847,8 @@ class MarkdownImporter:
 
 
 def export_markdown(graph: LayerGraph, fields: str = "llm",
-                    public_only: bool = True) -> str:
+                    public_only: bool = True,
+                    leaf_types: frozenset[str] = frozenset()) -> str:
     """Export a :class:`LayerGraph` to Markdown.
 
     Args:
@@ -816,12 +856,16 @@ def export_markdown(graph: LayerGraph, fields: str = "llm",
         fields: ``"llm"`` (default) — text-based with descriptions.
             ``"all"`` — all properties as key-value lines.
         public_only: If ``True`` (default), hide non-public members.
+        leaf_types: Types at which to stop recursion (see
+            :class:`MarkdownExporter`).  Use ``frozenset({"LLR"})``
+            for a requirements-only document.
 
     Returns:
         A Markdown document string.
     """
     return MarkdownExporter(graph, fields=fields,
-                           public_only=public_only).export()
+                           public_only=public_only,
+                           leaf_types=leaf_types).export()
 
 
 def import_markdown(text: str, tags: frozenset[str] | None = None,

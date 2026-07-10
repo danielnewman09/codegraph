@@ -402,6 +402,22 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
 
     # ── UID computation ────────────────────────────────────────────────
 
+    def _compute_qualified_name(self) -> str:
+        """Compute the qualified name from the node's own data.
+
+        Subclasses override this to derive ``qualified_name`` from
+        relationships or other fields.  The base implementation returns
+        ``self.name`` — suitable for top-level nodes (Component, etc.)
+        where the qualified name is just the name.
+
+        Called by :meth:`_save` when ``qualified_name`` is empty and
+        the node type has a ``qualified_name`` property.
+
+        Returns:
+            The computed qualified name string.
+        """
+        return self.name or ""
+
     def _compute_uid(self) -> str:
         """Compute deterministic uid from identity fields without saving.
 
@@ -449,6 +465,13 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         from neomodel import db
         from neomodel.sync_.node import StructuredNode
 
+        # Ensure qualified_name is set before computing uid.
+        # Types with a qualified_name property get it auto-computed
+        # from _compute_qualified_name() if empty.
+        props = type(self).defined_properties()
+        if "qualified_name" in props and not getattr(self, "qualified_name", ""):
+            self.qualified_name = self._compute_qualified_name()
+
         computed = self._compute_uid()
         if computed:
             self.uid = computed
@@ -456,12 +479,49 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
             # neomodel's StructuredNode.create() uses a plain CREATE
             # which would violate the uniqueness constraint on re-ingest.
             labels = ":".join(type(self).inherited_labels())
-            props = type(self).deflate(
-                self.__properties__, self, skip_empty=True
-            )
+
+            # Manually deflate properties without required-property
+            # validation.  ``StructuredNode.deflate(skip_empty=True)``
+            # raises ``RequiredProperty`` for required properties that
+            # are None, which prevents round-tripping markdown files
+            # where a heading exists but the description line is absent
+            # or immediately followed by another heading.  By deflating
+            # manually we skip None values gracefully.
+            #
+            # We also filter to only data properties (StringProperty,
+            # ArrayProperty, etc.) — ``defined_properties()`` includes
+            # relationship managers which do not have ``deflate()``.
+            #
+            # Required properties are always included (even if empty
+            # string) so that Neo4j stores them rather than leaving
+            # them as null.
+            from neomodel import RelationshipTo, RelationshipFrom
+            props: dict = {}
+            for pname, prop in type(self).defined_properties().items():
+                if isinstance(prop, (RelationshipTo, RelationshipFrom)):
+                    continue
+                val = getattr(self, pname, None)
+                if val is None or val == "" or val == []:
+                    # Skip empty values so that re-ingestion preserves
+                    # any existing value in Neo4j (SET n += $props
+                    # only updates keys present in $props).  Required
+                    # properties that are empty are also skipped — the
+                    # node is still created via MERGE, but the property
+                    # stays null in Neo4j until a non-empty value is
+                    # provided.
+                    continue
+                props[pname] = prop.deflate(val)
+            # Always include uid so MERGE target is stable.
+            props["uid"] = computed
+
+            # Use ``SET n += $props`` (update-only) instead of
+            # ``SET n = $props`` (replace-all) so that re-ingestion
+            # preserves existing properties not present in the current
+            # markdown (e.g. description set by a prior ingest but
+            # absent from a truncated re-export).
             query = (
                 f"MERGE (n:{labels} {{uid: $uid}})"
-                f" SET n = $props RETURN n"
+                f" SET n += $props RETURN n"
             )
             results, _ = db.cypher_query(
                 query, {"uid": computed, "props": props}
@@ -1009,10 +1069,11 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         keyword = self._markdown_keyword or _default_markdown_keyword(
             type(self).__name__
         )
-        qname = getattr(self, "qualified_name", None) or self.name or ""
+        qname = self.qualified_name
         if not qname:
-            # No qualified name available — use the description to
-            # generate a stable fallback so the markdown round-trips.
+            # No qualified name available — use the
+            # description to generate a stable fallback so the markdown
+            # round-trips.
             desc = (
                 getattr(self, "brief_description", "")
                 or getattr(self, "description", "")

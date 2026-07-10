@@ -100,9 +100,25 @@ class HLR(StructuredNode, CodeGraphNode):
     # Prevent pytest from collecting this class as a test case
     __test__ = False
 
-    # --- Identity (deterministic uid from name) ---------------------------
-    _identity_fields: tuple[str, ...] = ("name",)
+    # --- Identity (deterministic uid from qualified_name) ------------
+    _identity_fields: tuple[str, ...] = ("qualified_name",)
     uid = UniqueIdProperty()
+
+    # --- Qualified name ----------------------------------------------------
+    # Dot-delimited path derived from the incoming component and parent_hlr
+    # relationships, concatenated with ``name``:
+    #
+    #   component.name + "." + parent_hlr.qualified_name + "." + self.name
+    #
+    # If no component or parent_hlr, the corresponding segment is omitted.
+    # This mirrors how ClassNode uses ``namespace::ClassName`` — HLR/LLR use
+    # dot-delimited paths because requirements are not C++ symbols.
+    qualified_name = StringProperty(
+        default="", index=True,
+        help_text="Dot-delimited qualified name derived from component/parent "
+                  "relationships and name. Used as the identity field for "
+                  "deterministic uid computation.",
+    )
 
     # --- Requirement text -------------------------------------------------------
     description = StringProperty(
@@ -179,7 +195,7 @@ class HLR(StructuredNode, CodeGraphNode):
     )
 
     # --- Serialization contract ---
-    _llm_fields: set[str] = {"name", "description", "tags"}
+    _llm_fields: set[str] = {"qualified_name", "name", "description", "tags"}
 
     _markdown_keyword = "HLR"
 
@@ -187,13 +203,60 @@ class HLR(StructuredNode, CodeGraphNode):
         """HLR has no method/attribute body section."""
         return None
 
+    def _compute_qualified_name(self) -> str:
+        """Compute the dot-delimited qualified name from relationships.
+
+        Traverses incoming ``component`` and ``parent_hlr`` relationships
+        and concatenates their names with ``self.name``:
+
+            component.name + "." + parent_hlr.qualified_name + "." + self.name
+
+        Segments are omitted when the corresponding relationship is absent.
+        If neither component nor parent_hlr is connected, returns ``self.name``.
+
+        Returns:
+            The computed qualified name string.
+        """
+        segments: list[str] = []
+
+        # Component name (incoming COMPOSES from Component)
+        comps = self.component.all()
+        if comps:
+            comp_name = getattr(comps[0], "name", "") or ""
+            if comp_name:
+                segments.append(comp_name)
+
+        # Parent HLR qualified_name (incoming COMPOSES from parent HLR)
+        parents = self.parent_hlr.all()
+        if parents:
+            parent_qname = getattr(parents[0], "qualified_name", "") or ""
+            if parent_qname:
+                segments.append(parent_qname)
+
+        # Own name (always last)
+        if self.name:
+            segments.append(self.name)
+
+        return ".".join(segments)
+
+    def refresh_qualified_name(self) -> None:
+        """Recompute ``qualified_name`` from relationships and persist.
+
+        Call this after connecting/disconnecting ``component`` or
+        ``parent_hlr`` relationships to keep ``qualified_name`` and the
+        derived ``uid`` in sync.
+        """
+        self.qualified_name = self._compute_qualified_name()
+        self.save()
+
     @classmethod
     def from_llm_dict(cls, data: dict) -> "HLR":
         """Construct an HLR from an LLM tool-call dict.
 
         The LLM returns HLR data without ``layer`` or ``name`` —
         those are filled with design-time defaults.
-        ``uid`` is computed deterministically from ``name`` on save.
+        ``uid`` is computed deterministically from ``qualified_name`` on save.
+        If ``qualified_name`` is not provided, it defaults to ``name``.
 
         Args:
             data: Raw HLR dict from the LLM.  Typically just
@@ -205,6 +268,9 @@ class HLR(StructuredNode, CodeGraphNode):
         normalised = dict(data)
         normalised.setdefault("name", "")
         normalised.setdefault("tags", ["design"])
+        # If qualified_name not provided, derive from name
+        if not normalised.get("qualified_name"):
+            normalised["qualified_name"] = normalised.get("name", "")
         normalised.pop("refid", None)
         normalised.pop("source", None)
         normalised.pop("type", None)
@@ -252,9 +318,23 @@ class LLR(StructuredNode, CodeGraphNode):
     # Prevent pytest from collecting this class as a test case
     __test__ = False
 
-    # --- Identity (deterministic uid from name) ---------------------------
-    _identity_fields: tuple[str, ...] = ("name",)
+    # --- Identity (deterministic uid from qualified_name) ------------
+    _identity_fields: tuple[str, ...] = ("qualified_name",)
     uid = UniqueIdProperty()
+
+    # --- Qualified name ----------------------------------------------------
+    # Dot-delimited path derived from the parent HLR's qualified_name
+    # concatenated with ``name``:
+    #
+    #   hlr.qualified_name + "." + self.name
+    #
+    # If no parent HLR is connected, falls back to just ``name``.
+    qualified_name = StringProperty(
+        default="", index=True,
+        help_text="Dot-delimited qualified name derived from parent HLR "
+                  "and name. Used as the identity field for deterministic "
+                  "uid computation.",
+    )
 
     # --- Requirement text -------------------------------------------------------
     description = StringProperty(
@@ -292,7 +372,7 @@ class LLR(StructuredNode, CodeGraphNode):
     )
 
     # --- Serialization contract ---
-    _llm_fields: set[str] = {"name", "description", "tags"}
+    _llm_fields: set[str] = {"qualified_name", "name", "description", "tags"}
 
     _markdown_keyword = "LLR"
 
@@ -300,13 +380,51 @@ class LLR(StructuredNode, CodeGraphNode):
         """LLR has no method/attribute body section."""
         return None
 
+    def _compute_qualified_name(self) -> str:
+        """Compute the dot-delimited qualified name from the parent HLR.
+
+        Traverses the incoming ``hlr`` relationship and concatenates
+        the parent HLR's ``qualified_name`` with ``self.name``:
+
+            hlr.qualified_name + "." + self.name
+
+        If no parent HLR is connected, returns ``self.name``.
+
+        Returns:
+            The computed qualified name string.
+        """
+        segments: list[str] = []
+
+        # Parent HLR qualified_name (incoming COMPOSES from HLR)
+        parents = self.hlr.all()
+        if parents:
+            parent_qname = getattr(parents[0], "qualified_name", "") or ""
+            if parent_qname:
+                segments.append(parent_qname)
+
+        # Own name (always last)
+        if self.name:
+            segments.append(self.name)
+
+        return ".".join(segments)
+
+    def refresh_qualified_name(self) -> None:
+        """Recompute ``qualified_name`` from the parent HLR and persist.
+
+        Call this after connecting to the parent HLR to keep
+        ``qualified_name`` and the derived ``uid`` in sync.
+        """
+        self.qualified_name = self._compute_qualified_name()
+        self.save()
+
     @classmethod
     def from_llm_dict(cls, data: dict) -> "LLR":
         """Construct an LLR from an LLM tool-call dict.
 
         The LLM returns LLR data without ``name`` or ``tags`` —
         those are filled with design-time defaults.
-        ``uid`` is computed deterministically from ``name`` on save.
+        ``uid`` is computed deterministically from ``qualified_name`` on save.
+        If ``qualified_name`` is not provided, it defaults to ``name``.
 
         Args:
             data: Raw LLR dict from the LLM.  Typically
@@ -318,6 +436,9 @@ class LLR(StructuredNode, CodeGraphNode):
         normalised = dict(data)
         normalised.setdefault("name", "")
         normalised.setdefault("tags", ["design"])
+        # If qualified_name not provided, derive from name
+        if not normalised.get("qualified_name"):
+            normalised["qualified_name"] = normalised.get("name", "")
         normalised.pop("refid", None)
         normalised.pop("source", None)
         normalised.pop("type", None)

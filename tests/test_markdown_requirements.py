@@ -35,32 +35,38 @@ def _make_requirements_graph() -> LayerGraph:
 
     comp = Component(
         name="Calculation Engine",
+        qualified_name="Calculation Engine",
         description="The calculation engine shall provide arithmetic operations.",
         namespace="calc.engine",
         tags=["design"],
     )
     hlr1 = HLR(
         name="Requirements for Addition",
+        qualified_name="Requirements for Addition",
         description="The system shall support addition of two numbers.",
         tags=["design"],
     )
     hlr2 = HLR(
         name="Requirements for Subtraction",
+        qualified_name="Requirements for Subtraction",
         description="The system shall support subtraction of two numbers.",
         tags=["design"],
     )
     llr1 = LLR(
         name="Addition LLR-1",
+        qualified_name="Addition LLR-1",
         description="The add function shall return the sum of two integers.",
         tags=["design"],
     )
     llr2 = LLR(
         name="Addition LLR-2",
+        qualified_name="Addition LLR-2",
         description="The add function shall handle negative numbers.",
         tags=["design"],
     )
     llr3 = LLR(
         name="Subtraction LLR-1",
+        qualified_name="Subtraction LLR-1",
         description="The subtract function shall return the difference.",
         tags=["design"],
     )
@@ -311,3 +317,327 @@ class TestRequirementsRoundTrip:
         assert "### HLR: `Requirements for Addition`" in md2
         assert "#### LLR: `Addition LLR-1`" in md2
         assert "- namespace: calc.engine" in md2
+
+
+# ── Test-node + verification-edge round-trip tests ───────────────────────
+
+
+def _make_test_verification_graph() -> LayerGraph:
+    """Build a graph with HLR → LLR → TestNode → AssertionNode/TestStepNode,
+    including LEFT_OPERAND, RIGHT_OPERAND, and CALLEE edges to scaffold
+    targets (AttributeNode, LiteralNode).
+
+    Structure::
+
+        HLR: "Test Feature"
+          LLR: "Test LLR-001"
+            TestNode: "vm::generate::test_valid"
+              AssertionNode: "cond::pre::calibrated"
+                LEFT_OPERAND → AttributeNode "Diagram::is_ready"
+                RIGHT_OPERAND → LiteralNode literal::true
+              AssertionNode: "cond::post::output_ok"
+                LEFT_OPERAND → AttributeNode "Diagram::output"
+                RIGHT_OPERAND → LiteralNode literal::not_empty
+              TestStepNode: "step::invoke"
+                CALLEE → AttributeNode "Diagram::generate"
+    """
+    import codegraph_requirements.models.requirement  # noqa: F401
+    from codegraph_requirements.models.requirement import HLR, LLR
+    from codegraph.models.test import TestNode, AssertionNode, TestStepNode
+    from codegraph.models.member import AttributeNode
+    from codegraph.models.literal import LiteralNode
+
+    # ── Requirement nodes ──
+    hlr = HLR(
+        name="Test Feature",
+        qualified_name="Test Feature",
+        description="The system shall support test verification roundtrips.",
+        tags=["design"],
+    )
+    llr = LLR(
+        name="Test LLR-001",
+        qualified_name="Test LLR-001",
+        description="The generate operation returns valid output.",
+        tags=["design"],
+    )
+
+    # ── Verification nodes ──
+    test_node = TestNode(
+        name="",
+        qualified_name="vm::generate::test_valid",
+        test_name="test_generate_returns_valid_output",
+        method="automated",
+        description="Invoke generate and verify output.",
+        tags=["design"],
+    )
+
+    precond = AssertionNode(
+        name="",
+        qualified_name="cond::pre::calibrated",
+        phase="pre",
+        operator="is_true",
+        tags=["design"],
+    )
+
+    postcond = AssertionNode(
+        name="",
+        qualified_name="cond::post::output_ok",
+        phase="post",
+        operator="==",
+        tags=["design"],
+    )
+
+    step = TestStepNode(
+        name="",
+        qualified_name="step::invoke",
+        description="Invoke the generate operation.",
+        tags=["design"],
+    )
+
+    # ── Scaffold target nodes ──
+    is_ready = AttributeNode(
+        name="is_ready",
+        qualified_name="Diagram::is_ready",
+        tags=["design"],
+    )
+    output = AttributeNode(
+        name="output",
+        qualified_name="Diagram::output",
+        tags=["design"],
+    )
+    generate_op = AttributeNode(
+        name="generate",
+        qualified_name="Diagram::generate",
+        tags=["design"],
+    )
+    lit_true = LiteralNode(
+        name="true",
+        qualified_name="literal::true",
+        value="true",
+        tags=["design"],
+    )
+    lit_not_empty = LiteralNode(
+        name="not_empty",
+        qualified_name="literal::not_empty",
+        value="not_empty",
+        tags=["design"],
+    )
+
+    # ── Build CompositeEntry tree ──
+    precond_entry = CompositeEntry(
+        node=precond,
+        references=[
+            ("LEFT_OPERAND", "Diagram::is_ready", "AttributeNode"),
+            ("RIGHT_OPERAND", "literal::true", "LiteralNode"),
+        ],
+    )
+    postcond_entry = CompositeEntry(
+        node=postcond,
+        references=[
+            ("LEFT_OPERAND", "Diagram::output", "AttributeNode"),
+            ("RIGHT_OPERAND", "literal::not_empty", "LiteralNode"),
+        ],
+    )
+    step_entry = CompositeEntry(
+        node=step,
+        references=[
+            ("CALLEE", "Diagram::generate", "AttributeNode"),
+        ],
+    )
+
+    test_entry = CompositeEntry(
+        node=test_node,
+        children={
+            "AssertionNode": {
+                "cond::pre::calibrated": precond_entry,
+                "cond::post::output_ok": postcond_entry,
+            },
+            "TestStepNode": {
+                "step::invoke": step_entry,
+            },
+        },
+    )
+
+    llr_entry = CompositeEntry(
+        node=llr,
+        children={
+            "TestNode": {
+                "vm::generate::test_valid": test_entry,
+            },
+        },
+    )
+
+    hlr_entry = CompositeEntry(
+        node=hlr,
+        children={
+            "LLR": {
+                "Test LLR-001": llr_entry,
+            },
+        },
+    )
+
+    # ── Include scaffold nodes as root entries (referenced but not
+    #     in the COMPOSES tree).  The markdown exporter writes them
+    #     as headings so the importer can find them. ──
+    scaffold_entries = {
+        "Diagram::is_ready": CompositeEntry(node=is_ready),
+        "Diagram::output": CompositeEntry(node=output),
+        "Diagram::generate": CompositeEntry(node=generate_op),
+        "literal::true": CompositeEntry(node=lit_true),
+        "literal::not_empty": CompositeEntry(node=lit_not_empty),
+    }
+
+    all_entries = {"Test Feature": hlr_entry, **scaffold_entries}
+
+    return LayerGraph(tags=frozenset({"design"}), entries=all_entries)
+
+
+class TestVerificationEdgeRoundTrip:
+    """Tests that verification edges (LEFT_OPERAND, RIGHT_OPERAND, CALLEE)
+    survive markdown export→import round-trip."""
+
+    def test_edges_appear_in_relationships_section(self):
+        graph = _make_test_verification_graph()
+        md = export_markdown(graph)
+
+        # LEFT_OPERAND edges
+        assert "cond::pre::calibrated" in md
+        assert "Diagram::is_ready" in md
+        assert "**left_operand**" in md
+
+        # RIGHT_OPERAND edges
+        assert "literal::true" in md
+        assert "**right_operand**" in md
+
+        # CALLEE edges
+        assert "step::invoke" in md
+        assert "Diagram::generate" in md
+        assert "**callee**" in md
+
+    def test_round_trip_preserves_hierarchy(self):
+        graph = _make_test_verification_graph()
+        md = export_markdown(graph)
+        restored = import_markdown(md)
+
+        # HLR → LLR
+        hlr_entry = restored.entries["Test Feature"]
+        assert hlr_entry.node.__class__.__name__ == "HLR"
+        assert "LLR" in hlr_entry.children
+
+        llr_entries = list(hlr_entry.children["LLR"].values())
+        assert len(llr_entries) == 1
+        llr_entry = llr_entries[0]
+        assert llr_entry.node.__class__.__name__ == "LLR"
+        assert llr_entry.node.name == "Test LLR-001"
+
+        # LLR → TestNode
+        assert "TestNode" in llr_entry.children
+        test_entries = list(llr_entry.children["TestNode"].values())
+        assert len(test_entries) == 1
+        test_entry = test_entries[0]
+        assert test_entry.node.__class__.__name__ == "TestNode"
+        assert test_entry.node.test_name == "test_generate_returns_valid_output"
+
+        # TestNode → AssertionNode children
+        assert "AssertionNode" in test_entry.children
+        assert len(test_entry.children["AssertionNode"]) == 2
+
+        # TestNode → TestStepNode children
+        assert "TestStepNode" in test_entry.children
+        assert len(test_entry.children["TestStepNode"]) == 1
+
+    def test_round_trip_preserves_left_operand_edges(self):
+        graph = _make_test_verification_graph()
+        md = export_markdown(graph)
+        restored = import_markdown(md)
+
+        # Find the pre-condition AssertionNode
+        hlr_entry = restored.entries["Test Feature"]
+        llr_entry = list(hlr_entry.children["LLR"].values())[0]
+        test_entry = list(llr_entry.children["TestNode"].values())[0]
+        precond_entry = test_entry.children["AssertionNode"]["cond::pre::calibrated"]
+
+        # Should have LEFT_OPERAND and RIGHT_OPERAND references
+        rel_types = {r[0] for r in precond_entry.references}
+        assert "LEFT_OPERAND" in rel_types, f"Expected LEFT_OPERAND, got {precond_entry.references}"
+        assert "RIGHT_OPERAND" in rel_types, f"Expected RIGHT_OPERAND, got {precond_entry.references}"
+
+        # Verify LEFT_OPERAND targets the correct node
+        left_refs = [r for r in precond_entry.references if r[0] == "LEFT_OPERAND"]
+        assert len(left_refs) == 1
+        assert left_refs[0][1] == "Diagram::is_ready"
+        assert left_refs[0][2] == "AttributeNode"
+
+    def test_round_trip_preserves_right_operand_edges(self):
+        graph = _make_test_verification_graph()
+        md = export_markdown(graph)
+        restored = import_markdown(md)
+
+        hlr_entry = restored.entries["Test Feature"]
+        llr_entry = list(hlr_entry.children["LLR"].values())[0]
+        test_entry = list(llr_entry.children["TestNode"].values())[0]
+        precond_entry = test_entry.children["AssertionNode"]["cond::pre::calibrated"]
+
+        right_refs = [r for r in precond_entry.references if r[0] == "RIGHT_OPERAND"]
+        assert len(right_refs) == 1
+        assert right_refs[0][1] == "literal::true"
+        assert right_refs[0][2] == "LiteralNode"
+
+    def test_round_trip_preserves_callee_edges(self):
+        graph = _make_test_verification_graph()
+        md = export_markdown(graph)
+        restored = import_markdown(md)
+
+        hlr_entry = restored.entries["Test Feature"]
+        llr_entry = list(hlr_entry.children["LLR"].values())[0]
+        test_entry = list(llr_entry.children["TestNode"].values())[0]
+        step_entry = test_entry.children["TestStepNode"]["step::invoke"]
+
+        callee_refs = [r for r in step_entry.references if r[0] == "CALLEE"]
+        assert len(callee_refs) == 1
+        assert callee_refs[0][1] == "Diagram::generate"
+        assert callee_refs[0][2] == "AttributeNode"
+
+    def test_round_trip_preserves_assertion_properties(self):
+        graph = _make_test_verification_graph()
+        md = export_markdown(graph)
+        restored = import_markdown(md)
+
+        hlr_entry = restored.entries["Test Feature"]
+        llr_entry = list(hlr_entry.children["LLR"].values())[0]
+        test_entry = list(llr_entry.children["TestNode"].values())[0]
+        precond_entry = test_entry.children["AssertionNode"]["cond::pre::calibrated"]
+        postcond_entry = test_entry.children["AssertionNode"]["cond::post::output_ok"]
+
+        assert precond_entry.node.phase == "pre"
+        assert precond_entry.node.operator == "is_true"
+        assert postcond_entry.node.phase == "post"
+        assert postcond_entry.node.operator == "=="
+
+    def test_round_trip_preserves_scaffold_targets(self):
+        graph = _make_test_verification_graph()
+        md = export_markdown(graph)
+        restored = import_markdown(md)
+
+        # Scaffold nodes (AttributeNode, LiteralNode) should appear as
+        # root entries since they aren't in COMPOSES hierarchy.
+        assert "Diagram::is_ready" in restored.entries
+        assert restored.entries["Diagram::is_ready"].node.__class__.__name__ == "AttributeNode"
+
+        assert "literal::true" in restored.entries
+        assert restored.entries["literal::true"].node.__class__.__name__ == "LiteralNode"
+        assert restored.entries["literal::true"].node.value == "true"
+
+    def test_round_trip_reexport_is_stable(self):
+        graph = _make_test_verification_graph()
+        md = export_markdown(graph)
+        restored = import_markdown(md)
+        md2 = export_markdown(restored)
+
+        # Structure should reappear in the re-export
+        assert "## HLR: `Test Feature`" in md2
+        assert "### LLR: `Test LLR-001`" in md2
+        assert "#### Test: `vm::generate::test_valid`" in md2
+        assert "**left_operand**" in md2
+        assert "**right_operand**" in md2
+        assert "**callee**" in md2

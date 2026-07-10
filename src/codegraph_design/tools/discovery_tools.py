@@ -150,7 +150,7 @@ BUILD_DESIGN_CONTEXT_SCHEMA = {
 
 def _serialize_hlr_brief(hlr) -> dict:
     return {
-        "refid": hlr.refid,
+        "uid": hlr.uid or "",
         "name": hlr.name or "",
         "description": hlr.description,
         "tags": list(hlr.tags) if hlr.tags else [],
@@ -159,7 +159,7 @@ def _serialize_hlr_brief(hlr) -> dict:
 
 def _serialize_llr_brief(llr) -> dict:
     return {
-        "refid": llr.refid,
+        "uid": llr.uid or "",
         "name": llr.name or "",
         "description": llr.description,
         "tags": list(llr.tags) if llr.tags else [],
@@ -244,14 +244,16 @@ def handle_get_hlr_dependencies(ctx: DesignDiscoveryDispatcher, tool_input: dict
     if not refid:
         return json.dumps({"error": "refid is required"})
 
-    hlr = HLR.nodes.get_or_none(refid=refid)
+    hlr = HLR.nodes.get_or_none(uid=refid)
     if hlr is None:
-        return json.dumps({"error": f"HLR with refid '{refid}' not found"})
+        hlr = HLR.nodes.get_or_none(refid=refid)
+    if hlr is None:
+        return json.dumps({"error": f"HLR '{refid}' not found"})
 
     def _serialize_dep(other_hlr, direction_label):
         comp_nodes = other_hlr.component.all()
         return {
-            "refid": other_hlr.refid,
+            "uid": other_hlr.uid or "",
             "name": other_hlr.name or "",
             "description": other_hlr.description,
             "component": comp_nodes[0].name if comp_nodes else "",
@@ -310,13 +312,19 @@ def handle_get_requirement_traces(ctx: DesignDiscoveryDispatcher, tool_input: di
     if not refid:
         return json.dumps({"error": "refid is required"})
 
-    node = HLR.nodes.get_or_none(refid=refid)
+    node = HLR.nodes.get_or_none(uid=refid)
     req_type = "HLR"
+    if node is None:
+        node = HLR.nodes.get_or_none(refid=refid)
+        req_type = "HLR"
+    if node is None:
+        node = LLR.nodes.get_or_none(uid=refid)
+        req_type = "LLR"
     if node is None:
         node = LLR.nodes.get_or_none(refid=refid)
         req_type = "LLR"
     if node is None:
-        return json.dumps({"error": f"No HLR or LLR found with refid '{refid}'"})
+        return json.dumps({"error": f"No HLR or LLR found with '{refid}'"})
 
     try:
         design_links = _serialize_design_links(node)

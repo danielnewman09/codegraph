@@ -166,7 +166,7 @@ def _load_notional_verifications(llrs: list[LLR]) -> dict[str, list[dict]]:
             verifs_for_llr.append(vm_dict)
 
         if verifs_for_llr:
-            llr_verifications[llr.refid] = verifs_for_llr
+            llr_verifications[llr.uid] = verifs_for_llr
 
     return llr_verifications
 
@@ -178,8 +178,8 @@ def _format_verifications_for_prompt(
     """Format LLRs with their notional verification stubs for the prompt."""
     lines = []
     for llr in llrs:
-        lines.append(f"LLR {llr.refid}: {llr.description}")
-        verifs = notional_verifications.get(llr.refid, [])
+        lines.append(f"LLR {llr.uid}: {llr.description}")
+        verifs = notional_verifications.get(llr.uid, [])
         if verifs:
             lines.append("  Verifications (notional — resolve to qualified names):")
             for v in verifs:
@@ -429,11 +429,11 @@ def design_hlr(
     prompt_log = ""
     if log_dir:
         os.makedirs(log_dir, exist_ok=True)
-        prompt_log = os.path.join(log_dir, f"design_verify_hlr_{hlr.refid[:8]}.md")
+        prompt_log = os.path.join(log_dir, f"design_verify_hlr_{hlr.uid[:8]}.md")
 
     log.info(
         "design_hlr: starting tool loop for HLR %s with %d tools",
-        hlr.refid[:8], len(all_tools),
+        hlr.uid[:8], len(all_tools),
     )
     try:
         result = call_tool_loop(
@@ -450,7 +450,7 @@ def design_hlr(
     except Exception as exc:
         log.error(
             "design_hlr: tool loop failed for HLR %s: %s",
-            hlr.refid[:8], exc, exc_info=True,
+            hlr.uid[:8], exc, exc_info=True,
         )
         raise
 
@@ -460,7 +460,7 @@ def design_hlr(
 
     log.info(
         "Design complete for HLR %s: %d design nodes, %d LLRs with verifications",
-        hlr.refid[:8], len(design_nodes), len(verifications),
+        hlr.uid[:8], len(design_nodes), len(verifications),
     )
 
     return DesignHLRResult(
@@ -806,7 +806,7 @@ def _generate_design_artifacts(hlr: HLR, design_nodes: list[dict]) -> dict:
     from codegraph.export.markdown import MarkdownExporter
     from codegraph.export.plantuml import PlantUMLExporter
 
-    result: dict = {"design_md": "", "puml": "", "png": ""}
+    result: dict = {"design_md": "", "requirements_md": "", "puml": "", "png": ""}
 
     # ── Derive output directory from HLR name ─────────────────────────
     hlr_name = hlr.name or "unnamed"
@@ -835,7 +835,12 @@ def _generate_design_artifacts(hlr: HLR, design_nodes: list[dict]) -> dict:
         qn = getattr(dc, "qualified_name", None)
         if not qn:
             continue
-        parts = qn.rsplit(".", 1)
+        if "::" in qn:
+            parts = qn.rsplit("::", 1)
+        elif "." in qn:
+            parts = qn.rsplit(".", 1)
+        else:
+            parts = [qn]
         if len(parts) == 2:
             namespace_qn = parts[0]
             break
@@ -864,6 +869,22 @@ def _generate_design_artifacts(hlr: HLR, design_nodes: list[dict]) -> dict:
         if ntype == "NamespaceNode" and qn == namespace_qn:
             filtered[key] = entry
 
+    # Also pull in external types referenced via DEPENDS_ON from
+    # any kept entry or its children (e.g. codegraph.graph.LayerGraph).
+    def _collect_referenced_keys(entry) -> set[str]:
+        keys: set[str] = set()
+        for rel_type, target_key, _ in entry.references:
+            if rel_type == "DEPENDS_ON" and target_key in full_graph.entries:
+                keys.add(target_key)
+        for children in entry.children.values():
+            for child in children.values():
+                keys |= _collect_referenced_keys(child)
+        return keys
+
+    for key in _collect_referenced_keys(list(filtered.values())[0]):
+        if key not in filtered:
+            filtered[key] = full_graph.entries[key]
+
     if not filtered:
         result["design_md"] = f"namespace {namespace_qn} not in design graph"
         result["puml"] = f"namespace {namespace_qn} not in design graph"
@@ -883,6 +904,29 @@ def _generate_design_artifacts(hlr: HLR, design_nodes: list[dict]) -> dict:
     except Exception as exc:
         log.warning("Failed to export design markdown: %s", exc)
         result["design_md"] = f"export error: {exc}"
+
+    # ── Export Requirements Markdown (HLRs + LLRs only, no code) ─────
+    try:
+        from codegraph.persistence.repository import GraphRepository, _filter_graph_by_types
+        repo = GraphRepository()
+        req_graph = repo.get_hlr_subtree(hlr.uid)
+        if req_graph.entries:
+            # Strip design code (classes, attributes, etc.) — keep
+            # requirements + test data: HLR, LLR, TestNode, AssertionNode,
+            # TestStepNode, TestFixtureNode
+            req_graph = _filter_graph_by_types(req_graph, frozenset({
+                "HLR", "LLR", "TestNode", "AssertionNode",
+                "TestStepNode", "TestFixtureNode",
+            }))
+            req_exporter = MarkdownExporter(req_graph, public_only=True)
+            req_text = req_exporter.export()
+            req_path = out_dir / "requirements.md"
+            req_path.write_text(req_text, encoding="utf-8")
+            result["requirements_md"] = str(req_path)
+            log.info("Wrote requirements markdown: %s (%d bytes)", req_path, len(req_text))
+    except Exception as exc:
+        log.warning("Failed to export requirements markdown: %s", exc)
+        result["requirements_md"] = f"export error: {exc}"
 
     # ── Export PlantUML ──────────────────────────────────────────────
     try:
@@ -923,6 +967,90 @@ def _generate_design_artifacts(hlr: HLR, design_nodes: list[dict]) -> dict:
 
 
 # ══════════════════════════════════════════════════════════════════════════
+# Feedback file generation
+# ══════════════════════════════════════════════════════════════════════════
+
+
+def _generate_feedback_file(hlr: HLR) -> Path:
+    """Generate a feedback.md file in the requirement directory for this HLR.
+
+    Creates ``codegraph/requirements/{hlr_slug}/feedback.md`` with blank
+    ``### Feedback`` sections under each LLR.  If a feedback file already
+    exists, it is preserved as-is (not overwritten).
+
+    Returns the path to the feedback file.
+    """
+    import re
+    from pathlib import Path
+
+    hlr_name = hlr.name or "unnamed"
+    slug = re.sub(r'[^a-z0-9]+', '-', hlr_name.lower()).strip('-')
+    out_dir = Path("codegraph/requirements") / slug
+    feedback_path = out_dir / "feedback.md"
+
+    # If feedback file already exists, preserve user edits
+    if feedback_path.exists():
+        log.info(
+            "_generate_feedback_file: feedback.md already exists at %s — skipping",
+            feedback_path,
+        )
+        return feedback_path
+
+    try:
+        out_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        log.warning("Failed to create output dir %s: %s", out_dir, exc)
+        return feedback_path
+
+    # Load LLRs from Neo4j
+    llrs = list(hlr.llrs.all())
+
+    lines = []
+    lines.append(f"# {hlr_name}")
+    lines.append("")
+    lines.append(
+        "> **Source**: Neo4j codegraph, `design` tag — deterministic, "
+        "no LLM enrichment"
+    )
+    lines.append(
+        "> **Cycle**: export → review → update Neo4j → archive → re-export"
+    )
+    lines.append("")
+    if hlr.description:
+        lines.append(hlr.description.strip())
+    lines.append("")
+    lines.append("---")
+    lines.append("")
+
+    for llr in llrs:
+        llr_name = llr.name or llr.uid or "(unnamed)"
+        # Truncate long UUID-style names for readability
+        if len(llr_name) > 50 and llr_name[:8].isalnum():
+            llr_name = llr_name[:8]
+        lines.append(f"## {llr_name}")
+        lines.append("")
+        if llr.description:
+            lines.append(llr.description.strip())
+        else:
+            lines.append("_(no description available)_")
+        lines.append("")
+        lines.append("### Feedback")
+        lines.append("")
+        lines.append(
+            "<!-- Write your feedback on this requirement below. -->"
+        )
+        lines.append("")
+
+    text = "\n".join(lines)
+    feedback_path.write_text(text, encoding="utf-8")
+    log.info(
+        "_generate_feedback_file: wrote %d bytes to %s",
+        len(text), feedback_path,
+    )
+    return feedback_path
+
+
+# ══════════════════════════════════════════════════════════════════════════
 # Full entry point — context loading + pipeline + persistence
 # ══════════════════════════════════════════════════════════════════════════
 
@@ -934,7 +1062,8 @@ def design_and_persist_hlr(
     """Design a single HLR end-to-end: load context → design + verify → persist.
 
     Args:
-        refid: The HLR's ``refid`` (hex UUID string).
+        refid: The HLR's ``uid`` (deterministic unique ID) or legacy ``refid``
+            (hex UUID string).  Tries ``uid`` first, then ``refid``.
         log_dir: Directory for per-step prompt logs.
 
     Returns:
@@ -942,10 +1071,21 @@ def design_and_persist_hlr(
         ``verifications_resolved``, ``conditions_created``, ``actions_created``,
         ``links_applied``, ``scaffold_retaged``, ``scaffold_cleaned``.
     """
-    log.info("design_and_persist_hlr: loading HLR %s", refid[:8])
-    hlr = HLR.nodes.get_or_none(refid=refid)
+    log.info("design_and_persist_hlr: loading HLR %s", refid[:16])
+    hlr = HLR.nodes.get_or_none(uid=refid)
+    if hlr is None:
+        hlr = HLR.nodes.get_or_none(refid=refid)
     if not hlr:
         raise ValueError(f"HLR {refid} not found")
+
+    # --- Guard: refuse re-design if HLR already has design compounds ---
+    existing_design = list(hlr.design_compounds.all())
+    if existing_design:
+        raise ValueError(
+            f"HLR {refid[:8]} already has {len(existing_design)} design compound(s) — "
+            f"design has already been run. To re-design, delete the existing design "
+            f"compounds first, or call design_hlr() directly if you need to iterate."
+        )
 
     llr_nodes = hlr.llrs.all()
     if not llr_nodes:
@@ -960,7 +1100,7 @@ def design_and_persist_hlr(
 
     sibling_namespaces: list[str] = []
     for s in HLR.nodes.all():
-        if s.refid == refid:
+        if s.uid == refid:
             continue
         sc = s.component.all()
         if sc:
@@ -970,7 +1110,7 @@ def design_and_persist_hlr(
 
     intercomponent_classes: list[dict] = []
     for other_hlr in HLR.nodes.all():
-        if other_hlr.refid == refid:
+        if other_hlr.uid == refid:
             continue
         for target in other_hlr.design_compounds.all():
             intercomponent_classes.append({
@@ -1045,6 +1185,9 @@ def design_and_persist_hlr(
     # ── Generate design artifacts (markdown + PlantUML diagram) ──────
     artifacts = _generate_design_artifacts(hlr, result.design)
 
+    # ── Generate feedback file in requirements directory ───────────
+    feedback_path = _generate_feedback_file(hlr)
+
     return {
         "nodes_updated": recon["nodes_updated"],
         "nodes_created": recon["nodes_created"],
@@ -1056,4 +1199,6 @@ def design_and_persist_hlr(
         "scaffold_retaged": recon["scaffold_retaged"],
         "scaffold_cleaned": recon["scaffold_cleaned"],
         "artifacts": artifacts,
+        "feedback_file": str(feedback_path),
+        "status": "designed",
     }

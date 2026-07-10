@@ -194,12 +194,15 @@ FIND_CALLERS_CALLEES_SCHEMA = {
 GET_HLR_SUBTREE_SCHEMA = {
     "name": "get_hlr_subtree",
     "description": (
-        "Fetch the full requirements subtree for an HLR refid. "
-        "Returns the HLR, all its LLRs, test nodes, assertions, test steps, "
-        "and scaffold/design nodes reachable via COMPOSES, LEFT_OPERAND, "
-        "RIGHT_OPERAND, and CALLEE edges.  Use this to retrieve the complete "
-        "existing picture before decomposing, designing, or enriching a "
-        "requirement."
+        "Fetch the full requirements subtree for an HLR refid, optionally "
+        "filtered by tag.  Returns the HLR, all its LLRs, test nodes, "
+        "assertions, test steps, and scaffold/design nodes reachable via "
+        "COMPOSES, LEFT_OPERAND, RIGHT_OPERAND, and CALLEE edges.  "
+        "When *tag* is provided, only nodes carrying that tag (plus their "
+        "ancestors for tree context) are included.  Use this to retrieve "
+        "the complete existing picture before decomposing, designing, or "
+        "enriching a requirement — or pass ``tag='scaffold'`` to see only "
+        "scaffold nodes in the subtree."
     ),
     "input_schema": {
         "type": "object",
@@ -207,6 +210,15 @@ GET_HLR_SUBTREE_SCHEMA = {
             "refid": {
                 "type": "string",
                 "description": "The HLR refid (hex UUID string).",
+            },
+            "tag": {
+                "type": "string",
+                "description": (
+                    "Optional tag to filter the subtree by.  When provided, "
+                    "only nodes that carry this tag (plus their ancestors "
+                    "to preserve tree structure) are included.  "
+                    "Example: 'scaffold', 'design', 'as-built'."
+                ),
             },
         },
         "required": ["refid"],
@@ -534,7 +546,8 @@ def handle_get_hlr_subtree(ctx: CodeGraphDispatcher, tool_input: dict) -> str:
     """Fetch the full requirements subtree for an HLR refid.
 
     Uses ``GraphRepository.get_hlr_subtree()`` to do a multi-hop COMPOSES
-    traversal, then serializes the resulting LayerGraph to JSON.
+    traversal, optionally filtered by tag, then serializes the resulting
+    LayerGraph to JSON.
     """
     from codegraph.export.format import export_graph
 
@@ -542,8 +555,10 @@ def handle_get_hlr_subtree(ctx: CodeGraphDispatcher, tool_input: dict) -> str:
     if not refid:
         return json.dumps({"error": "refid is required"})
 
+    tag = tool_input.get("tag", "")
+
     try:
-        graph = ctx.repo.get_hlr_subtree(refid)
+        graph = ctx.repo.get_hlr_subtree(refid, tag=tag)
         ctx.current_graph = graph  # cache
         result = export_graph(graph, format="json")
         return result

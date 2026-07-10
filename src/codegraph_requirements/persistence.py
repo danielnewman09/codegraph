@@ -187,10 +187,12 @@ def persist_decomposition(
 
     result = DecompositionResult()
 
-    # --- Load the HLR ---
-    hlr = HLR.nodes.get_or_none(refid=hlr_refid)
+    # --- Load the HLR (try uid first, then refid) ---
+    hlr = HLR.nodes.get_or_none(uid=hlr_refid)
     if hlr is None:
-        raise ValueError(f"HLR with refid '{hlr_refid}' not found")
+        hlr = HLR.nodes.get_or_none(refid=hlr_refid)
+    if hlr is None:
+        raise ValueError(f"HLR '{hlr_refid}' not found")
 
     # --- Delete existing LLRs (and their verification subtrees) ---
     for old_llr in hlr.llrs.all():

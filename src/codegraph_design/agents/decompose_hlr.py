@@ -105,7 +105,7 @@ array with standard codegraph edge refs::
 
 | type | UID field | Purpose |
 |---|---|---|
-| ``"LLR"`` | ``refid`` | Low-level requirement |
+| ``"LLR"`` | ``name`` | Low-level requirement |
 | ``"TestNode"`` | ``qualified_name`` | Verification method (automated/review/inspection) |
 | ``"AssertionNode"`` | ``qualified_name`` | Pre- or post-condition assertion |
 | ``"TestStepNode"`` | ``qualified_name`` | Stimulus step in a verification |
@@ -394,7 +394,7 @@ Rules for completing partial decompositions:
 Your output's ``nodes`` list should contain BOTH the nodes you create
 AND the existing nodes (so the full picture is visible).  The existing
 nodes in your output must match the existing_context EXACTLY — same
-refid/qualified_name, same type, same edges.  This ensures the
+name/qualified_name, same type, same edges.  This ensures the
 persistence layer can upsert correctly.
 </EXISTING-CONTEXT>
 """
@@ -530,7 +530,7 @@ def validate_decomposition(nodes: list[dict]) -> list[DecompositionViolation]:
 
     for n in nodes:
         ntype = n.get("type", "")
-        ident = n.get("refid") or n.get("qualified_name", "")
+        ident = n.get("qualified_name", "") or n.get("name", "")
         if ident:
             nodes_by_refid[ident] = n
         if ntype == "LLR":
@@ -547,7 +547,7 @@ def validate_decomposition(nodes: list[dict]) -> list[DecompositionViolation]:
     test_to_actions: dict[str, list[str]] = {}
 
     for n in nodes:
-        ident = n.get("refid") or n.get("qualified_name", "")
+        ident = n.get("qualified_name", "") or n.get("name", "")
         ntype = n.get("type", "")
         for e in n.get("edges", []):
             rt = e.get("relation_type", "")
@@ -566,7 +566,7 @@ def validate_decomposition(nodes: list[dict]) -> list[DecompositionViolation]:
     verif_scaffolds: dict[str, set[str]] = {}
 
     for n in nodes:
-        ident = n.get("refid") or n.get("qualified_name", "")
+        ident = n.get("qualified_name", "") or n.get("name", "")
         ntype = n.get("type", "")
         if ntype not in ("AssertionNode", "TestStepNode"):
             continue
@@ -629,7 +629,7 @@ def validate_decomposition(nodes: list[dict]) -> list[DecompositionViolation]:
         ntype = n.get("type", "")
         if ntype != "AssertionNode":
             continue
-        ident = n.get("refid") or n.get("qualified_name", "?")
+        ident = n.get("qualified_name", "?") or n.get("name", "?")
         edges = n.get("edges", [])
         has_left = any(e.get("relation_type") == "LEFT_OPERAND" for e in edges)
         has_right = any(e.get("relation_type") == "RIGHT_OPERAND" for e in edges)
@@ -651,7 +651,7 @@ def validate_decomposition(nodes: list[dict]) -> list[DecompositionViolation]:
         ntype = n.get("type", "")
         if ntype != "TestStepNode":
             continue
-        ident = n.get("refid") or n.get("qualified_name", "?")
+        ident = n.get("qualified_name", "?") or n.get("name", "?")
         edges = n.get("edges", [])
         callee_edges = [
             e for e in edges
@@ -727,7 +727,7 @@ def _load_existing_requirements_tree(hlr) -> dict:
     from codegraph.persistence.repository import GraphRepository
 
     repo = GraphRepository()
-    refid = hlr.refid
+    refid = hlr.uid or ""
 
     try:
         graph = repo.get_hlr_subtree(refid)
@@ -753,8 +753,9 @@ def _load_existing_requirements_tree(hlr) -> dict:
 
         # LLRs
         if node_type == "LLR":
+            luid = getattr(node, "uid", "") or ""
             llr_summaries.append({
-                "refid": getattr(node, "refid", "") or "",
+                "refid": luid,
                 "description": getattr(node, "description", "") or "",
                 "tags": list(getattr(node, "tags", [])) or [],
             })
@@ -765,7 +766,7 @@ def _load_existing_requirements_tree(hlr) -> dict:
         node_type = type(node).__name__
         if node_type != "LLR":
             continue
-        llr_refid = getattr(node, "refid", "") or ""
+        llr_refid = getattr(node, "uid", "") or ""
 
         # Find TestNode children of this LLR
         for child_type, children in entry.children.items():
@@ -892,9 +893,9 @@ def _format_existing_context(tree: dict) -> str:
             if pre:
                 lines.append("  Pre-conditions:")
                 for c in pre:
-                    sqn = c.get("subject_qualified_name", "?")
-                    op = c.get("operator", "==")
-                    ev = c.get("expected_value", "?")
+                    sqn = c.get("subject_qualified_name") or "?"
+                    op = c.get("operator") or "=="
+                    ev = c.get("expected_value") or "?"
                     lines.append(f"    - {sqn} {op} {ev}")
             elif not pre and not actions and not post:
                 lines.append("  ⚠ No pre-conditions — add at least one pre-condition")
@@ -914,9 +915,9 @@ def _format_existing_context(tree: dict) -> str:
             if post:
                 lines.append("  Post-conditions:")
                 for c in post:
-                    sqn = c.get("subject_qualified_name", "?")
-                    op = c.get("operator", "==")
-                    ev = c.get("expected_value", "?")
+                    sqn = c.get("subject_qualified_name") or "?"
+                    op = c.get("operator") or "=="
+                    ev = c.get("expected_value") or "?"
                     lines.append(f"    - {sqn} {op} {ev}")
             elif not pre and not actions and not post:
                 lines.append("  ⚠ No post-conditions — add at least one post-condition")
@@ -938,6 +939,35 @@ def _format_existing_context(tree: dict) -> str:
         lines.append("")
 
     return "\n".join(lines)
+
+
+def _count_hlr_scaffolds(hlr) -> int:
+    """Count scaffold nodes reachable from this HLR's verification subtree.
+
+    Uses ``GraphRepository.get_hlr_subtree(tag='scaffold')`` to fetch
+    only scaffold nodes (plus their ancestors for tree context) from the
+    HLR subtree.  Returns the count of scaffold-tagged entries.
+
+    This is the reliable decomposition-complete check: scaffold nodes are
+    the notional references (AttributeNode, LiteralNode, ClassNode) that
+    the decompose agent creates — without them, the decomposition is
+    structurally incomplete even if LLR nodes exist.
+    """
+    from codegraph.persistence.repository import GraphRepository
+
+    try:
+        repo = GraphRepository()
+        graph = repo.get_hlr_subtree(hlr.uid or "", tag="scaffold")
+        # Count entries whose node carries the "scaffold" tag
+        count = 0
+        for entry in graph._all_entries():
+            node_tags: list[str] = getattr(entry.node, "tags", None) or []
+            if "scaffold" in node_tags:
+                count += 1
+        return count
+    except Exception as exc:
+        log.warning("_count_hlr_scaffolds: query failed for %s: %s", (hlr.uid or "")[:8], exc)
+        return 0
 
 
 def decompose(
@@ -1025,20 +1055,37 @@ def decompose_and_persist_hlr(
     """Decompose a single HLR end-to-end: load from Neo4j → decompose → persist.
 
     Args:
-        refid: The HLR's ``refid`` (hex UUID string).
+        refid: The HLR's ``uid`` (deterministic unique ID) or legacy ``refid``
+            (hex UUID string).  Tries ``uid`` first, then ``refid``.
         model: LLM model override.
         log_dir: Directory for per-step prompt logs.
 
     Returns:
-        Dict with keys ``hlr_refid``, ``num_llrs``, ``llrs_created``, etc.
+        Dict with keys ``hlr_uid``, ``num_llrs``, ``llrs_created``, etc.
     """
     from codegraph_requirements.models import HLR
     from codegraph_requirements.persistence import persist_decomposition
 
-    log.info("decompose_and_persist_hlr: loading HLR %s", refid[:8])
-    hlr = HLR.nodes.get_or_none(refid=refid)
+    log.info("decompose_and_persist_hlr: loading HLR %s", refid[:16])
+    hlr = HLR.nodes.get_or_none(uid=refid)
+    if hlr is None:
+        hlr = HLR.nodes.get_or_none(refid=refid)
     if not hlr:
         raise ValueError(f"HLR {refid} not found")
+    uid = hlr.uid
+
+    # --- Guard: refuse re-decomposition if HLR already has scaffold nodes ---
+    # Scaffold nodes are the concrete artifact of a successful decomposition;
+    # their presence means the verification stubs (tests, assertions, steps)
+    # with LEFT_OPERAND / RIGHT_OPERAND / CALLEE edges already exist.
+    scaffold_count = _count_hlr_scaffolds(hlr)
+    if scaffold_count > 0:
+        raise ValueError(
+            f"HLR {refid[:16]} already has {scaffold_count} scaffold node(s) — "
+            f"decomposition has already been run. To re-decompose, delete the "
+            f"existing LLRs first, or use the decompose() function directly "
+            f"with existing_context if you need to fill gaps."
+        )
 
     hlr_description = hlr.description
 
@@ -1060,9 +1107,9 @@ def decompose_and_persist_hlr(
     if log_dir:
         import os
         os.makedirs(log_dir, exist_ok=True)
-        prompt_log_file = os.path.join(log_dir, f"decompose_hlr_{refid[:8]}.md")
+        prompt_log_file = os.path.join(log_dir, f"decompose_hlr_{uid[:16]}.md")
 
-    log.info("decompose_and_persist_hlr: running decompose for %s", refid[:8])
+    log.info("decompose_and_persist_hlr: running decompose for %s", uid[:16])
     decomposed = decompose(
         description=hlr_description,
         component=component_name,
@@ -1081,7 +1128,7 @@ def decompose_and_persist_hlr(
             "  node[%d]: type=%s, uid=%s",
             i,
             node.get("type", "?"),
-            node.get("refid") or node.get("qualified_name", "?"),
+            node.get("qualified_name", "?") or node.get("name", "?"),
         )
 
     violations = validate_decomposition(list(decomposed.nodes))
@@ -1094,19 +1141,43 @@ def decompose_and_persist_hlr(
         raise DecompositionValidationError(msg, violations=violations)
     log.info("decompose_and_persist_hlr: validation passed (%d nodes)", len(decomposed.nodes))
 
-    log.info("decompose_and_persist_hlr: persisting for %s", refid[:8])
-    result = persist_decomposition(refid, decomposed)
+    log.info("decompose_and_persist_hlr: persisting for %s", uid[:16])
+    result = persist_decomposition(uid, decomposed)
 
     log.info(
         "Decomposition+persist complete for HLR %s: %d LLRs, %d tests, "
         "%d assertions, %d steps, %d fixtures, %d scaffold classes, %d scaffold attributes",
-        refid[:8], result.llrs_created, result.tests_created,
+        uid[:16], result.llrs_created, result.tests_created,
         result.assertions_created, result.steps_created,
         result.fixtures_created, result.scaffold_classes, result.scaffold_attributes,
     )
 
+    # --- Generate per-LLR feedback docs from Neo4j ---
+    # After persistence, generate the feedback documents so humans can
+    # review the new LLRs and fill in feedback.  Uses the same logic as
+    # generate_hlr_feedback_docs.py / handle_generate_feedback_docs.
+    try:
+        from codegraph_design.tools.workflow_tools import handle_generate_feedback_docs
+        from codegraph_design.tools.dispatcher import DesignDiscoveryDispatcher
+        _disp = DesignDiscoveryDispatcher()
+        feedback_result = handle_generate_feedback_docs(_disp, {})
+        log.info("decompose_and_persist_hlr: feedback docs generated")
+    except Exception as exc:
+        feedback_result = None
+        log.warning("decompose_and_persist_hlr: feedback doc generation failed: %s", exc)
+
+    # --- Serialize requirements to standard codegraph markdown ---
+    # Write requirements.md via export_markdown so the file is
+    # round-trip stable with import_markdown (see
+    # tests/test_markdown_roundtrip.py).
+    requirements_md_path = ""
+    try:
+        requirements_md_path = serialize_hlr_subtree_to_markdown(uid)
+    except Exception as exc:
+        log.warning("decompose_and_persist_hlr: markdown serialization failed: %s", exc)
+
     return {
-        "hlr_refid": refid,
+        "hlr_uid": uid,
         "num_llrs": len([n for n in decomposed.nodes if n.get("type") == "LLR"]),
         "llrs_created": result.llrs_created,
         "tests_created": result.tests_created,
@@ -1117,7 +1188,120 @@ def decompose_and_persist_hlr(
         "scaffold_attributes": result.scaffold_attributes,
         "operand_edges": result.operand_edges,
         "scaffold_map": result.scaffold_map,
+        "status": "decomposed",
+        "requirements_md": requirements_md_path,
     }
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Markdown serialization — standard export_markdown path
+# ══════════════════════════════════════════════════════════════════════════
+
+
+def serialize_decomposition_to_markdown(
+    decomposed: DecomposedRequirement,
+    output_dir: str = "",
+    hlr_name: str = "",
+) -> str:
+    """Serialize a decomposition result to standard codegraph markdown.
+
+    Converts the ``DecomposedRequirement`` flat node list into a
+    :class:`LayerGraph`, then exports via :func:`export_markdown` —
+    the same serialization path used by the round-trip tests.  The
+    resulting file is round-trip stable: ``import_markdown`` followed
+    by ``export_markdown`` produces byte-identical output.
+
+    Args:
+        decomposed: The decomposition result from :func:`decompose`.
+        output_dir: Directory to write the markdown file.  Defaults to
+            ``codegraph/requirements/<slug>/``.
+        hlr_name: HLR name used to generate the output sub-directory
+            slug.  If empty, uses ``decomposed.description``.
+
+    Returns:
+        Path to the written markdown file.
+    """
+    from pathlib import Path
+
+    from codegraph.graph import LayerGraph
+    from codegraph.export.markdown import export_markdown
+
+    # Convert the flat node list to a LayerGraph.
+    # create_missing=True auto-creates scaffold nodes (AttributeNode,
+    # LiteralNode) referenced by LEFT_OPERAND / RIGHT_OPERAND / CALLEE
+    # edges but not present as explicit nodes in the list.
+    nodes = [dict(n) for n in decomposed.nodes]
+    graph = LayerGraph.deserialize(nodes, create_missing=True)
+
+    # Export to standard markdown
+    md = export_markdown(graph, fields="all")
+
+    # Determine output path
+    if not output_dir:
+        slug_source = hlr_name or decomposed.description or "decomposed"
+        slug = re.sub(r"[^a-z0-9]+", "-", slug_source.lower()).strip("-")
+        output_dir = f"codegraph/requirements/{slug}"
+
+    out_path = Path(output_dir) / "requirements.md"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(md, encoding="utf-8")
+    log.info(
+        "serialize_decomposition_to_markdown: wrote %s (%d bytes, %d lines)",
+        out_path, len(md), len(md.splitlines()),
+    )
+    return str(out_path)
+
+
+def serialize_hlr_subtree_to_markdown(
+    hlr_uid: str,
+    output_dir: str = "",
+) -> str:
+    """Serialize an HLR subtree from Neo4j to standard codegraph markdown.
+
+    Loads the full HLR → LLR → TestNode → AssertionNode / TestStepNode
+    hierarchy (including scaffold targets) from Neo4j, then exports via
+    :func:`export_markdown` — the same path as
+    :func:`serialize_decomposition_to_markdown`.
+
+    Used by :func:`decompose_and_persist_hlr` after persistence so the
+    written ``requirements.md`` reflects what is actually in Neo4j.
+
+    Args:
+        hlr_uid: The HLR's ``uid`` in Neo4j.
+        output_dir: Directory to write the markdown file.  Defaults to
+            ``codegraph/requirements/<slug>/``.
+
+    Returns:
+        Path to the written markdown file.
+    """
+    from pathlib import Path
+
+    from codegraph.persistence.repository import GraphRepository
+    from codegraph_requirements.models.requirement import HLR
+    from codegraph.export.markdown import export_markdown
+
+    hlr = HLR.nodes.get(uid=hlr_uid)
+    slug = re.sub(r"[^a-z0-9]+", "-", (hlr.name or hlr_uid[:16]).lower()).strip("-")
+
+    if not output_dir:
+        output_dir = f"codegraph/requirements/{slug}"
+
+    repo = GraphRepository()
+    graph = repo.get_hlr_subtree(hlr_uid)
+
+    if not graph.entries:
+        log.warning("serialize_hlr_subtree_to_markdown: empty subtree for %s", hlr_uid[:16])
+        return ""
+
+    md = export_markdown(graph, fields="all")
+    out_path = Path(output_dir) / "requirements.md"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(md, encoding="utf-8")
+    log.info(
+        "serialize_hlr_subtree_to_markdown: wrote %s (%d bytes)",
+        out_path, len(md),
+    )
+    return str(out_path)
 
 
 if __name__ == "__main__":

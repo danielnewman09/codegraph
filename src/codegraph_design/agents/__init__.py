@@ -31,6 +31,8 @@ from codegraph_design.agents.decompose_hlr import (
     validate_decomposition,
     DecompositionViolation,
     DecompositionValidationError,
+    serialize_decomposition_to_markdown,
+    serialize_hlr_subtree_to_markdown,
 )
 from codegraph_design.agents.design_oo import (
     design_hlr,
@@ -44,6 +46,8 @@ __all__ = [
     "validate_decomposition",
     "DecompositionViolation",
     "DecompositionValidationError",
+    "serialize_decomposition_to_markdown",
+    "serialize_hlr_subtree_to_markdown",
     "design_hlr",
     "design_and_persist_hlr",
     "DesignHLRResult",

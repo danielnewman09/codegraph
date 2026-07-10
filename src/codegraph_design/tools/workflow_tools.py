@@ -158,6 +158,14 @@ def handle_ingest_design(ctx: DesignDiscoveryDispatcher, tool_input: dict) -> st
         importer = MarkdownImporter(tags=frozenset({tag}), strict=False)
         graph = importer.import_markdown(text)
 
+        # Reconstruct with create_missing=True to auto-create scaffold
+        # targets (AttributeNode, LiteralNode) referenced by edges
+        # (LEFT_OPERAND, RIGHT_OPERAND, CALLEE) but not present as
+        # headings in the markdown.
+        from codegraph.graph import LayerGraph
+        flat = graph.serialize()
+        graph = LayerGraph.deserialize(flat, create_missing=True)
+
         # Check for errors
         if importer.diagnostics:
             errors = [d for d in importer.diagnostics if d.severity == "error"]

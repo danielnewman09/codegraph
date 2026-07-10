@@ -28,6 +28,10 @@ class Language(StructuredNode, CodeGraphNode):
     """
 
     # --- Language-specific ---
+    qualified_name = StringProperty(
+        default="", index=True,
+        help_text="Qualified name for display/serialization. Mirrors name.",
+    )
     version = StringProperty(default="",
         help_text="Language version (e.g. '20', '3.12'). Empty if unspecified.")
 

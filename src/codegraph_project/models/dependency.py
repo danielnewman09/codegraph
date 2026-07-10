@@ -40,6 +40,10 @@ class Dependency(StructuredNode, CodeGraphNode):
     """
 
     # --- Dependency metadata ---
+    qualified_name = StringProperty(
+        default="", index=True,
+        help_text="Qualified name for display/serialization. Mirrors name.",
+    )
     version = StringProperty(default="",
         help_text="Pinned version string (e.g. '1.82.0', '2.31.0').")
     github_url = StringProperty(default="",

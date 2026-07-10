@@ -37,6 +37,10 @@ class ProjectMeta(StructuredNode, CodeGraphNode):
     """
 
     # --- Project metadata ---
+    qualified_name = StringProperty(
+        default="", index=True,
+        help_text="Qualified name for display/serialization. Mirrors name.",
+    )
     description = StringProperty(default="",
         help_text="Human-readable project description.")
     working_directory = StringProperty(default="",
