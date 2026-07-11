@@ -289,7 +289,7 @@ def _sanitize_alias(name: str) -> str:
     Returns:
         A sanitized alias (e.g. ``calc__CalculatorEngine``).
     """
-    return name.replace("::", "__").replace(" ", "_").replace(".", "_")
+    return name.replace("::", "__").replace(".", "_").replace("/", "_").replace(" ", "_")
 
 
 def _visibility_prefix(visibility: str) -> str:

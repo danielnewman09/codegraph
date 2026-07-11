@@ -26,7 +26,6 @@ from neomodel import (
     StructuredNode,
     StringProperty,
     ArrayProperty,
-    FloatProperty,
     UniqueIdProperty,
 )
 

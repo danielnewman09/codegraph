@@ -203,52 +203,6 @@ class HLR(StructuredNode, CodeGraphNode):
         """HLR has no method/attribute body section."""
         return None
 
-    def _compute_qualified_name(self) -> str:
-        """Compute the dot-delimited qualified name from relationships.
-
-        Traverses incoming ``component`` and ``parent_hlr`` relationships
-        and concatenates their names with ``self.name``:
-
-            component.name + "." + parent_hlr.qualified_name + "." + self.name
-
-        Segments are omitted when the corresponding relationship is absent.
-        If neither component nor parent_hlr is connected, returns ``self.name``.
-
-        Returns:
-            The computed qualified name string.
-        """
-        segments: list[str] = []
-
-        # Component name (incoming COMPOSES from Component)
-        comps = self.component.all()
-        if comps:
-            comp_name = getattr(comps[0], "name", "") or ""
-            if comp_name:
-                segments.append(comp_name)
-
-        # Parent HLR qualified_name (incoming COMPOSES from parent HLR)
-        parents = self.parent_hlr.all()
-        if parents:
-            parent_qname = getattr(parents[0], "qualified_name", "") or ""
-            if parent_qname:
-                segments.append(parent_qname)
-
-        # Own name (always last)
-        if self.name:
-            segments.append(self.name)
-
-        return ".".join(segments)
-
-    def refresh_qualified_name(self) -> None:
-        """Recompute ``qualified_name`` from relationships and persist.
-
-        Call this after connecting/disconnecting ``component`` or
-        ``parent_hlr`` relationships to keep ``qualified_name`` and the
-        derived ``uid`` in sync.
-        """
-        self.qualified_name = self._compute_qualified_name()
-        self.save()
-
     @classmethod
     def from_llm_dict(cls, data: dict) -> "HLR":
         """Construct an HLR from an LLM tool-call dict.
@@ -379,43 +333,6 @@ class LLR(StructuredNode, CodeGraphNode):
     def markdown_body_type(self) -> str | None:
         """LLR has no method/attribute body section."""
         return None
-
-    def _compute_qualified_name(self) -> str:
-        """Compute the dot-delimited qualified name from the parent HLR.
-
-        Traverses the incoming ``hlr`` relationship and concatenates
-        the parent HLR's ``qualified_name`` with ``self.name``:
-
-            hlr.qualified_name + "." + self.name
-
-        If no parent HLR is connected, returns ``self.name``.
-
-        Returns:
-            The computed qualified name string.
-        """
-        segments: list[str] = []
-
-        # Parent HLR qualified_name (incoming COMPOSES from HLR)
-        parents = self.hlr.all()
-        if parents:
-            parent_qname = getattr(parents[0], "qualified_name", "") or ""
-            if parent_qname:
-                segments.append(parent_qname)
-
-        # Own name (always last)
-        if self.name:
-            segments.append(self.name)
-
-        return ".".join(segments)
-
-    def refresh_qualified_name(self) -> None:
-        """Recompute ``qualified_name`` from the parent HLR and persist.
-
-        Call this after connecting to the parent HLR to keep
-        ``qualified_name`` and the derived ``uid`` in sync.
-        """
-        self.qualified_name = self._compute_qualified_name()
-        self.save()
 
     @classmethod
     def from_llm_dict(cls, data: dict) -> "LLR":

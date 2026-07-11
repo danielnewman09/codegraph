@@ -80,12 +80,15 @@ log = logging.getLogger(__name__)
 DEFAULT_IMAGE = "neo4j:5-community"
 
 #: Default Bolt port (binary protocol — used by neomodel / neo4j driver).
+# TODO: This should probably be ignored in favor of the config.toml
 DEFAULT_BOLT_PORT = 7687
 
 #: Default HTTP port (Neo4j Browser + REST API).
+# TODO: This should probably be ignored in favor of the config.toml
 DEFAULT_HTTP_PORT = 7474
 
 #: Default initial password (only applied on first database creation).
+# TODO: This should probably be ignored in favor of the config.toml
 DEFAULT_PASSWORD = "codegraph"
 
 #: Subdirectory under ``codegraph/`` that holds the Neo4j data tree.

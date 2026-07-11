@@ -47,19 +47,19 @@ class TestFormatHLR:
         # handles and includes component information.
         assert "[Component: backend]" in result
 
-    # codegraph:test-desc requirements.test_formatting.TestFormatHLR.test_with_refid
+    # codegraph:test-desc requirements.test_formatting.TestFormatHLR.test_with_uid
     # Verifies that the `format_hlr_dict` function includes a specific reference ID in
     # its output, ensuring the critical requirement of embedding reference identifiers
     # is met.
-    def test_with_refid(self):
-        # codegraph:test-desc requirements.test_formatting.TestFormatHLR.test_with_refid::step_0
+    def test_with_uid(self):
+        # codegraph:test-desc requirements.test_formatting.TestFormatHLR.test_with_uid::step_0
         # Sets up the test by preparing input data for the formatting function, ensuring
-        # the context needed to verify correct reference ID handling is established.
-        result = format_hlr_dict({"refid": "abc123", "description": "Track state"})
-        # codegraph:test-desc requirements.test_formatting.TestFormatHLR.test_with_refid::post_0
-        # Verifies that the formatted output contains the expected reference ID
+        # the context needed to verify correct identifier handling is established.
+        result = format_hlr_dict({"uid": "abc123", "description": "Track state"})
+        # codegraph:test-desc requirements.test_formatting.TestFormatHLR.test_with_uid::post_0
+        # Verifies that the formatted output contains the expected uid
         # 'abc123', confirming that the formatting function correctly includes required
-        # reference identifiers.
+        # identifiers.
         assert "abc123" in result
 
 
@@ -81,17 +81,17 @@ class TestFormatLLR:
         # descriptive text of the requirement is properly embedded in the result.
         assert "Validate input" in result
 
-    # codegraph:test-desc requirements.test_formatting.TestFormatLLR.test_with_refid
+    # codegraph:test-desc requirements.test_formatting.TestFormatLLR.test_with_uid
     # Verifies that formatting an LLR dictionary containing a reference identifier
     # (refid) correctly includes that reference in the output.
-    def test_with_refid(self):
-        # codegraph:test-desc requirements.test_formatting.TestFormatLLR.test_with_refid::step_0
-        # Sets up an LLR dictionary with a refid to test the formatting function's
-        # handling of reference identifiers.
-        result = format_llr_dict({"refid": "def456", "description": "Check bounds"})
-        # codegraph:test-desc requirements.test_formatting.TestFormatLLR.test_with_refid::post_0
-        # Asserts that the formatted output contains the expected refid 'def456',
-        # confirming that the format_llr_dict function correctly preserves reference
+    def test_with_uid(self):
+        # codegraph:test-desc requirements.test_formatting.TestFormatLLR.test_with_uid::step_0
+        # Sets up an LLR dictionary with a uid to test the formatting function's
+        # handling of identifiers.
+        result = format_llr_dict({"uid": "def456", "description": "Check bounds"})
+        # codegraph:test-desc requirements.test_formatting.TestFormatLLR.test_with_uid::post_0
+        # Asserts that the formatted output contains the expected uid 'def456',
+        # confirming that the format_llr_dict function correctly preserves
         # identifiers in the result.
         assert "def456" in result
 

@@ -738,12 +738,12 @@ class TestUidAccessors:
         assert LLR._uid_prop() == "uid"
 
     def test_hlr_identity_fields(self):
-        """HLR._identity_fields is ("name",) — deterministic uid from name."""
-        assert HLR._identity_fields == ("name",)
+        """HLR._identity_fields is ("qualified_name",) — deterministic uid from qualified_name."""
+        assert HLR._identity_fields == ("qualified_name",)
 
     def test_llr_identity_fields(self):
-        """LLR._identity_fields is ("name",) — deterministic uid from name."""
-        assert LLR._identity_fields == ("name",)
+        """LLR._identity_fields is ("qualified_name",) — deterministic uid from qualified_name."""
+        assert LLR._identity_fields == ("qualified_name",)
 
     def test_hlr_computes_deterministic_uid(self):
         """HLR.save() computes uid = SHA-1(name)."""
