@@ -15,13 +15,13 @@ def format_hlr_dict(hlr_dict: dict, include_component: bool = False) -> str:
         comp_name = hlr_dict.get("component_name") or hlr_dict.get("component__name")
         if comp_name:
             comp = f" [Component: {comp_name}]"
-    hlr_id = hlr_dict.get("id", hlr_dict.get("refid", ""))
+    hlr_id = hlr_dict.get("id", hlr_dict.get("uid", ""))
     return f"HLR {hlr_id}{comp}: {hlr_dict['description']}"
 
 
 def format_llr_dict(llr_dict: dict) -> str:
     """Format a single LLR dict as a prompt line."""
-    llr_id = llr_dict.get("id", llr_dict.get("refid", ""))
+    llr_id = llr_dict.get("id", llr_dict.get("uid", ""))
     return f"LLR {llr_id}: {llr_dict['description']}"
 
 
@@ -157,7 +157,7 @@ def format_llrs_with_verifications_for_prompt(
     """
     lines = []
     for llr in llrs:
-        llr_id = llr.get("id", llr.get("refid", ""))
+        llr_id = llr.get("id", llr.get("uid", ""))
         lines.append(f"LLR {llr_id}: {llr['description']}")
         verifs = llr_verifications.get(llr_id, [])
         if verifs:

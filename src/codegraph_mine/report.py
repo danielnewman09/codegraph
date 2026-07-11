@@ -77,7 +77,7 @@ def _fetch_hlrs_with_llrs(tag: str) -> list[dict]:
     """Fetch all HLRs with the given tag, each with its LLRs and tests.
 
     Returns a list of HLR dicts, each with:
-        name, description, refid, llrs (list of LLR dicts with tests).
+        name, description, uid, llrs (list of LLR dicts with tests).
     """
     query = """
     MATCH (h:HLR)
@@ -102,14 +102,14 @@ def _fetch_hlrs_with_llrs(tag: str) -> list[dict]:
 
         h_name = h_node.get("name", "")
         h_desc = h_node.get("description", "")
-        h_refid = h_node.get("refid", "")
+        h_uid = h_node.get("uid", "")
 
-        if h_refid not in hlr_map:
+        if h_uid not in hlr_map:
             compound_name = c_node.get("qualified_name", "") if c_node else ""
-            hlr_map[h_refid] = {
+            hlr_map[h_uid] = {
                 "name": h_name,
                 "description": h_desc,
-                "refid": h_refid,
+                "uid": h_uid,
                 "compound": compound_name,
                 "llrs": {},
             }
@@ -117,13 +117,13 @@ def _fetch_hlrs_with_llrs(tag: str) -> list[dict]:
         if l_node:
             l_name = l_node.get("name", "")
             l_desc = l_node.get("description", "")
-            l_refid = l_node.get("refid", "")
+            l_uid = l_node.get("uid", "")
 
-            if l_refid not in hlr_map[h_refid]["llrs"]:
-                hlr_map[h_refid]["llrs"][l_refid] = {
+            if l_uid not in hlr_map[h_uid]["llrs"]:
+                hlr_map[h_uid]["llrs"][l_uid] = {
                     "name": l_name,
                     "description": l_desc,
-                    "refid": l_refid,
+                    "uid": l_uid,
                     "tests": [],
                 }
 
@@ -132,7 +132,7 @@ def _fetch_hlrs_with_llrs(tag: str) -> list[dict]:
                 test_desc = t_node.get("description", "")
                 test_mod = t_node.get("test_module", "")
                 if test_qn:
-                    hlr_map[h_refid]["llrs"][l_refid]["tests"].append({
+                    hlr_map[h_uid]["llrs"][l_uid]["tests"].append({
                         "qualified_name": test_qn,
                         "description": test_desc,
                         "module": test_mod,
@@ -205,7 +205,7 @@ def _fetch_composite_hlrs(tag: str) -> list[dict]:
     summaries.
 
     Returns a list of dicts, each with:
-        name, description, refid, child_hlrs (list of dicts with
+        name, description, uid, child_hlrs (list of dicts with
         name, description, compound).
     """
     query = """
@@ -229,25 +229,25 @@ def _fetch_composite_hlrs(tag: str) -> list[dict]:
     for row in results:
         h_node, child_node, c_node, ns_node = row
 
-        h_refid = h_node.get("refid", "")
-        if h_refid not in composite_map:
+        h_uid = h_node.get("uid", "")
+        if h_uid not in composite_map:
             ns_name = ns_node.get("qualified_name", "") if ns_node else ""
-            composite_map[h_refid] = {
+            composite_map[h_uid] = {
                 "name": h_node.get("name", ""),
                 "description": h_node.get("description", ""),
-                "refid": h_refid,
+                "uid": h_uid,
                 "namespace": ns_name,
                 "child_hlrs": {},
             }
 
         if child_node:
-            child_refid = child_node.get("refid", "")
-            if child_refid not in composite_map[h_refid]["child_hlrs"]:
+            child_uid = child_node.get("uid", "")
+            if child_uid not in composite_map[h_uid]["child_hlrs"]:
                 compound_name = c_node.get("qualified_name", "") if c_node else ""
-                composite_map[h_refid]["child_hlrs"][child_refid] = {
+                composite_map[h_uid]["child_hlrs"][child_uid] = {
                     "name": child_node.get("name", ""),
                     "description": child_node.get("description", ""),
-                    "refid": child_refid,
+                    "uid": child_uid,
                     "compound": compound_name,
                 }
 

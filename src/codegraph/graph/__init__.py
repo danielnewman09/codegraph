@@ -75,7 +75,7 @@ class CompositeEntry:
         serialized["edges"] = edges
 
         # Ensure uid property is included for roundtrip target resolution.
-        # With fields="llm" (default), FileNode's refid is omitted since
+        # With fields="llm" (default), FileNode's Doxygen refid is omitted since
         # it's not in _llm_fields; with fields="all" it's already present.
         uid_prop = type(self.node)._uid_prop()
         if uid_prop and uid_prop not in serialized:

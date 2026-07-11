@@ -18,12 +18,12 @@ Usage::
     from codegraph_feedback import analyze_feedback, analyze_and_persist
 
     # One-shot: load HLR, resolve feedback file, analyze
-    result = analyze_and_persist(hlr_refid="2c3463b2…")
+    result = analyze_and_persist(hlr_uid="2c3463b2…")
 
     # Or with explicit paths
     result = analyze_feedback(
         hlr_name="Architecture Diagram Generator — Unified Module View",
-        hlr_refid="2c3463b2…",
+        hlr_uid="2c3463b2…",
         feedback_file_path="codegraph/requirements/generated/feedback_docs/01_unified_module_view.md",
     )
 

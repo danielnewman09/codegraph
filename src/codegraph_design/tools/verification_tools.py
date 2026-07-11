@@ -122,7 +122,7 @@ DRAFT_VERIFICATIONS_SCHEMA = {
     "name": "draft_verifications",
     "description": (
         "Submit resolved verification procedures for LLRs. Takes a map "
-        "of LLR refid to verification method lists. Each verification "
+        "of LLR uid to verification method lists. Each verification "
         "method includes preconditions, actions, and postconditions "
         "with qualified names referencing real design elements. "
         "Validates that all qualified names exist in the design context "
@@ -135,8 +135,8 @@ DRAFT_VERIFICATIONS_SCHEMA = {
             "verifications": {
                 "type": "object",
                 "description": (
-                    "Map of LLR refid (string) to list of verification "
-                    "methods. Keys MUST be LLR refids."
+                    "Map of LLR uid (string) to list of verification "
+                    "methods. Keys MUST be LLR uids."
                 ),
                 "additionalProperties": {
                     "type": "array",
@@ -205,7 +205,7 @@ COMMIT_SCHEMA = {
                 "type": "object",
                 "description": (
                     "The resolved verifications — same structure as submitted "
-                    "via draft_verifications. Map of LLR refid to list of "
+                    "via draft_verifications. Map of LLR uid to list of "
                     "verification method dicts."
                 ),
             },
@@ -242,11 +242,11 @@ def handle_draft_verifications(
     parsed: dict[str, list[dict]] = {}
     parse_errors: list[str] = []
 
-    for llr_refid, v_list in verifs_input.items():
+    for llr_uid, v_list in verifs_input.items():
         if not isinstance(v_list, list):
-            parse_errors.append(f"LLR {llr_refid}: expected a list of verifications")
+            parse_errors.append(f"LLR {llr_uid}: expected a list of verifications")
             continue
-        parsed[llr_refid] = v_list
+        parsed[llr_uid] = v_list
 
     if parse_errors:
         return json.dumps({"valid": False, "errors": parse_errors})
@@ -255,7 +255,7 @@ def handle_draft_verifications(
     warnings: list[str] = []
     verification_summary: dict[str, dict] = {}
 
-    for llr_refid, verifs in parsed.items():
+    for llr_uid, verifs in parsed.items():
         resolved_count = 0
         total_refs = 0
 
@@ -280,7 +280,7 @@ def handle_draft_verifications(
                             ctx.dependency_lookup,
                         )
                         detail = {
-                            "llr_refid": llr_refid,
+                            "llr_uid": llr_uid,
                             "verification": test_label,
                             "field": "subject_qualified_name",
                             "value": sqn,
@@ -303,7 +303,7 @@ def handle_draft_verifications(
                             ctx.dependency_lookup,
                         )
                         detail = {
-                            "llr_refid": llr_refid,
+                            "llr_uid": llr_uid,
                             "verification": test_label,
                             "field": "object_qualified_name",
                             "value": oqn,
@@ -328,7 +328,7 @@ def handle_draft_verifications(
                             ctx.dependency_lookup,
                         )
                         detail = {
-                            "llr_refid": llr_refid,
+                            "llr_uid": llr_uid,
                             "verification": test_label,
                             "field": "callee_qualified_name",
                             "value": callee,
@@ -340,12 +340,12 @@ def handle_draft_verifications(
                 caller = action.get("caller_qualified_name", "")
                 if caller and "::" not in caller:
                     warnings.append(
-                        f"LLR {llr_refid} '{test_label}': caller "
+                        f"LLR {llr_uid} '{test_label}': caller "
                         f"'{caller}' is not a qualified name — leave empty "
                         f"if the caller is the test harness"
                     )
 
-        verification_summary[llr_refid] = {
+        verification_summary[llr_uid] = {
             "methods": len(verifs),
             "resolved_references": resolved_count,
             "unresolved_references": total_refs - resolved_count,
@@ -388,7 +388,7 @@ def handle_commit(
 
     if design and verifications:
         design_lookup = _build_design_lookup(design)
-        for llr_refid, verifs in verifications.items():
+        for llr_uid, verifs in verifications.items():
             for v in verifs:
                 test_label = v.get("test_name", "") or v.get("method", "")
                 for cond in v.get("preconditions", []) + v.get("postconditions", []):

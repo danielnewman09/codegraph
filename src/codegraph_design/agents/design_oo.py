@@ -11,7 +11,7 @@ Usage::
     from codegraph_design.agents.design_oo import design_and_persist_hlr
 
     summary = design_and_persist_hlr(
-        refid="2c3463b2…",
+        hlr_uid="2c3463b2…",
         log_dir="/path/to/logs",
     )
     # → {"nodes_created": 5, "verifications_resolved": 8, "links_applied": 3}
@@ -283,7 +283,7 @@ Example:
 
 <FORMAT-CONTRACT name="verification-key-format">
 The `verifications` field in `draft_verifications` MUST be a JSON object
-keyed by LLR refid (string), NOT by test name.
+keyed by LLR uid (string), NOT by test name.
 
 Example: "verifications": {{ "abc123": [...], "def456": [...] }}
 Wrong:   "verifications": {{ "test_set_target": [...] }}
@@ -333,7 +333,7 @@ def design_hlr(
 
     Returns:
         ``DesignHLRResult`` with ``design`` (LayerGraph-format nodes)
-        and ``verifications`` (LLR refid → verification method lists).
+        and ``verifications`` (LLR uid → verification method lists).
     """
     from codegraph_design.agents.design_oo_prompt import (
         build_existing_classes_section,
@@ -675,7 +675,7 @@ def _retag_remaining_scaffold() -> int:
     return retagged
 
 
-def _cleanup_orphaned_scaffold_nodes(hlr_refid: str) -> int:
+def _cleanup_orphaned_scaffold_nodes(hlr_uid: str) -> int:
     """Delete scaffold nodes that no longer have any relationships."""
     cleaned = 0
     try:
@@ -696,14 +696,14 @@ def _cleanup_orphaned_scaffold_nodes(hlr_refid: str) -> int:
                 pass
         if cleaned:
             log.info("Cleaned up %d orphaned scaffold nodes for HLR %s",
-                     cleaned, hlr_refid[:8])
+                     cleaned, hlr_uid[:8])
     except Exception as exc:
-        log.warning("Scaffold cleanup failed for HLR %s: %s", hlr_refid[:8], exc)
+        log.warning("Scaffold cleanup failed for HLR %s: %s", hlr_uid[:8], exc)
     return cleaned
 
 
 def _reconcile_design_with_scaffold(
-    hlr_refid: str,
+    hlr_uid: str,
     design_nodes: list[dict],
 ) -> dict:
     """Reconcile the design with existing scaffold nodes.
@@ -771,7 +771,7 @@ def _reconcile_design_with_scaffold(
 
     edges_linked = _link_design_composes(flat)
     scaffold_retaged = _retag_remaining_scaffold()
-    scaffold_cleaned = _cleanup_orphaned_scaffold_nodes(hlr_refid)
+    scaffold_cleaned = _cleanup_orphaned_scaffold_nodes(hlr_uid)
 
     return {
         "nodes_updated": nodes_updated,
@@ -1055,15 +1055,14 @@ def _generate_feedback_file(hlr: HLR) -> Path:
 # ══════════════════════════════════════════════════════════════════════════
 
 def design_and_persist_hlr(
-    refid: str,
+    hlr_uid: str,
     *,
     log_dir: str = "",
 ) -> dict:
     """Design a single HLR end-to-end: load context → design + verify → persist.
 
     Args:
-        refid: The HLR's ``uid`` (deterministic unique ID) or legacy ``refid``
-            (hex UUID string).  Tries ``uid`` first, then ``refid``.
+        hlr_uid: The HLR's ``uid`` (deterministic unique ID).
         log_dir: Directory for per-step prompt logs.
 
     Returns:
@@ -1071,28 +1070,26 @@ def design_and_persist_hlr(
         ``verifications_resolved``, ``conditions_created``, ``actions_created``,
         ``links_applied``, ``scaffold_retaged``, ``scaffold_cleaned``.
     """
-    log.info("design_and_persist_hlr: loading HLR %s", refid[:16])
-    hlr = HLR.nodes.get_or_none(uid=refid)
-    if hlr is None:
-        hlr = HLR.nodes.get_or_none(refid=refid)
+    log.info("design_and_persist_hlr: loading HLR %s", hlr_uid[:16])
+    hlr = HLR.nodes.get_or_none(uid=hlr_uid)
     if not hlr:
-        raise ValueError(f"HLR {refid} not found")
+        raise ValueError(f"HLR {hlr_uid} not found")
 
     # --- Guard: refuse re-design if HLR already has design compounds ---
     existing_design = list(hlr.design_compounds.all())
     if existing_design:
         raise ValueError(
-            f"HLR {refid[:8]} already has {len(existing_design)} design compound(s) — "
+            f"HLR {hlr_uid[:8]} already has {len(existing_design)} design compound(s) — "
             f"design has already been run. To re-design, delete the existing design "
             f"compounds first, or call design_hlr() directly if you need to iterate."
         )
 
     llr_nodes = hlr.llrs.all()
     if not llr_nodes:
-        raise ValueError(f"HLR {refid} has no LLRs — decompose it first")
+        raise ValueError(f"HLR {hlr_uid} has no LLRs — decompose it first")
     log.info(
         "design_and_persist_hlr: found HLR %s with %d LLRs",
-        refid[:8], len(llr_nodes),
+        hlr_uid[:8], len(llr_nodes),
     )
 
     comp_nodes = hlr.component.all()
@@ -1100,7 +1097,7 @@ def design_and_persist_hlr(
 
     sibling_namespaces: list[str] = []
     for s in HLR.nodes.all():
-        if s.uid == refid:
+        if s.uid == hlr_uid:
             continue
         sc = s.component.all()
         if sc:
@@ -1110,7 +1107,7 @@ def design_and_persist_hlr(
 
     intercomponent_classes: list[dict] = []
     for other_hlr in HLR.nodes.all():
-        if other_hlr.uid == refid:
+        if other_hlr.uid == hlr_uid:
             continue
         for target in other_hlr.design_compounds.all():
             intercomponent_classes.append({
@@ -1119,7 +1116,7 @@ def design_and_persist_hlr(
                 "kind": getattr(target, "kind", "class"),
             })
 
-    log.info("design_and_persist_hlr: running design_hlr for %s", refid[:8])
+    log.info("design_and_persist_hlr: running design_hlr for %s", hlr_uid[:8])
     result = design_hlr(
         hlr=hlr,
         llrs=llr_nodes,
@@ -1138,15 +1135,15 @@ def design_and_persist_hlr(
              "scaffold_retaged": 0, "scaffold_cleaned": 0}
     if result.design:
         try:
-            recon = _reconcile_design_with_scaffold(refid, result.design)
+            recon = _reconcile_design_with_scaffold(hlr_uid, result.design)
         except Exception as exc:
             log.warning("Design reconciliation failed for HLR %s: %s",
-                        refid[:8], exc, exc_info=True)
+                        hlr_uid[:8], exc, exc_info=True)
 
     verifications_resolved = len(result.verifications)
     conditions_created = 0
     actions_created = 0
-    for llr_refid, verif_list in result.verifications.items():
+    for llr_uid, verif_list in result.verifications.items():
         for v in verif_list:
             conditions_created += len(v.get("preconditions", []))
             conditions_created += len(v.get("postconditions", []))
@@ -1170,13 +1167,13 @@ def design_and_persist_hlr(
             hlr.design_compounds.connect(target_node)
             links_applied += 1
         except Exception as exc:
-            log.warning("Failed to COMPOSES link HLR %s -> %s: %s", refid[:8], qn, exc)
+            log.warning("Failed to COMPOSES link HLR %s -> %s: %s", hlr_uid[:8], qn, exc)
 
     log.info(
         "Design+verify complete for HLR %s: %d nodes updated, %d created, "
         "%d COMPOSES edges, %d verifications (preserved), %d conditions, "
         "%d actions, %d scaffold retaged, %d scaffold cleaned",
-        refid[:8], recon["nodes_updated"], recon["nodes_created"],
+        hlr_uid[:8], recon["nodes_updated"], recon["nodes_created"],
         recon["edges_linked"], verifications_resolved,
         conditions_created, actions_created,
         recon["scaffold_retaged"], recon["scaffold_cleaned"],

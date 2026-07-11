@@ -32,7 +32,7 @@ class FeedbackDispatcher(DesignDiscoveryDispatcher):
 
         d = FeedbackDispatcher(
             hlr_name="Architecture Diagram Generator — Unified Module View",
-            hlr_refid="2c3463b2…",
+            hlr_uid="2c3463b2…",
             feedback_file_path="codegraph/requirements/generated/feedback_docs/01_unified_module_view.md",
             component_name="architecture-diagram-generator",
         )
@@ -48,7 +48,7 @@ class FeedbackDispatcher(DesignDiscoveryDispatcher):
         repo=None,
         *,
         hlr_name: str = "",
-        hlr_refid: str = "",
+        hlr_uid: str = "",
         feedback_file_path: str = "",
         component_name: str = "",
         **kwargs,
@@ -57,7 +57,7 @@ class FeedbackDispatcher(DesignDiscoveryDispatcher):
 
         # ── Session state ──
         self.hlr_name: str = hlr_name
-        self.hlr_refid: str = hlr_refid
+        self.hlr_uid: str = hlr_uid
         self.feedback_file_path: str = feedback_file_path
         self.component_name: str = component_name
 

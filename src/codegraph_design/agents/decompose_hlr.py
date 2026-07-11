@@ -522,7 +522,7 @@ def validate_decomposition(nodes: list[dict]) -> list[DecompositionViolation]:
     """
     violations: list[DecompositionViolation] = []
 
-    nodes_by_refid: dict[str, dict] = {}
+    nodes_by_ident: dict[str, dict] = {}
     llr_ids: set[str] = set()
     test_ids: set[str] = set()
     cond_ids: set[str] = set()
@@ -532,7 +532,7 @@ def validate_decomposition(nodes: list[dict]) -> list[DecompositionViolation]:
         ntype = n.get("type", "")
         ident = n.get("qualified_name", "") or n.get("name", "")
         if ident:
-            nodes_by_refid[ident] = n
+            nodes_by_ident[ident] = n
         if ntype == "LLR":
             llr_ids.add(ident)
         elif ntype == "TestNode":
@@ -604,11 +604,11 @@ def validate_decomposition(nodes: list[dict]) -> list[DecompositionViolation]:
 
         cond_list = test_to_conds.get(test_id, [])
         has_pre = any(
-            nodes_by_refid.get(cid, {}).get("phase") == "pre"
+            nodes_by_ident.get(cid, {}).get("phase") == "pre"
             for cid in cond_list
         )
         has_post = any(
-            nodes_by_refid.get(cid, {}).get("phase") == "post"
+            nodes_by_ident.get(cid, {}).get("phase") == "post"
             for cid in cond_list
         )
         if not has_pre:
@@ -720,19 +720,19 @@ def _load_existing_requirements_tree(hlr) -> dict:
     consumes.
 
     Returns a dict with keys:
-    - ``llrs``: list of LLR summaries (refid, description, tags)
-    - ``tests_by_llr``: dict of LLR refid → list of test summaries
+    - ``llrs``: list of LLR summaries (uid, description, tags)
+    - ``tests_by_llr``: dict of LLR uid → list of test summaries (already correct)
     - ``scaffolds``: list of scaffold node summaries (qualified_name, kind)
     """
     from codegraph.persistence.repository import GraphRepository
 
     repo = GraphRepository()
-    refid = hlr.uid or ""
+    hlr_uid = hlr.uid or ""
 
     try:
-        graph = repo.get_hlr_subtree(refid)
+        graph = repo.get_hlr_subtree(hlr_uid)
     except Exception:
-        log.warning("get_hlr_subtree failed for %s, returning empty tree", refid[:8])
+        log.warning("get_hlr_subtree failed for %s, returning empty tree", hlr_uid[:8])
         return {"llrs": [], "tests_by_llr": {}, "scaffolds": []}
 
     # Build a flat lookup: uid → node
@@ -755,7 +755,7 @@ def _load_existing_requirements_tree(hlr) -> dict:
         if node_type == "LLR":
             luid = getattr(node, "uid", "") or ""
             llr_summaries.append({
-                "refid": luid,
+                "uid": luid,
                 "description": getattr(node, "description", "") or "",
                 "tags": list(getattr(node, "tags", [])) or [],
             })
@@ -766,7 +766,7 @@ def _load_existing_requirements_tree(hlr) -> dict:
         node_type = type(node).__name__
         if node_type != "LLR":
             continue
-        llr_refid = getattr(node, "uid", "") or ""
+        llr_uid = getattr(node, "uid", "") or ""
 
         # Find TestNode children of this LLR
         for child_type, children in entry.children.items():
@@ -826,7 +826,7 @@ def _load_existing_requirements_tree(hlr) -> dict:
                                 "callee_qualified_name": callee_qn,
                             })
 
-                tests_by_llr.setdefault(llr_refid, []).append(test_dict)
+                tests_by_llr.setdefault(llr_uid, []).append(test_dict)
 
     # Scaffold nodes
     scaffold_summaries: list[dict] = []
@@ -871,11 +871,11 @@ def _format_existing_context(tree: dict) -> str:
 
     # LLRs with tests
     for llr in llrs:
-        refid = llr["refid"]
-        short_refid = refid[:8] if len(refid) >= 8 else refid
-        tests = tests_by_llr.get(refid, [])
+        llr_uid = llr["uid"]
+        short_uid = llr_uid[:8] if len(llr_uid) >= 8 else llr_uid
+        tests = tests_by_llr.get(llr_uid, [])
         status = f"{len(tests)} test(s)" if tests else "⚠ NO TESTS — create verification stubs"
-        lines.append(f"### LLR {short_refid} [{status}]")
+        lines.append(f"### LLR {short_uid} [{status}]")
         lines.append("")
         lines.append(f"{llr['description']}")
         lines.append("")
@@ -1047,7 +1047,7 @@ def decompose(
 
 
 def decompose_and_persist_hlr(
-    refid: str,
+    hlr_uid: str,
     *,
     model: str = "",
     log_dir: str = "",
@@ -1055,8 +1055,7 @@ def decompose_and_persist_hlr(
     """Decompose a single HLR end-to-end: load from Neo4j → decompose → persist.
 
     Args:
-        refid: The HLR's ``uid`` (deterministic unique ID) or legacy ``refid``
-            (hex UUID string).  Tries ``uid`` first, then ``refid``.
+        hlr_uid: The HLR's ``uid`` (deterministic unique ID).
         model: LLM model override.
         log_dir: Directory for per-step prompt logs.
 
@@ -1066,12 +1065,10 @@ def decompose_and_persist_hlr(
     from codegraph_requirements.models import HLR
     from codegraph_requirements.persistence import persist_decomposition
 
-    log.info("decompose_and_persist_hlr: loading HLR %s", refid[:16])
-    hlr = HLR.nodes.get_or_none(uid=refid)
-    if hlr is None:
-        hlr = HLR.nodes.get_or_none(refid=refid)
+    log.info("decompose_and_persist_hlr: loading HLR %s", hlr_uid[:16])
+    hlr = HLR.nodes.get_or_none(uid=hlr_uid)
     if not hlr:
-        raise ValueError(f"HLR {refid} not found")
+        raise ValueError(f"HLR {hlr_uid} not found")
     uid = hlr.uid
 
     # --- Guard: refuse re-decomposition if HLR already has scaffold nodes ---
@@ -1081,7 +1078,7 @@ def decompose_and_persist_hlr(
     scaffold_count = _count_hlr_scaffolds(hlr)
     if scaffold_count > 0:
         raise ValueError(
-            f"HLR {refid[:16]} already has {scaffold_count} scaffold node(s) — "
+            f"HLR {hlr_uid[:16]} already has {scaffold_count} scaffold node(s) — "
             f"decomposition has already been run. To re-decompose, delete the "
             f"existing LLRs first, or use the decompose() function directly "
             f"with existing_context if you need to fill gaps."
@@ -1309,16 +1306,16 @@ if __name__ == "__main__":
 
     if len(sys.argv) < 2:
         print("Usage: python -m codegraph_design.agents.decompose_hlr 'description of requirement'")
-        print("       python -m codegraph_design.agents.decompose_hlr --refid <hlr_refid>")
+        print("       python -m codegraph_design.agents.decompose_hlr --hlr-uid <hlr_uid>")
         sys.exit(1)
 
-    if sys.argv[1] == "--refid":
+    if sys.argv[1] == "--hlr-uid":
         if len(sys.argv) < 3:
-            print("Usage: python -m codegraph_design.agents.decompose_hlr --refid <hlr_refid>")
+            print("Usage: python -m codegraph_design.agents.decompose_hlr --hlr-uid <hlr_uid>")
             sys.exit(1)
         from codegraph.persistence.connection import init_neo4j, close_neo4j
         init_neo4j()
-        result = decompose_and_persist_hlr(refid=sys.argv[2])
+        result = decompose_and_persist_hlr(hlr_uid=sys.argv[2])
         print(json.dumps(result, indent=2, default=str))
         close_neo4j()
     else:

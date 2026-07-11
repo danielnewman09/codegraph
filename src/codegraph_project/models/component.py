@@ -33,8 +33,8 @@ class Component(StructuredNode, CodeGraphNode):
     Attributes:
         name: Short name of the component (e.g. 'calculation_engine'),
             inherited from CodeGraphNode.
-        refid: Unique identifier, inherited from CodeGraphNode. Serves
-            as the primary lookup key. Convention: use a hierarchical
+        uid: Auto-generated unique identifier, computed from identity fields.
+            Inherited from CodeGraphNode. Convention: use a hierarchical
             path like 'backend::calculation_engine'.
         source: Project name, inherited from CodeGraphNode.
         description: Human-readable description of the component.

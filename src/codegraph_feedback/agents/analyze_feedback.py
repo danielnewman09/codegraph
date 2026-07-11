@@ -9,7 +9,7 @@ Usage::
     from codegraph_feedback.agents.analyze_feedback import analyze_and_persist
 
     result = analyze_and_persist(
-        hlr_refid="2c3463b2…",
+        hlr_uid="2c3463b2…",
         log_dir="/path/to/logs",
     )
     # → FeedbackAnalysisResult(memories_created=3, updates_drafted=2)
@@ -48,7 +48,7 @@ class FeedbackAnalysisResult:
 
     Attributes:
         hlr_name: The HLR name.
-        hlr_refid: The HLR's Neo4j refid.
+        hlr_uid: The HLR's Neo4j uid.
         feedback_file: Path to the feedback markdown file.
         memory_findings: List of memory finding proposals.
         requirement_updates: List of requirement description update proposals.
@@ -59,7 +59,7 @@ class FeedbackAnalysisResult:
     """
 
     hlr_name: str = ""
-    hlr_refid: str = ""
+    hlr_uid: str = ""
     feedback_file: str = ""
     memory_findings: list[dict[str, Any]] = field(default_factory=list)
     requirement_updates: list[dict[str, Any]] = field(default_factory=list)
@@ -80,7 +80,7 @@ class FeedbackAnalysisResult:
     def to_dict(self) -> dict:
         return {
             "hlr_name": self.hlr_name,
-            "hlr_refid": self.hlr_refid,
+            "hlr_uid": self.hlr_uid,
             "feedback_file": self.feedback_file,
             "memory_findings_count": len(self.memory_findings),
             "requirement_updates_count": len(self.requirement_updates),
@@ -98,7 +98,7 @@ class FeedbackAnalysisResult:
 
 def analyze_feedback(
     hlr_name: str,
-    hlr_refid: str,
+    hlr_uid: str,
     feedback_file_path: str,
     *,
     component_name: str = "",
@@ -117,7 +117,7 @@ def analyze_feedback(
 
     Args:
         hlr_name: The HLR name (used for feedback file resolution).
-        hlr_refid: The HLR's uid in Neo4j.
+        hlr_uid: The HLR's uid in Neo4j.
         feedback_file_path: Path to the feedback markdown file.
         component_name: Optional component name for context.
         model: LLM model override.
@@ -130,7 +130,7 @@ def analyze_feedback(
     """
     result = FeedbackAnalysisResult(
         hlr_name=hlr_name,
-        hlr_refid=hlr_refid,
+        hlr_uid=hlr_uid,
         feedback_file=feedback_file_path,
     )
 
@@ -166,7 +166,7 @@ def analyze_feedback(
     # ── Build dispatcher ─────────────────────────────────────────
     dispatcher = FeedbackDispatcher(
         hlr_name=hlr_name,
-        hlr_refid=hlr_refid,
+        hlr_uid=hlr_uid,
         feedback_file_path=feedback_file_path,
         component_name=component_name,
     )
@@ -175,7 +175,7 @@ def analyze_feedback(
     feedback_summary = _format_feedback_summary(parsed, llrs_with_feedback)
     initial_message = _build_initial_message(
         hlr_name=hlr_name,
-        hlr_refid=hlr_refid,
+        hlr_uid=hlr_uid,
         feedback_file_path=feedback_file_path,
         hlr_description=parsed.get("hlr_description", ""),
         feedback_summary=feedback_summary,
@@ -240,7 +240,7 @@ def analyze_feedback(
 
 
 def analyze_and_persist(
-    hlr_refid: str,
+    hlr_uid: str,
     *,
     feedback_file_path: str = "",
     model: str = "",
@@ -251,7 +251,7 @@ def analyze_and_persist(
     """Full end-to-end: load HLR from Neo4j → resolve feedback file → analyze.
 
     Args:
-        hlr_refid: The HLR's uid in Neo4j.
+        hlr_uid: The HLR's uid in Neo4j.
         feedback_file_path: Optional path to the feedback markdown file.
             If omitted, the file is resolved automatically from the HLR name.
         model: LLM model override.
@@ -267,22 +267,22 @@ def analyze_and_persist(
 
     try:
         results, _ = db.cypher_query(
-            "MATCH (hlr:HLR) WHERE hlr.uid = $refid "
+            "MATCH (hlr:HLR) WHERE hlr.uid = $uid "
             "RETURN hlr.name AS name, hlr.description AS description, "
             "hlr.uid AS uid",
-            {"refid": hlr_refid},
+            {"uid": hlr_uid},
         )
         if not results:
             return FeedbackAnalysisResult(
-                hlr_refid=hlr_refid,
-                errors=[f"HLR not found with refid: {hlr_refid}"],
+                hlr_uid=hlr_uid,
+                errors=[f"HLR not found with uid: {hlr_uid}"],
             )
         row = results[0]
         hlr_name = row[0] or ""
         hlr_description = row[1] or ""
     except Exception as exc:
         return FeedbackAnalysisResult(
-            hlr_refid=hlr_refid,
+            hlr_uid=hlr_uid,
             errors=[f"Failed to load HLR from Neo4j: {exc}"],
         )
 
@@ -290,9 +290,9 @@ def analyze_and_persist(
     component_name = ""
     try:
         comp_results, _ = db.cypher_query(
-            "MATCH (c)-[:COMPOSES]->(hlr:HLR) WHERE hlr.uid = $refid "
+            "MATCH (c)-[:COMPOSES]->(hlr:HLR) WHERE hlr.uid = $uid "
             "RETURN c.name AS name LIMIT 1",
-            {"refid": hlr_refid},
+            {"uid": hlr_uid},
         )
         if comp_results:
             component_name = comp_results[0][0] or ""
@@ -305,7 +305,7 @@ def analyze_and_persist(
         if not feedback_file_path:
             return FeedbackAnalysisResult(
                 hlr_name=hlr_name,
-                hlr_refid=hlr_refid,
+                hlr_uid=hlr_uid,
                 errors=[
                     f"Could not resolve feedback file for HLR '{hlr_name}'.  "
                     f"Provide feedback_file_path explicitly or ensure the file "
@@ -316,7 +316,7 @@ def analyze_and_persist(
 
     return analyze_feedback(
         hlr_name=hlr_name,
-        hlr_refid=hlr_refid,
+        hlr_uid=hlr_uid,
         feedback_file_path=feedback_file_path,
         component_name=component_name,
         model=model,
@@ -348,7 +348,7 @@ def _format_feedback_summary(
 
 def _build_initial_message(
     hlr_name: str,
-    hlr_refid: str,
+    hlr_uid: str,
     feedback_file_path: str,
     hlr_description: str,
     feedback_summary: str,
@@ -359,7 +359,7 @@ def _build_initial_message(
         "# Feedback Analysis Task",
         "",
         f"**HLR**: {hlr_name}",
-        f"**Refid**: {hlr_refid}",
+        f"**Refid**: {hlr_uid}",
         f"**Feedback file**: {feedback_file_path}",
         "",
     ]

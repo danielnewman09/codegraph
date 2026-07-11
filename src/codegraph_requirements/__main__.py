@@ -38,8 +38,8 @@ def _cmd_init(_args) -> None:
     from codegraph.connection import get_session as get_neo4j_session
 
     with get_neo4j_session() as session:
-        session.run("CREATE CONSTRAINT hlr_refid IF NOT EXISTS FOR (n:HLR) REQUIRE n.refid IS UNIQUE")
-        session.run("CREATE CONSTRAINT llr_refid IF NOT EXISTS FOR (n:LLR) REQUIRE n.refid IS UNIQUE")
+        # uid constraints are auto-created by neomodel (UniqueIdProperty).
+        # No additional uniqueness constraints needed — uid is the real primary key.
     print("Requirements constraints created.")
 
 

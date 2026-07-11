@@ -63,7 +63,7 @@ class GraphRepository:
                 return node
         return None
 
-    def get_hlr_subtree(self, refid: str, tag: str = "") -> LayerGraph:
+    def get_hlr_subtree(self, uid: str, tag: str = "") -> LayerGraph:
         """Fetch the full requirements subtree for an HLR, optionally filtered by tag.
 
         Performs multi-hop COMPOSES traversal starting from the HLR:
@@ -73,8 +73,7 @@ class GraphRepository:
         and CALLEE edges.
 
         Args:
-            refid: The HLR's ``uid`` (deterministic unique ID) or legacy ``refid``
-                (hex UUID string).  Tries ``uid`` first, then ``refid``.
+            uid: The HLR's ``uid`` (deterministic unique ID).
             tag: Optional tag to filter the subtree by.  When provided, only
                 nodes that carry this tag (plus their ancestors to preserve
                 tree structure) are included.  Use ``"scaffold"`` to see
@@ -87,10 +86,7 @@ class GraphRepository:
         """
         from codegraph_requirements.models import HLR
 
-        hlr = HLR.nodes.get_or_none(uid=refid)
-        if hlr is None:
-            # Also try lookup by refid for backwards compatibility
-            hlr = HLR.nodes.get_or_none(refid=refid)
+        hlr = HLR.nodes.get_or_none(uid=uid)
         if hlr is None:
             return LayerGraph(tags=frozenset({"design"}))
 

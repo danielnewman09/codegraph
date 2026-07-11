@@ -276,11 +276,8 @@ def valid_specializations(language: str, kind: str) -> set[str]:
 CONSTRAINTS_AND_INDEXES: list[str] = [
     # Uniqueness constraints
     "CREATE CONSTRAINT file_refid IF NOT EXISTS FOR (f:File) REQUIRE f.refid IS UNIQUE",
-    # Use INDEX instead of CONSTRAINT for refid to allow design-tag nodes
-    # (which have no refid) to coexist with as-built/dependency nodes.
-    "CREATE INDEX namespace_refid IF NOT EXISTS FOR (n:Namespace) ON (n.refid)",
-    "CREATE INDEX compound_refid IF NOT EXISTS FOR (c:Compound) ON (c.refid)",
-    "CREATE INDEX member_refid IF NOT EXISTS FOR (m:Member) ON (m.refid)",
+    # uid constraints are auto-created by neomodel for every node type.
+    # file_refid constraint above is sufficient; refid is only used by FileNode.
     # Lookup indexes
     "CREATE INDEX file_name IF NOT EXISTS FOR (f:File) ON (f.name)",
     "CREATE INDEX file_path IF NOT EXISTS FOR (f:File) ON (f.path)",

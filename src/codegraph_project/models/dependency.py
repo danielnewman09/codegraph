@@ -25,8 +25,10 @@ class Dependency(StructuredNode, CodeGraphNode):
     Attributes:
         name: Dependency name (e.g. 'boost', 'requests'), inherited from
             CodeGraphNode.
-        refid: Unique identifier, inherited from CodeGraphNode. Convention:
-            '{manager_name}::{name}' (e.g. 'conan::boost', 'pip::requests').
+        uid: Auto-generated unique identifier, computed from identity fields.
+            Inherited from CodeGraphNode. Convention:
+            '{manager_name}::{qualified_name}' (e.g. 'conan::boost',
+            'pip::requests').
         source: Project name, inherited from CodeGraphNode.
         version: Pinned version string (e.g. '1.82.0', '2.31.0').
         github_url: Repository URL for the dependency.

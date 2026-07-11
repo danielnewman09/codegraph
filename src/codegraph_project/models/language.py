@@ -20,8 +20,9 @@ class Language(StructuredNode, CodeGraphNode):
 
     Attributes:
         name: Language name (e.g. 'C++', 'Python'), inherited from CodeGraphNode.
-        refid: Unique identifier (e.g. 'python', 'cpp-20'), inherited from
-            CodeGraphNode. Used as the primary lookup key.
+        uid: Auto-generated unique identifier, computed from identity fields.
+            Inherited from CodeGraphNode. Convention: language short name
+            (e.g. 'python', 'cpp-20').
         source: Project name, inherited from CodeGraphNode.
         version: Language version string (e.g. '20', '3.12'). Empty if
             unspecified.

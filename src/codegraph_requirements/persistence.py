@@ -25,7 +25,7 @@ Usage::
 
     init_neo4j()
     result = persist_decomposition(
-        hlr_refid="2c3463b2…",
+        hlr_uid="2c3463b2…",
         decomposition=decomposed,
     )
 """
@@ -152,7 +152,7 @@ def _safe_flat_index(graph, all_entries: list) -> dict:
 
 
 def persist_decomposition(
-    hlr_refid: str,
+    hlr_uid: str,
     decomposition: DecomposedRequirementSchema,
 ) -> DecompositionResult:
     """Persist an HLR decomposition to Neo4j using the codegraph LayerGraph system.
@@ -170,7 +170,7 @@ def persist_decomposition(
     deterministic ``uid``).
 
     Args:
-        hlr_refid: The HLR's ``refid`` (hex UUID string).
+        hlr_uid: The HLR's ``uid`` (hex UUID string).
         decomposition: A validated ``DecomposedRequirementSchema`` from
             the decompose agent.
 
@@ -187,12 +187,10 @@ def persist_decomposition(
 
     result = DecompositionResult()
 
-    # --- Load the HLR (try uid first, then refid) ---
-    hlr = HLR.nodes.get_or_none(uid=hlr_refid)
+    # --- Load the HLR by uid ---
+    hlr = HLR.nodes.get_or_none(uid=hlr_uid)
     if hlr is None:
-        hlr = HLR.nodes.get_or_none(refid=hlr_refid)
-    if hlr is None:
-        raise ValueError(f"HLR '{hlr_refid}' not found")
+        raise ValueError(f"HLR '{hlr_uid}' not found")
 
     # --- Delete existing LLRs (and their verification subtrees) ---
     for old_llr in hlr.llrs.all():
@@ -286,7 +284,7 @@ def persist_decomposition(
     log.info(
         "persist_decomposition: HLR %s — %d LLRs, %d tests, %d assertions, "
         "%d steps, %d fixtures, %d scaffold classes, %d scaffold attributes",
-        hlr_refid[:8], result.llrs_created, result.tests_created,
+        hlr_uid[:8], result.llrs_created, result.tests_created,
         result.assertions_created, result.steps_created,
         result.fixtures_created, result.scaffold_classes, result.scaffold_attributes,
     )

@@ -26,7 +26,7 @@ SEARCH_REQUIREMENTS_SCHEMA = {
     "name": "search_requirements",
     "description": (
         "Search HLRs and LLRs by a keyword or phrase in their description "
-        "field. Returns matching requirement summaries (refid, description, "
+        "field. Returns matching requirement summaries (uid, description, "
         "layer, tags, component). Useful for discovering requirements by "
         "concept or feature area before designing a new feature."
     ),
@@ -56,16 +56,16 @@ GET_HLR_DEPENDENCIES_SCHEMA = {
     "name": "get_hlr_dependencies",
     "description": (
         "Traverse outgoing DEPENDS_ON edges from an HLR to discover other "
-        "HLRs it depends on. Returns dependent HLR refids, names, descriptions, "
+        "HLRs it depends on. Returns dependent HLR uids, names, descriptions, "
         "and components. Use this to understand which requirements must be "
         "satisfied before designing this HLR."
     ),
     "input_schema": {
         "type": "object",
         "properties": {
-            "refid": {
+            "uid": {
                 "type": "string",
-                "description": "The refid of the HLR whose dependencies to retrieve.",
+                "description": "The uid of the HLR whose dependencies to retrieve.",
             },
             "direction": {
                 "type": "string",
@@ -74,7 +74,7 @@ GET_HLR_DEPENDENCIES_SCHEMA = {
                 "description": "outgoing = what this HLR depends on; incoming = what depends on this HLR.",
             },
         },
-        "required": ["refid"],
+        "required": ["uid"],
     },
 }
 
@@ -83,7 +83,7 @@ LIST_REQUIREMENTS_SCHEMA = {
     "name": "list_requirements",
     "description": (
         "List all high-level requirements (HLRs), optionally filtered by "
-        "component name and/or tag. Returns summary dicts with refid, name, "
+        "component name and/or tag. Returns summary dicts with uid, name, "
         "description, and tags. Use this as a starting point to discover what "
         "HLRs exist before drilling into specific ones."
     ),
@@ -109,9 +109,9 @@ GET_REQUIREMENT_TRACES_SCHEMA = {
     "input_schema": {
         "type": "object",
         "properties": {
-            "refid": {"type": "string", "description": "The refid of the HLR or LLR."},
+            "uid": {"type": "string", "description": "The uid of the HLR or LLR."},
         },
-        "required": ["refid"],
+        "required": ["uid"],
     },
 }
 
@@ -238,17 +238,15 @@ def handle_get_hlr_dependencies(ctx: DesignDiscoveryDispatcher, tool_input: dict
     """Traverse DEPENDS_ON edges from an HLR."""
     from codegraph_requirements.models import HLR
 
-    refid = tool_input.get("refid", "")
+    target_uid = tool_input.get("uid", "")
     direction = tool_input.get("direction", "outgoing")
 
-    if not refid:
-        return json.dumps({"error": "refid is required"})
+    if not target_uid:
+        return json.dumps({"error": "uid is required"})
 
-    hlr = HLR.nodes.get_or_none(uid=refid)
+    hlr = HLR.nodes.get_or_none(uid=target_uid)
     if hlr is None:
-        hlr = HLR.nodes.get_or_none(refid=refid)
-    if hlr is None:
-        return json.dumps({"error": f"HLR '{refid}' not found"})
+        return json.dumps({"error": f"HLR '{target_uid}' not found"})
 
     def _serialize_dep(other_hlr, direction_label):
         comp_nodes = other_hlr.component.all()
@@ -270,10 +268,10 @@ def handle_get_hlr_dependencies(ctx: DesignDiscoveryDispatcher, tool_input: dict
             for dep in hlr.depended_on_by_hlrs.all():
                 results.append(_serialize_dep(dep, "incoming"))
     except Exception as exc:
-        log.exception("Failed to get HLR dependencies for %s", refid)
+        log.exception("Failed to get HLR dependencies for %s", target_uid)
         return json.dumps({"error": f"Traversal error: {exc}"})
 
-    return json.dumps({"refid": refid, "count": len(results), "dependencies": results})
+    return json.dumps({"uid": target_uid, "count": len(results), "dependencies": results})
 
 
 def handle_list_requirements(ctx: DesignDiscoveryDispatcher, tool_input: dict) -> str:
@@ -308,32 +306,26 @@ def handle_get_requirement_traces(ctx: DesignDiscoveryDispatcher, tool_input: di
     """Retrieve all COMPOSES edges from an HLR or LLR to design nodes."""
     from codegraph_requirements.models import HLR, LLR
 
-    refid = tool_input.get("refid", "")
-    if not refid:
-        return json.dumps({"error": "refid is required"})
+    target_uid = tool_input.get("uid", "")
+    if not target_uid:
+        return json.dumps({"error": "uid is required"})
 
-    node = HLR.nodes.get_or_none(uid=refid)
+    node = HLR.nodes.get_or_none(uid=target_uid)
     req_type = "HLR"
     if node is None:
-        node = HLR.nodes.get_or_none(refid=refid)
-        req_type = "HLR"
-    if node is None:
-        node = LLR.nodes.get_or_none(uid=refid)
+        node = LLR.nodes.get_or_none(uid=target_uid)
         req_type = "LLR"
     if node is None:
-        node = LLR.nodes.get_or_none(refid=refid)
-        req_type = "LLR"
-    if node is None:
-        return json.dumps({"error": f"No HLR or LLR found with '{refid}'"})
+        return json.dumps({"error": f"No HLR or LLR found with '{target_uid}'"})
 
     try:
         design_links = _serialize_design_links(node)
         return json.dumps({
-            "refid": refid, "type": req_type,
+            "uid": target_uid, "type": req_type,
             "description": node.description, "design_links": design_links,
         })
     except Exception as exc:
-        log.exception("Failed to serialize design links for refid '%s'", refid)
+        log.exception("Failed to serialize design links for uid '%s'", target_uid)
         return json.dumps({"error": f"Serialization error: {exc}"})
 
 

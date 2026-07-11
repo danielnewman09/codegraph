@@ -194,7 +194,7 @@ FIND_CALLERS_CALLEES_SCHEMA = {
 GET_HLR_SUBTREE_SCHEMA = {
     "name": "get_hlr_subtree",
     "description": (
-        "Fetch the full requirements subtree for an HLR refid, optionally "
+        "Fetch the full requirements subtree for an HLR uid, optionally "
         "filtered by tag.  Returns the HLR, all its LLRs, test nodes, "
         "assertions, test steps, and scaffold/design nodes reachable via "
         "COMPOSES, LEFT_OPERAND, RIGHT_OPERAND, and CALLEE edges.  "
@@ -207,9 +207,9 @@ GET_HLR_SUBTREE_SCHEMA = {
     "input_schema": {
         "type": "object",
         "properties": {
-            "refid": {
+            "uid": {
                 "type": "string",
-                "description": "The HLR refid (hex UUID string).",
+                "description": "The HLR uid (hex UUID string).",
             },
             "tag": {
                 "type": "string",
@@ -221,7 +221,7 @@ GET_HLR_SUBTREE_SCHEMA = {
                 ),
             },
         },
-        "required": ["refid"],
+        "required": ["uid"],
     },
 }
 
@@ -543,7 +543,7 @@ def handle_find_callers_callees(ctx: CodeGraphDispatcher, tool_input: dict) -> s
 
 
 def handle_get_hlr_subtree(ctx: CodeGraphDispatcher, tool_input: dict) -> str:
-    """Fetch the full requirements subtree for an HLR refid.
+    """Fetch the full requirements subtree for an HLR uid.
 
     Uses ``GraphRepository.get_hlr_subtree()`` to do a multi-hop COMPOSES
     traversal, optionally filtered by tag, then serializes the resulting
@@ -551,19 +551,19 @@ def handle_get_hlr_subtree(ctx: CodeGraphDispatcher, tool_input: dict) -> str:
     """
     from codegraph.export.format import export_graph
 
-    refid = tool_input.get("refid", "")
-    if not refid:
-        return json.dumps({"error": "refid is required"})
+    target_uid = tool_input.get("uid", "")
+    if not target_uid:
+        return json.dumps({"error": "uid is required"})
 
     tag = tool_input.get("tag", "")
 
     try:
-        graph = ctx.repo.get_hlr_subtree(refid, tag=tag)
+        graph = ctx.repo.get_hlr_subtree(target_uid, tag=tag)
         ctx.current_graph = graph  # cache
         result = export_graph(graph, format="json")
         return result
     except Exception as exc:
-        log.exception("get_hlr_subtree failed for refid '%s'", refid)
+        log.exception("get_hlr_subtree failed for uid '%s'", target_uid)
         return json.dumps({"error": str(exc)})
 
 

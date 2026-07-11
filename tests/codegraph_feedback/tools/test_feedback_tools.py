@@ -226,7 +226,7 @@ class TestHandleParseFeedback:
     def test_parse_with_explicit_path(self, temp_requirements_dir):
         disp = FeedbackDispatcher(
             hlr_name="Test HLR",
-            hlr_refid="test-refid",
+            hlr_uid="test-refid",
             feedback_file_path=temp_requirements_dir["feedback_file"],
         )
         result = json.loads(disp.dispatch("parse_feedback", {}))
@@ -239,7 +239,7 @@ class TestHandleParseFeedback:
         """When feedback_file_path is empty, it should try to resolve."""
         disp = FeedbackDispatcher(
             hlr_name="Architecture Diagram Generator — Unified Module View",
-            hlr_refid="test-refid",
+            hlr_uid="test-refid",
             feedback_file_path="",
         )
         result = json.loads(disp.dispatch("parse_feedback", {}))
@@ -266,7 +266,7 @@ class TestHandleProposeFindings:
     def test_propose_valid_findings(self, temp_requirements_dir):
         disp = FeedbackDispatcher(
             hlr_name="Architecture Diagram Generator — Unified Module View",
-            hlr_refid="test-refid",
+            hlr_uid="test-refid",
             feedback_file_path=temp_requirements_dir["feedback_file"],
         )
         result = json.loads(disp.dispatch("propose_feedback_findings", {
@@ -339,7 +339,7 @@ class TestHandleProposeFindings:
         """Test updates with valid fields should be accepted."""
         disp = FeedbackDispatcher(
             hlr_name="Architecture Diagram Generator — Unified Module View",
-            hlr_refid="test-refid",
+            hlr_uid="test-refid",
         )
         result = json.loads(disp.dispatch("propose_feedback_findings", {
             "memory_findings": [],
@@ -415,7 +415,7 @@ class TestHandleCommitAnalysis:
         """Commit after propose should persist memory nodes."""
         disp = FeedbackDispatcher(
             hlr_name="Architecture Diagram Generator — Unified Module View",
-            hlr_refid="test-refid",
+            hlr_uid="test-refid",
         )
 
         # Propose

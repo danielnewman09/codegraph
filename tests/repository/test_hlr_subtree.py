@@ -402,7 +402,7 @@ class TestGetHLRSubtree:
             "Expected references from assertions/steps to scaffold nodes"
         )
 
-    def test_non_existent_hlr_refid_returns_empty(self):
+    def test_non_existent_hlr_uid_returns_empty(self):
         """Passing a valid-looking but non-existent refid should return empty."""
         repo = GraphRepository()
         result = repo.get_hlr_subtree("0123456789abcdef-not-real")
