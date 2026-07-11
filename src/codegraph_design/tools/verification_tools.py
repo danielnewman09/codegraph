@@ -9,8 +9,7 @@ Workflow:
 1. Agent designs classes using DesignToolDispatcher tools
 2. Agent calls ``produce_oo_design`` (stores draft, loop continues)
 3. Agent resolves notional verification stubs using these tools
-4. Agent calls ``commit_design_and_verifications`` (terminal)
-"""
+4. Agent calls ``commit_design_and_verifications`` (terminal)"""
 
 from __future__ import annotations
 
@@ -51,33 +50,20 @@ def _build_design_lookup(design_nodes: list[dict]) -> dict[str, dict]:
 
 def _qname_resolves(
     qname: str,
-    design_lookup: dict[str, dict],
-    prior_class_lookup: dict[str, str],
-    dependency_lookup: dict[str, str],
-    intercomponent_classes: list[dict],
+    has_qname,
 ) -> bool:
-    """Check whether a qualified name exists in the design context."""
-    if qname in design_lookup:
-        return True
-    if qname in prior_class_lookup.values():
-        return True
-    if qname in prior_class_lookup:
-        return True
-    if qname in dependency_lookup.values():
-        return True
-    if qname in dependency_lookup:
-        return True
-    for ic in intercomponent_classes:
-        if ic.get("qualified_name") == qname:
-            return True
-    return False
+    """Check whether a qualified name exists — delegates to the
+    dispatcher's unified resolution (context graph + design draft
+    graph + codegraph fallback)."""
+    if not qname:
+        return False
+    return has_qname(qname)
 
 
 def _suggest_qname(
     unresolved: str,
     design_lookup: dict[str, dict],
-    prior_class_lookup: dict[str, str],
-    dependency_lookup: dict[str, str],
+    has_qname,
 ) -> str | None:
     """Find the closest matching qualified name for an unresolved reference."""
     cleaned = unresolved
@@ -87,10 +73,7 @@ def _suggest_qname(
 
     bare = cleaned.rsplit("::", 1)[-1].rsplit(".", 1)[-1]
 
-    for name, qname in {**prior_class_lookup, **dependency_lookup}.items():
-        if name == bare or name.lower() == bare.lower():
-            return qname
-
+    # Search design draft first
     for qname, info in design_lookup.items():
         kind = info.get("kind", "")
         if kind in ("class", "interface", "enum"):
@@ -107,9 +90,10 @@ def _suggest_qname(
     for qname in design_lookup:
         if cleaned_lower in qname.lower():
             return qname
-    for qname in dependency_lookup.values():
-        if cleaned_lower in qname.lower():
-            return qname
+
+    # Probe the codegraph directly for the bare name
+    if has_qname(bare):
+        return bare
 
     return None
 
@@ -268,16 +252,12 @@ def handle_draft_verifications(
 
                 if sqn:
                     total_refs += 1
-                    if _qname_resolves(sqn, design_lookup,
-                                       ctx.prior_class_lookup,
-                                       ctx.dependency_lookup,
-                                       ctx.intercomponent_classes):
+                    if _qname_resolves(sqn, ctx.has_qname):
                         resolved_count += 1
                     else:
                         suggestion = _suggest_qname(
                             sqn, design_lookup,
-                            ctx.prior_class_lookup,
-                            ctx.dependency_lookup,
+                            ctx.has_qname,
                         )
                         detail = {
                             "llr_uid": llr_uid,
@@ -291,16 +271,12 @@ def handle_draft_verifications(
 
                 if oqn:
                     total_refs += 1
-                    if _qname_resolves(oqn, design_lookup,
-                                       ctx.prior_class_lookup,
-                                       ctx.dependency_lookup,
-                                       ctx.intercomponent_classes):
+                    if _qname_resolves(oqn, ctx.has_qname):
                         resolved_count += 1
                     else:
                         suggestion = _suggest_qname(
                             oqn, design_lookup,
-                            ctx.prior_class_lookup,
-                            ctx.dependency_lookup,
+                            ctx.has_qname,
                         )
                         detail = {
                             "llr_uid": llr_uid,
@@ -316,16 +292,12 @@ def handle_draft_verifications(
                 callee = action.get("callee_qualified_name", "")
                 if callee:
                     total_refs += 1
-                    if _qname_resolves(callee, design_lookup,
-                                       ctx.prior_class_lookup,
-                                       ctx.dependency_lookup,
-                                       ctx.intercomponent_classes):
+                    if _qname_resolves(callee, ctx.has_qname):
                         resolved_count += 1
                     else:
                         suggestion = _suggest_qname(
                             callee, design_lookup,
-                            ctx.prior_class_lookup,
-                            ctx.dependency_lookup,
+                            ctx.has_qname,
                         )
                         detail = {
                             "llr_uid": llr_uid,
@@ -394,16 +366,10 @@ def handle_commit(
                 for cond in v.get("preconditions", []) + v.get("postconditions", []):
                     for field_name in ("subject_qualified_name", "object_qualified_name"):
                         qn = cond.get(field_name, "")
-                        if qn and not _qname_resolves(
-                            qn, design_lookup,
-                            ctx.prior_class_lookup,
-                            ctx.dependency_lookup,
-                            ctx.intercomponent_classes,
-                        ):
+                        if qn and not _qname_resolves(qn, ctx.has_qname):
                             suggestion = _suggest_qname(
                                 qn, design_lookup,
-                                ctx.prior_class_lookup,
-                                ctx.dependency_lookup,
+                                ctx.has_qname,
                             )
                             msg = f"Unresolved reference: '{qn}'"
                             if suggestion:
@@ -411,16 +377,10 @@ def handle_commit(
                             errors.append(msg)
                 for action in v.get("actions", []):
                     callee = action.get("callee_qualified_name", "")
-                    if callee and not _qname_resolves(
-                        callee, design_lookup,
-                        ctx.prior_class_lookup,
-                        ctx.dependency_lookup,
-                        ctx.intercomponent_classes,
-                    ):
+                    if callee and not _qname_resolves(callee, ctx.has_qname):
                         suggestion = _suggest_qname(
                             callee, design_lookup,
-                            ctx.prior_class_lookup,
-                            ctx.dependency_lookup,
+                            ctx.has_qname,
                         )
                         msg = f"Unresolved reference: '{callee}'"
                         if suggestion:

@@ -14,6 +14,8 @@ import json
 import logging
 from typing import TYPE_CHECKING
 
+from codegraph.graph import LayerGraph
+
 if TYPE_CHECKING:
     from codegraph_design.tools.dispatcher import DesignToolDispatcher
 
@@ -261,42 +263,65 @@ def _collect_edges(nodes: list[dict]) -> list[dict]:
     return all_edges
 
 
+def _qname_in_codegraph(qname: str) -> bool:
+    """Check if a qualified or bare name exists anywhere in the codegraph.
+
+    One Cypher probe — index-backed, no tag filtering.  Any node in the
+    codegraph (any kind, any tag) is a valid reference target.
+
+    Opens its own transient session (only called when all other lookups
+    have missed, so the overhead is negligible).
+    """
+    import re
+    if not qname:
+        return False
+    safe = re.escape(qname)
+    bare = safe.rsplit("::", 1)[-1] if "::" in safe else safe
+    try:
+        from codegraph.persistence.connection import get_session
+        with get_session() as s:
+            result = s.run(
+                "MATCH (n) WHERE n.qualified_name = $qn "
+                "OR n.qualified_name ENDS WITH $suffix "
+                "OR n.name = $bare "
+                "RETURN n.qualified_name AS qn, n.name AS name, "
+                "labels(n) AS labels, n.tags AS tags "
+                "LIMIT 1",
+                {"qn": qname, "suffix": "::" + bare, "bare": bare},
+            )
+            record = result.single()
+            found = bool(record and record["qn"])
+            if found:
+                log.debug(
+                    "_qname_in_codegraph(%s): matched %s (labels=%s, tags=%s)",
+                    qname, record["qn"], record["labels"], record["tags"],
+                )
+            else:
+                log.debug(
+                    "_qname_in_codegraph(%s): no match in codegraph",
+                    qname,
+                )
+            return found
+    except Exception:
+        return False
+
+
 def _validate_oo_design(
     design: list[dict],
     *,
-    prior_class_lookup: dict[str, str],
-    dependency_lookup: dict[str, str],
-    intercomponent_classes: list[dict],
+    has_qname,
 ) -> list[str]:
     """Validate a LayerGraph-format design (list of CodeGraphNode dicts).
 
     Checks:
-    1. Unknown edge targets (not in any known lookup or the design itself)
-    2. Missing intercomponent references
-    3. Duplicate qualified names
+    1. Unknown edge targets (not in design, context, or codegraph)
+    2. Duplicate qualified names
     """
     errors: list[str] = []
 
-    # Build union of all known qualified names
-    known_qnames: set[str] = set()
-    known_qnames.update(prior_class_lookup.values())
-    known_qnames.update(dependency_lookup.values())
-    for ic in intercomponent_classes:
-        qn = ic.get("qualified_name", "")
-        if qn:
-            known_qnames.add(qn)
-
-    known_bare: set[str] = set()
-    known_bare.update(prior_class_lookup.keys())
-    known_bare.update(dependency_lookup.keys())
-    for ic in intercomponent_classes:
-        bare = ic.get("name", "") or ic.get("qualified_name", "").rsplit("::", 1)[-1]
-        if bare:
-            known_bare.add(bare)
-
     design_qnames = _collect_qnames(design)
 
-    # 1. Check edge targets
+    # 1. Check edge targets — delegate to unified resolution
     for edge in _collect_edges(design):
         target = edge.get("target_uid", "")
         if not target:
@@ -304,53 +329,17 @@ def _validate_oo_design(
         target_bare = target.rsplit("::", 1)[-1] if "::" in target else target
         if (
             target in design_qnames
-            or target in known_qnames
-            or target_bare in known_bare
             or target_bare in design_qnames
+            or has_qname(target)
+            or has_qname(target_bare)
         ):
             continue
         errors.append(
-            f"Edge target '{target}' not found in design context "
-            f"(prior designs, dependency APIs, or intercomponent classes)"
+            f"Edge target '{target}' not found — "
+            f"use import_compound to load it from the codegraph first"
         )
 
-    # 2. Check intercomponent references
-    for ic in intercomponent_classes:
-        ic_qname = ic.get("qualified_name", "")
-        ic_bare = ic.get("name", "") or ic_qname.rsplit("::", 1)[-1]
-        ic_kind = ic.get("kind", "class")
-        if ic_kind not in ("class", "interface"):
-            continue
-
-        found = False
-        for edge in _collect_edges(design):
-            target = edge.get("target_uid", "")
-            if target == ic_qname or target == ic_bare:
-                found = True
-                break
-
-        if not found:
-            def _check_type_sig(n: dict) -> bool:
-                ts = n.get("type_signature", "")
-                if ts and (ic_qname in ts or ic_bare in ts):
-                    return True
-                for child in n.get("composes", []):
-                    if _check_type_sig(child):
-                        return True
-                return False
-
-            for node in design:
-                if _check_type_sig(node):
-                    found = True
-                    break
-
-        if not found:
-            errors.append(
-                f"Warning: no reference to intercomponent class "
-                f"'{ic_qname}' — your design may have a missing dependency"
-            )
-
-    # 3. Check for duplicate qualified names
+    # 2. Check for duplicate qualified names
     seen: dict[str, int] = {}
 
     def _count_qnames(n: dict) -> None:
@@ -374,24 +363,37 @@ def _validate_oo_design(
 # ══════════════════════════════════════════════════════════════════════════
 
 def handle_validate_design(ctx: DesignToolDispatcher, tool_input: dict) -> str:
-    """Validate a draft OO design against the dispatcher's lookups."""
+    """Validate a draft OO design — edge targets, duplicates, AND structural smells."""
     nodes: list[dict] = tool_input.get("nodes", [])
+    if not nodes and ctx.design_draft:
+        nodes = ctx.design_draft
     if not nodes:
         return json.dumps({"valid": False, "errors": ["No nodes provided"], "warnings": []})
+
+    # ── Edge-target and duplicate checks ────────────────────────────
     errors = _validate_oo_design(
         nodes,
-        prior_class_lookup=ctx.prior_class_lookup,
-        dependency_lookup=ctx.dependency_lookup,
-        intercomponent_classes=ctx.intercomponent_classes,
+        has_qname=ctx.has_qname,
     )
 
     critical = [e for e in errors if not e.startswith("Warning:")]
     warnings = [e.replace("Warning: ", "") for e in errors if e.startswith("Warning:")]
 
+    # ── Structural smell checks (forced — runs automatically) ────────
+    from codegraph_design.tools.design_smells import check_design_smells
+    smell_report = check_design_smells(nodes)
+    for s in smell_report.smells:
+        msg = f"[{s.severity}] {s.smell_id}: {s.detail}"
+        if s.severity == "blocking":
+            critical.append(msg)
+        else:
+            warnings.append(msg)
+
     return json.dumps({
         "valid": len(critical) == 0,
         "errors": critical,
         "warnings": warnings,
+        "smell_summary": smell_report.summary,
     })
 
 
@@ -404,34 +406,44 @@ def handle_produce_oo_design(ctx: DesignToolDispatcher, tool_input: dict) -> str
             "errors": ["No nodes provided"],
         })
 
+    # ── Edge-target and duplicate checks ────────────────────────────
     errors = _validate_oo_design(
         nodes,
-        prior_class_lookup=ctx.prior_class_lookup,
-        dependency_lookup=ctx.dependency_lookup,
-        intercomponent_classes=ctx.intercomponent_classes,
+        has_qname=ctx.has_qname,
     )
     critical = [e for e in errors if not e.startswith("Warning:")]
     warnings = [e.replace("Warning: ", "") for e in errors if e.startswith("Warning:")]
+
+    # ── Structural smell checks (forced — runs automatically) ────────
+    from codegraph_design.tools.design_smells import check_design_smells
+    smell_report = check_design_smells(nodes)
+    for s in smell_report.smells:
+        msg = f"[{s.severity}] {s.smell_id}: {s.detail}"
+        if s.severity == "blocking":
+            critical.append(msg)
+        else:
+            warnings.append(msg)
 
     if critical:
         return json.dumps({
             "stored": False,
             "errors": critical,
             "warnings": warnings,
+            "smell_summary": smell_report.summary,
             "hint": "Fix errors and call produce_oo_design again.",
         })
 
-    ctx.design_draft = nodes
-
-    for node in nodes:
-        qn = node.get("qualified_name", "")
-        name = node.get("name", "")
-        if qn and name:
-            ctx.prior_class_lookup[name] = qn
+    ctx.design_draft_graph = LayerGraph.deserialize(nodes)
+    design_size = sum(1 for _ in ctx.design_draft_graph._all_entries())
+    log.info(
+        "produce_oo_design: stored %d nodes in design_draft_graph",
+        design_size,
+    )
 
     return json.dumps({
         "stored": True,
         "warnings": warnings,
+        "smell_summary": smell_report.summary,
         "hint": (
             "Design stored. Now resolve verification stubs using "
             "draft_verifications, then call "
@@ -440,48 +452,172 @@ def handle_produce_oo_design(ctx: DesignToolDispatcher, tool_input: dict) -> str
     })
 
 
+IMPORT_COMPOUND_SCHEMA = {
+    "name": "import_compound",
+    "description": (
+        "Load a class, interface, enum, or namespace from the codegraph "
+        "into the working context graph.  Use this to make as-built or "
+        "prior-design nodes available as valid reference targets for "
+        "DEPENDS_ON edges, type signatures, and verifications.  Call "
+        "search_symbols first to discover qualified names, then "
+        "import_compound to load them.  The loaded node and its members "
+        "become resolvable by validate_design and draft_verifications."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "qualified_name": {
+                "type": "string",
+                "description": (
+                    "Fully-qualified name of the compound or namespace "
+                    "to import (e.g. 'codegraph.graph.LayerGraph')."
+                ),
+            },
+        },
+        "required": ["qualified_name"],
+    },
+}
+
+
+def handle_import_compound(ctx: DesignToolDispatcher, tool_input: dict) -> str:
+    """Load a compound from Neo4j into the context LayerGraph."""
+    qname = tool_input.get("qualified_name", "")
+    if not qname:
+        return json.dumps({"imported": False, "error": "qualified_name is required"})
+
+    try:
+        sub = LayerGraph.import_compound(qname)
+    except ValueError as exc:
+        log.debug("import_compound(%s): not found — %s", qname, exc)
+        return json.dumps({"imported": False, "error": str(exc)})
+    except Exception as exc:
+        log.debug("import_compound(%s): error — %s", qname, exc)
+        return json.dumps(
+            {"imported": False, "error": f"Import failed: {exc}"}
+        )
+
+    if not sub.entries:
+        return json.dumps({
+            "imported": False, "error": f"No entries found for '{qname}'",
+        })
+
+    ctx.context_graph.merge(sub)
+    ctx_size = sum(1 for _ in ctx.context_graph._all_entries())
+    sub_size = sum(1 for _ in sub._all_entries())
+    log.info(
+        "import_compound(%s): loaded %d nodes into context_graph (total now %d)",
+        qname, sub_size, ctx_size,
+    )
+    imported = []
+    for entry in sub._all_entries():
+        node = entry.node
+        imported.append({
+            "qualified_name": getattr(node, "qualified_name", ""),
+            "name": getattr(node, "name", ""),
+            "kind": getattr(node, "kind", type(node).__name__),
+            "type": type(node).__name__,
+        })
+
+    total_ctx = len(ctx.context_graph.entries)
+    return json.dumps({
+        "imported": True,
+        "qualified_name": qname,
+        "nodes_imported": len(imported),
+        "imported_nodes": imported,
+        "context_graph_size": total_ctx,
+        "hint": (
+            f"'{qname}' and its members are now valid reference targets. "
+            f"Context graph has {total_ctx} root entries."
+        ),
+    })
+
+
 def handle_check_class_name(ctx: DesignToolDispatcher, tool_input: dict) -> str:
-    """Check if a class name exists in any of the dispatcher's lookups."""
+    """Check if a class name exists in context graph, design draft,
+    or the codegraph."""
     name = tool_input.get("name", "")
     if not name:
         return json.dumps({"found": False, "matches": []})
 
     matches: list[dict] = []
     name_lower = name.lower()
+    seen: set[str] = set()
 
-    for bare, qname in ctx.prior_class_lookup.items():
-        if name_lower in bare.lower() or name_lower in qname.lower():
-            matches.append({
-                "qualified_name": qname,
-                "name": bare,
-                "kind": "class",
-                "source": "prior_design",
-            })
+    # Search context_graph
+    for entry in ctx.context_graph._all_entries():
+        node = entry.node
+        qn = getattr(node, "qualified_name", "") or ""
+        node_name = getattr(node, "name", "") or ""
+        if name_lower in qn.lower() or name_lower in node_name.lower():
+            kind = getattr(node, "kind", type(node).__name__)
+            if qn and qn not in seen:
+                seen.add(qn)
+                matches.append({
+                    "qualified_name": qn,
+                    "name": node_name,
+                    "kind": kind,
+                    "source": "context",
+                })
 
-    for bare, qname in ctx.dependency_lookup.items():
-        if name_lower in bare.lower() or name_lower in qname.lower():
-            matches.append({
-                "qualified_name": qname,
-                "name": bare,
-                "kind": "dependency",
-                "source": "dependency",
-            })
+    # Search design_draft_graph
+    for entry in ctx.design_draft_graph._all_entries():
+        node = entry.node
+        qn = getattr(node, "qualified_name", "") or ""
+        node_name = getattr(node, "name", "") or ""
+        if (name_lower in qn.lower() or name_lower in node_name.lower()):
+            if qn and qn not in seen:
+                seen.add(qn)
+                matches.append({
+                    "qualified_name": qn,
+                    "name": node_name,
+                    "kind": getattr(node, "kind", type(node).__name__),
+                    "source": "design_draft",
+                })
 
-    for cls in ctx.intercomponent_classes:
-        qname = cls.get("qualified_name", "")
-        bare = qname.rsplit("::", 1)[-1] if qname else ""
-        cls_name = cls.get("name", bare)
-        if name_lower in cls_name.lower() or name_lower in qname.lower():
-            matches.append({
-                "qualified_name": qname,
-                "name": cls_name,
-                "kind": cls.get("kind", "class"),
-                "source": "intercomponent",
-            })
+    # Search as-built codebase (limited, CONTAINS query)
+    if len(matches) < 20:
+        try:
+            with ctx.session() as s:
+                result = s.run(
+                    "MATCH (n) WHERE "
+                    "toLower(n.qualified_name) CONTAINS toLower($name) "
+                    "OR toLower(n.name) CONTAINS toLower($name) "
+                    "RETURN n.qualified_name AS qn, n.name AS name, "
+                    "labels(n) AS labels "
+                    "LIMIT $limit",
+                    {"name": name, "limit": 20 - len(matches)},
+                )
+                for record in result:
+                    qn = record.get("qn", "") or ""
+                    if qn in seen:
+                        continue
+                    seen.add(qn)
+                    labels = record.get("labels", [])
+                    kind = labels[0] if labels else ""
+                    matches.append({
+                        "qualified_name": qn,
+                        "name": record.get("name", "") or "",
+                        "kind": kind,
+                        "source": "codegraph",
+                    })
+        except Exception as exc:
+            log.warning("check_class_name: Neo4j search for '%s' failed: %s", name, exc)
 
+    log.info(
+        "check_class_name('%s'): %d matches (context=%d, draft=%d, codegraph=%d)",
+        name, len(matches),
+        sum(1 for m in matches if m.get("source") == "context"),
+        sum(1 for m in matches if m.get("source") == "design_draft"),
+        sum(1 for m in matches if m.get("source") == "codegraph"),
+    )
     return json.dumps({
         "found": len(matches) > 0,
         "matches": matches,
+        "hint": (
+            "Use import_compound with a qualified_name to load "
+            "the match into the context graph so it becomes a "
+            "valid reference target."
+        ) if matches else None,
     })
 
 
@@ -495,6 +631,10 @@ def register_all(dispatcher: DesignToolDispatcher) -> None:
     disp.register(
         "validate_design", VALIDATE_DESIGN_SCHEMA,
         lambda inp: handle_validate_design(disp, inp),
+    )
+    disp.register(
+        "import_compound", IMPORT_COMPOUND_SCHEMA,
+        lambda inp: handle_import_compound(disp, inp),
     )
     disp.register(
         "check_class_name", CHECK_CLASS_NAME_SCHEMA,

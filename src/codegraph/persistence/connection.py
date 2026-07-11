@@ -32,6 +32,7 @@ import logging
 from contextlib import contextmanager
 from typing import Any
 
+from neo4j import NotificationDisabledCategory, NotificationMinimumSeverity
 from neomodel import db
 
 log = logging.getLogger(__name__)
@@ -59,7 +60,12 @@ def get_session():
         A ``neo4j.Session`` context manager.
     """
     _ensure_driver()
-    return db.driver.session()
+    return db.driver.session(
+        notifications_min_severity=NotificationMinimumSeverity.WARNING,
+        notifications_disabled_categories=[
+            NotificationDisabledCategory.UNRECOGNIZED,
+        ],
+    )
 
 
 def cypher_query(query: str, params: dict | None = None) -> tuple[list[Any], dict]:

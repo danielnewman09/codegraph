@@ -15,7 +15,15 @@ These tests verify that:
 5. COMPOSES connections that lack a typed relationship manager (e.g.
    AttributeNode → AttributeNode) fall back to raw Cypher instead of
    raising ``ValueError``.
+6. Full COMPOSES hierarchy (HLR→LLR→Test→Assertion, Test→Step) is
+   correctly persisted to Neo4j after round-trip ingestion — no
+   orphaned nodes, no missing edges.
+7. Heading labels use human-readable ``qualified_name`` values, not
+   hash-based uid prefixes.
 """
+
+import re
+from pathlib import Path
 
 import pytest
 
@@ -394,6 +402,390 @@ class TestRoundTripEdgeCases:
         # The existing description should be preserved
         node2 = HLR.nodes.get(name="Preserve Desc HLR")
         assert node2.description == "Original description text."
+
+
+# ── Full COMPOSES hierarchy verification ────────────────────────────────
+
+
+class TestFullComposesHierarchy:
+    """Verify that the complete COMPOSES hierarchy is persisted to Neo4j
+    after round-trip ingestion of a properly-formatted requirements.md.
+
+    The fixture file ``tests/data/requirements_roundtrip.md`` has::
+
+        ## HLR: `Diagram Generator`           (depth 2)
+        ### LLR: `DG-LLR-001`                   (depth 3, nested under HLR)
+        #### Test: `vm::generate::test_valid`   (depth 4, nested under LLR)
+        ##### Assertion: `cond::...`             (depth 5, nested under Test)
+        ##### TestStep: `step::...`              (depth 5, nested under Test)
+
+    The importer uses heading depth for nesting, so the depth hierarchy
+    is critical: if LLRs are at depth 2 (same as HLR) instead of depth 3,
+    no HLR→LLR COMPOSES edges are created.
+    """
+
+    # ── Helpers ──────────────────────────────────────────────────────
+
+    @staticmethod
+    def _extract_headings(text: str) -> list[tuple[int, str, str]]:
+        """Extract (depth, keyword, label) tuples from markdown headings."""
+        headings = []
+        for line in text.splitlines():
+            m = re.match(
+                r'^(#{2,6})\s+(HLR|LLR|Test|Assertion|TestStep):\s+`([^`]+)`',
+                line,
+            )
+            if m:
+                headings.append((len(m.group(1)), m.group(2), m.group(3)))
+        return headings
+
+    @staticmethod
+    def _fixture_text() -> str:
+        from pathlib import Path
+
+        source = (
+            Path(__file__).resolve().parent
+            / "data"
+            / "requirements_roundtrip.md"
+        )
+        assert source.exists(), f"Fixture not found: {source}"
+        return source.read_text(encoding="utf-8")
+
+    # ── Heading-depth checks (no Neo4j needed) ───────────────────────
+
+    def test_fixture_has_proper_heading_depths(self):
+        """The fixture file must have HLR at ##, LLR at ###, Test at ####,
+        and Assertion/TestStep at #####.  This is the format that produces
+        correct COMPOSES nesting on import."""
+        headings = self._extract_headings(self._fixture_text())
+        assert len(headings) > 0, "No requirement headings found in fixture"
+
+        # HLR must be at depth 2
+        hlr_headings = [h for h in headings if h[1] == "HLR"]
+        assert len(hlr_headings) >= 1
+        assert all(h[0] == 2 for h in hlr_headings), \
+            f"HLR headings must be at depth 2, got: {hlr_headings}"
+
+        # LLRs must be at depth 3 (nested under HLR)
+        llr_headings = [h for h in headings if h[1] == "LLR"]
+        assert len(llr_headings) >= 1
+        assert all(h[0] == 3 for h in llr_headings), \
+            f"LLR headings must be at depth 3, got: {llr_headings}"
+
+        # Tests must be at depth 4 (nested under LLR)
+        test_headings = [h for h in headings if h[1] == "Test"]
+        assert len(test_headings) >= 1
+        assert all(h[0] == 4 for h in test_headings), \
+            f"Test headings must be at depth 4, got: {test_headings}"
+
+        # Assertions and TestSteps must be at depth 5 (nested under Test)
+        assertion_headings = [h for h in headings if h[1] == "Assertion"]
+        assert len(assertion_headings) >= 1
+        assert all(h[0] == 5 for h in assertion_headings), \
+            f"Assertion headings must be at depth 5, got: {assertion_headings}"
+
+        step_headings = [h for h in headings if h[1] == "TestStep"]
+        assert len(step_headings) >= 1
+        assert all(h[0] == 5 for h in step_headings), \
+            f"TestStep headings must be at depth 5, got: {step_headings}"
+
+    def test_fixture_labels_are_human_readable(self):
+        """Heading labels in the fixture must be human-readable
+        ``qualified_name`` values, not hash-based uid prefixes like
+        ``hlr_792dc341``."""
+        headings = self._extract_headings(self._fixture_text())
+
+        # HLR label should be a human-readable name, not a hash
+        hlr_labels = [label for kw, label in headings if kw == "HLR"]
+        assert len(hlr_labels) >= 1
+        assert hlr_labels[0] == "Diagram Generator", \
+            f"HLR label should be 'Diagram Generator', got: {hlr_labels[0]!r}"
+        # Must NOT match the hash-based pattern
+        assert not re.match(r'^hlr_[a-f0-9]{8}$', hlr_labels[0]), \
+            f"HLR label looks like a uid hash: {hlr_labels[0]!r}"
+
+        # LLR labels should be human-readable identifiers
+        llr_labels = [label for kw, label in headings if kw == "LLR"]
+        for label in llr_labels:
+            assert not re.match(r'^llr_[a-f0-9]{8}$', label), \
+                f"LLR label looks like a uid hash: {label!r}"
+
+    # ── Neo4j ingestion checks ───────────────────────────────────────
+
+    def test_full_composes_hierarchy_in_neo4j(self):
+        """After importing the fixture and persisting to Neo4j, verify
+        the complete COMPOSES chain: HLR→LLR→Test→Assertion and
+        Test→Step.
+
+        This is the core round-trip ingestion test — every level of the
+        hierarchy must be connected via COMPOSES edges in the database.
+        """
+        graph = import_markdown(
+            self._fixture_text(), tags=frozenset({"design"})
+        )
+        graph.to_neo4j()
+
+        from neomodel import db
+
+        # HLR → LLR: every LLR must have an incoming COMPOSES from the HLR
+        results, _ = db.cypher_query(
+            "MATCH (h:HLR)-[:COMPOSES]->(l:LLR) "
+            "WHERE h.qualified_name = 'Diagram Generator' "
+            "RETURN l.qualified_name ORDER BY l.qualified_name"
+        )
+        llr_qnames = [r[0] for r in results]
+        assert len(llr_qnames) == 3, \
+            f"Expected 3 LLRs under HLR, got {len(llr_qnames)}: {llr_qnames}"
+        assert "DG-LLR-001" in llr_qnames
+        assert "DG-LLR-002" in llr_qnames
+        assert "DG-LLR-003" in llr_qnames
+
+        # LLR → TestNode: every Test must have an incoming COMPOSES from its LLR
+        results, _ = db.cypher_query(
+            "MATCH (l:LLR)-[:COMPOSES]->(t:TestNode) "
+            "WHERE l.qualified_name = 'DG-LLR-001' "
+            "RETURN t.qualified_name ORDER BY t.qualified_name"
+        )
+        test_qnames = [r[0] for r in results]
+        assert len(test_qnames) >= 1, \
+            f"Expected at least 1 Test under DG-LLR-001, got {test_qnames}"
+        assert "vm::generate::test_valid" in test_qnames
+
+        # TestNode → AssertionNode
+        results, _ = db.cypher_query(
+            "MATCH (t:TestNode)-[:COMPOSES]->(a:AssertionNode) "
+            "WHERE t.qualified_name = 'vm::generate::test_valid' "
+            "RETURN a.qualified_name ORDER BY a.qualified_name"
+        )
+        assertion_qnames = [r[0] for r in results]
+        assert len(assertion_qnames) >= 2, \
+            f"Expected at least 2 Assertions under test_valid, got: {assertion_qnames}"
+
+        # TestNode → TestStepNode
+        results, _ = db.cypher_query(
+            "MATCH (t:TestNode)-[:COMPOSES]->(s:TestStepNode) "
+            "WHERE t.qualified_name = 'vm::generate::test_valid' "
+            "RETURN s.qualified_name ORDER BY s.qualified_name"
+        )
+        step_qnames = [r[0] for r in results]
+        assert len(step_qnames) >= 1, \
+            f"Expected at least 1 TestStep under test_valid, got: {step_qnames}"
+
+    def test_no_orphaned_nodes_after_ingestion(self):
+        """After round-trip ingestion, every LLR must have a parent HLR,
+        every Test must have a parent LLR, and every Assertion/TestStep
+        must have a parent Test — no orphaned nodes in the database.
+        """
+        graph = import_markdown(
+            self._fixture_text(), tags=frozenset({"design"})
+        )
+        graph.to_neo4j()
+
+        from neomodel import db
+
+        # Orphaned LLRs: LLRs with no incoming COMPOSES from any HLR
+        results, _ = db.cypher_query(
+            "MATCH (l:LLR) WHERE NOT (l)<-[:COMPOSES]-(:HLR) "
+            "RETURN l.qualified_name"
+        )
+        orphaned_llrs = [r[0] for r in results]
+        assert len(orphaned_llrs) == 0, \
+            f"Orphaned LLRs (no parent HLR): {orphaned_llrs}"
+
+        # Orphaned TestNodes: Tests with no incoming COMPOSES from any LLR
+        results, _ = db.cypher_query(
+            "MATCH (t:TestNode) WHERE NOT (t)<-[:COMPOSES]-(:LLR) "
+            "RETURN t.qualified_name"
+        )
+        orphaned_tests = [r[0] for r in results]
+        assert len(orphaned_tests) == 0, \
+            f"Orphaned TestNodes (no parent LLR): {orphaned_tests}"
+
+        # Orphaned AssertionNodes
+        results, _ = db.cypher_query(
+            "MATCH (a:AssertionNode) WHERE NOT (a)<-[:COMPOSES]-(:TestNode) "
+            "RETURN a.qualified_name"
+        )
+        orphaned_assertions = [r[0] for r in results]
+        assert len(orphaned_assertions) == 0, \
+            f"Orphaned AssertionNodes (no parent Test): {orphaned_assertions}"
+
+        # Orphaned TestStepNodes
+        results, _ = db.cypher_query(
+            "MATCH (s:TestStepNode) WHERE NOT (s)<-[:COMPOSES]-(:TestNode) "
+            "RETURN s.qualified_name"
+        )
+        orphaned_steps = [r[0] for r in results]
+        assert len(orphaned_steps) == 0, \
+            f"Orphaned TestStepNodes (no parent Test): {orphaned_steps}"
+
+    def test_hlr_has_human_readable_name_in_neo4j(self):
+        """After ingestion, the HLR node in Neo4j must have a
+        human-readable ``name`` and ``qualified_name``, not a hash-based
+        identifier."""
+        graph = import_markdown(
+            self._fixture_text(), tags=frozenset({"design"})
+        )
+        graph.to_neo4j()
+
+        from codegraph_requirements.models.requirement import HLR
+        hlr = HLR.nodes.get(qualified_name="Diagram Generator")
+        assert hlr.name == "Diagram Generator"
+        assert hlr.qualified_name == "Diagram Generator"
+        # Must NOT look like a hash
+        assert not re.match(r'^hlr_[a-f0-9]+$', hlr.name), \
+            f"HLR name looks like a uid hash: {hlr.name!r}"
+
+
+# ── Decompose output format validation ──────────────────────────────────
+
+
+class TestDecomposeOutputFormat:
+    """Validate that decompose-generated requirements.md conforms to the
+    same format standards as the test fixture.
+
+    The decompose agent (via ``serialize_decomposition_to_markdown`` or
+    the bridge's ``_export_decomposition_markdown``) must produce:
+
+    1. Human-readable heading labels (``qualified_name``), not uid hashes.
+    2. Proper heading depth hierarchy (HLR at ##, LLR at ###, etc.).
+
+    If the decompose output doesn't conform, the importer won't create
+    COMPOSES edges and the ingested graph will have orphaned nodes.
+    """
+
+    @staticmethod
+    def _decompose_output_path() -> Path:
+        from pathlib import Path
+
+        return (
+            Path(__file__).resolve().parent.parent
+            / "codegraph" / "requirements"
+            / "architecture-diagram-generator" / "requirements.md"
+        )
+
+    @staticmethod
+    def _extract_headings(text: str) -> list[tuple[int, str, str]]:
+        """Extract (depth, keyword, label) tuples from markdown headings."""
+        headings = []
+        for line in text.splitlines():
+            m = re.match(
+                r'^(#{2,6})\s+(HLR|LLR|Test|Assertion|TestStep):\s+`([^`]+)`',
+                line,
+            )
+            if m:
+                headings.append((len(m.group(1)), m.group(2), m.group(3)))
+        return headings
+
+    # ── Heading-label checks (no Neo4j needed) ───────────────────────
+
+    def test_decompose_output_has_human_readable_hlr_label(self):
+        """The HLR heading in a decompose-generated file should use a
+        human-readable name, not a hash-based identifier like
+        ``hlr_792dc341``."""
+        path = self._decompose_output_path()
+        if not path.exists():
+            pytest.skip("No decompose output file found")
+
+        text = path.read_text(encoding="utf-8")
+
+        hlr_match = re.search(r'^## HLR:\s+`([^`]+)`', text, re.MULTILINE)
+        assert hlr_match, "No HLR heading found in decompose output"
+        hlr_label = hlr_match.group(1)
+
+        # Must NOT be a hash-based identifier
+        assert not re.match(r'^hlr_[a-f0-9]+$', hlr_label), \
+            (f"HLR label is a hash-based uid, not human-readable: "
+             f"{hlr_label!r}. Expected a human-readable name like "
+             f"'Architecture Diagram Generator'.")
+
+    def test_decompose_output_llr_labels_are_human_readable(self):
+        """LLR heading labels should be human-readable identifiers, not
+        hash-based uid prefixes like ``llr_5e3e51b0``."""
+        path = self._decompose_output_path()
+        if not path.exists():
+            pytest.skip("No decompose output file found")
+
+        text = path.read_text(encoding="utf-8")
+
+        for line in text.splitlines():
+            m = re.match(r'^#{2,6}\s+LLR:\s+`([^`]+)`', line)
+            if m:
+                label = m.group(1)
+                assert not re.match(r'^llr_[a-f0-9]+$', label), \
+                    f"LLR label is a hash-based uid, not human-readable: {label!r}"
+
+    # ── Heading-depth checks (no Neo4j needed) ───────────────────────
+
+    def test_decompose_output_llrs_nested_under_hlr(self):
+        """LLR headings in decompose output must be at depth 3 (###),
+        nested under the HLR at depth 2 (##).  If LLRs are at depth 2
+        (same as HLR), the importer won't create HLR→LLR COMPOSES edges.
+        """
+        path = self._decompose_output_path()
+        if not path.exists():
+            pytest.skip("No decompose output file found")
+
+        text = path.read_text(encoding="utf-8")
+        headings = self._extract_headings(text)
+
+        # HLR must be at depth 2
+        hlr_headings = [h for h in headings if h[1] == "HLR"]
+        assert len(hlr_headings) >= 1, "No HLR heading found"
+        assert all(h[0] == 2 for h in hlr_headings), \
+            f"HLR must be at depth 2, got depths: {[(h[0], h[2]) for h in hlr_headings]}"
+
+        # LLRs must be at depth 3 — NOT depth 2
+        llr_headings = [h for h in headings if h[1] == "LLR"]
+        assert len(llr_headings) >= 1, "No LLR headings found"
+        assert all(h[0] == 3 for h in llr_headings), \
+            (f"LLRs must be at depth 3 (###) to nest under HLR. "
+             f"Got depths: {[(h[0], h[2]) for h in llr_headings]}. "
+             f"LLRs at depth 2 (##) are siblings of the HLR, not children — "
+             f"the importer won't create HLR→LLR COMPOSES edges.")
+
+    # ── Neo4j ingestion check ────────────────────────────────────────
+
+    def test_decompose_output_produces_composes_edges_on_ingestion(self):
+        """Importing the decompose-generated file and persisting to Neo4j
+        must produce HLR→LLR COMPOSES edges.  If LLRs are at the wrong
+        heading depth, the importer won't create these edges and the
+        LLRs will be orphaned.
+        """
+        path = self._decompose_output_path()
+        if not path.exists():
+            pytest.skip("No decompose output file found")
+
+        text = path.read_text(encoding="utf-8")
+        graph = import_markdown(text, tags=frozenset({"design"}))
+        graph.to_neo4j()
+
+        from neomodel import db
+
+        # Count HLR→LLR COMPOSES edges
+        results, _ = db.cypher_query(
+            "MATCH (h:HLR)-[:COMPOSES]->(l:LLR) RETURN count(*)"
+        )
+        hlr_to_llr_count = results[0][0]
+
+        # Count total LLRs
+        llr_count_in_file = sum(
+            1 for line in text.splitlines()
+            if re.match(r'^#{2,6}\s+LLR:', line)
+        )
+        assert hlr_to_llr_count == llr_count_in_file, \
+            (f"Expected {llr_count_in_file} HLR→LLR COMPOSES edges, "
+             f"got {hlr_to_llr_count}. The importer failed to create "
+             f"COMPOSES edges — LLRs are likely at the wrong heading depth.")
+
+        # Verify no orphaned LLRs
+        results, _ = db.cypher_query(
+            "MATCH (l:LLR) WHERE NOT (l)<-[:COMPOSES]-(:HLR) "
+            "RETURN l.qualified_name"
+        )
+        orphaned = [r[0] for r in results]
+        assert len(orphaned) == 0, \
+            f"Orphaned LLRs (no parent HLR via COMPOSES): {orphaned}"
 
 
 # ── File-based round-trip identity ─────────────────────────────────────

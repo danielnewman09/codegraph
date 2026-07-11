@@ -19,6 +19,8 @@ Tool modules:
   check_class_name, produce_oo_design.
 - :mod:`codegraph_design.tools.verification_tools` — draft_verifications,
   commit_design_and_verifications.
+- :mod:`codegraph_design.tools.design_smells` — check_design_smells
+  (structural design-smell detection with severity levels).
 """
 
 from codegraph_design.tools.dispatcher import (

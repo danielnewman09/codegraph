@@ -239,6 +239,12 @@ def persist_decomposition(
             if "::" in qn and isinstance(node, (AttributeNode, LiteralNode)):
                 result.scaffold_map[qn]["parent"] = qn.rsplit("::", 1)[0]
 
+    log.info(
+        "persist_decomposition: %d scaffold class(es), %d scaffold attribute(s) "
+        "auto-created from notional references",
+        result.scaffold_classes, result.scaffold_attributes,
+    )
+
     # --- Create all edges via raw Cypher ---
     flat = graph._flat_index()
     total_refs = 0
@@ -252,22 +258,26 @@ def persist_decomposition(
                 _create_edge(source_node, child_entry.node, "COMPOSES")
 
         # Reference edges (LEFT_OPERAND, RIGHT_OPERAND, CALLEE, etc.)
+        edge_counts: dict[str, int] = {}
         for relation_type, target_key, target_type in entry.references:
             total_refs += 1
             target_entry = flat.get(target_key)
             if target_entry is None:
                 missing_targets += 1
-                log.debug(
+                log.warning(
                     "persist_decomposition: missing flat target for "
-                    "ref %s -> %s (key=%s)",
+                    "ref %s -> %s (key=%s) — scaffold may be orphaned",
                     relation_type, target_type, target_key[:20] if target_key else "?",
                 )
                 continue
             if _create_edge(source_node, target_entry.node, relation_type):
                 result.operand_edges += 1
+                edge_counts[relation_type] = edge_counts.get(relation_type, 0) + 1
     log.info(
-        "persist_decomposition: %d reference edges (%d missing targets)",
+        "persist_decomposition: %d reference edges (%d missing targets) — "
+        "by type: %s",
         total_refs, missing_targets,
+        ", ".join(f"{k}={v}" for k, v in sorted(edge_counts.items())),
     )
 
     # --- Connect LLRs to the HLR ---
@@ -420,7 +430,7 @@ def _cleanup_orphaned_scaffolds() -> int:
     #         AssertionNode/TestStepNode edges.
     query_direct = """
     MATCH (ca)-[r]->(s)
-    WHERE (ca:Assertion OR ca:TestStep)
+    WHERE (ca:AssertionNode OR ca:TestStepNode)
       AND (r:LEFT_OPERAND OR r:RIGHT_OPERAND OR r:CALLEE)
       AND 'scaffold' IN s.tags
     RETURN DISTINCT elementId(s) AS eid
@@ -436,7 +446,7 @@ def _cleanup_orphaned_scaffolds() -> int:
     # Step 2: Find scaffold ClassNodes that have at least one COMPOSES child
     #         that is directly referenced.
     query_parent = """
-    MATCH (parent:Class)-[:COMPOSES]->(child)
+    MATCH (parent:ClassNode)-[:COMPOSES]->(child)
     WHERE 'scaffold' IN parent.tags
       AND elementId(child) IN $referenced_eids
     RETURN DISTINCT elementId(parent) AS eid
@@ -470,13 +480,40 @@ def _cleanup_orphaned_scaffolds() -> int:
         eid, qn, lbls = row[0], row[1], row[2]
         if eid not in all_reachable:
             orphan_eids.append(eid)
-            log.info(
-                "_cleanup_orphaned_scaffolds: orphaned scaffold %s (%s)",
-                qn or "?", lbls,
-            )
 
     if not orphan_eids:
+        log.info(
+            "_cleanup_orphaned_scaffolds: all %d scaffold(s) are reachable — "
+            "%d directly, %d via parent ClassNode",
+            len(results),
+            len(directly_referenced_eids),
+            len(referenced_parent_eids),
+        )
         return 0
+
+    log.warning(
+        "_cleanup_orphaned_scaffolds: %d of %d scaffold(s) are orphaned "
+        "(%d directly referenced, %d via parent ClassNode)",
+        len(orphan_eids), len(results),
+        len(directly_referenced_eids), len(referenced_parent_eids),
+    )
+    # Log first 10 orphan names, then summarise
+    for i, (eid, qn) in enumerate(zip(
+        [r[0] for r in results if r[0] in orphan_eids],
+        [r[1] for r in results if r[0] in orphan_eids],
+    )):
+        if i < 10:
+            lbls = [r[2] for r in results if r[0] == eid]
+            log.info(
+                "_cleanup_orphaned_scaffolds: orphaned scaffold %s (%s)",
+                qn or "?", lbls[0] if lbls else "?",
+            )
+        else:
+            log.info(
+                "_cleanup_orphaned_scaffolds: ... and %d more orphaned scaffolds",
+                len(orphan_eids) - 10,
+            )
+            break
 
     # Step 4: Delete orphaned scaffold nodes (and their edges).
     for eid in orphan_eids:

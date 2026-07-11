@@ -19,7 +19,7 @@ import logging
 import re
 from dataclasses import dataclass
 
-from llm_caller import call_tool
+from llm_caller import call_tool_loop
 
 from codegraph_requirements.schemas import (
     DecomposedRequirementSchema as DecomposedRequirement,
@@ -318,6 +318,33 @@ No preconditions, no actions, no postconditions. A downstream agent
 reading this would have to guess the entire test scenario.
 </Bad>
 
+### LLR with COMPOSES edges to its TestNodes
+
+Every LLR node MUST have a ``"COMPOSES"`` edge to each of its
+verification methods (TestNode).  Without these edges the
+persistence layer cannot connect requirements to their tests.
+
+<Good>
+{"type": "LLR", "name": "Temperature Control Interface",
+ "description": "The Climate Control shall expose a set_target operation "
+ "that accepts a target temperature and mode, returns the current reading "
+ "for valid inputs, and signals an error for invalid inputs.",
+ "tags": ["design"],
+ "edges": [
+   {"relation_type": "COMPOSES", "target_uid": "vm::set_target::test_valid_input_reading", "target_type": "TestNode"},
+   {"relation_type": "COMPOSES", "target_uid": "vm::set_target::test_out_of_range", "target_type": "TestNode"}
+ ]}
+</Good>
+
+<Bad>
+{"type": "LLR", "name": "Temperature Control Interface",
+ "description": "The Climate Control shall expose a set_target operation...",
+ "tags": ["design"]}
+
+No ``edges`` array — the LLR has no COMPOSES edges to its TestNodes.
+The persistence layer cannot link requirements to verification methods.
+</Bad>
+
 ## Guidelines
 
 - Prefer fewer, well-defined LLRs over many vague ones. Generate enough LLRs
@@ -342,8 +369,12 @@ reading this would have to guess the entire test scenario.
   chain.
 
 <HARD-VALIDATION>
-Your decomposition will be validated before it is persisted. If any of
-these rules fail, the decomposition is REJECTED and nothing is saved:
+Your decomposition will be validated before it is persisted.  Use the
+``validate_my_decomposition`` tool to self-check your work BEFORE calling
+``decompose_requirement``.  If violations are returned, fix them and
+re-validate until clean.  Only then call ``decompose_requirement``.
+
+These are the eight hard rules that must pass:
 
 1. Every LLR must have at least one TestNode (COMPOSES edge).
 2. Every TestNode must have at least one TestStepNode (COMPOSES edge).
@@ -361,9 +392,55 @@ these rules fail, the decomposition is REJECTED and nothing is saved:
 
 If you produce a scaffold reference that no test uses, or a test with no
 scaffold references, the decomposition is invalid.
+
+<VALIDATION-PROTOCOL>
+You MUST follow this protocol:
+
+1. Produce a DRAFT of your decomposition (LLRs + verification stubs).
+2. Call ``validate_my_decomposition`` with ALL your nodes.
+3. If violations are returned:
+   - Fix the specific issues described in each violation message.
+   - Call ``validate_my_decomposition`` again.
+4. When NO violations remain, call ``decompose_requirement`` with
+   the validated node list.
+
+Do NOT skip step 2-3.  Do NOT call decompose_requirement until
+validate_my_decomposition returns zero violations.
+</VALIDATION-PROTOCOL>
 </HARD-VALIDATION>
 
 You MUST use the decompose_requirement tool to return your result.
+
+<DEPENDENCY-DISCOVERY>
+Before decomposing the requirement, you MUST:
+
+1. Extract the key technical terms from the HLR description (e.g., module
+   names, technology names like "Neo4j" or "PlantUML", component patterns).
+2. Call ``search_existing_hlrs`` with those keywords to discover related
+   existing HLRs already in the codegraph.
+3. For each HLR that the new requirement genuinely depends on — i.e., the
+   new HLR builds on or reuses that HLR's capabilities — call
+   ``create_dependency_link`` with a clear rationale.
+4. Use the discovered dependencies to inform your decomposition:
+   - Do NOT create LLRs for functionality that an existing HLR already covers.
+   - Reference the dependency in the LLR descriptions where appropriate
+     (e.g., "queries Neo4j via the existing LayerGraph infrastructure").
+   - Focus LLRs on what is NEW about this HLR — not on re-specifying
+     things other HLRs already define.
+
+You may call ``search_existing_hlrs`` multiple times with different keywords
+if the initial search doesn't find everything relevant.
+
+**When to link vs when not to link:**
+- Link when the new HLR builds directly on the existing HLR (reuses its
+  output, calls its interface, or extends its behavior).
+- Link when the existing HLR defines a data model or infrastructure
+  layer that the new HLR queries or depends on.
+- Do NOT link for vague thematic similarity — two HLRs about "export"
+  are not necessarily dependent on each other.
+- Do NOT link to HLRs in unrelated components unless there is a clear
+  architectural dependency.
+</DEPENDENCY-DISCOVERY>
 
 {existing_context_section}
 
@@ -404,6 +481,231 @@ TOOL_DEFINITION = {
     "description": "Return the structured decomposition of a high-level requirement",
     "input_schema": DecomposedRequirement.model_json_schema(),
 }
+
+SEARCH_HLRS_TOOL = {
+    "name": "search_existing_hlrs",
+    "description": (
+        "Search the Neo4j codegraph for existing high-level requirements (HLRs) "
+        "whose name or description matches the given keywords. Use this BEFORE "
+        "decomposing to discover related HLRs that the new HLR might depend on. "
+        "Returns a list of matching HLRs with uid, name, description, and component."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "keywords": {
+                "type": "string",
+                "description": "Space-separated keywords to search for in HLR names and descriptions.",
+            },
+            "limit": {
+                "type": "integer",
+                "default": 15,
+                "description": "Maximum number of results to return.",
+            },
+        },
+        "required": ["keywords"],
+    },
+}
+
+VALIDATE_TOOL = {
+    "name": "validate_my_decomposition",
+    "description": (
+        "Validate the current decomposition against all structural rules "
+        "BEFORE calling decompose_requirement.  Returns a list of violations "
+        "that must be fixed.  If violations are returned, correct them and "
+        "call validate_my_decomposition again until no violations remain."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "nodes": {
+                "type": "array",
+                "items": {"type": "object"},
+                "description": (
+                    "Your current flat list of codegraph node dicts — the same "
+                    "format you will pass to decompose_requirement.  Include "
+                    "ALL nodes: LLRs, TestNodes, AssertionNodes, and TestStepNodes."
+                ),
+            },
+        },
+        "required": ["nodes"],
+    },
+}
+
+CREATE_DEPENDENCY_TOOL = {
+    "name": "create_dependency_link",
+    "description": (
+        "Create a DEPENDS_ON relationship from the HLR being decomposed to an "
+        "existing HLR discovered via search_existing_hlrs. Call this for each "
+        "HLR that the new requirement genuinely depends on — i.e., the new "
+        "HLR should build on or reuse the existing HLR's capabilities rather "
+        "than duplicate them. In description-only mode (no persistence), the "
+        "links are noted but cannot be persisted to Neo4j."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "target_hlr_name": {
+                "type": "string",
+                "description": "Exact name of the existing HLR to link to (from search_existing_hlrs results).",
+            },
+            "rationale": {
+                "type": "string",
+                "description": "Why this dependency exists — what the new HLR reuses or builds on.",
+            },
+        },
+        "required": ["target_hlr_name", "rationale"],
+    },
+}
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Tool handlers for dependency discovery during decomposition
+# ══════════════════════════════════════════════════════════════════════════
+
+
+def _make_decompose_tool_dispatcher(
+    hlr_uid: str = "",
+    hlr_name: str = "",
+    is_persisted: bool = False,
+):
+    """Build a tool dispatcher function for the decompose agent's multi-turn loop.
+
+    Returns a callable ``(tool_name: str, tool_input: dict) -> str`` that
+    handles ``search_existing_hlrs`` and ``create_dependency_link``.
+
+    Args:
+        hlr_uid: Neo4j uid of the HLR being decomposed (empty in description mode).
+        hlr_name: Name of the HLR being decomposed.
+        is_persisted: Whether the HLR already exists in Neo4j (True for
+            decompose_and_persist_hlr, False for description mode).
+    """
+    from codegraph_requirements.models import HLR
+    from neomodel import db as neomodel_db
+
+    def dispatch(tool_name: str, tool_input: dict) -> str:
+        if tool_name == "validate_my_decomposition":
+            nodes = tool_input.get("nodes", [])
+            if not nodes:
+                return json.dumps({"error": "nodes is required and cannot be empty"})
+            violations = validate_decomposition(nodes)
+            if not violations:
+                return json.dumps({
+                    "valid": True,
+                    "message": "All 8 hard rules pass.  You may now call decompose_requirement.",
+                    "violations": [],
+                })
+            return json.dumps({
+                "valid": False,
+                "num_violations": len(violations),
+                "message": (
+                    f"{len(violations)} violation(s) found.  Fix each one and "
+                    "call validate_my_decomposition again."
+                ),
+                "violations": [
+                    {"rule": v.rule, "message": v.message, "context": v.context}
+                    for v in violations
+                ],
+            })
+
+        if tool_name == "search_existing_hlrs":
+            keywords = tool_input.get("keywords", "")
+            limit = int(tool_input.get("limit", 15))
+
+            if not keywords:
+                return json.dumps({"error": "keywords is required", "results": []})
+
+            keyword_terms = [kw.lower() for kw in keywords.split()]
+            results = []
+
+            try:
+                for hlr in HLR.nodes.all():
+                    # Skip the HLR being decomposed
+                    if hlr_uid and hlr.uid == hlr_uid:
+                        continue
+                    if hlr_name and (hlr.name or "") == hlr_name:
+                        continue
+
+                    search_text = ((hlr.name or "") + " " + (hlr.description or "")).lower()
+                    # Require at least one keyword to match
+                    if any(kw in search_text for kw in keyword_terms):
+                        comp_nodes = hlr.component.all()
+                        comp_name = comp_nodes[0].name if comp_nodes else ""
+                        results.append({
+                            "name": hlr.name or "",
+                            "description": (hlr.description or "")[:300],
+                            "component": comp_name,
+                            "tags": list(hlr.tags) if hlr.tags else [],
+                        })
+                    if len(results) >= limit:
+                        break
+            except Exception as exc:
+                log.exception("search_existing_hlrs failed")
+                return json.dumps({"error": f"Search error: {exc}", "results": []})
+
+            return json.dumps({
+                "keywords": keywords,
+                "count": len(results),
+                "results": results,
+            })
+
+        elif tool_name == "create_dependency_link":
+            target_name = tool_input.get("target_hlr_name", "")
+            rationale = tool_input.get("rationale", "")
+
+            if not target_name:
+                return json.dumps({"error": "target_hlr_name is required"})
+            if not rationale:
+                return json.dumps({"error": "rationale is required"})
+
+            if not is_persisted or not hlr_uid:
+                return json.dumps({
+                    "status": "noted",
+                    "message": (
+                        f"Dependency on '{target_name}' recorded for documentation. "
+                        f"Not persisted (HLR not yet in Neo4j or running in description mode)."
+                    ),
+                    "target_hdlr": target_name,
+                    "rationale": rationale,
+                })
+
+            try:
+                result, meta = neomodel_db.cypher_query(
+                    """
+                    MATCH (source:HLR {uid: $source_uid})
+                    MATCH (target:HLR {name: $target_name})
+                    MERGE (source)-[r:DEPENDS_ON]->(target)
+                    SET r.description = $rationale
+                    RETURN source.name, type(r), target.name
+                    """,
+                    {
+                        "source_uid": hlr_uid,
+                        "target_name": target_name,
+                        "rationale": rationale,
+                    },
+                )
+                if result:
+                    return json.dumps({
+                        "status": "created",
+                        "source": result[0][0],
+                        "relation": result[0][1],
+                        "target": result[0][2],
+                        "rationale": rationale,
+                    })
+                else:
+                    return json.dumps({
+                        "status": "failed",
+                        "message": f"Could not find target HLR '{target_name}' in Neo4j. "
+                                    f"Verify the name matches exactly.",
+                    })
+            except Exception as exc:
+                log.exception("create_dependency_link failed")
+                return json.dumps({"error": f"Link error: {exc}"})
+
+        else:
+            return json.dumps({"error": f"Unknown tool: {tool_name}"})
+
+    return dispatch
 
 
 def _format_dependency_context(dependency_context: dict) -> str:
@@ -941,6 +1243,177 @@ def _format_existing_context(tree: dict) -> str:
     return "\n".join(lines)
 
 
+def _build_correction_context(
+    original_tree: dict,
+    violations: list,
+    first_attempt_nodes: list[dict],
+) -> dict:
+    """Build a rich correction context for a retry attempt.
+
+    Takes the original existing tree (from Neo4j), the validation
+    violations from the first attempt, and the raw node list the LLM
+    produced.  Returns a context dict suitable for :func:`decompose`'s
+    ``existing_context`` parameter, augmented with the first attempt's
+    structure so the LLM can see what it produced and fix specific gaps.
+
+    The returned dict includes the first-attempt LLRs and tests
+    (extracted from the flat node list) plus a scaffolding summary.
+    """
+    # Extract LLRs and tests from the first-attempt node list
+    # (similar to _load_existing_requirements_tree but from flat dicts)
+    first_attempt_llrs: list[dict] = []
+    first_attempt_tests: dict[str, list[dict]] = {}
+    first_attempt_scaffolds: list[dict] = []
+
+    # Build lookup maps
+    nodes_by_qn: dict[str, dict] = {}
+    for n in first_attempt_nodes:
+        ident = n.get("qualified_name", "") or n.get("name", "")
+        if ident:
+            nodes_by_qn[ident] = n
+
+    for n in first_attempt_nodes:
+        ntype = n.get("type", "")
+        ident = n.get("qualified_name", "") or n.get("name", "")
+
+        if ntype == "LLR":
+            llr_entry: dict = {
+                "uid": ident,
+                "description": n.get("description", "") or "",
+                "tags": list(n.get("tags", [])) or ["design"],
+            }
+            first_attempt_llrs.append(llr_entry)
+
+            # Find TestNode children via COMPOSES edges
+            test_list: list[dict] = []
+            for e in n.get("edges", []):
+                if e.get("relation_type") == "COMPOSES" and e.get("target_type") == "TestNode":
+                    tqn = e.get("target_uid", "")
+                    t_node = nodes_by_qn.get(tqn, None)
+                    if t_node is None:
+                        continue
+                    test_dict: dict = {
+                        "method": t_node.get("method", "automated"),
+                        "test_name": t_node.get("test_name", "") or "",
+                        "description": t_node.get("description", "") or "",
+                        "preconditions": [],
+                        "actions": [],
+                        "postconditions": [],
+                    }
+                    # Find AssertionNode/TestStepNode children
+                    for te in t_node.get("edges", []):
+                        if te.get("relation_type") != "COMPOSES":
+                            continue
+                        cqn = te.get("target_uid", "")
+                        c_node = nodes_by_qn.get(cqn)
+                        if c_node is None:
+                            continue
+                        c_type = c_node.get("type", "")
+                        if c_type == "AssertionNode":
+                            phase = c_node.get("phase", "post")
+                            cond = {
+                                "subject_qualified_name": "",
+                                "operator": c_node.get("operator", "=="),
+                                "expected_value": "",
+                                "phase": phase,
+                            }
+                            if phase == "pre":
+                                test_dict["preconditions"].append(cond)
+                            else:
+                                test_dict["postconditions"].append(cond)
+                        elif c_type == "TestStepNode":
+                            test_dict["actions"].append({
+                                "description": c_node.get("description", "") or "",
+                                "callee_qualified_name": "",
+                            })
+                    test_list.append(test_dict)
+            first_attempt_tests[ident] = test_list
+
+    # Merge with original tree: prefer original LLRs, but add first-attempt
+    # LLRs that aren't in the original (the retry is for NEW LLRs anyway).
+    merged_llrs = list(original_tree.get("llrs", []))
+    merged_tests = dict(original_tree.get("tests_by_llr", {}))
+    existing_llr_ids = {llr["uid"] for llr in merged_llrs}
+
+    for llr in first_attempt_llrs:
+        if llr["uid"] not in existing_llr_ids:
+            merged_llrs.append(llr)
+
+    for llr_id, tests in first_attempt_tests.items():
+        if llr_id not in merged_tests:
+            merged_tests[llr_id] = tests
+
+    return {
+        "llrs": merged_llrs,
+        "tests_by_llr": merged_tests,
+        "scaffolds": original_tree.get("scaffolds", []),
+    }
+
+
+def _build_correction_message(violations: list, first_attempt_nodes: list[dict]) -> str:
+    """Build a correction message describing what the first attempt missed.
+
+    Returns a string suitable for appending to the user prompt on retry.
+    """
+    lines = [
+        "\n\n---",
+        "",
+        "## CORRECTION NEEDED — Your previous attempt failed validation",
+        "",
+        "The following issues were found in your previous decomposition.",
+        "Fix ONLY these issues — keep everything else exactly as-is.",
+        "",
+    ]
+
+    # Group violations by rule type
+    by_rule: dict[str, list] = {}
+    for v in violations:
+        by_rule.setdefault(v.rule, []).append(v)
+
+    if "LLR_HAS_TEST" in by_rule or "TEST_HAS_OWNER" in by_rule:
+        lines.append("### Missing LLR→TestNode COMPOSES edges")
+        lines.append("")
+        lines.append("Every LLR node dict MUST have an `edges` array with")
+        lines.append("COMPOSES edges to its TestNode children.  Example:")
+        lines.append("")
+        lines.append("    {\"type\": \"LLR\", \"name\": \"...\",")
+        lines.append('     "edges": [')
+        lines.append('       {"relation_type": "COMPOSES", "target_uid": "vm::...::test_...",')
+        lines.append('        "target_type": "TestNode"}')
+        lines.append("     ]}")
+        lines.append("")
+        for v in by_rule.get("LLR_HAS_TEST", []):
+            lines.append(f"- {v.message}")
+        for v in by_rule.get("TEST_HAS_OWNER", []):
+            lines.append(f"- {v.message}")
+        lines.append("")
+
+    if "TEST_HAS_STEP" in by_rule:
+        lines.append("### Missing TestNode→TestStepNode COMPOSES edges")
+        for v in by_rule["TEST_HAS_STEP"]:
+            lines.append(f"- {v.message}")
+        lines.append("")
+
+    if "TEST_HAS_PRE_POST" in by_rule:
+        lines.append("### Missing pre/post conditions")
+        for v in by_rule["TEST_HAS_PRE_POST"]:
+            lines.append(f"- {v.message}")
+        lines.append("")
+
+    other_rules = set(by_rule.keys()) - {"LLR_HAS_TEST", "TEST_HAS_OWNER",
+                                            "TEST_HAS_STEP", "TEST_HAS_PRE_POST"}
+    if other_rules:
+        lines.append("### Other issues")
+        for rule in sorted(other_rules):
+            for v in by_rule[rule]:
+                lines.append(f"- [{v.rule}] {v.message}")
+        lines.append("")
+
+    lines.append("Re-run the decomposition with these corrections applied.")
+
+    return "\n".join(lines)
+
+
 def _count_hlr_scaffolds(hlr) -> int:
     """Count scaffold nodes reachable from this HLR's verification subtree.
 
@@ -977,8 +1450,14 @@ def decompose(
     existing_context: dict | None = None,
     model: str = "",
     prompt_log_file: str = "",
+    hlr_uid: str = "",
+    hlr_name: str = "",
 ) -> DecomposedRequirement:
     """Decompose a high-level requirement description into LLRs with verification stubs.
+
+    The agent runs in a multi-turn tool loop: it may call
+    ``search_existing_hlrs`` and ``create_dependency_link`` to discover and
+    link to related HLRs before producing the ``decompose_requirement`` output.
 
     Args:
         description: The HLR description text.
@@ -989,11 +1468,27 @@ def decompose(
             the agent will complete gaps rather than start from scratch.
         model: LLM model identifier to use.
         prompt_log_file: Path to write raw prompt/response for debugging.
+        hlr_uid: Neo4j uid of the HLR being decomposed. Pass when decomposing
+            a persisted HLR so ``create_dependency_link`` can persist
+            DEPENDS_ON edges.
+        hlr_name: Name of the HLR being decomposed. Used by the tool dispatcher
+            to skip the self-HLR in searches and as fallback for linking.
 
     Returns:
         A DecomposedRequirement with description and low_level_requirements.
     """
-    user_content = f"Decompose this high-level requirement:\n\n{description}"
+    user_content = (
+        f"Decompose this high-level requirement:\n\n{description}\n\n"
+        "IMPORTANT — Follow the VALIDATION-PROTOCOL:\n"
+        "1. Call search_existing_hlrs with relevant keywords from the description.\n"
+        "2. For each HLR that this new requirement genuinely depends on, call\n"
+        "   create_dependency_link with a clear rationale.\n"
+        "3. Produce a DRAFT decomposition (LLRs + verification stubs).\n"
+        "4. Call validate_my_decomposition with ALL your nodes.\n"
+        "5. Fix any violations and re-validate until clean.\n"
+        "6. Only THEN call decompose_requirement to submit your result.\n"
+        "Do NOT skip steps 4-5 — self-validation is mandatory.\n"
+    )
     if component:
         user_content += (
             f"\n\nThis HLR belongs to the **{component}** component. "
@@ -1003,7 +1498,18 @@ def decompose(
     # Build existing-context section for the system prompt
     existing_section = _format_existing_context(existing_context or {})
 
-    result = call_tool(
+    # Build the tool dispatcher for dependency discovery
+    is_persisted = bool(hlr_uid)
+    tool_dispatcher = _make_decompose_tool_dispatcher(
+        hlr_uid=hlr_uid,
+        hlr_name=hlr_name,
+        is_persisted=is_persisted,
+    )
+
+    # All tools: dependency discovery tools + validation + the final decompose tool
+    all_tools = [SEARCH_HLRS_TOOL, CREATE_DEPENDENCY_TOOL, VALIDATE_TOOL, TOOL_DEFINITION]
+
+    result = call_tool_loop(
         system=SYSTEM_PROMPT.replace("{existing_context_section}", existing_section),
         messages=[
             {
@@ -1011,10 +1517,12 @@ def decompose(
                 "content": user_content,
             }
         ],
-        tools=[TOOL_DEFINITION],
-        tool_name="decompose_requirement",
+        tools=all_tools,
+        final_tool_name="decompose_requirement",
+        tool_dispatcher=tool_dispatcher,
         model=model,
         max_tokens=32768,
+        max_turns=20,
         prompt_log_file=prompt_log_file,
     )
 
@@ -1106,6 +1614,7 @@ def decompose_and_persist_hlr(
         os.makedirs(log_dir, exist_ok=True)
         prompt_log_file = os.path.join(log_dir, f"decompose_hlr_{uid[:16]}.md")
 
+    hlr_name = hlr.name or ""
     log.info("decompose_and_persist_hlr: running decompose for %s", uid[:16])
     decomposed = decompose(
         description=hlr_description,
@@ -1114,6 +1623,8 @@ def decompose_and_persist_hlr(
         existing_context=existing_tree,
         model=model,
         prompt_log_file=prompt_log_file,
+        hlr_uid=uid,
+        hlr_name=hlr_name,
     )
 
     log.info(
@@ -1134,8 +1645,47 @@ def decompose_and_persist_hlr(
         for v in violations:
             msg_lines.append(f"  [{v.rule}] {v.message}")
         msg = "\n".join(msg_lines)
-        log.error("decompose_and_persist_hlr: %s", msg)
-        raise DecompositionValidationError(msg, violations=violations)
+        log.warning("decompose_and_persist_hlr: first attempt failed: %s", msg)
+
+        # Retry once — feed the validation errors back to the LLM so it can
+        # correct the specific issues (most commonly missing LLR→TestNode
+        # COMPOSES edges).
+        retry_prompt_log = ""
+        if log_dir:
+            retry_prompt_log = os.path.join(log_dir, f"decompose_hlr_{uid[:16]}_retry.md")
+
+        correction_context = _build_correction_context(
+            existing_tree, violations, list(decomposed.nodes)
+        )
+        correction_message = _build_correction_message(
+            violations, list(decomposed.nodes)
+        )
+
+        decomposed = decompose(
+            description=hlr_description + correction_message,
+            component=component_name,
+            dependency_context=dep_ctx,
+            existing_context=correction_context,
+            model=model,
+            prompt_log_file=retry_prompt_log,
+            hlr_uid=uid,
+            hlr_name=hlr_name,
+        )
+
+        log.info(
+            "decompose_and_persist_hlr: retry produced %d nodes",
+            len(decomposed.nodes),
+        )
+
+        violations = validate_decomposition(list(decomposed.nodes))
+        if violations:
+            msg_lines = [f"Decomposition failed validation after retry with {len(violations)} violation(s):"]
+            for v in violations:
+                msg_lines.append(f"  [{v.rule}] {v.message}")
+            msg = "\n".join(msg_lines)
+            log.error("decompose_and_persist_hlr: retry also failed: %s", msg)
+            raise DecompositionValidationError(msg, violations=violations)
+
     log.info("decompose_and_persist_hlr: validation passed (%d nodes)", len(decomposed.nodes))
 
     log.info("decompose_and_persist_hlr: persisting for %s", uid[:16])
@@ -1223,21 +1773,47 @@ def serialize_decomposition_to_markdown(
     from codegraph.graph import LayerGraph
     from codegraph.export.markdown import export_markdown
 
+    # Determine the HLR qualified_name (deterministic slug from description).
+    # This is used as the HLR's identity — uid = SHA1(qualified_name) —
+    # so the same description always produces the same HLR uid.
+    slug_source = hlr_name or decomposed.description or "decomposed"
+    slug = re.sub(r"[^a-z0-9]+", "-", slug_source.lower()).strip("-")
+    if not output_dir:
+        output_dir = f"codegraph/requirements/{slug}"
+
     # Convert the flat node list to a LayerGraph.
+    # Inject a synthetic HLR node at the head of the list so that
+    # LLRs nest under it (via COMPOSES edges) rather than appearing
+    # as root-level entries.  This ensures the exported markdown has
+    # the correct heading depth hierarchy:
+    #   ## HLR → ### LLR → #### Test → ##### Assertion / TestStep
+    nodes = [dict(n) for n in decomposed.nodes]
+    llr_identities: list[str] = []
+    for n in nodes:
+        if n.get("type") == "LLR":
+            ident = n.get("qualified_name") or n.get("name", "")
+            if ident:
+                llr_identities.append(ident)
+    hlr_node: dict = {
+        "type": "HLR",
+        "qualified_name": slug,
+        "name": slug,
+        "description": decomposed.description or "",
+        "tags": ["design"],
+        "edges": [
+            {"relation_type": "COMPOSES", "target_uid": ident, "target_type": "LLR"}
+            for ident in llr_identities
+        ],
+    }
+    nodes.insert(0, hlr_node)
+
     # create_missing=True auto-creates scaffold nodes (AttributeNode,
     # LiteralNode) referenced by LEFT_OPERAND / RIGHT_OPERAND / CALLEE
     # edges but not present as explicit nodes in the list.
-    nodes = [dict(n) for n in decomposed.nodes]
     graph = LayerGraph.deserialize(nodes, create_missing=True)
 
     # Export to standard markdown
     md = export_markdown(graph, fields="all")
-
-    # Determine output path
-    if not output_dir:
-        slug_source = hlr_name or decomposed.description or "decomposed"
-        slug = re.sub(r"[^a-z0-9]+", "-", slug_source.lower()).strip("-")
-        output_dir = f"codegraph/requirements/{slug}"
 
     out_path = Path(output_dir) / "requirements.md"
     out_path.parent.mkdir(parents=True, exist_ok=True)

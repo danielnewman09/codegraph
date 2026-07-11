@@ -243,6 +243,52 @@ class LayerGraph:
         """
         return {LayerGraph._node_key(e.node): e for e in self._all_entries()}
 
+    def _qname_index(self) -> dict[str, "CompositeEntry"]:
+        """Build a qualified_name → CompositeEntry lookup across the entire tree.
+
+        Returns:
+            A dict mapping every node's qualified_name to its CompositeEntry.
+            Nodes without a qualified_name are skipped. Bare names are also
+            indexed for unqualified lookups.
+        """
+        idx: dict[str, "CompositeEntry"] = {}
+        for entry in self._all_entries():
+            qname = getattr(entry.node, "qualified_name", None)
+            if qname:
+                idx[qname] = entry
+            name = getattr(entry.node, "name", None)
+            if name and name not in idx:
+                idx[name] = entry
+        return idx
+
+    def has_qname(self, qname: str) -> bool:
+        """Check if a qualified or bare name exists anywhere in this graph."""
+        if not qname:
+            return False
+        idx = self._qname_index()
+        if qname in idx:
+            return True
+        bare = qname.rsplit("::", 1)[-1] if "::" in qname else qname
+        return bare in idx
+
+    def merge(self, other: "LayerGraph") -> None:
+        """Merge another LayerGraph's entries into this one.
+
+        Existing entries (matched by node_key) are NOT overwritten —
+        children and references are merged recursively.
+        """
+        for key, other_entry in other.entries.items():
+            if key in self.entries:
+                existing = self.entries[key]
+                for child_type, child_map in other_entry.children.items():
+                    existing.children.setdefault(child_type, {}).update(child_map)
+                existing_refs = set(existing.references)
+                for ref in other_entry.references:
+                    if ref not in existing_refs:
+                        existing.references.append(ref)
+            else:
+                self.entries[key] = other_entry
+
     # ── Deserialization ──────────────────────────────────────────────
 
     @classmethod
@@ -922,3 +968,152 @@ class LayerGraph:
         }
 
         return cls(tags=frozenset({tag}), entries=root_entries)
+
+    @classmethod
+    def import_compound(cls, qname: str, tag: str | None = None) -> "LayerGraph":
+        """Create a LayerGraph containing a single compound and its members.
+
+        Fetches the compound node by qualified_name from Neo4j, walks
+        its COMPOSES children and non-COMPOSES edges.  Returns a new
+        LayerGraph for the caller to merge into a working graph.
+
+        Args:
+            qname: Fully-qualified name of the compound to fetch.
+            tag: Optional tag filter (e.g. 'as-built').  Only the
+                compound itself is tag-checked; children are included
+                regardless of tag.
+
+        Returns:
+            A LayerGraph containing the compound and its immediate
+            composition children.
+        """
+        from codegraph.models.compound import CompoundNode
+        from codegraph.models.namespace import NamespaceNode
+
+        node = CompoundNode.nodes.get_or_none(qualified_name=qname)
+        if node is None:
+            node = NamespaceNode.nodes.get_or_none(qualified_name=qname)
+        if node is None:
+            raise ValueError(f"No compound or namespace found for '{qname}'")
+        if tag and tag not in (node.tags or []):
+            raise ValueError(
+                f"Node '{qname}' has tags {list(node.tags or [])}, not '{tag}'"
+            )
+
+        actual_tags = frozenset(node.tags or []) or frozenset({"as-built"})
+        key = cls._node_key(node)
+        entry = CompositeEntry(node=node)
+
+        for child in node.walk_composes():
+            child_key = cls._node_key(child)
+            child_entry = CompositeEntry(node=child)
+            child_type = type(child).__name__
+            entry.children.setdefault(child_type, {})[child_key] = child_entry
+
+        for edge in node.walk_edges():
+            rt = edge["relation_type"]
+            if rt in ("COMPOSES", "HAS_IMPLEMENTATION"):
+                continue
+            if not edge.get("is_outgoing", True):
+                continue
+            entry.references.append((rt, edge["target_uid"], edge["target_type"]))
+
+        return cls(tags=actual_tags, entries={key: entry})
+
+    # ── Lookups & mutation ────────────────────────────────────────────
+
+    def _qname_index(self) -> dict[str, CompositeEntry]:
+        """Build a qualified_name → CompositeEntry lookup across the entire tree.
+
+        Returns:
+            A dict mapping every node's ``qualified_name`` to its
+            CompositeEntry.  Nodes without a ``qualified_name`` are
+            omitted.
+        """
+        index: dict[str, CompositeEntry] = {}
+        for entry in self._all_entries():
+            qname = getattr(entry.node, "qualified_name", None)
+            if qname:
+                index[qname] = entry
+        return index
+
+    def has_qualified_name(self, qname: str) -> bool:
+        """Check whether any node in the graph has the given qualified_name."""
+        return qname in self._qname_index()
+
+    def merge(self, other: "LayerGraph") -> None:
+        """Merge another LayerGraph into this one (mutates self).
+
+        For each root entry in *other*:
+        - If a node with the same ``qualified_name`` already exists in
+          *self*, recursively merges children and references into the
+          existing entry.
+        - Otherwise, adds the entire subtree as a new root entry.
+
+        Duplicate references are skipped; existing children take
+        precedence over same-keyed incoming children.
+
+        Args:
+            other: A LayerGraph whose entries will be merged in.
+        """
+        # Pre-build index so it stays fresh as we mutate self.entries
+        self_qnames = self._qname_index()
+
+        def _merge_children(
+            existing_children: dict,
+            incoming_children: dict,
+        ) -> None:
+            """Recursively merge incoming children into existing."""
+            for type_name, incoming_type_children in incoming_children.items():
+                if type_name not in existing_children:
+                    existing_children[type_name] = {}
+                for child_key, child_entry in incoming_type_children.items():
+                    child_qname = getattr(
+                        child_entry.node, "qualified_name", None
+                    )
+                    if child_qname and child_qname in self_qnames:
+                        # Child already exists — merge deeper
+                        _merge_existing(
+                            self_qnames[child_qname], child_entry
+                        )
+                    elif child_key not in existing_children[type_name]:
+                        existing_children[type_name][child_key] = child_entry
+                        # Index all newly-added entries in the subtree
+                        for e in self._walk_entries(child_entry):
+                            eqn = getattr(e.node, "qualified_name", None)
+                            if eqn:
+                                self_qnames[eqn] = e
+
+        def _merge_existing(
+            existing: CompositeEntry,
+            incoming: CompositeEntry,
+        ) -> None:
+            """Merge references and children from incoming into existing."""
+            # Merge references (skip duplicates)
+            existing_refs = set(existing.references)
+            for ref in incoming.references:
+                if ref not in existing_refs:
+                    existing.references.append(ref)
+                    existing_refs.add(ref)
+
+            # Recursively merge children
+            _merge_children(existing.children, incoming.children)
+
+        # Walk other's root entries
+        for key, entry in other.entries.items():
+            qname = getattr(entry.node, "qualified_name", None)
+            if qname and qname in self_qnames:
+                # Merge into existing entry
+                _merge_existing(self_qnames[qname], entry)
+            elif key not in self.entries:
+                # Add as a new root entry
+                self.entries[key] = entry
+                # Index the entire new subtree
+                for e in self._walk_entries(entry):
+                    eqn = getattr(e.node, "qualified_name", None)
+                    if eqn:
+                        self_qnames[eqn] = e
+
+    def __len__(self) -> int:
+        """Number of nodes in the graph (including children)."""
+        return sum(1 for _ in self._all_entries())

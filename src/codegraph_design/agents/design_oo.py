@@ -226,12 +226,22 @@ resolve verification stubs to reference real design elements.
 
 **Workflow:**
 
+0. **Discover as-built context** — Use search_symbols to find relevant
+   classes by name.  For each class you need to reference (e.g. as a
+   dependency, parameter type, or base class), call import_compound
+   to load it into the context graph.  Do NOT recreate these classes
+   as design nodes — your design should contain ONLY new classes.
+   The context graph makes as-built names valid reference targets.
 1. **Design** — Use validate_design and check_class_name to produce a
    sound OO class design. Call produce_oo_design when ready.
-2. **Resolve verifications** — Map each notional verification stub to
+2. **Smell-check** — Call check_design_smells with your design nodes.
+   Fix all blocking smells before proceeding (orphaned enums, invalid
+   edges, duplicate names, etc.). Warning-level smells should be
+   reviewed but don't block the pipeline.
+3. **Resolve verifications** — Map each notional verification stub to
    qualified names from your design. Call draft_verifications to check
    that all references resolve.
-3. **Commit** — Call commit_design_and_verifications with the final
+4. **Commit** — Call commit_design_and_verifications with the final
    design and verifications as arguments.
 
 {specializations_section}
@@ -242,10 +252,14 @@ resolve verification stubs to reference real design elements.
 
 ### Design rules
 
-- Reference ONLY qualified names from the design context, dependency APIs,
-  intercomponent boundaries, or your own draft
+- **NEVER create a design node for a class that already exists in the codegraph.**
+  Use import_compound to load it into context, then reference it by its
+  fully-qualified name in DEPENDS_ON edges, type signatures, and verifications.
 - Qualified names follow C++ convention: Namespace::ClassName::memberName
-- Use check_class_name to verify association targets before including them
+- The full codegraph is the single source of truth — any qualified name that
+  exists anywhere in Neo4j (any tag) is a valid reference target
+- Use check_class_name to discover names, import_compound to load them
+  into context, then reference them in your design
 - Keep classes focused and cohesive
 
 ### Verification resolution
@@ -304,9 +318,7 @@ def design_hlr(
     hlr: HLR,
     llrs: list[LLR],
     *,
-    prior_class_lookup: dict[str, str] | None = None,
-    dependency_lookup: dict[str, str] | None = None,
-    intercomponent_classes: list[dict] | None = None,
+    context_classes: list[dict] | None = None,
     component_namespace: str = "",
     sibling_namespaces: list[str] | None = None,
     model: str = "",
@@ -323,9 +335,8 @@ def design_hlr(
     Args:
         hlr: Neomodel HLR instance.
         llrs: Neomodel LLR instances belonging to this HLR.
-        prior_class_lookup: Name → qualified_name from prior designs.
-        dependency_lookup: Name → qualified_name for dependency API classes.
-        intercomponent_classes: Inter-component boundary class dicts.
+        context_classes: Inter-component / prior-design class dicts to
+            seed into the context graph.
         component_namespace: Required C++ namespace for this component.
         sibling_namespaces: Other component namespaces.
         model: LLM model override.
@@ -356,13 +367,13 @@ def design_hlr(
         else ""
     )
     existing_section = (
-        build_existing_classes_section(intercomponent_classes or [])
-        if intercomponent_classes
+        build_existing_classes_section(context_classes or [])
+        if context_classes
         else ""
     )
     intercomp_section = (
-        build_intercomponent_section(intercomponent_classes or [])
-        if intercomponent_classes
+        build_intercomponent_section(context_classes or [])
+        if context_classes
         else ""
     )
 
@@ -408,9 +419,7 @@ def design_hlr(
 
     # --- Build dispatchers ---
     design_disp = DesignToolDispatcher(
-        prior_class_lookup=prior_class_lookup or {},
-        dependency_lookup=dependency_lookup or {},
-        intercomponent_classes=intercomponent_classes or [],
+        context_classes=context_classes or None,
         component_namespace=component_namespace,
         sibling_namespaces=sibling_namespaces or [],
     )
@@ -551,8 +560,38 @@ def _update_scaffold_to_design(scaffold_node, design_dict: dict) -> bool:
         params["bd"] = dbd
 
     label_ops = ""
-    if dtype and dtype != sn_type:
-        label_ops = f"REMOVE n:`{sn_type}` SET n:`{dtype}` "
+    stale: set[str] = set()
+    if dtype:
+        # Query the ACTUAL labels from Neo4j, not from the Python
+        # class hierarchy.  Neomodel may resolve a node with labels
+        # {AttributeNode, MemberNode} as either AttributeNode or
+        # MemberNode; relying on inherited_labels() from the Python
+        # type loses the concrete label (e.g. AttributeNode) and
+        # skips the REMOVE step.  Using actual DB labels ensures we
+        # know exactly what to remove.
+        actual_label_rows, __ = neomodel_db.cypher_query(
+            "MATCH (n) WHERE elementId(n) = $eid RETURN labels(n)",
+            {"eid": eid},
+        )
+        old_labels = set(actual_label_rows[0][0]) if actual_label_rows else {sn_type}
+        target_cls = CodeGraphNode._registry.get(dtype)
+        new_labels = set(getattr(target_cls, "inherited_labels", lambda: [dtype])()) if target_cls else {dtype}
+        stale = old_labels - new_labels
+        # Only run migration if the node doesn't already have the target label
+        # Set ALL inherited labels, not just dtype.  Otherwise nodes
+        # that lack a parent label (e.g. LiteralNode→EnumValueNode
+        # where LiteralNode has no MemberNode) only get the leaf label
+        # and fail neomodel resolution later.
+        missing_labels = new_labels - old_labels
+        label_ops = " ".join(f"SET n:`{l}`" for l in sorted(missing_labels))
+        for sl in sorted(stale):
+            try:
+                neomodel_db.cypher_query(
+                    "MATCH (n) WHERE elementId(n) = $eid REMOVE n:`" + sl + "`",
+                    {"eid": eid},
+                )
+            except Exception as exc:
+                log.warning("REMOVE label %s failed for %s: %s", sl, dqn, exc)
 
     query = (
         f"MATCH (n) WHERE elementId(n) = $eid "
@@ -561,9 +600,25 @@ def _update_scaffold_to_design(scaffold_node, design_dict: dict) -> bool:
     )
     try:
         neomodel_db.cypher_query(query, params)
-        log.info("Updated scaffold %s → %s (%s → %s)",
+        # ── Post-update: verify no stale labels remain ──
+        if stale:
+            for sl in sorted(stale):
+                check_results, _ = neomodel_db.cypher_query(
+                    "MATCH (n) WHERE elementId(n) = $eid AND n:`" + sl + "` RETURN n",
+                    {"eid": eid},
+                )
+                if check_results:
+                    log.warning(
+                        "Scaffold %s still has stale label %s after update; forcing removal",
+                        dqn, sl,
+                    )
+                    neomodel_db.cypher_query(
+                        "MATCH (n) WHERE elementId(n) = $eid REMOVE n:`" + sl + "`",
+                        {"eid": eid},
+                    )
+        log.info("Updated scaffold %s → %s (labels %s → %s)",
                  getattr(scaffold_node, "qualified_name", "?"), dqn,
-                 sn_type, dtype or sn_type)
+                 sorted(old_labels), sorted(new_labels))
         return True
     except Exception as exc:
         log.warning("Failed to update scaffold %s → %s: %s",
@@ -854,7 +909,18 @@ def _generate_design_artifacts(hlr: HLR, design_nodes: list[dict]) -> dict:
     try:
         full_graph = LayerGraph.from_neo4j(tag="design")
     except Exception as exc:
-        log.warning("Failed to load design LayerGraph: %s", exc)
+        exc_str = str(exc)
+        # NodeClassNotDefined often means an EnumValueNode is missing
+        # its parent MemberNode label — likely orphaned from its EnumNode.
+        if "does not resolve to any of the known objects" in exc_str:
+            log.warning(
+                "Failed to load design LayerGraph — a node's labels do not "
+                "match the neomodel class registry.  This often means an "
+                "EnumValueNode was created without its parent MemberNode label. "
+                "Error: %s", exc
+            )
+        else:
+            log.warning("Failed to load design LayerGraph: %s", exc)
         result["design_md"] = f"LayerGraph load error: {exc}"
         result["puml"] = f"LayerGraph load error: {exc}"
         return result
@@ -1070,6 +1136,14 @@ def design_and_persist_hlr(
         ``verifications_resolved``, ``conditions_created``, ``actions_created``,
         ``links_applied``, ``scaffold_retaged``, ``scaffold_cleaned``.
     """
+    # ── Ensure agent-internal context logging is visible ──────────────
+    for _lname in (
+        "codegraph_design.tools.design_tools",
+        "codegraph_design.tools.dispatcher",
+        "codegraph_design.agents.design_oo",
+    ):
+        logging.getLogger(_lname).setLevel(logging.INFO)
+
     log.info("design_and_persist_hlr: loading HLR %s", hlr_uid[:16])
     hlr = HLR.nodes.get_or_none(uid=hlr_uid)
     if not hlr:
@@ -1105,12 +1179,12 @@ def design_and_persist_hlr(
             if ns and ns not in sibling_namespaces:
                 sibling_namespaces.append(ns)
 
-    intercomponent_classes: list[dict] = []
+    context_classes: list[dict] = []
     for other_hlr in HLR.nodes.all():
         if other_hlr.uid == hlr_uid:
             continue
         for target in other_hlr.design_compounds.all():
-            intercomponent_classes.append({
+            context_classes.append({
                 "qualified_name": target.qualified_name,
                 "name": target.name or "",
                 "kind": getattr(target, "kind", "class"),
@@ -1120,7 +1194,7 @@ def design_and_persist_hlr(
     result = design_hlr(
         hlr=hlr,
         llrs=llr_nodes,
-        intercomponent_classes=intercomponent_classes or None,
+        context_classes=context_classes or None,
         component_namespace=component_namespace,
         sibling_namespaces=sibling_namespaces or None,
         log_dir=log_dir,
@@ -1167,7 +1241,12 @@ def design_and_persist_hlr(
             hlr.design_compounds.connect(target_node)
             links_applied += 1
         except Exception as exc:
-            log.warning("Failed to COMPOSES link HLR %s -> %s: %s", hlr_uid[:8], qn, exc)
+            node_cls = type(target_node).__name__
+            node_labels = list(target_node.labels) if hasattr(target_node, 'labels') else ['?']
+            node_type = node_dict.get("type", "?")
+            node_kind = node_dict.get("kind", "?")
+            log.warning("Failed to COMPOSES link HLR %s -> %s (design type=%s, kind=%s): %s (node class: %s, labels: %s)",
+                        hlr_uid[:8], qn, node_type, node_kind, exc, node_cls, node_labels)
 
     log.info(
         "Design+verify complete for HLR %s: %d nodes updated, %d created, "

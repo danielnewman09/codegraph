@@ -1,0 +1,1159 @@
+{
+  "design": [
+    {
+      "type": "NamespaceNode",
+      "kind": "namespace",
+      "name": "diagram_gen",
+      "qualified_name": "diagram_gen",
+      "description": "Architecture Diagram Generator namespace",
+      "tags": [
+        "design"
+      ]
+    },
+    {
+      "type": "EnumNode",
+      "kind": "enum",
+      "name": "ArchitectureError",
+      "qualified_name": "diagram_gen::ArchitectureError",
+      "brief_description": "Error states for the Architecture Diagram Generator",
+      "tags": [
+        "design"
+      ],
+      "composes": [
+        {
+          "type": "EnumValueNode",
+          "kind": "enumvalue",
+          "name": "NoError",
+          "qualified_name": "diagram_gen::ArchitectureError::NoError",
+          "brief_description": "No error occurred",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "type": "EnumValueNode",
+          "kind": "enumvalue",
+          "name": "EmptyGraphError",
+          "qualified_name": "diagram_gen::ArchitectureError::EmptyGraphError",
+          "brief_description": "The LayerGraph is empty",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "type": "EnumValueNode",
+          "kind": "enumvalue",
+          "name": "NoModulesError",
+          "qualified_name": "diagram_gen::ArchitectureError::NoModulesError",
+          "brief_description": "The LayerGraph has no ModuleNode or NamespaceNode entries",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "type": "EnumValueNode",
+          "kind": "enumvalue",
+          "name": "InvalidPathError",
+          "qualified_name": "diagram_gen::ArchitectureError::InvalidPathError",
+          "brief_description": "The file path is invalid (empty or non-writable directory)",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "type": "EnumValueNode",
+          "kind": "enumvalue",
+          "name": "WriteFailureError",
+          "qualified_name": "diagram_gen::ArchitectureError::WriteFailureError",
+          "brief_description": "Write to file failed (disk full, permissions)",
+          "tags": [
+            "design"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ClassNode",
+      "kind": "class",
+      "name": "LayerGraph",
+      "qualified_name": "diagram_gen::LayerGraph",
+      "brief_description": "Input graph containing codegraph nodes filtered by tags",
+      "tags": [
+        "design"
+      ],
+      "composes": [
+        {
+          "type": "AttributeNode",
+          "kind": "attribute",
+          "name": "is_empty",
+          "qualified_name": "diagram_gen::LayerGraph::is_empty",
+          "type_signature": "bool",
+          "brief_description": "True if the graph has no nodes",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "type": "AttributeNode",
+          "kind": "attribute",
+          "name": "is_populated",
+          "qualified_name": "diagram_gen::LayerGraph::is_populated",
+          "type_signature": "bool",
+          "brief_description": "True if the graph has at least one node",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ClassNode",
+      "kind": "class",
+      "name": "ArchitectureOptions",
+      "qualified_name": "diagram_gen::ArchitectureOptions",
+      "brief_description": "Configuration options for diagram generation",
+      "tags": [
+        "design"
+      ],
+      "composes": [
+        {
+          "type": "AttributeNode",
+          "kind": "attribute",
+          "name": "min_entity_count",
+          "qualified_name": "diagram_gen::ArchitectureOptions::min_entity_count",
+          "type_signature": "int",
+          "brief_description": "Minimum entity count for a package to be included in the diagram",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ClassNode",
+      "kind": "class",
+      "name": "ArchitectureDiagramGenerator",
+      "qualified_name": "diagram_gen::ArchitectureDiagramGenerator",
+      "brief_description": "Generates PlantUML component diagrams from a LayerGraph",
+      "tags": [
+        "design"
+      ],
+      "composes": [
+        {
+          "type": "MethodNode",
+          "kind": "method",
+          "name": "generate",
+          "qualified_name": "diagram_gen::ArchitectureDiagramGenerator::generate",
+          "argsstring": "(layer_graph: diagram_gen::LayerGraph, options: diagram_gen::ArchitectureOptions) -> str",
+          "brief_description": "Generate a PlantUML component-diagram string from a LayerGraph",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "type": "MethodNode",
+          "kind": "method",
+          "name": "export_to_file",
+          "qualified_name": "diagram_gen::ArchitectureDiagramGenerator::export_to_file",
+          "argsstring": "(file_path: str) -> void",
+          "brief_description": "Export the generated diagram to a .puml file",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "type": "AttributeNode",
+          "kind": "attribute",
+          "name": "error_state",
+          "qualified_name": "diagram_gen::ArchitectureDiagramGenerator::error_state",
+          "type_signature": "diagram_gen::ArchitectureError",
+          "brief_description": "Current error state",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "type": "AttributeNode",
+          "kind": "attribute",
+          "name": "generated_diagram",
+          "qualified_name": "diagram_gen::ArchitectureDiagramGenerator::generated_diagram",
+          "type_signature": "str",
+          "brief_description": "The generated PlantUML diagram string",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "type": "AttributeNode",
+          "kind": "attribute",
+          "name": "first_output",
+          "qualified_name": "diagram_gen::ArchitectureDiagramGenerator::first_output",
+          "type_signature": "str",
+          "brief_description": "Output from first generate call (for determinism check)",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "type": "AttributeNode",
+          "kind": "attribute",
+          "name": "second_output",
+          "qualified_name": "diagram_gen::ArchitectureDiagramGenerator::second_output",
+          "type_signature": "str",
+          "brief_description": "Output from second generate call (for determinism check)",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "type": "AttributeNode",
+          "kind": "attribute",
+          "name": "rendered_arrow_count",
+          "qualified_name": "diagram_gen::ArchitectureDiagramGenerator::rendered_arrow_count",
+          "type_signature": "int",
+          "brief_description": "Number of dependency arrows in the rendered diagram",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "type": "AttributeNode",
+          "kind": "attribute",
+          "name": "rendered_entity_count",
+          "qualified_name": "diagram_gen::ArchitectureDiagramGenerator::rendered_entity_count",
+          "type_signature": "int",
+          "brief_description": "Number of entities rendered in the diagram",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "type": "AttributeNode",
+          "kind": "attribute",
+          "name": "rendered_package_count",
+          "qualified_name": "diagram_gen::ArchitectureDiagramGenerator::rendered_package_count",
+          "type_signature": "int",
+          "brief_description": "Number of packages rendered in the diagram",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ClassNode",
+      "kind": "class",
+      "name": "ModuleQuery",
+      "qualified_name": "diagram_gen::ModuleQuery",
+      "brief_description": "Result of querying modules/namespaces from a LayerGraph",
+      "tags": [
+        "design"
+      ],
+      "composes": [
+        {
+          "type": "AttributeNode",
+          "kind": "attribute",
+          "name": "module_count",
+          "qualified_name": "diagram_gen::ModuleQuery::module_count",
+          "type_signature": "int",
+          "brief_description": "Number of modules/namespaces found",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "type": "AttributeNode",
+          "kind": "attribute",
+          "name": "nested_module_count",
+          "qualified_name": "diagram_gen::ModuleQuery::nested_module_count",
+          "type_signature": "int",
+          "brief_description": "Number of nested modules/namespaces",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "type": "AttributeNode",
+          "kind": "attribute",
+          "name": "class_count",
+          "qualified_name": "diagram_gen::ModuleQuery::class_count",
+          "type_signature": "int",
+          "brief_description": "Number of classes found across all modules",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "type": "AttributeNode",
+          "kind": "attribute",
+          "name": "dependency_count",
+          "qualified_name": "diagram_gen::ModuleQuery::dependency_count",
+          "type_signature": "int",
+          "brief_description": "Number of inter-module dependencies found",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "type": "AttributeNode",
+          "kind": "attribute",
+          "name": "total_entity_count",
+          "qualified_name": "diagram_gen::ModuleQuery::total_entity_count",
+          "type_signature": "int",
+          "brief_description": "Total count of entities (classes+interfaces+enums) across all modules",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ClassNode",
+      "kind": "class",
+      "name": "PackageNode",
+      "qualified_name": "diagram_gen::PackageNode",
+      "brief_description": "Intermediate representation of a package/module for diagram generation",
+      "tags": [
+        "design"
+      ],
+      "composes": [
+        {
+          "type": "AttributeNode",
+          "kind": "attribute",
+          "name": "entity_count",
+          "qualified_name": "diagram_gen::PackageNode::entity_count",
+          "type_signature": "int",
+          "brief_description": "Number of entities within this package",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "type": "AttributeNode",
+          "kind": "attribute",
+          "name": "first_class_name",
+          "qualified_name": "diagram_gen::PackageNode::first_class_name",
+          "type_signature": "str",
+          "brief_description": "Name of the first class in this package",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "type": "AttributeNode",
+          "kind": "attribute",
+          "name": "small_pkg_name",
+          "qualified_name": "diagram_gen::PackageNode::small_pkg_name",
+          "type_signature": "str",
+          "brief_description": "Name used for a small package (below threshold)",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "type": "AttributeNode",
+          "kind": "attribute",
+          "name": "threshold_pkg_name",
+          "qualified_name": "diagram_gen::PackageNode::threshold_pkg_name",
+          "type_signature": "str",
+          "brief_description": "Name used for a threshold package (at min_entity_count)",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ClassNode",
+      "kind": "class",
+      "name": "CodegraphQuery",
+      "qualified_name": "diagram_gen::CodegraphQuery",
+      "brief_description": "Queries a LayerGraph for modules, packages, and dependency data",
+      "tags": [
+        "design"
+      ],
+      "composes": [
+        {
+          "type": "MethodNode",
+          "kind": "method",
+          "name": "query_modules",
+          "qualified_name": "diagram_gen::CodegraphQuery::query_modules",
+          "argsstring": "(layer_graph: diagram_gen::LayerGraph) -> diagram_gen::ModuleQuery",
+          "brief_description": "Query module/namespace metadata from the LayerGraph",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "type": "MethodNode",
+          "kind": "method",
+          "name": "query_packages",
+          "qualified_name": "diagram_gen::CodegraphQuery::query_packages",
+          "argsstring": "(layer_graph: diagram_gen::LayerGraph) -> list",
+          "brief_description": "Query package nodes from the LayerGraph",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "type": "MethodNode",
+          "kind": "method",
+          "name": "query_dependencies",
+          "qualified_name": "diagram_gen::CodegraphQuery::query_dependencies",
+          "argsstring": "(layer_graph: diagram_gen::LayerGraph) -> list",
+          "brief_description": "Query inter-module dependencies from the LayerGraph",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ClassNode",
+      "kind": "class",
+      "name": "DiagramRenderer",
+      "qualified_name": "diagram_gen::DiagramRenderer",
+      "brief_description": "Renders the intermediate representation into PlantUML component-diagram syntax",
+      "tags": [
+        "design"
+      ],
+      "composes": [
+        {
+          "type": "MethodNode",
+          "kind": "method",
+          "name": "render",
+          "qualified_name": "diagram_gen::DiagramRenderer::render",
+          "argsstring": "(packages: list, dependencies: list, options: diagram_gen::ArchitectureOptions) -> str",
+          "brief_description": "Render packages and dependencies into a PlantUML component-diagram string",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "type": "AttributeNode",
+          "kind": "attribute",
+          "name": "rendered_arrow_count",
+          "qualified_name": "diagram_gen::DiagramRenderer::rendered_arrow_count",
+          "type_signature": "int",
+          "brief_description": "Count of arrows rendered",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "type": "AttributeNode",
+          "kind": "attribute",
+          "name": "rendered_entity_count",
+          "qualified_name": "diagram_gen::DiagramRenderer::rendered_entity_count",
+          "type_signature": "int",
+          "brief_description": "Count of entities rendered",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "type": "AttributeNode",
+          "kind": "attribute",
+          "name": "rendered_package_count",
+          "qualified_name": "diagram_gen::DiagramRenderer::rendered_package_count",
+          "type_signature": "int",
+          "brief_description": "Count of packages rendered",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ClassNode",
+      "kind": "class",
+      "name": "FileSystem",
+      "qualified_name": "diagram_gen::FileSystem",
+      "brief_description": "Utility for file system operations",
+      "tags": [
+        "design"
+      ],
+      "composes": [
+        {
+          "type": "MethodNode",
+          "kind": "method",
+          "name": "file_exists",
+          "qualified_name": "diagram_gen::FileSystem::file_exists",
+          "argsstring": "(path: str) -> bool",
+          "brief_description": "Check if a file exists at the given path",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "type": "MethodNode",
+          "kind": "method",
+          "name": "write_file",
+          "qualified_name": "diagram_gen::FileSystem::write_file",
+          "argsstring": "(path: str, content: str) -> void",
+          "brief_description": "Write content to a file. Raises on failure.",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ClassNode",
+      "kind": "class",
+      "name": "Dependency",
+      "qualified_name": "diagram_gen::Dependency",
+      "brief_description": "Represents a directed dependency between two packages",
+      "tags": [
+        "design"
+      ],
+      "composes": [
+        {
+          "type": "AttributeNode",
+          "kind": "attribute",
+          "name": "source",
+          "qualified_name": "diagram_gen::Dependency::source",
+          "type_signature": "str",
+          "brief_description": "Source package qualified name",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        },
+        {
+          "type": "AttributeNode",
+          "kind": "attribute",
+          "name": "target",
+          "qualified_name": "diagram_gen::Dependency::target",
+          "type_signature": "str",
+          "brief_description": "Target package qualified name",
+          "visibility": "public",
+          "tags": [
+            "design"
+          ]
+        }
+      ]
+    }
+  ],
+  "verifications": {
+    "51a112c146364b8e881a1f07bfded4e1": [
+      {
+        "method": "automated",
+        "test_name": "test_export_to_file_signals_error_on_write_failure",
+        "description": "Invoke export_to_file with a path to a non-writable directory and verify it signals a WriteFailureError.",
+        "preconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::LayerGraph::is_populated",
+            "operator": "==",
+            "expected_value": "true"
+          }
+        ],
+        "actions": [
+          {
+            "type": "invoke",
+            "callee_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::export_to_file",
+            "arguments": {
+              "file_path": "/non-writable-dir/output.puml"
+            }
+          }
+        ],
+        "postconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::error_state",
+            "operator": "==",
+            "expected_value": "WriteFailureError"
+          }
+        ]
+      },
+      {
+        "method": "automated",
+        "test_name": "test_export_to_file_signals_error_for_invalid_path",
+        "description": "Invoke export_to_file with an empty string path and verify it signals an InvalidPathError.",
+        "preconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::LayerGraph::is_populated",
+            "operator": "==",
+            "expected_value": "true"
+          }
+        ],
+        "actions": [
+          {
+            "type": "invoke",
+            "callee_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::export_to_file",
+            "arguments": {
+              "file_path": ""
+            }
+          }
+        ],
+        "postconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::error_state",
+            "operator": "==",
+            "expected_value": "InvalidPathError"
+          }
+        ]
+      },
+      {
+        "method": "automated",
+        "test_name": "test_export_to_file_writes_valid_puml",
+        "description": "Invoke export_to_file with a valid writable path and verify the .puml file is created and contains the PlantUML diagram string.",
+        "preconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::LayerGraph::is_populated",
+            "operator": "==",
+            "expected_value": "true"
+          }
+        ],
+        "actions": [
+          {
+            "type": "invoke",
+            "callee_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::export_to_file",
+            "arguments": {
+              "file_path": "/tmp/test_output.puml"
+            }
+          }
+        ],
+        "postconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::FileSystem::file_exists",
+            "operator": "==",
+            "expected_value": "true"
+          }
+        ]
+      }
+    ],
+    "f0c6c337eb734de88b876a7305834ec2": [
+      {
+        "method": "automated",
+        "test_name": "test_identical_output_for_identical_input",
+        "description": "Invoke generate twice on the same LayerGraph with the same options and verify the two output strings are identical.",
+        "preconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ModuleQuery::module_count",
+            "operator": ">",
+            "expected_value": "1"
+          }
+        ],
+        "actions": [
+          {
+            "type": "invoke",
+            "callee_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::generate",
+            "arguments": {
+              "layer_graph": "same_deterministic_graph",
+              "options": "default_options"
+            }
+          },
+          {
+            "type": "invoke",
+            "callee_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::generate",
+            "arguments": {
+              "layer_graph": "same_deterministic_graph",
+              "options": "default_options"
+            }
+          }
+        ],
+        "postconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::first_output",
+            "operator": "==",
+            "expected_value": "diagram_gen::ArchitectureDiagramGenerator::second_output"
+          }
+        ]
+      }
+    ],
+    "c94e765e5e9148d8b5f36eb28f63676f": [
+      {
+        "method": "automated",
+        "test_name": "test_excludes_arrows_to_filtered_packages",
+        "description": "Invoke generate with min_entity_count=3 on a graph where a small package (1 entity) has a dependency to/from a large package, and verify no arrow references the small package.",
+        "preconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ModuleQuery::dependency_count",
+            "operator": ">",
+            "expected_value": "0"
+          }
+        ],
+        "actions": [
+          {
+            "type": "invoke",
+            "callee_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::generate",
+            "arguments": {
+              "layer_graph": "graph_with_filtered_deps",
+              "options": {
+                "min_entity_count": 3
+              }
+            }
+          }
+        ],
+        "postconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::generated_diagram",
+            "operator": "not_contains",
+            "expected_value": "diagram_gen::PackageNode::small_pkg_name"
+          }
+        ]
+      },
+      {
+        "method": "automated",
+        "test_name": "test_includes_packages_at_or_above_min_entity_count",
+        "description": "Invoke generate with min_entity_count=3 on a graph containing a package with 3 entities and verify that package is included in the output diagram.",
+        "preconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::PackageNode::entity_count",
+            "operator": ">=",
+            "expected_value": "3"
+          }
+        ],
+        "actions": [
+          {
+            "type": "invoke",
+            "callee_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::generate",
+            "arguments": {
+              "layer_graph": "graph_with_threshold_pkg",
+              "options": {
+                "min_entity_count": 3
+              }
+            }
+          }
+        ],
+        "postconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::generated_diagram",
+            "operator": "contains",
+            "expected_value": "diagram_gen::PackageNode::threshold_pkg_name"
+          }
+        ]
+      },
+      {
+        "method": "automated",
+        "test_name": "test_excludes_packages_below_min_entity_count",
+        "description": "Invoke generate with min_entity_count=3 on a graph containing a package with 1 entity and verify that package is excluded from the output diagram.",
+        "preconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::PackageNode::entity_count",
+            "operator": "==",
+            "expected_value": "1"
+          }
+        ],
+        "actions": [
+          {
+            "type": "invoke",
+            "callee_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::generate",
+            "arguments": {
+              "layer_graph": "graph_with_small_pkg",
+              "options": {
+                "min_entity_count": 3
+              }
+            }
+          }
+        ],
+        "postconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::generated_diagram",
+            "operator": "not_contains",
+            "expected_value": "diagram_gen::PackageNode::small_pkg_name"
+          }
+        ]
+      }
+    ],
+    "c9b23456d0354cfeb36d46a2bb26350d": [
+      {
+        "method": "automated",
+        "test_name": "test_no_arrows_when_no_dependencies",
+        "description": "Invoke generate on a graph where no packages have dependencies and verify the diagram contains no dependency arrows.",
+        "preconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ModuleQuery::dependency_count",
+            "operator": "==",
+            "expected_value": "0"
+          }
+        ],
+        "actions": [
+          {
+            "type": "invoke",
+            "callee_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::generate",
+            "arguments": {
+              "layer_graph": "graph_with_no_deps",
+              "options": "default_options"
+            }
+          }
+        ],
+        "postconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::generated_diagram",
+            "operator": "not_contains",
+            "expected_value": "arrow"
+          }
+        ]
+      },
+      {
+        "method": "automated",
+        "test_name": "test_directed_arrows_rendered_between_dependent_packages",
+        "description": "Invoke generate on a graph where package A depends on package B and verify the diagram contains a directed arrow from A to B.",
+        "preconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ModuleQuery::dependency_count",
+            "operator": ">",
+            "expected_value": "0"
+          }
+        ],
+        "actions": [
+          {
+            "type": "invoke",
+            "callee_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::generate",
+            "arguments": {
+              "layer_graph": "graph_with_deps",
+              "options": "default_options"
+            }
+          }
+        ],
+        "postconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::generated_diagram",
+            "operator": "contains",
+            "expected_value": "right_arrow"
+          }
+        ]
+      }
+    ],
+    "202ae5b469b341269fc544af4932e7aa": [
+      {
+        "method": "automated",
+        "test_name": "test_nested_namespaces_rendered_as_nested_packages",
+        "description": "Invoke generate on a graph with nested namespace/module hierarchy and verify the diagram renders nested package blocks.",
+        "preconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ModuleQuery::nested_module_count",
+            "operator": ">",
+            "expected_value": "0"
+          }
+        ],
+        "actions": [
+          {
+            "type": "invoke",
+            "callee_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::generate",
+            "arguments": {
+              "layer_graph": "graph_with_nested_modules",
+              "options": "default_options"
+            }
+          }
+        ],
+        "postconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::generated_diagram",
+            "operator": "contains",
+            "expected_value": "nested_package"
+          }
+        ]
+      },
+      {
+        "method": "automated",
+        "test_name": "test_classes_rendered_inside_packages_at_medium_detail",
+        "description": "Invoke generate and verify that classes inside a module are rendered inside the corresponding package block with at least their names and key members visible.",
+        "preconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ModuleQuery::class_count",
+            "operator": ">",
+            "expected_value": "0"
+          }
+        ],
+        "actions": [
+          {
+            "type": "invoke",
+            "callee_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::generate",
+            "arguments": {
+              "layer_graph": "graph_with_classes",
+              "options": "default_options"
+            }
+          }
+        ],
+        "postconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::generated_diagram",
+            "operator": "contains",
+            "expected_value": "diagram_gen::PackageNode::first_class_name"
+          }
+        ]
+      },
+      {
+        "method": "automated",
+        "test_name": "test_packages_rendered_as_plantuml_package_blocks",
+        "description": "Invoke generate and verify each module in the input graph is rendered as a PlantUML package block using package notation.",
+        "preconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ModuleQuery::module_count",
+            "operator": ">",
+            "expected_value": "0"
+          }
+        ],
+        "actions": [
+          {
+            "type": "invoke",
+            "callee_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::generate",
+            "arguments": {
+              "layer_graph": "graph_with_modules",
+              "options": "default_options"
+            }
+          }
+        ],
+        "postconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::generated_diagram",
+            "operator": "contains",
+            "expected_value": "package"
+          }
+        ]
+      }
+    ],
+    "c43c3bc6a45a4ba6a63864bd8e44cb75": [
+      {
+        "method": "automated",
+        "test_name": "test_query_returns_dependencies",
+        "description": "Invoke generate on a graph where modules have inter-module dependencies and verify the diagram contains arrows representing those dependencies.",
+        "preconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ModuleQuery::dependency_count",
+            "operator": ">",
+            "expected_value": "0"
+          }
+        ],
+        "actions": [
+          {
+            "type": "invoke",
+            "callee_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::generate",
+            "arguments": {
+              "layer_graph": "graph_with_deps",
+              "options": "default_options"
+            }
+          }
+        ],
+        "postconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::rendered_arrow_count",
+            "operator": ">",
+            "expected_value": "0"
+          }
+        ]
+      },
+      {
+        "method": "automated",
+        "test_name": "test_query_returns_composed_entities",
+        "description": "Invoke generate on a graph where modules contain classes, interfaces, and enums, and verify the diagram package blocks contain those composed entities.",
+        "preconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ModuleQuery::total_entity_count",
+            "operator": ">",
+            "expected_value": "0"
+          }
+        ],
+        "actions": [
+          {
+            "type": "invoke",
+            "callee_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::generate",
+            "arguments": {
+              "layer_graph": "graph_with_entities",
+              "options": "default_options"
+            }
+          }
+        ],
+        "postconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::rendered_entity_count",
+            "operator": ">",
+            "expected_value": "0"
+          }
+        ]
+      },
+      {
+        "method": "automated",
+        "test_name": "test_query_returns_all_modules",
+        "description": "Invoke generate on a graph containing multiple modules and verify that the generated diagram contains package blocks for all modules in the graph.",
+        "preconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ModuleQuery::module_count",
+            "operator": ">",
+            "expected_value": "0"
+          }
+        ],
+        "actions": [
+          {
+            "type": "invoke",
+            "callee_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::generate",
+            "arguments": {
+              "layer_graph": "graph_with_modules",
+              "options": "default_options"
+            }
+          }
+        ],
+        "postconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::rendered_package_count",
+            "operator": "==",
+            "expected_value": "diagram_gen::ModuleQuery::module_count"
+          }
+        ]
+      }
+    ],
+    "7deb1b852bb44429bfaa406696c39270": [
+      {
+        "method": "automated",
+        "test_name": "test_generate_signals_error_for_no_modules",
+        "description": "Invoke generate with a LayerGraph that has nodes but no ModuleNode or NamespaceNode entries and verify it signals a NoModulesError.",
+        "preconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ModuleQuery::module_count",
+            "operator": "==",
+            "expected_value": "0"
+          }
+        ],
+        "actions": [
+          {
+            "type": "invoke",
+            "callee_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::generate",
+            "arguments": {
+              "layer_graph": "graph_no_modules",
+              "options": "default_options"
+            }
+          }
+        ],
+        "postconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::error_state",
+            "operator": "==",
+            "expected_value": "NoModulesError"
+          }
+        ]
+      },
+      {
+        "method": "automated",
+        "test_name": "test_generate_signals_error_for_empty_graph",
+        "description": "Invoke generate with an empty LayerGraph (no nodes) and verify it signals an EmptyGraphError.",
+        "preconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::LayerGraph::is_empty",
+            "operator": "==",
+            "expected_value": "true"
+          }
+        ],
+        "actions": [
+          {
+            "type": "invoke",
+            "callee_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::generate",
+            "arguments": {
+              "layer_graph": "empty_graph",
+              "options": "default_options"
+            }
+          }
+        ],
+        "postconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::error_state",
+            "operator": "==",
+            "expected_value": "EmptyGraphError"
+          }
+        ]
+      },
+      {
+        "method": "automated",
+        "test_name": "test_generate_returns_plantuml_for_valid_graph",
+        "description": "Invoke generate with a valid LayerGraph containing at least one module and verify it returns a non-empty PlantUML string with no error.",
+        "preconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::LayerGraph::is_populated",
+            "operator": "==",
+            "expected_value": "true"
+          }
+        ],
+        "actions": [
+          {
+            "type": "invoke",
+            "callee_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::generate",
+            "arguments": {
+              "layer_graph": "valid_graph",
+              "options": "default_options"
+            }
+          }
+        ],
+        "postconditions": [
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::error_state",
+            "operator": "==",
+            "expected_value": "NoError"
+          },
+          {
+            "type": "assertion",
+            "subject_qualified_name": "diagram_gen::ArchitectureDiagramGenerator::generated_diagram",
+            "operator": "!=",
+            "expected_value": "literal::empty_string"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,1607 @@
+{
+  "description": "The Architecture Diagram Generator shall produce a single unified PlantUML diagram that renders the complete module/architecture view of a codegraph project. The generator shall query the codegraph Neo4j store for all modules/namespaces and their composition/dependency relationships, aggregate them into one coherent diagram, and emit valid PlantUML component-diagram syntax. The diagram shall use package notation for modules/namespaces, show key classes inside each package (medium detail level), render directed relationship arrows between packages, filter out packages below a configurable minimum entity count, produce deterministic output for the same input graph, and support standalone export to .puml files.",
+  "nodes": [
+    {
+      "type": "LLR",
+      "name": "Diagram Generation Operation",
+      "description": "The Architecture Diagram Generator exposes a generate_diagram operation that accepts min_entity_count (int, default 1) and an optional output_path (str). On success, it returns the PlantUML component diagram as a string. On Neo4j query failure, it signals a DbQueryError error state. On file write failure (when output_path is provided), it signals a FileWriteError error state.",
+      "tags": [
+        "design"
+      ],
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "vm::generate_diagram::test_success_returns_plantuml_string",
+          "target_type": "TestNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "vm::generate_diagram::test_neo4j_failure_returns_error",
+          "target_type": "TestNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "vm::generate_diagram::test_file_write_failure_returns_error",
+          "target_type": "TestNode"
+        }
+      ]
+    },
+    {
+      "type": "LLR",
+      "name": "Codegraph Data Acquisition",
+      "description": "The generate_diagram operation shall query the Neo4j codegraph (via the existing LayerGraph infrastructure) to retrieve all ModuleNode and NamespaceNode instances, their composition relationships with class-like nodes (ClassNode, InterfaceNode, EnumNode), and their inter-package dependency/relationship links.",
+      "tags": [
+        "design"
+      ],
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "vm::data_acquisition::test_retrieves_namespaces_and_modules",
+          "target_type": "TestNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "vm::data_acquisition::test_retrieves_class_composition",
+          "target_type": "TestNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "vm::data_acquisition::test_retrieves_inter_package_relationships",
+          "target_type": "TestNode"
+        }
+      ]
+    },
+    {
+      "type": "LLR",
+      "name": "Package Rendering with Class Detail",
+      "description": "The generated PlantUML diagram shall render each namespace/module as a PlantUML package block (package \"Name\" { ... }) containing its composed class-like nodes (classes, interfaces, enums) at medium detail level \u2014 showing the element name and its PlantUML stereotype keyword (e.g., 'class', 'interface', 'enum') but excluding internal members like attributes and methods.",
+      "tags": [
+        "design"
+      ],
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "vm::package_rendering::test_renders_namespace_as_package",
+          "target_type": "TestNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "vm::package_rendering::test_renders_module_as_package",
+          "target_type": "TestNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "vm::package_rendering::test_shows_classes_at_medium_detail",
+          "target_type": "TestNode"
+        }
+      ]
+    },
+    {
+      "type": "LLR",
+      "name": "Directed Relationship Arrow Rendering",
+      "description": "The generated PlantUML diagram shall render directed dependency arrows between package blocks for each inter-package relationship retrieved from Neo4j. Each arrow uses PlantUML component-diagram syntax: [SourcePackage] -[#style]-> [TargetPackage]. The direction follows the relationship direction from the codegraph.",
+      "tags": [
+        "design"
+      ],
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "vm::arrow_rendering::test_renders_directed_arrow_for_dependency",
+          "target_type": "TestNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "vm::arrow_rendering::test_renders_multiple_arrows",
+          "target_type": "TestNode"
+        }
+      ]
+    },
+    {
+      "type": "LLR",
+      "name": "Configurable Entity Count Filter",
+      "description": "The generate_diagram operation shall filter out packages whose entity count (number of class-like nodes composed within the namespace/module) is strictly less than the configured min_entity_count parameter. Packages meeting or exceeding the threshold are included. A filtered package and its relationships are entirely omitted from the output.",
+      "tags": [
+        "design"
+      ],
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "vm::entity_count_filter::test_excludes_below_threshold",
+          "target_type": "TestNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "vm::entity_count_filter::test_includes_at_threshold",
+          "target_type": "TestNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "vm::entity_count_filter::test_includes_above_threshold",
+          "target_type": "TestNode"
+        }
+      ]
+    },
+    {
+      "type": "LLR",
+      "name": "Deterministic Output Ordering",
+      "description": "The generate_diagram operation shall produce deterministic output: packages are ordered alphabetically by name, class-like elements within each package are ordered alphabetically by name, and relationship arrows are ordered alphabetically by source package name then target package name. The same input graph always produces byte-identical PlantUML output.",
+      "tags": [
+        "design"
+      ],
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "vm::deterministic_ordering::test_packages_sorted_alphabetically",
+          "target_type": "TestNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "vm::deterministic_ordering::test_classes_sorted_within_package",
+          "target_type": "TestNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "vm::deterministic_ordering::test_arrows_sorted_by_source_target",
+          "target_type": "TestNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "vm::deterministic_ordering::test_identical_output_for_same_input",
+          "target_type": "TestNode"
+        }
+      ]
+    },
+    {
+      "type": "LLR",
+      "name": "Standalone File Export",
+      "description": "When the output_path parameter is provided to generate_diagram, the generated PlantUML content shall be written to the specified file path as a .puml file. The file shall contain only the PlantUML diagram content (UTF-8 encoded) with no additional wrapping. On write failure (permission denied, invalid path), the operation returns a FileWriteError error state and does not return the diagram string.",
+      "tags": [
+        "design"
+      ],
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "vm::file_export::test_writes_puml_file",
+          "target_type": "TestNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "vm::file_export::test_permission_denied_returns_error",
+          "target_type": "TestNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "vm::file_export::test_invalid_path_returns_error",
+          "target_type": "TestNode"
+        }
+      ]
+    },
+    {
+      "type": "TestNode",
+      "qualified_name": "vm::generate_diagram::test_success_returns_plantuml_string",
+      "test_name": "test_generate_diagram_returns_plantuml_string_on_success",
+      "method": "automated",
+      "description": "Invoke generate_diagram with valid parameters and verify the returned string starts with @startuml and contains valid PlantUML component diagram syntax.",
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::pre::generate::neo4j_available",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "step::invoke_generate_diagram",
+          "target_type": "TestStepNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::post::generate::returns_string",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::post::generate::starts_with_at_startuml",
+          "target_type": "AssertionNode"
+        }
+      ]
+    },
+    {
+      "type": "TestNode",
+      "qualified_name": "vm::generate_diagram::test_neo4j_failure_returns_error",
+      "test_name": "test_generate_diagram_returns_db_error_on_neo4j_failure",
+      "method": "automated",
+      "description": "Simulate a Neo4j connection failure and invoke generate_diagram. Verify the operation returns a DbQueryError error state.",
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::pre::generate::neo4j_unavailable",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "step::invoke_generate_diagram_db_error",
+          "target_type": "TestStepNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::post::generate::db_query_error_state",
+          "target_type": "AssertionNode"
+        }
+      ]
+    },
+    {
+      "type": "TestNode",
+      "qualified_name": "vm::generate_diagram::test_file_write_failure_returns_error",
+      "test_name": "test_generate_diagram_returns_file_error_on_write_failure",
+      "method": "automated",
+      "description": "Invoke generate_diagram with a valid output_path pointing to a read-only location. Verify the operation returns a FileWriteError error state.",
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::pre::generate::neo4j_available",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::pre::generate::output_path_readonly",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "step::invoke_generate_diagram_with_output",
+          "target_type": "TestStepNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::post::generate::file_write_error_state",
+          "target_type": "AssertionNode"
+        }
+      ]
+    },
+    {
+      "type": "TestNode",
+      "qualified_name": "vm::data_acquisition::test_retrieves_namespaces_and_modules",
+      "test_name": "test_retrieves_all_namespaces_and_modules_from_neo4j",
+      "method": "automated",
+      "description": "Set up a Neo4j test instance with known ModuleNode and NamespaceNode instances. Invoke generate_diagram and verify the output PlantUML contains packages for each known namespace/module.",
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::pre::data::known_nodes_in_graph",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "step::invoke_generate_diagram",
+          "target_type": "TestStepNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::post::data::all_packages_present",
+          "target_type": "AssertionNode"
+        }
+      ]
+    },
+    {
+      "type": "TestNode",
+      "qualified_name": "vm::data_acquisition::test_retrieves_class_composition",
+      "test_name": "test_retrieves_class_composition_within_packages",
+      "method": "automated",
+      "description": "Set up a Neo4j test instance with a namespace containing known classes. Invoke generate_diagram and verify the output package block contains the class declarations.",
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::pre::data::namespace_with_classes",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "step::invoke_generate_diagram",
+          "target_type": "TestStepNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::post::data::classes_in_package",
+          "target_type": "AssertionNode"
+        }
+      ]
+    },
+    {
+      "type": "TestNode",
+      "qualified_name": "vm::data_acquisition::test_retrieves_inter_package_relationships",
+      "test_name": "test_retrieves_inter_package_relationships",
+      "method": "automated",
+      "description": "Set up a Neo4j test instance with two namespaces that have a dependency relationship. Invoke generate_diagram and verify the output contains a directed arrow between the two packages.",
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::pre::data::two_packages_with_relationship",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "step::invoke_generate_diagram",
+          "target_type": "TestStepNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::post::data::arrow_between_packages",
+          "target_type": "AssertionNode"
+        }
+      ]
+    },
+    {
+      "type": "TestNode",
+      "qualified_name": "vm::package_rendering::test_renders_namespace_as_package",
+      "test_name": "test_renders_namespace_as_plantuml_package",
+      "method": "automated",
+      "description": "Set up a Neo4j test instance with a single NamespaceNode named 'MyNamespace' containing one class. Invoke generate_diagram and verify the output contains 'package \"MyNamespace\" {' block.",
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::pre::pkg::single_namespace",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "step::invoke_generate_diagram",
+          "target_type": "TestStepNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::post::pkg::namespace_package_syntax",
+          "target_type": "AssertionNode"
+        }
+      ]
+    },
+    {
+      "type": "TestNode",
+      "qualified_name": "vm::package_rendering::test_renders_module_as_package",
+      "test_name": "test_renders_module_as_plantuml_package",
+      "method": "automated",
+      "description": "Set up a Neo4j test instance with a single ModuleNode named 'CoreModule' containing namespaces. Invoke generate_diagram and verify the output contains 'package \"CoreModule\" {' block.",
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::pre::pkg::single_module",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "step::invoke_generate_diagram",
+          "target_type": "TestStepNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::post::pkg::module_package_syntax",
+          "target_type": "AssertionNode"
+        }
+      ]
+    },
+    {
+      "type": "TestNode",
+      "qualified_name": "vm::package_rendering::test_shows_classes_at_medium_detail",
+      "test_name": "test_shows_classes_at_medium_detail_level",
+      "method": "automated",
+      "description": "Set up a Neo4j test instance with a namespace containing a ClassNode, an InterfaceNode, and an EnumNode. Invoke generate_diagram and verify the output shows 'class', 'interface', and 'enum' declarations inside the package without attribute/method members.",
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::pre::pkg::namespace_with_mixed_types",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "step::invoke_generate_diagram",
+          "target_type": "TestStepNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::post::pkg::class_declaration_present",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::post::pkg::interface_declaration_present",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::post::pkg::enum_declaration_present",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::post::pkg::no_member_detail",
+          "target_type": "AssertionNode"
+        }
+      ]
+    },
+    {
+      "type": "TestNode",
+      "qualified_name": "vm::arrow_rendering::test_renders_directed_arrow_for_dependency",
+      "test_name": "test_renders_directed_arrow_for_dependency",
+      "method": "automated",
+      "description": "Set up a Neo4j test instance with two related namespaces. Invoke generate_diagram and verify the output contains PlantUML arrow syntax like [SourcePackage] --> [TargetPackage].",
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::pre::arrow::two_related_packages",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "step::invoke_generate_diagram",
+          "target_type": "TestStepNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::post::arrow::directed_arrow_syntax",
+          "target_type": "AssertionNode"
+        }
+      ]
+    },
+    {
+      "type": "TestNode",
+      "qualified_name": "vm::arrow_rendering::test_renders_multiple_arrows",
+      "test_name": "test_renders_multiple_relationship_arrows",
+      "method": "automated",
+      "description": "Set up a Neo4j test instance with three namespaces having multiple relationship paths. Invoke generate_diagram and verify all relationship arrows are present in the output.",
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::pre::arrow::three_related_packages",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "step::invoke_generate_diagram",
+          "target_type": "TestStepNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::post::arrow::all_arrows_present",
+          "target_type": "AssertionNode"
+        }
+      ]
+    },
+    {
+      "type": "TestNode",
+      "qualified_name": "vm::entity_count_filter::test_excludes_below_threshold",
+      "test_name": "test_excludes_packages_below_min_entity_count",
+      "method": "automated",
+      "description": "Set up a Neo4j test instance with a namespace containing 2 classes. Invoke generate_diagram with min_entity_count=3 and verify the namespace is absent from the output.",
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::pre::filter::namespace_with_two_entities",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "step::invoke_generate_diagram_min3",
+          "target_type": "TestStepNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::post::filter::package_absent",
+          "target_type": "AssertionNode"
+        }
+      ]
+    },
+    {
+      "type": "TestNode",
+      "qualified_name": "vm::entity_count_filter::test_includes_at_threshold",
+      "test_name": "test_includes_packages_at_min_entity_count",
+      "method": "automated",
+      "description": "Set up a Neo4j test instance with a namespace containing 3 classes. Invoke generate_diagram with min_entity_count=3 and verify the namespace is present in the output.",
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::pre::filter::namespace_with_three_entities",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "step::invoke_generate_diagram_min3",
+          "target_type": "TestStepNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::post::filter::package_present",
+          "target_type": "AssertionNode"
+        }
+      ]
+    },
+    {
+      "type": "TestNode",
+      "qualified_name": "vm::entity_count_filter::test_includes_above_threshold",
+      "test_name": "test_includes_packages_above_min_entity_count",
+      "method": "automated",
+      "description": "Set up a Neo4j test instance with a namespace containing 5 classes. Invoke generate_diagram with min_entity_count=3 and verify the namespace is present in the output.",
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::pre::filter::namespace_with_five_entities",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "step::invoke_generate_diagram_min3",
+          "target_type": "TestStepNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::post::filter::package_present",
+          "target_type": "AssertionNode"
+        }
+      ]
+    },
+    {
+      "type": "TestNode",
+      "qualified_name": "vm::deterministic_ordering::test_packages_sorted_alphabetically",
+      "test_name": "test_packages_sorted_alphabetically",
+      "method": "automated",
+      "description": "Set up a Neo4j test instance with namespaces named 'Zed', 'Alpha', and 'Beta'. Invoke generate_diagram and verify the package blocks appear in order: Alpha, Beta, Zed.",
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::pre::order::three_namespaces_unsorted",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "step::invoke_generate_diagram",
+          "target_type": "TestStepNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::post::order::packages_in_alphabetical_order",
+          "target_type": "AssertionNode"
+        }
+      ]
+    },
+    {
+      "type": "TestNode",
+      "qualified_name": "vm::deterministic_ordering::test_classes_sorted_within_package",
+      "test_name": "test_classes_sorted_alphabetically_within_package",
+      "method": "automated",
+      "description": "Set up a Neo4j test instance with a namespace containing classes 'ZedClass', 'AlphaClass', 'BetaClass'. Invoke generate_diagram and verify the class declarations appear in order: AlphaClass, BetaClass, ZedClass.",
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::pre::order::namespace_with_unsorted_classes",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "step::invoke_generate_diagram",
+          "target_type": "TestStepNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::post::order::classes_in_alphabetical_order",
+          "target_type": "AssertionNode"
+        }
+      ]
+    },
+    {
+      "type": "TestNode",
+      "qualified_name": "vm::deterministic_ordering::test_arrows_sorted_by_source_target",
+      "test_name": "test_arrows_sorted_by_source_then_target",
+      "method": "automated",
+      "description": "Set up a Neo4j test instance with relationships: C\u2192A, B\u2192A, A\u2192B. Invoke generate_diagram and verify arrows appear in order: A\u2192B, B\u2192A, C\u2192A (sorted by source then target alphabetically).",
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::pre::order::relationships_unsorted",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "step::invoke_generate_diagram",
+          "target_type": "TestStepNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::post::order::arrows_in_sorted_order",
+          "target_type": "AssertionNode"
+        }
+      ]
+    },
+    {
+      "type": "TestNode",
+      "qualified_name": "vm::deterministic_ordering::test_identical_output_for_same_input",
+      "test_name": "test_identical_output_for_same_input_graph",
+      "method": "automated",
+      "description": "Set up a known Neo4j test state. Invoke generate_diagram twice with the same parameters and verify the two output strings are byte-identical.",
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::pre::order::known_graph_state",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "step::invoke_generate_diagram_twice",
+          "target_type": "TestStepNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::post::order::outputs_byte_identical",
+          "target_type": "AssertionNode"
+        }
+      ]
+    },
+    {
+      "type": "TestNode",
+      "qualified_name": "vm::file_export::test_writes_puml_file",
+      "test_name": "test_writes_puml_file_when_output_path_provided",
+      "method": "automated",
+      "description": "Invoke generate_diagram with a valid temporary output_path. Verify a .puml file exists at the path and contains the PlantUML diagram.",
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::pre::file::neo4j_available_temp_path",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::pre::file::temp_dir_writable",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "step::invoke_generate_diagram_with_output",
+          "target_type": "TestStepNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::post::file::puml_file_exists",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::post::file::puml_file_contains_diagram",
+          "target_type": "AssertionNode"
+        }
+      ]
+    },
+    {
+      "type": "TestNode",
+      "qualified_name": "vm::file_export::test_permission_denied_returns_error",
+      "test_name": "test_permission_denied_returns_file_write_error",
+      "method": "automated",
+      "description": "Invoke generate_diagram with an output_path in a directory without write permission. Verify the operation returns a FileWriteError error state.",
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::pre::file::output_path_permission_denied",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "step::invoke_generate_diagram_with_output",
+          "target_type": "TestStepNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::post::file::file_write_error_state",
+          "target_type": "AssertionNode"
+        }
+      ]
+    },
+    {
+      "type": "TestNode",
+      "qualified_name": "vm::file_export::test_invalid_path_returns_error",
+      "test_name": "test_invalid_output_path_returns_file_write_error",
+      "method": "automated",
+      "description": "Invoke generate_diagram with an output_path pointing to a non-existent directory. Verify the operation returns a FileWriteError error state.",
+      "edges": [
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::pre::file::output_path_invalid_dir",
+          "target_type": "AssertionNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "step::invoke_generate_diagram_with_output",
+          "target_type": "TestStepNode"
+        },
+        {
+          "relation_type": "COMPOSES",
+          "target_uid": "cond::post::file::file_write_error_state",
+          "target_type": "AssertionNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::pre::generate::neo4j_available",
+      "phase": "pre",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::neo4j_connected",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::pre::generate::neo4j_unavailable",
+      "phase": "pre",
+      "operator": "is_false",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::neo4j_connected",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::false",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::pre::generate::output_path_readonly",
+      "phase": "pre",
+      "operator": "==",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::output_path",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::/readonly/diagram.puml",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::post::generate::returns_string",
+      "phase": "post",
+      "operator": "is_not_null",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::result",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::null",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::post::generate::starts_with_at_startuml",
+      "phase": "post",
+      "operator": "==",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::result_prefix",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::@startuml",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::post::generate::db_query_error_state",
+      "phase": "post",
+      "operator": "==",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::error_state",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "DbQueryError",
+          "target_type": "AttributeNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::post::generate::file_write_error_state",
+      "phase": "post",
+      "operator": "==",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::error_state",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "FileWriteError",
+          "target_type": "AttributeNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::pre::data::known_nodes_in_graph",
+      "phase": "pre",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::graph_has_known_nodes",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::pre::data::namespace_with_classes",
+      "phase": "pre",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::namespace_has_classes",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::pre::data::two_packages_with_relationship",
+      "phase": "pre",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::two_packages_with_rel",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::post::data::all_packages_present",
+      "phase": "post",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::output_contains_all_packages",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::post::data::classes_in_package",
+      "phase": "post",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::output_contains_classes",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::post::data::arrow_between_packages",
+      "phase": "post",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::output_contains_arrow",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::pre::pkg::single_namespace",
+      "phase": "pre",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::graph_has_single_namespace",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::pre::pkg::single_module",
+      "phase": "pre",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::graph_has_single_module",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::pre::pkg::namespace_with_mixed_types",
+      "phase": "pre",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::graph_has_namespace_with_mixed_types",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::post::pkg::namespace_package_syntax",
+      "phase": "post",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::output_has_package_syntax",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::post::pkg::module_package_syntax",
+      "phase": "post",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::output_has_package_syntax",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::post::pkg::class_declaration_present",
+      "phase": "post",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::output_contains_class_decl",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::post::pkg::interface_declaration_present",
+      "phase": "post",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::output_contains_interface_decl",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::post::pkg::enum_declaration_present",
+      "phase": "post",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::output_contains_enum_decl",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::post::pkg::no_member_detail",
+      "phase": "post",
+      "operator": "is_false",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::output_contains_members",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::pre::arrow::two_related_packages",
+      "phase": "pre",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::graph_has_two_related_packages",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::pre::arrow::three_related_packages",
+      "phase": "pre",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::graph_has_three_related_packages",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::post::arrow::directed_arrow_syntax",
+      "phase": "post",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::output_has_arrow_syntax",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::post::arrow::all_arrows_present",
+      "phase": "post",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::output_has_all_arrows",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::pre::filter::namespace_with_two_entities",
+      "phase": "pre",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::graph_has_namespace_with_2_entities",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::pre::filter::namespace_with_three_entities",
+      "phase": "pre",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::graph_has_namespace_with_3_entities",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::pre::filter::namespace_with_five_entities",
+      "phase": "pre",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::graph_has_namespace_with_5_entities",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::post::filter::package_absent",
+      "phase": "post",
+      "operator": "is_false",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::output_contains_filtered_package",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::post::filter::package_present",
+      "phase": "post",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::output_contains_filtered_package",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::pre::order::three_namespaces_unsorted",
+      "phase": "pre",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::graph_has_three_ns_unsorted",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::pre::order::namespace_with_unsorted_classes",
+      "phase": "pre",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::graph_has_ns_with_unsorted_classes",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::pre::order::relationships_unsorted",
+      "phase": "pre",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::graph_has_unsorted_relationships",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::pre::order::known_graph_state",
+      "phase": "pre",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::graph_in_known_state",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::post::order::packages_in_alphabetical_order",
+      "phase": "post",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::packages_in_alpha_order",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::post::order::classes_in_alphabetical_order",
+      "phase": "post",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::classes_in_alpha_order",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::post::order::arrows_in_sorted_order",
+      "phase": "post",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::arrows_in_sorted_order",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::post::order::outputs_byte_identical",
+      "phase": "post",
+      "operator": "==",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::output_run1",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "DiagramGenerator::output_run2",
+          "target_type": "AttributeNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::pre::file::neo4j_available_temp_path",
+      "phase": "pre",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::neo4j_connected",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::pre::file::temp_dir_writable",
+      "phase": "pre",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::output_dir_writable",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::pre::file::output_path_permission_denied",
+      "phase": "pre",
+      "operator": "==",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::output_path",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::/readonly/diagram.puml",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::pre::file::output_path_invalid_dir",
+      "phase": "pre",
+      "operator": "==",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::output_path",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::/nonexistent/diagram.puml",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::post::file::puml_file_exists",
+      "phase": "post",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::output_file_exists",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::post::file::puml_file_contains_diagram",
+      "phase": "post",
+      "operator": "is_true",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::file_content_is_diagram",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "literal::true",
+          "target_type": "LiteralNode"
+        }
+      ]
+    },
+    {
+      "type": "AssertionNode",
+      "qualified_name": "cond::post::file::file_write_error_state",
+      "phase": "post",
+      "operator": "==",
+      "edges": [
+        {
+          "relation_type": "LEFT_OPERAND",
+          "target_uid": "DiagramGenerator::error_state",
+          "target_type": "AttributeNode"
+        },
+        {
+          "relation_type": "RIGHT_OPERAND",
+          "target_uid": "FileWriteError",
+          "target_type": "AttributeNode"
+        }
+      ]
+    },
+    {
+      "type": "TestStepNode",
+      "qualified_name": "step::invoke_generate_diagram",
+      "description": "Invoke the generate_diagram operation with default parameters",
+      "edges": [
+        {
+          "relation_type": "CALLEE",
+          "target_uid": "DiagramGenerator::generate_diagram",
+          "target_type": "AttributeNode"
+        }
+      ]
+    },
+    {
+      "type": "TestStepNode",
+      "qualified_name": "step::invoke_generate_diagram_db_error",
+      "description": "Invoke the generate_diagram operation while Neo4j is unavailable",
+      "edges": [
+        {
+          "relation_type": "CALLEE",
+          "target_uid": "DiagramGenerator::generate_diagram",
+          "target_type": "AttributeNode"
+        }
+      ]
+    },
+    {
+      "type": "TestStepNode",
+      "qualified_name": "step::invoke_generate_diagram_with_output",
+      "description": "Invoke the generate_diagram operation with an output_path parameter",
+      "edges": [
+        {
+          "relation_type": "CALLEE",
+          "target_uid": "DiagramGenerator::generate_diagram",
+          "target_type": "AttributeNode"
+        }
+      ]
+    },
+    {
+      "type": "TestStepNode",
+      "qualified_name": "step::invoke_generate_diagram_min3",
+      "description": "Invoke the generate_diagram operation with min_entity_count=3",
+      "edges": [
+        {
+          "relation_type": "CALLEE",
+          "target_uid": "DiagramGenerator::generate_diagram",
+          "target_type": "AttributeNode"
+        }
+      ]
+    },
+    {
+      "type": "TestStepNode",
+      "qualified_name": "step::invoke_generate_diagram_twice",
+      "description": "Invoke the generate_diagram operation twice with identical parameters",
+      "edges": [
+        {
+          "relation_type": "CALLEE",
+          "target_uid": "DiagramGenerator::generate_diagram",
+          "target_type": "AttributeNode"
+        }
+      ]
+    }
+  ]
+}

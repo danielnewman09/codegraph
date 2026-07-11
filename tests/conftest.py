@@ -174,6 +174,13 @@ def setup_neomodel(test_neo4j_container):
     ``CODEGRAPH_TEST_SKIP_CONTAINER=1`` and provide your own
     ``NEO4J_URI`` / ``NEO4J_USER`` / ``NEO4J_PASSWORD`` environment
     variables.
+
+    If Neo4j is not reachable (e.g. Docker is unavailable and
+    ``CODEGRAPH_TEST_SKIP_CONTAINER=1`` is set without an external
+    instance), the fixture logs a warning and skips the DB setup.
+    Tests that require Neo4j will fail individually with connection
+    errors; tests that only test pure Python logic (import/export,
+    graph construction) will still pass.
     """
     from neomodel import db, get_config
 
@@ -188,6 +195,17 @@ def setup_neomodel(test_neo4j_container):
     host = uri.replace("bolt://", "")
     config = get_config()
     config.database_url = f"bolt://{user}:{password}@{host}"
+
+    # Check if Neo4j is reachable; if not, skip DB setup gracefully.
+    if not _bolt_reachable(uri, user, password, timeout=3):
+        import logging
+        logging.getLogger(__name__).warning(
+            "Neo4j not reachable at %s — skipping DB setup. "
+            "Neo4j-dependent tests will fail; pure-Python tests will run.",
+            uri,
+        )
+        yield
+        return
 
     # Drop ALL existing constraints and indexes so that a schema change
     # (e.g. qualified_name going from UniqueIdProperty to StringProperty)
@@ -212,6 +230,8 @@ def setup_neomodel(test_neo4j_container):
     # Wipe the database once before the session
     db.cypher_query("MATCH (n) DETACH DELETE n")
 
+    yield
+
 
 @pytest.fixture(autouse=True)
 def clear_db():
@@ -219,7 +239,12 @@ def clear_db():
 
     Ensures that tests with explicit unique identifiers don't collide
     with data from previous tests.
+
+    If Neo4j is not reachable, this is a no-op.
     """
     yield
-    from neomodel import db
-    db.cypher_query("MATCH (n) DETACH DELETE n")
+    try:
+        from neomodel import db
+        db.cypher_query("MATCH (n) DETACH DELETE n")
+    except Exception:
+        pass  # Neo4j not available — no-op
