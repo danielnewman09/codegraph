@@ -1,0 +1,81 @@
+{
+  "description": "Minimum design assertions for Migration Manager pipeline test. These represent the minimal class structure implied by the requirements in migration_manager_requirements.md — the agent may produce additional classes and relationships, but at minimum these must exist.",
+  "must_have_classes": [
+    {
+      "name": "Migration",
+      "kind": "class",
+      "namespace": "cpp_sqlite",
+      "description": "Base class for user-defined migrations",
+      "must_have_attributes": ["version"],
+      "must_have_methods": ["up", "down"]
+    },
+    {
+      "name": "SchemaVersion",
+      "kind": "class",
+      "namespace": "cpp_sqlite",
+      "description": "Records applied migration metadata in schema_versions table",
+      "must_have_attributes": ["version", "applied_at", "checksum"]
+    },
+    {
+      "name": "MigrationManager",
+      "kind": "class",
+      "namespace": "cpp_sqlite",
+      "description": "Orchestrates migration registration, application, rollback, and verification",
+      "must_have_methods": [
+        "register_migration",
+        "apply",
+        "rollback",
+        "verify"
+      ]
+    }
+  ],
+  "may_also_have_classes": [
+    {
+      "name": "MigrationError",
+      "namespace": "cpp_sqlite",
+      "description": "Error type for migration failures"
+    },
+    {
+      "name": "SchemaMismatch",
+      "namespace": "cpp_sqlite",
+      "description": "Report struct from verify() for a single mismatch"
+    },
+    {
+      "name": "DuplicateVersionError",
+      "namespace": "cpp_sqlite",
+      "description": "Error when registering duplicate migration version"
+    }
+  ],
+  "must_have_edges": [
+    {
+      "from_class": "MigrationManager",
+      "relation": "DEPENDS_ON",
+      "to_class": "cpp_sqlite::Database",
+      "description": "Manager needs Database to apply migrations"
+    },
+    {
+      "from_class": "MigrationManager",
+      "relation": "DEPENDS_ON",
+      "to_class": "cpp_sqlite::Transaction",
+      "description": "Manager passes Transaction to up/down methods"
+    },
+    {
+      "from_class": "MigrationManager",
+      "relation": "COMPOSES",
+      "to_class": "SchemaVersion",
+      "description": "Manager tracks applied versions via SchemaVersion records"
+    },
+    {
+      "from_class": "MigrationManager",
+      "relation": "COMPOSES",
+      "to_class": "Migration",
+      "description": "Manager holds registered Migration instances"
+    },
+    {
+      "from_class": "Migration",
+      "relation": "DEPENDS_ON",
+      "to_class": "cpp_sqlite::Transaction",
+      "description": "up() and down() receive a Transaction reference"
+    }
+  ]
+}
