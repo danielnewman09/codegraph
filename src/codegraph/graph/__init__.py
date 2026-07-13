@@ -588,7 +588,7 @@ class LayerGraph:
             return None
 
         # Build minimal scaffold dict
-        scaffold_data: dict = {"type": target_type, "tags": ["scaffold"]}
+        scaffold_data: dict = {"type": target_type, "source": "scaffold", "tags": ["scaffold"]}
 
         # Set the first identity field to target_uid (e.g. qualified_name)
         identity_fields = getattr(target_cls, "_identity_fields", ())

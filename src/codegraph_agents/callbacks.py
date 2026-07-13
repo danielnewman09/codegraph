@@ -275,6 +275,7 @@ class FileLoggingCallback(BaseCallbackHandler):
     def _ensure_jsonl_open(self) -> object:
         """Lazy-open the JSONL file handle; idempotent."""
         if self._jsonl_file is None:
+            self._jsonl_path.parent.mkdir(parents=True, exist_ok=True)
             self._jsonl_file = open(self._jsonl_path, "w")
         return self._jsonl_file
 
@@ -294,6 +295,7 @@ class FileLoggingCallback(BaseCallbackHandler):
     def _rewrite_markdown(self) -> None:
         """Rewrite conversation.md entirely — same incremental
         approach as the current prompt_log_file."""
+        self._md_path.parent.mkdir(parents=True, exist_ok=True)
         self._md_path.write_text(
             "\n".join(self._md_lines) + "\n", encoding="utf-8"
         )
@@ -323,13 +325,29 @@ class FileLoggingCallback(BaseCallbackHandler):
         self._rewrite_markdown()
 
     def on_chain_end(self, outputs: dict, **kwargs) -> None:
-        # LangGraph fires on_chain_end for sub-nodes too.
-        # Only write the completion footer once.
+        # LangGraph fires on_chain_end early (after first super-step),
+        # before the full multi-turn loop completes.  Do NOT finalize
+        # here — BaseAgent.run() calls finalize() after graph.invoke
+        # returns with the full accumulated state.
+        pass
+
+    def finalize(self) -> None:
+        """Write the summary footer and metrics after the full run.
+
+        Called by ``BaseAgent.run()`` / ``resume()`` after
+        ``graph.invoke()`` returns.  Idempotent — safe to call
+        even if ``on_chain_end`` already finalized.
+        """
         if self._finalized:
             return
         self._finalized = True
+        self._flush_footer_and_metrics()
 
+    def _flush_footer_and_metrics(self) -> None:
+        """Write the markdown footer and metrics.json."""
         duration_ms = int((time.time() - self._run_start) * 1000)
+
+        # Re-emit agent_end with correct duration
         self._emit("agent_end", duration_ms=duration_ms)
 
         # Append summary footer to markdown
@@ -608,6 +626,7 @@ class FileLoggingCallback(BaseCallbackHandler):
         }
 
         metrics_path = self.run_dir / "metrics.json"
+        metrics_path.parent.mkdir(parents=True, exist_ok=True)
         metrics_path.write_text(
             json.dumps(metrics, indent=2), encoding="utf-8"
         )

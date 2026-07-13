@@ -81,11 +81,11 @@ class TestDesignAgentInit:
         assert "prior_design_compounds" in agent.context_needs
         assert "sibling_namespaces" in agent.context_needs
 
-    def test_final_tool_is_commit(self) -> None:
+    def test_final_tool_is_finalize(self) -> None:
         from codegraph_agents.design import DesignAgent
 
         agent = DesignAgent()
-        assert agent.final_tool_name == "commit_design_and_verifications"
+        assert agent.final_tool_name == "finalize"
 
     def test_dispatcher_is_composite(self) -> None:
         from codegraph_agents.design import DesignAgent
@@ -110,6 +110,7 @@ class TestDesignAgentInit:
         assert "check_design_smells" in names
         assert "draft_verifications" in names
         assert "commit_design_and_verifications" in names
+        assert "finalize" in names
 
 
 # ── Context loading ──────────────────────────────────────────────

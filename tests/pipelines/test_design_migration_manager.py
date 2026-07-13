@@ -207,6 +207,34 @@ class TestDesignMigrationManager:
             result["nodes_created"] + result["nodes_updated"]
         ) > 0, "No design nodes were created or updated"
 
+        # ── Namespace reuse: the design must reuse the existing
+        #     cpp_sqlite namespace (not create a duplicate).
+        assert result["namespaces_created"] == 0, (
+            f"Expected 0 namespaces created (should reuse existing), "
+            f"got {result['namespaces_created']}. "
+            f"Reused: {result.get('namespaces_reused', 0)}"
+        )
+        assert result["namespaces_reused"] >= 1, (
+            f"Expected at least 1 namespace reused, "
+            f"got {result.get('namespaces_reused', 0)}"
+        )
+        assert result["namespace_edges"] > 0, (
+            f"Expected namespace→compound COMPOSES edges, "
+            f"got {result.get('namespace_edges', 0)}"
+        )
+
+        # ── Reuse existing namespace (not create a new one) ──
+        assert result.get("namespaces_reused", 0) > 0, (
+            f"Expected at least one existing namespace to be reused, "
+            f"got created={result.get('namespaces_created', 0)}, "
+            f"reused={result.get('namespaces_reused', 0)}"
+        )
+        assert result.get("namespaces_created", 0) == 0, (
+            f"Expected zero new namespaces, "
+            f"got created={result.get('namespaces_created', 0)}, "
+            f"reused={result.get('namespaces_reused', 0)}"
+        )
+
         # ── Load expected design from JSON ──
         expected_path = DATA_DIR / "expected_design.json"
         expected = json.loads(expected_path.read_text(encoding="utf-8"))
@@ -233,3 +261,31 @@ class TestDesignMigrationManager:
                 f"Required class '{expected_name}' not found in "
                 f"design.  Design QNames: {sorted(design_qnames)}"
             )
+
+        # ── Export artifacts to unit_test_data/ ──
+        out_dir = Path(__file__).parent / "unit_test_data"
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        artifacts = result.get("artifacts", {})
+
+        # Copy PlantUML source
+        puml_path = artifacts.get("puml", "")
+        if puml_path and Path(puml_path).exists():
+            dest = out_dir / "architecture_class_diagram.puml"
+            dest.write_text(Path(puml_path).read_text(), encoding="utf-8")
+            log.info("Exported PUML: %s", dest)
+
+        # Copy rendered PNG
+        png_path = artifacts.get("png", "")
+        if png_path and Path(png_path).exists():
+            import shutil
+            dest = out_dir / "architecture_class_diagram.png"
+            shutil.copy2(png_path, dest)
+            log.info("Exported PNG: %s (%d bytes)", dest, dest.stat().st_size)
+
+        # Copy design markdown
+        md_path = artifacts.get("design_md", "")
+        if md_path and Path(md_path).exists():
+            dest = out_dir / "design.md"
+            dest.write_text(Path(md_path).read_text(), encoding="utf-8")
+            log.info("Exported design MD: %s", dest)

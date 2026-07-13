@@ -4,7 +4,7 @@
     "path": "/src/calc/calculator_engine.h",
     "source": "calculator",
     "type": "FileNode",
-    "uid": "8d9117b15068384c0097502569ac3b84cba83023",
+    "uid": "a481de036d4aa4262b7fe0b0b22057ee870410da",
     "edges": []
   },
   {
@@ -12,7 +12,7 @@
     "path": "/src/calc/icalculator.h",
     "source": "calculator",
     "type": "FileNode",
-    "uid": "5b0af7e51fcd3f6d84ee1c3b41433c5e67700c44",
+    "uid": "d7b62cf39dd781ab587a2bf7d13d15a16d56f279",
     "edges": []
   },
   {
@@ -20,7 +20,7 @@
     "path": "/src/calc/operation.h",
     "source": "calculator",
     "type": "FileNode",
-    "uid": "ca439ea7d456f1e9103c099c4ef4063926f5e1ab",
+    "uid": "cccbc1901c2f1c6a31a6e83bb25fa4eaed42f26c",
     "edges": []
   },
   {
@@ -28,7 +28,7 @@
     "path": "/src/calc/calculator_result.h",
     "source": "calculator",
     "type": "FileNode",
-    "uid": "3b3647ade12b0a85f6d00ff2ff0d7e9fe1b7d770",
+    "uid": "7cf39e5586c26cace739ac9e68b9c12ff0afd302",
     "edges": []
   },
   {
@@ -36,7 +36,7 @@
     "path": "/src/ui/base_window.h",
     "source": "calculator",
     "type": "FileNode",
-    "uid": "9fe226bcc674bb1e91013b6c03bf30f3fd903788",
+    "uid": "ab1f119b125f35d51a2839cd7ea852a406f0bc70",
     "edges": []
   },
   {
@@ -44,7 +44,7 @@
     "path": "/src/ui/calculator_window.h",
     "source": "calculator",
     "type": "FileNode",
-    "uid": "188a981185be013981fb386a3a484a4ce4d08369",
+    "uid": "ed5079afea47324c35d360d8ee9e8707ce8f7962",
     "edges": []
   },
   {
@@ -56,7 +56,7 @@
       "design"
     ],
     "type": "NamespaceNode",
-    "uid": "67bd35f4e0d46c01211e579e2c880293befeb58b",
+    "uid": "bd8b6cf747ada9179df7b2b110cf2cb811fdb73a",
     "edges": [],
     "composes": [
       {
@@ -70,26 +70,26 @@
         ],
         "visibility": "public",
         "type": "ClassNode",
-        "uid": "5a48a82bec82d481c90ca27c9829a240062923c7",
+        "uid": "93aeaa5ee440aac253b156ccf2f15227aa11e0ac",
         "edges": [
           {
             "relation_type": "DEPENDS_ON",
-            "target_uid": "47d43750e265974ca7023d6496674e15246e22a8",
+            "target_uid": "3beaa98236596366493cf23e0ab33dad2bec8398",
             "target_type": "ClassNode"
           },
           {
             "relation_type": "DEPENDS_ON",
-            "target_uid": "1ff7afb7e8ae8a2ffd950a4a4de7fd2b58a43c3e",
+            "target_uid": "a7088a313f75ecdafea536ec62f8d93de39f2c33",
             "target_type": "ClassNode"
           },
           {
             "relation_type": "REALIZES",
-            "target_uid": "b82d618ffe7555d0f239613be2c07eada185ec16",
+            "target_uid": "c91c124590ac1b9feace1652a940c88ddcf38f3c",
             "target_type": "InterfaceNode"
           },
           {
             "relation_type": "DEFINED_IN",
-            "target_uid": "8d9117b15068384c0097502569ac3b84cba83023",
+            "target_uid": "a481de036d4aa4262b7fe0b0b22057ee870410da",
             "target_type": "FileNode"
           }
         ],
@@ -106,11 +106,11 @@
             "type_signature": "CalculatorResult",
             "visibility": "public",
             "type": "MethodNode",
-            "uid": "1939760fc558a42f1f9e53f6c5b6094a46fd6a34",
+            "uid": "f03506a446d2e754452e774955c83c7ccd7bf8c6",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "8d9117b15068384c0097502569ac3b84cba83023",
+                "target_uid": "a481de036d4aa4262b7fe0b0b22057ee870410da",
                 "target_type": "FileNode"
               }
             ]
@@ -127,11 +127,11 @@
             "type_signature": "bool",
             "visibility": "public",
             "type": "MethodNode",
-            "uid": "01c3d12dd99a920a087cc30b6d543418ca36a9fd",
+            "uid": "546620476ca16b2f3db46b316f9e8b9aa6d925f1",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "8d9117b15068384c0097502569ac3b84cba83023",
+                "target_uid": "a481de036d4aa4262b7fe0b0b22057ee870410da",
                 "target_type": "FileNode"
               }
             ]
@@ -147,11 +147,11 @@
             "type_signature": "int",
             "visibility": "public",
             "type": "AttributeNode",
-            "uid": "e60ebc46b10a43502695e1966270acfdd9ffa034",
+            "uid": "e2c8a236f5d302627dcc4d2e22070f9519505e91",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "8d9117b15068384c0097502569ac3b84cba83023",
+                "target_uid": "a481de036d4aa4262b7fe0b0b22057ee870410da",
                 "target_type": "FileNode"
               }
             ]
@@ -169,16 +169,16 @@
         ],
         "visibility": "public",
         "type": "ClassNode",
-        "uid": "47d43750e265974ca7023d6496674e15246e22a8",
+        "uid": "3beaa98236596366493cf23e0ab33dad2bec8398",
         "edges": [
           {
             "relation_type": "DEPENDS_ON",
-            "target_uid": "5a48a82bec82d481c90ca27c9829a240062923c7",
+            "target_uid": "93aeaa5ee440aac253b156ccf2f15227aa11e0ac",
             "target_type": "ClassNode"
           },
           {
             "relation_type": "DEFINED_IN",
-            "target_uid": "3b3647ade12b0a85f6d00ff2ff0d7e9fe1b7d770",
+            "target_uid": "7cf39e5586c26cace739ac9e68b9c12ff0afd302",
             "target_type": "FileNode"
           }
         ],
@@ -194,11 +194,11 @@
             "type_signature": "double",
             "visibility": "public",
             "type": "AttributeNode",
-            "uid": "1cf4f100f0537d2d10aaed6427fcd1d8cac739aa",
+            "uid": "4c582541814c6e1e69804100ff09496d81ce1ba7",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "3b3647ade12b0a85f6d00ff2ff0d7e9fe1b7d770",
+                "target_uid": "7cf39e5586c26cace739ac9e68b9c12ff0afd302",
                 "target_type": "FileNode"
               }
             ]
@@ -215,11 +215,11 @@
             "type_signature": "double",
             "visibility": "public",
             "type": "MethodNode",
-            "uid": "47b04b935c60a9a0f88a00bd52228f4586e1c7ef",
+            "uid": "29590eee47c8aaca1eeb2f993d7ed9830353bf26",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "3b3647ade12b0a85f6d00ff2ff0d7e9fe1b7d770",
+                "target_uid": "7cf39e5586c26cace739ac9e68b9c12ff0afd302",
                 "target_type": "FileNode"
               }
             ]
@@ -236,11 +236,11 @@
         ],
         "visibility": "public",
         "type": "InterfaceNode",
-        "uid": "b82d618ffe7555d0f239613be2c07eada185ec16",
+        "uid": "c91c124590ac1b9feace1652a940c88ddcf38f3c",
         "edges": [
           {
             "relation_type": "DEFINED_IN",
-            "target_uid": "5b0af7e51fcd3f6d84ee1c3b41433c5e67700c44",
+            "target_uid": "d7b62cf39dd781ab587a2bf7d13d15a16d56f279",
             "target_type": "FileNode"
           }
         ],
@@ -257,11 +257,11 @@
             "type_signature": "CalculatorResult",
             "visibility": "public",
             "type": "MethodNode",
-            "uid": "908276a9da05638f3e373e089491c96e7872e882",
+            "uid": "ae91bd9b059d2cbd18c3c6f0e5b6cbcd9a10bc58",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "5b0af7e51fcd3f6d84ee1c3b41433c5e67700c44",
+                "target_uid": "d7b62cf39dd781ab587a2bf7d13d15a16d56f279",
                 "target_type": "FileNode"
               }
             ]
@@ -278,11 +278,11 @@
         ],
         "visibility": "public",
         "type": "EnumNode",
-        "uid": "55992d4b678cd6ba7e0394b35352507eaaa88fd8",
+        "uid": "535a4bf2ad71c02172d3ebe363501e38da388059",
         "edges": [
           {
             "relation_type": "DEFINED_IN",
-            "target_uid": "ca439ea7d456f1e9103c099c4ef4063926f5e1ab",
+            "target_uid": "cccbc1901c2f1c6a31a6e83bb25fa4eaed42f26c",
             "target_type": "FileNode"
           }
         ],
@@ -297,7 +297,7 @@
             ],
             "visibility": "public",
             "type": "EnumValueNode",
-            "uid": "457271d81151302ad76de91fd8f9b41e2cf0c886",
+            "uid": "8abe9dc65a5df639ef2bcd7cf1bbfb7047405690",
             "edges": []
           },
           {
@@ -310,7 +310,7 @@
             ],
             "visibility": "public",
             "type": "EnumValueNode",
-            "uid": "10780e25949b5e7d838cb7d8eb359a33b58ac635",
+            "uid": "291b160857f2358aea93cf91dc891941c80042b0",
             "edges": []
           }
         ]
@@ -327,11 +327,11 @@
         "type_signature": "string",
         "visibility": "public",
         "type": "FunctionNode",
-        "uid": "14b6f24b25c26e098a5e6b6afe2d94f84f17b787",
+        "uid": "b23fa2d4d504f613db1009edff2acd2b7556a0f4",
         "edges": [
           {
             "relation_type": "DEFINED_IN",
-            "target_uid": "8d9117b15068384c0097502569ac3b84cba83023",
+            "target_uid": "a481de036d4aa4262b7fe0b0b22057ee870410da",
             "target_type": "FileNode"
           }
         ]
@@ -347,7 +347,7 @@
       "design"
     ],
     "type": "NamespaceNode",
-    "uid": "636117b25f17da7e91194e091cdb8dc49769a815",
+    "uid": "6c4df8a4a9e9401d070103edf9a7f17fff19c2ba",
     "edges": [],
     "composes": [
       {
@@ -361,16 +361,16 @@
         ],
         "visibility": "public",
         "type": "ClassNode",
-        "uid": "ac2b6dd48d208c654dda71b4b3405e593d029cd1",
+        "uid": "be5ed6c102db4247732c36442e610248058b2cc8",
         "edges": [
           {
             "relation_type": "INHERITS_FROM",
-            "target_uid": "1ff7afb7e8ae8a2ffd950a4a4de7fd2b58a43c3e",
+            "target_uid": "a7088a313f75ecdafea536ec62f8d93de39f2c33",
             "target_type": "ClassNode"
           },
           {
             "relation_type": "DEFINED_IN",
-            "target_uid": "9fe226bcc674bb1e91013b6c03bf30f3fd903788",
+            "target_uid": "ab1f119b125f35d51a2839cd7ea852a406f0bc70",
             "target_type": "FileNode"
           }
         ],
@@ -387,11 +387,11 @@
             "type_signature": "void",
             "visibility": "public",
             "type": "MethodNode",
-            "uid": "e708451fcdea53e44a93e84ba6fa703890276986",
+            "uid": "867d9f104a197c667c9a73c02d24f77960718dce",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "9fe226bcc674bb1e91013b6c03bf30f3fd903788",
+                "target_uid": "ab1f119b125f35d51a2839cd7ea852a406f0bc70",
                 "target_type": "FileNode"
               }
             ]
@@ -409,21 +409,21 @@
         ],
         "visibility": "public",
         "type": "ClassNode",
-        "uid": "1ff7afb7e8ae8a2ffd950a4a4de7fd2b58a43c3e",
+        "uid": "a7088a313f75ecdafea536ec62f8d93de39f2c33",
         "edges": [
           {
             "relation_type": "INHERITS_FROM",
-            "target_uid": "ac2b6dd48d208c654dda71b4b3405e593d029cd1",
+            "target_uid": "be5ed6c102db4247732c36442e610248058b2cc8",
             "target_type": "ClassNode"
           },
           {
             "relation_type": "DEPENDS_ON",
-            "target_uid": "5a48a82bec82d481c90ca27c9829a240062923c7",
+            "target_uid": "93aeaa5ee440aac253b156ccf2f15227aa11e0ac",
             "target_type": "ClassNode"
           },
           {
             "relation_type": "DEFINED_IN",
-            "target_uid": "188a981185be013981fb386a3a484a4ce4d08369",
+            "target_uid": "ed5079afea47324c35d360d8ee9e8707ce8f7962",
             "target_type": "FileNode"
           }
         ],
@@ -439,11 +439,11 @@
             "type_signature": "string",
             "visibility": "private",
             "type": "AttributeNode",
-            "uid": "94f8adf8976e1128dbc55226d9381aa84d6bf027",
+            "uid": "165fcec95cb3e811f028df0022614a35c6a8c3d1",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "188a981185be013981fb386a3a484a4ce4d08369",
+                "target_uid": "ed5079afea47324c35d360d8ee9e8707ce8f7962",
                 "target_type": "FileNode"
               }
             ]
@@ -459,11 +459,11 @@
             "type_signature": "string",
             "visibility": "private",
             "type": "AttributeNode",
-            "uid": "aea579da422145d4f522f532dd86bb9f737e83ab",
+            "uid": "6b1fe9d08012d6786d663495c456e28764f06612",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "188a981185be013981fb386a3a484a4ce4d08369",
+                "target_uid": "ed5079afea47324c35d360d8ee9e8707ce8f7962",
                 "target_type": "FileNode"
               }
             ]
@@ -480,11 +480,11 @@
             "type_signature": "void",
             "visibility": "private",
             "type": "MethodNode",
-            "uid": "9316f6b19df248961d2aebf8155ec1d69af3fc97",
+            "uid": "77a4b93934e021ded536b57f90c7ed400086c47d",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "188a981185be013981fb386a3a484a4ce4d08369",
+                "target_uid": "ed5079afea47324c35d360d8ee9e8707ce8f7962",
                 "target_type": "FileNode"
               }
             ]

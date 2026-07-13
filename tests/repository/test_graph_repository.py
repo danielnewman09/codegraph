@@ -16,11 +16,15 @@ from codegraph.persistence.repository import GraphRepository
 from codegraph.uid import compute_uid, normalize_argsstring
 
 
-def _uid(qname: str, argsstring: str | None = None) -> str:
-    """Compute the deterministic uid for a fixture node."""
+def _uid(qname: str, argsstring: str | None = None, source: str = "calculator") -> str:
+    """Compute the deterministic uid for a fixture node.
+
+    Prepends *source* so that UIDs match the model's ``_compute_uid()``
+    which includes the source tag (changed from the original algorithm).
+    """
     if argsstring is not None:
-        return compute_uid(qname, normalize_argsstring(argsstring))
-    return compute_uid(qname)
+        return compute_uid(source, qname, normalize_argsstring(argsstring))
+    return compute_uid(source, qname)
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 FIXTURE = DATA_DIR / "design_graph.json"

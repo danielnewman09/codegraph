@@ -117,8 +117,9 @@ class TestTestFixtureNodeFields:
         node = TestFixtureNode(
             name="engine",
             qualified_name="tests::test_ops::engine",
+            source="test",
         )
-        expected = compute_uid("tests::test_ops::engine")
+        expected = compute_uid("test", "tests::test_ops::engine")
         # codegraph:test-desc test.test_test_fixture_node.TestTestFixtureNodeFields.test_field_uid_computed_from_qualified_name::post_0
         # Verifies that the UID computed by the node matches the expected value,
         # ensuring that the UID generation algorithm correctly derives a unique
@@ -755,6 +756,7 @@ class TestLayerGraphTestFixtureNode:
         data = [
             {
                 "type": "TestFixtureNode",
+                "source": "test",
                 "qualified_name": "tests::test_engine::engine",
                 "name": "engine",
                 "kind": "test_fixture",
@@ -796,14 +798,15 @@ class TestLayerGraphTestFixtureNode:
         # SHA-1 hash of the target node's qualified_name, and the target
         # data must include an explicit uid field so that _node_key()
         # uses the hash (not just the name).
-        widget_uid = compute_uid("myapp::Widget")
-        post0_uid = compute_uid("tests::test_w::post_0")
-        arrange_uid = compute_uid("tests::test_w::arrange")
+        widget_uid = compute_uid("test", "myapp::Widget")
+        post0_uid = compute_uid("test", "tests::test_w::post_0")
+        arrange_uid = compute_uid("test", "tests::test_w::arrange")
 
         data = [
             {
                 "type": "ClassNode",
                 "uid": widget_uid,
+                "source": "test",
                 "qualified_name": "myapp::Widget",
                 "name": "Widget",
                 "kind": "class",
@@ -813,6 +816,7 @@ class TestLayerGraphTestFixtureNode:
             {
                 "type": "AssertionNode",
                 "uid": post0_uid,
+                "source": "test",
                 "qualified_name": "tests::test_w::post_0",
                 "name": "post_0",
                 "kind": "assertion",
@@ -826,6 +830,7 @@ class TestLayerGraphTestFixtureNode:
             {
                 "type": "TestStepNode",
                 "uid": arrange_uid,
+                "source": "test",
                 "qualified_name": "tests::test_w::arrange",
                 "name": "arrange",
                 "kind": "test_step",
@@ -836,6 +841,7 @@ class TestLayerGraphTestFixtureNode:
             },
             {
                 "type": "TestFixtureNode",
+                "source": "test",
                 "qualified_name": "tests::test_w::widget",
                 "name": "widget",
                 "kind": "test_fixture",
@@ -875,6 +881,7 @@ class TestLayerGraphTestFixtureNode:
         data = [
             {
                 "type": "TestNode",
+                "source": "test",
                 "qualified_name": "tests::test_w::test_create",
                 "name": "test_create",
                 "kind": "test",
@@ -887,6 +894,7 @@ class TestLayerGraphTestFixtureNode:
                 "composes": [
                     {
                         "type": "TestFixtureNode",
+                        "source": "test",
                         "qualified_name": "tests::test_w::test_create::widget",
                         "name": "widget",
                         "kind": "test_fixture",

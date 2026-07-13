@@ -252,6 +252,16 @@ def compute_uid(*parts: str) -> str:
     nodes that were constructed without a proper identity (e.g. in
     tests).
 
+    For source-scoped uids, prepend the source label as the first part::
+
+        compute_uid(source, qualified_name, ...)
+
+    This ensures the same symbol in different projects gets different
+    uids while remaining deterministic within a project.
+
+    Argsstring parts should be normalised via :func:`normalize_argsstring`
+    before being passed in.
+
     Args:
         *parts: The identity field values in declared order.  The first
             part is the primary identity and must be non-empty.

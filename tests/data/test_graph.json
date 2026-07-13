@@ -4,7 +4,9 @@
     "qualified_name": "tests::test_member",
     "name": "test_member",
     "kind": "namespace",
-    "tags": ["as-built"],
+    "tags": [
+      "as-built"
+    ],
     "edges": [],
     "composes": [
       {
@@ -16,9 +18,15 @@
         "test_module": "tests.test_member",
         "method": "automated",
         "description": "Verifies that updating a single field on a node persists the change.",
-        "tags": ["as-built"],
+        "tags": [
+          "as-built"
+        ],
         "edges": [
-          {"relation_type": "VERIFIES", "target_uid": "calc::CalculatorEngine::set_target", "target_type": "MethodNode"}
+          {
+            "relation_type": "VERIFIES",
+            "target_uid": "calc::CalculatorEngine::set_target",
+            "target_type": "MethodNode"
+          }
         ],
         "composes": [
           {
@@ -28,11 +36,21 @@
             "kind": "test_fixture",
             "type_signature": "CalculatorEngine",
             "description": "Direct instance of CalculatorEngine. Created via engine = CalculatorEngine(). The primary subject of all assertions in this test.",
-            "tags": ["as-built"],
+            "tags": [
+              "as-built"
+            ],
             "edges": [
-              {"relation_type": "OF_TYPE", "target_uid": "calc::CalculatorEngine", "target_type": "ClassNode"},
-              {"relation_type": "DEFINED_IN", "target_type": "TestStepNode"}
-            ]
+              {
+                "relation_type": "OF_TYPE",
+                "target_uid": "calc::CalculatorEngine",
+                "target_type": "ClassNode"
+              },
+              {
+                "relation_type": "DEFINED_IN",
+                "target_type": "TestStepNode"
+              }
+            ],
+            "source": "test"
           },
           {
             "type": "AssertionNode",
@@ -43,11 +61,22 @@
             "order": 0,
             "operator": "==",
             "description": "The updated field value matches the new value.",
-            "tags": ["as-built"],
+            "tags": [
+              "as-built"
+            ],
             "edges": [
-              {"relation_type": "LEFT_OPERAND", "target_uid": "calc::CalculatorEngine::result", "target_type": "AttributeNode"},
-              {"relation_type": "RIGHT_OPERAND", "target_uid": "literal::30", "target_type": "LiteralNode"}
-            ]
+              {
+                "relation_type": "LEFT_OPERAND",
+                "target_uid": "calc::CalculatorEngine::result",
+                "target_type": "AttributeNode"
+              },
+              {
+                "relation_type": "RIGHT_OPERAND",
+                "target_uid": "literal::30",
+                "target_type": "LiteralNode"
+              }
+            ],
+            "source": "test"
           },
           {
             "type": "TestStepNode",
@@ -56,13 +85,22 @@
             "kind": "test_step",
             "order": 0,
             "description": "Call engine.set_target(30) to set the target value.",
-            "tags": ["as-built"],
+            "tags": [
+              "as-built"
+            ],
             "edges": [
-              {"relation_type": "CALLEE", "target_uid": "calc::CalculatorEngine::set_target", "target_type": "MethodNode"}
-            ]
+              {
+                "relation_type": "CALLEE",
+                "target_uid": "calc::CalculatorEngine::set_target",
+                "target_type": "MethodNode"
+              }
+            ],
+            "source": "test"
           }
-        ]
+        ],
+        "source": "test"
       }
-    ]
+    ],
+    "source": "test"
   }
 ]

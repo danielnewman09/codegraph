@@ -18,11 +18,12 @@ Usage::
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
-from langchain_core.messages import BaseMessage, HumanMessage
+from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage
 
 from codegraph_agents.base import BaseAgent
 from codegraph_agents.config import AgentConfig
@@ -115,7 +116,7 @@ class DesignAgent(BaseAgent):
         "sibling_namespaces",
     }
 
-    final_tool_name: ClassVar[str] = "commit_design_and_verifications"
+    final_tool_name: ClassVar[str] = "finalize"
 
     # ── Dispatch construction ────────────────────────────────────
 
@@ -292,12 +293,15 @@ class DesignAgent(BaseAgent):
     # ── Result extraction ────────────────────────────────────────
 
     def build_result(self, state: AgentState) -> DesignResult:
-        """Extract design + verifications from the final tool output.
+        """Extract design + verifications from the commit tool output.
 
         Searches the message history for the ToolMessage from
-        ``commit_design_and_verifications``.
+        ``commit_design_and_verifications`` (a normal tool that
+        executes in the tools node, not the termination signal).
         """
-        result_data = self._extract_final_tool_output(state)
+        result_data = self._extract_final_tool_output(
+            state, "commit_design_and_verifications"
+        )
         errors: list[str] = []
 
         if result_data is None:
@@ -357,6 +361,9 @@ class DesignAgent(BaseAgent):
                 "nodes_updated": 0,
                 "nodes_created": 0,
                 "edges_linked": 0,
+                "namespace_edges": 0,
+                "namespaces_created": 0,
+                "namespaces_reused": 0,
                 "verifications_resolved": 0,
                 "conditions_created": 0,
                 "actions_created": 0,
@@ -396,6 +403,22 @@ class DesignAgent(BaseAgent):
                 )
                 actions_created += len(
                     v.get("actions", [])
+                )
+
+        # ── Persist VERIFIES & update CALLEE edges ──
+        from codegraph_design.agents.design_oo import _persist_verifications
+
+        verifies_persisted = 0
+        callees_updated = 0
+        if design_result.verifications:
+            try:
+                verifies_persisted, callees_updated = _persist_verifications(
+                    hlr_uid, design_result.verifications
+                )
+            except Exception as exc:
+                log.warning(
+                    "Verification persistence failed for HLR %s: %s",
+                    hlr_uid[:8], exc, exc_info=True,
                 )
 
         # ── Link HLR → top-level design compounds ──
@@ -443,7 +466,12 @@ class DesignAgent(BaseAgent):
             "nodes_updated": recon.get("nodes_updated", 0),
             "nodes_created": recon.get("nodes_created", 0),
             "edges_linked": recon.get("edges_linked", 0),
+            "namespace_edges": recon.get("namespace_edges", 0),
+            "namespaces_created": recon.get("namespaces_created", 0),
+            "namespaces_reused": recon.get("namespaces_reused", 0),
             "verifications_resolved": verifications_resolved,
+            "verifies_persisted": verifies_persisted,
+            "callees_updated": callees_updated,
             "conditions_created": conditions_created,
             "actions_created": actions_created,
             "links_applied": links_applied,

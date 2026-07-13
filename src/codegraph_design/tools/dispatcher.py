@@ -190,7 +190,36 @@ class DesignToolDispatcher(CodeGraphDispatcher):
         from codegraph_design.tools.design_smells import register_all as _reg_smells
         _reg_smells(self)
 
+    # ── Tool registration (overrides wide-open base) ────────────────────
+
+    def _register_all(self) -> None:
+        """Register only the subset of codegraph tools the design agent needs.
+
+        The base :class:`~codegraph.tools.dispatcher.CodeGraphDispatcher`
+        registers 23 low-level graph/info/format/query tools.  The design
+        agent only needs discovery + lookup.
+        """
+        from codegraph.tools.discovery import register_all as _reg_discovery
+        from codegraph.tools.lookup import register_all as _reg_lookup
+
+        _reg_discovery(self)
+        _reg_lookup(self)
+
+        # Drop administrative / raw-graph tools that bloat the surface.
+        _drop = self._handlers.pop
+        for name in (
+            "browse_namespace", "list_sources", "list_namespaces",
+            "alias_lookup", "get_container_info", "dependency_list",
+        ):
+            _drop(name, None)
+            self._schemas.pop(name, None)
+
     # ── Internal helpers ────────────────────────────────────────────────
+
+    def _remove_tool(self, name: str) -> None:
+        """Remove a registered tool by name (no-op if absent)."""
+        self._handlers.pop(name, None)
+        self._schemas.pop(name, None)
 
     def _add_to_context(self, cls_dict: dict) -> None:
         """Add a class dict to context_graph as a CompositeEntry."""

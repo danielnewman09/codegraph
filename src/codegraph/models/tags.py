@@ -11,6 +11,7 @@ conflicts.
 
 from __future__ import annotations
 
+import logging
 from abc import ABCMeta
 
 from neomodel import StringProperty
@@ -421,20 +422,29 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
     def _compute_uid(self) -> str:
         """Compute deterministic uid from identity fields without saving.
 
-        Derives a SHA-1 hash from the node's ``_identity_fields``
-        (e.g. ``qualified_name`` + normalised ``argsstring`` for
-        functions/methods).  Returns an empty string if the primary
-        identity field is empty, signalling the caller to leave the
-        ``UniqueIdProperty`` auto-generated value untouched.
+        Derives a SHA-1 hash from the node's ``source`` + ``_identity_fields``
+        (e.g. ``source`` + ``qualified_name`` + normalised ``argsstring`` for
+        functions/methods).  Source is the first identity part so that the
+        same symbol in different projects gets different uids.
+
+        Raises:
+            ValueError: If ``source`` is empty (``source`` is a required
+                field on all nodes) or if the primary identity field is
+                empty, meaning a deterministic uid cannot be derived.
 
         Returns:
-            The 40-character hex hash string, or ``""`` if identity
-            fields are empty.
+            The 40-character hex hash string.
         """
         from codegraph.uid import compute_uid, normalize_argsstring
 
+        source = str(getattr(self, "source", "") or "")
+        if not source:
+            raise ValueError(
+                f"Cannot compute uid for {type(self).__name__}: "
+                f"'source' is empty (a required field)."
+            )
         identity_fields = getattr(type(self), "_identity_fields", ())
-        parts: list[str] = []
+        parts: list[str] = [source]
         for field in identity_fields:
             val = getattr(self, field, None)
             if val is None:
@@ -443,7 +453,13 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
             if field == "argsstring":
                 val = normalize_argsstring(val)
             parts.append(val)
-        return compute_uid(*parts)
+        uid = compute_uid(*parts)
+        if not uid:
+            raise ValueError(
+                f"Cannot compute uid for {type(self).__name__}: "
+                f"primary identity field {identity_fields[0]!r} is empty."
+            )
+        return uid
 
     # ── Save (uid computation hook) ────────────────────────────────────
 
@@ -456,8 +472,10 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         ``uid``, and re-ingesting the same node updates rather than
         duplicating.
 
-        Falls back to neomodel's ``StructuredNode.save()`` when the
-        identity fields are empty (auto-generated random uid).
+        Falls back to neomodel's ``StructuredNode.save()`` when
+        ``_compute_uid()`` raises ``ValueError`` (e.g. source or
+        identity fields are empty), yielding an auto-generated random
+        uid.
 
         Returns:
             This node instance (after saving).
@@ -472,7 +490,10 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         if "qualified_name" in props and not getattr(self, "qualified_name", ""):
             self.qualified_name = self._compute_qualified_name()
 
-        computed = self._compute_uid()
+        try:
+            computed = self._compute_uid()
+        except ValueError:
+            return StructuredNode.save(self)
         if computed:
             self.uid = computed
             # Use MERGE on uid for idempotent create-or-update.
@@ -819,9 +840,18 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         # without requiring the caller to pre-compute hashes.
         uid_prop = target_cls._uid_prop()
         if uid_prop and uid_prop not in data:
-            computed = node._compute_uid()
-            if computed:
-                setattr(node, uid_prop, computed)
+            try:
+                computed = node._compute_uid()
+                if computed:
+                    setattr(node, uid_prop, computed)
+            except ValueError:
+                # source or identity fields are empty — leave the
+                # UniqueIdProperty auto-generated value untouched.
+                logging.warning(
+                    "Cannot compute deterministic uid for %s: missing source "
+                    "or identity fields. Falling back to auto-generated uid.",
+                    target_cls.__name__,
+                )
 
         return node
 
@@ -966,6 +996,24 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
                 f"Unknown property(ies) on {type(self).__name__}: "
                 f"{sorted(invalid)}. "
                 f"Valid properties: {sorted(props)}"
+            )
+
+        # Reject updates to identity fields (source, uid, and
+        # _identity_fields like qualified_name / argsstring).  Changing
+        # these would alter the deterministic uid, breaking idempotent
+        # MERGE behaviour and orphaning existing relationships.
+        uid_prop = type(self)._uid_prop()
+        identity_fields = set(getattr(type(self), "_identity_fields", ()))
+        immutable = {"source", *(identity_fields)}
+        if uid_prop:
+            immutable.add(uid_prop)
+        changed_identity = set(kwargs) & immutable
+        if changed_identity:
+            raise ValueError(
+                f"Cannot update identity field(s) on {type(self).__name__}: "
+                f"{sorted(changed_identity)}. These fields determine the "
+                f"node's uid and must not change after creation. "
+                f"Create a new node instead."
             )
 
         for key, value in kwargs.items():

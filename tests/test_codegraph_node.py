@@ -746,22 +746,22 @@ class TestUidAccessors:
         assert LLR._identity_fields == ("qualified_name",)
 
     def test_hlr_computes_deterministic_uid(self):
-        """HLR.save() computes uid = SHA-1(name)."""
+        """HLR.save() computes uid = SHA-1(source, name)."""
         name = "Test HLR Uid"
-        hlr = HLR(name=name, description="desc", tags=["design"]).save()
+        hlr = HLR(name=name, description="desc", tags=["design"], source="design").save()
         try:
-            expected = compute_uid(name)
+            expected = compute_uid("design", name)
             assert hlr.uid == expected
             assert hlr._uid_value() == expected
         finally:
             hlr.delete()
 
     def test_llr_computes_deterministic_uid(self):
-        """LLR.save() computes uid = SHA-1(name)."""
+        """LLR.save() computes uid = SHA-1(source, name)."""
         name = "Test LLR Uid"
-        llr = LLR(name=name, description="desc", tags=["design"]).save()
+        llr = LLR(name=name, description="desc", tags=["design"], source="design").save()
         try:
-            expected = compute_uid(name)
+            expected = compute_uid("design", name)
             assert llr.uid == expected
             assert llr._uid_value() == expected
         finally:
@@ -770,12 +770,12 @@ class TestUidAccessors:
     def test_hlr_save_idempotent(self):
         """Re-saving an HLR with the same name updates, does not duplicate."""
         name = "Idempotent HLR Uid Test"
-        hlr1 = HLR(name=name, description="first", tags=["design"]).save()
+        hlr1 = HLR(name=name, description="first", tags=["design"], source="design").save()
         try:
             uid_after_first = hlr1.uid
 
             # Re-save a new instance with the same name
-            hlr2 = HLR(name=name, description="second", tags=["design"]).save()
+            hlr2 = HLR(name=name, description="second", tags=["design"], source="design").save()
             try:
                 # Same uid — it was an upsert
                 assert hlr2.uid == uid_after_first
@@ -789,12 +789,12 @@ class TestUidAccessors:
     def test_llr_save_idempotent(self):
         """Re-saving an LLR with the same name updates, does not duplicate."""
         name = "Idempotent LLR Uid Test"
-        llr1 = LLR(name=name, description="first", tags=["design"]).save()
+        llr1 = LLR(name=name, description="first", tags=["design"], source="design").save()
         try:
             uid_after_first = llr1.uid
 
             # Re-save a new instance with the same name
-            llr2 = LLR(name=name, description="second", tags=["design"]).save()
+            llr2 = LLR(name=name, description="second", tags=["design"], source="design").save()
             try:
                 # Same uid — it was an upsert
                 assert llr2.uid == uid_after_first

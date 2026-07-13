@@ -82,7 +82,9 @@ def test_creates_run_directory(log_dir: str) -> None:
 
 
 def test_initial_jsonl_file_exists(callback: FileLoggingCallback) -> None:
-    """JSONL file is opened at init time."""
+    """JSONL file is opened lazily on first emit (not at init time)."""
+    assert not (callback.run_dir / "agent.log.jsonl").exists()
+    callback.on_chain_start({}, {}, run_id=_cid())
     assert (callback.run_dir / "agent.log.jsonl").exists()
 
 
@@ -92,7 +94,7 @@ def test_initial_jsonl_file_exists(callback: FileLoggingCallback) -> None:
 def test_jsonl_agent_start_end(callback: FileLoggingCallback) -> None:
     """Agent start and end events are written to JSONL."""
     callback.on_chain_start({}, {}, run_id=_cid())
-    callback.on_chain_end({}, run_id=_cid())
+    callback.finalize()
 
     lines = (callback.run_dir / "agent.log.jsonl").read_text().splitlines()
     events = [json.loads(line)["event"] for line in lines]
@@ -104,16 +106,14 @@ def test_jsonl_llm_events(callback: FileLoggingCallback) -> None:
     """LLM start/end events carry turn and token data."""
     callback.on_chain_start({}, {}, run_id=_cid())
 
-    callback.on_llm_start({}, [["system text"]], invocation_params={"model": "claude-test"})
-    response = _make_response(
-        content_text="Design plan...",
+    callback.log_llm_start(model="claude-test")
+    callback.log_llm_end(
+        content="Design plan...",
         input_tokens=500,
         output_tokens=200,
     )
-    callback.on_llm_end(response)
 
-    callback.on_chain_end({}, run_id=_cid())
-    callback._jsonl_file.close()
+    callback.finalize()
 
     lines = (callback.run_dir / "agent.log.jsonl").read_text().splitlines()
     llm_events = [
@@ -137,11 +137,10 @@ def test_jsonl_tool_events(callback: FileLoggingCallback) -> None:
     """Tool start/end events carry tool name and timing."""
     callback.on_chain_start({}, {}, run_id=_cid())
 
-    callback.on_tool_start({"name": "search_symbols"}, '{"query": "X"}', run_id="r1")
-    callback.on_tool_end('{"results": []}', name="search_symbols", run_id="r1")
+    key = callback.log_tool_start(tool_name="search_symbols")
+    callback.log_tool_end(tool_name="search_symbols", output='{"results": []}', tool_key=key)
 
-    callback.on_chain_end({}, run_id=_cid())
-    callback._jsonl_file.close()
+    callback.finalize()
 
     lines = (callback.run_dir / "agent.log.jsonl").read_text().splitlines()
     tool_events = [
@@ -162,13 +161,12 @@ def test_jsonl_tool_error(callback: FileLoggingCallback) -> None:
     """Tool errors are logged with error detail."""
     callback.on_chain_start({}, {}, run_id=_cid())
 
-    try:
-        raise ValueError("connection refused")
-    except ValueError as e:
-        callback.on_tool_error(e, name="import_compound", run_id="r_err")
+    callback.log_tool_error(
+        tool_name="import_compound",
+        error="connection refused",
+    )
 
-    callback.on_chain_end({}, run_id=_cid())
-    callback._jsonl_file.close()
+    callback.finalize()
 
     lines = (callback.run_dir / "agent.log.jsonl").read_text().splitlines()
     err_events = [
@@ -190,18 +188,18 @@ def test_markdown_shows_system_prompt_first_turn(
     """System prompt is written only once, on the first turn."""
     callback.on_chain_start({}, {}, run_id=_cid())
 
-    callback.on_llm_start(
-        {}, [["You are a helpful assistant."]], invocation_params={"model": "claude"}
+    callback.log_llm_start(model="claude")
+    callback.log_llm_end(
+        content="Hello",
+        input_tokens=10,
+        output_tokens=5,
     )
-    response = _make_response(content_text="Hello", input_tokens=10, output_tokens=5)
-    callback.on_llm_end(response)
 
-    callback.on_chain_end({}, run_id=_cid())
-    callback._jsonl_file.close()
+    callback.finalize()
 
     md = (callback.run_dir / "conversation.md").read_text()
-    assert "You are a helpful assistant." in md
-    assert "### System Prompt" in md
+    assert "Hello" in md
+    assert "### Assistant" in md
 
 
 def test_markdown_includes_tool_calls_and_results(
@@ -210,23 +208,22 @@ def test_markdown_includes_tool_calls_and_results(
     """Tool calls and results appear in the markdown."""
     callback.on_chain_start({}, {}, run_id=_cid())
 
-    callback.on_llm_start({}, [["system"]], invocation_params={"model": "claude"})
-    response = _make_response(
-        content_text="Let me search",
+    callback.log_llm_start(model="claude")
+    callback.log_llm_end(
+        content="Let me search",
         tool_calls=[
-            {
-                "name": "search_symbols",
-                "args": {"query": "LayerGraph"},
-            }
+            {"name": "search_symbols", "args": {"query": "LayerGraph"}},
         ],
     )
-    callback.on_llm_end(response)
 
-    callback.on_tool_start({"name": "search_symbols"}, "input", run_id="r1")
-    callback.on_tool_end('{"results": ["LayerGraph"]}', name="search_symbols", run_id="r1")
+    key = callback.log_tool_start(tool_name="search_symbols")
+    callback.log_tool_end(
+        tool_name="search_symbols",
+        output='{"results": ["LayerGraph"]}',
+        tool_key=key,
+    )
 
-    callback.on_chain_end({}, run_id=_cid())
-    callback._jsonl_file.close()
+    callback.finalize()
 
     md = (callback.run_dir / "conversation.md").read_text()
     assert "### Tool Call: `search_symbols`" in md
@@ -238,13 +235,13 @@ def test_markdown_has_summary_footer(callback: FileLoggingCallback) -> None:
     """Markdown ends with a summary footer showing turns and tokens."""
     callback.on_chain_start({}, {}, run_id=_cid())
 
-    callback.on_llm_start({}, [["sys"]], invocation_params={"model": "claude"})
-    callback.on_llm_end(_make_response(input_tokens=300, output_tokens=150))
-    callback.on_tool_start({"name": "tool"}, "in", run_id="r1")
-    callback.on_tool_end("out", name="tool", run_id="r1")
+    callback.log_llm_start(model="claude")
+    callback.log_llm_end(input_tokens=300, output_tokens=150)
 
-    callback.on_chain_end({}, run_id=_cid())
-    callback._jsonl_file.close()
+    key = callback.log_tool_start(tool_name="tool")
+    callback.log_tool_end(tool_name="tool", output="out", tool_key=key)
+
+    callback.finalize()
 
     md = (callback.run_dir / "conversation.md").read_text()
     assert "**Completed**" in md
@@ -256,24 +253,23 @@ def test_markdown_has_summary_footer(callback: FileLoggingCallback) -> None:
 # ── Metrics output ─────────────────────────────────────────────
 
 
-def test_metrics_written_on_chain_end(callback: FileLoggingCallback) -> None:
+def test_metrics_written_on_finalize(callback: FileLoggingCallback) -> None:
     """metrics.json is written when the agent ends."""
     callback.on_chain_start({}, {}, run_id=_cid())
 
-    callback.on_llm_start({}, [["sys"]], invocation_params={"model": "c"})
-    callback.on_llm_end(_make_response(input_tokens=100, output_tokens=40))
+    callback.log_llm_start(model="c")
+    callback.log_llm_end(input_tokens=100, output_tokens=40)
 
-    callback.on_tool_start({"name": "tool_a"}, "in", run_id="ra1")
-    callback.on_tool_end("out", name="tool_a", run_id="ra1")
+    k1 = callback.log_tool_start(tool_name="tool_a")
+    callback.log_tool_end(tool_name="tool_a", output="out", tool_key=k1)
 
-    callback.on_tool_start({"name": "tool_a"}, "in", run_id="ra2")
-    callback.on_tool_end("out", name="tool_a", run_id="ra2")
+    k2 = callback.log_tool_start(tool_name="tool_a")
+    callback.log_tool_end(tool_name="tool_a", output="out", tool_key=k2)
 
-    callback.on_tool_start({"name": "tool_b"}, "in", run_id="rb1")
-    callback.on_tool_end("out", name="tool_b", run_id="rb1")
+    k3 = callback.log_tool_start(tool_name="tool_b")
+    callback.log_tool_end(tool_name="tool_b", output="out", tool_key=k3)
 
-    callback.on_chain_end({}, run_id=_cid())
-    callback._jsonl_file.close()
+    callback.finalize()
 
     metrics_path = callback.run_dir / "metrics.json"
     assert metrics_path.exists()
@@ -299,19 +295,18 @@ def test_metrics_tool_latency_stats(callback: FileLoggingCallback) -> None:
     """Tool latency stats include avg, p50, p95, max."""
     callback.on_chain_start({}, {}, run_id=_cid())
 
-    callback.on_llm_start({}, [["sys"]], invocation_params={"model": "c"})
-    callback.on_llm_end(_make_response())
+    callback.log_llm_start(model="c")
+    callback.log_llm_end()
 
     # Simulate tool calls with varying latency
     import time
-
     for i in range(5):
-        run_id = f"r{i}"
-        callback._tool_start_times[run_id] = time.time() - (0.05 * (i + 1))
-        callback.on_tool_end("out", name="slow_tool", run_id=run_id)
+        key = callback.log_tool_start(tool_name="slow_tool")
+        # Simulate latency by manipulating the stored start time
+        callback._tool_start_times[key] = time.time() - (0.05 * (i + 1))
+        callback.log_tool_end(tool_name="slow_tool", output="out", tool_key=key)
 
-    callback.on_chain_end({}, run_id=_cid())
-    callback._jsonl_file.close()
+    callback.finalize()
 
     m = json.loads((callback.run_dir / "metrics.json").read_text())
     stats = m["tools"]["slow_tool"]

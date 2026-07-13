@@ -55,6 +55,7 @@ def _make_llr(name="Test LLR", test_ids=None):
     return {
         "type": "LLR",
         "name": name,
+        "source": "test",
         "description": f"Description for {name}",
         "tags": ["design"],
         "edges": [
@@ -70,6 +71,7 @@ def _make_test(qname="vm::test::test_foo", test_name="test_foo"):
     return {
         "type": "TestNode",
         "qualified_name": qname,
+        "source": "test",
         "test_name": test_name,
         "method": "automated",
         "description": f"Test: {test_name}",
@@ -86,6 +88,7 @@ def _make_assertion(qname, phase="post", operator="==", left="Foo::bar", right="
     return {
         "type": "AssertionNode",
         "qualified_name": qname,
+        "source": "test",
         "phase": phase,
         "operator": operator,
         "edges": [
@@ -100,6 +103,7 @@ def _make_step(qname, description="Invoke operation", callee="Foo::do_thing"):
     return {
         "type": "TestStepNode",
         "qualified_name": qname,
+        "source": "test",
         "description": description,
         "edges": [
             {"relation_type": "CALLEE", "target_uid": callee, "target_type": "AttributeNode"},
@@ -711,7 +715,7 @@ class TestScaffoldConnectivity:
     Neo4j edge creation fails (e.g. UID/elementId mismatches).
     """
 
-    HLR_UID = "ee66877ea015ba4846c010687319a855b5450a57"
+    HLR_UID = "ada30b8f1f4e4e26ac83124929c321b92fe1046a"
 
     @pytest.fixture()
     def ensure_hlr_exists(self):
@@ -731,6 +735,7 @@ class TestScaffoldConnectivity:
         hlr = HLR(
             uid=self.HLR_UID,
             name="Architecture Diagram Generator",
+            source="test",
             description=(
                 "The Architecture Diagram Generator shall produce a single "
                 "unified PlantUML component diagram for the codegraph "

@@ -316,10 +316,11 @@ class TestTestNodeModel:
         data = {
             "type": "TestNode",
             "qualified_name": "tests::test_update::test_single_field",
+            "source": "test",
             "kind": "test",
         }
         node = CodeGraphNode.deserialize(data)
-        expected_uid = compute_uid("tests::test_update::test_single_field")
+        expected_uid = compute_uid("test", "tests::test_update::test_single_field")
         # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_deserialize_computes_uid::post_0
         # Checks that after deserialization, the node's uid matches the expected
         # deterministic uid computed from the qualified name, ensuring consistent and

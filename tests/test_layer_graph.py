@@ -17,8 +17,8 @@ from codegraph.uid import compute_uid, normalize_argsstring
 def _uid(qname: str, argsstring: str | None = None) -> str:
     """Compute the deterministic uid for a fixture node from its identity."""
     if argsstring is not None:
-        return compute_uid(qname, normalize_argsstring(argsstring))
-    return compute_uid(qname)
+        return compute_uid("calculator", qname, normalize_argsstring(argsstring))
+    return compute_uid("calculator", qname)
 
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
@@ -64,12 +64,12 @@ class TestNodeKey:
         # codegraph:test-desc test_layer_graph.TestNodeKey.test_file_node_dict_computes_uid_from_path::step_0
         # Sets up the test environment by creating a file node dictionary for the path
         # '/src/main.h' and calls the _node_key method to compute the uid.
-        result = LayerGraph._node_key({"type": "FileNode", "path": "/src/main.h", "name": "main.h"})
+        result = LayerGraph._node_key({"type": "FileNode", "path": "/src/main.h", "name": "main.h", "source": "calculator"})
         # codegraph:test-desc test_layer_graph.TestNodeKey.test_file_node_dict_computes_uid_from_path::post_0
         # Verifies that the computed uid from the _node_key method matches the expected
         # output of compute_uid('/src/main.h'), ensuring correct fallback behavior when
         # uid/refid is absent.
-        assert result == compute_uid("/src/main.h")
+        assert result == compute_uid("calculator", "/src/main.h")
 
     # codegraph:test-desc test_layer_graph.TestNodeKey.test_class_node_dict_uses_uid
     # Verifies that the _node_key method correctly constructs a dictionary key for a
@@ -322,7 +322,7 @@ class TestDeserialize:
         # Calls the deserialize method on the LayerGraph instance with the prepared
         # data, executing the core logic that transforms the serialized representation
         # into live node objects.
-        file_entry = _find_entry(graph, compute_uid("/src/calc/calculator_engine.h"))
+        file_entry = _find_entry(graph, compute_uid("calculator", "/src/calc/calculator_engine.h"))
         # codegraph:test-desc test_layer_graph.TestDeserialize.test_node_types_are_correct::post_2
         # Ensures that the 'file_entry' reference is not None, validating that the
         # file-level node was properly deserialized and is accessible for further type
@@ -757,7 +757,7 @@ class TestSerializeFields:
         # fields are present.
         data = [
             {"type": "ClassNode", "name": "Engine", "kind": "class",
-             "qualified_name": "ns::Engine",
+             "qualified_name": "ns::Engine", "source": "calculator",
              "tags": ["design"], "module": "mymod", "is_abstract": True},
         ]
         graph = LayerGraph.deserialize(data)
@@ -809,7 +809,7 @@ class TestSerializeFields:
         # refid property.
         data = [
             {"type": "FileNode", "name": "main.h", "path": "/src/main.h",
-             "refid": "file-main"},
+             "refid": "file-main", "source": "calculator"},
         ]
         graph = LayerGraph.deserialize(data)
         all_output = graph.serialize(fields="all")

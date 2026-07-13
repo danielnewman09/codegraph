@@ -44,7 +44,11 @@ resolve verification stubs to reference real design elements.
    qualified names from your design. Call draft_verifications to check
    that all references resolve.
 4. **Commit** — Call commit_design_and_verifications with the final
-   design and verifications as arguments.
+   design and verifications as arguments.  You MUST then call finalize
+   to signal completion and terminate the agent loop.
+5. **Finalize** — Call finalize() (no arguments) to signal that you
+   are done. This is the termination signal — do NOT call it before
+   commit_design_and_verifications has succeeded.
 
 {specializations_section}
 {namespace_section}
@@ -57,12 +61,23 @@ resolve verification stubs to reference real design elements.
 - **NEVER create a design node for a class that already exists in the codegraph.**
   Use import_compound to load it into context, then reference it by its
   fully-qualified name in DEPENDS_ON edges, type signatures, and verifications.
+- **When your design MUST overlay an existing as-built class**, set
+  ``"overlays_qualified_name"`` on the design node to the as-built's
+  fully-qualified name.  The reconcile step will merge your design
+  properties onto the existing as-built node in place — no duplicate
+  is created.  Use this when you are designing a replacement or
+  refactored version of an existing class.
 - Qualified names follow C++ convention: Namespace::ClassName::memberName
 - The full codegraph is the single source of truth — any qualified name that
   exists anywhere in Neo4j (any tag) is a valid reference target
 - Use check_class_name to discover names, import_compound to load them
   into context, then reference them in your design
 - Keep classes focused and cohesive
+- **Every design MUST include a NamespaceNode** whose qualified_name is the
+  component namespace (e.g. "cpp_sqlite").  Nest ALL top-level compounds
+  (ClassNode, EnumNode, InterfaceNode) under it via ``composes``.  Without
+  it, ``check_design_smells`` will report a ``missing_namespace`` blocking
+  smell.
 
 ### Verification resolution
 
@@ -86,15 +101,6 @@ the design context or the current draft.
 Pattern: <namespace>::<ClassName>::<memberName>
 
 Leave `caller_qualified_name` empty if the caller is the test harness.
-
-**Enum values:** When comparing against an enum value, reference the enum
-*attribute* as `subject_qualified_name` and put the enum *value* in
-`expected_value`. Do NOT use enum values as `subject_qualified_name`.
-
-Example:
-  subject_qualified_name: "climate::Thermostat::error_state"
-  operator: "=="
-  expected_value: "SensorFault"
 </FORMAT-CONTRACT>
 
 <FORMAT-CONTRACT name="verification-key-format">
@@ -105,10 +111,9 @@ Example: "verifications": {{ "abc123": [...], "def456": [...] }}
 Wrong:   "verifications": {{ "test_set_target": [...] }}
 </FORMAT-CONTRACT>
 
-You MUST use commit_design_and_verifications to return your final result.
-Pass the design (same list of CodeGraphNode dicts from produce_oo_design)
-and the verifications dict (same structure from draft_verifications) as
-arguments to commit_design_and_verifications.
+After commit_design_and_verifications returns {{"committed": true}}, call
+finalize() with no arguments to end the loop.  Do NOT skip any steps —
+the pipeline is: design → smell-check → resolve verifications → commit → finalize.
 """
 
 # ── LangChain template — wraps the canonical text ────────────────

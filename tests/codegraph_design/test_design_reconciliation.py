@@ -36,7 +36,7 @@ DATA_DIR = Path(__file__).resolve().parent / "data"
 DECOMPOSE_RESPONSE = DATA_DIR / "decompose_response.json"
 DESIGN_RESPONSE = DATA_DIR / "design_response.json"
 
-HLR_UID = "ee66877ea015ba4846c010687319a855b5450a57"
+HLR_UID = "ada30b8f1f4e4e26ac83124929c321b92fe1046a"
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -153,6 +153,7 @@ def ensure_hlr_exists():
     hlr = HLR(
         uid=HLR_UID,
         name="Architecture Diagram Generator",
+        source="test",
         description=(
             "The Architecture Diagram Generator shall produce a single "
             "unified PlantUML component diagram for the codegraph "

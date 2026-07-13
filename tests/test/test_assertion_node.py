@@ -254,11 +254,12 @@ class TestAssertionNodeModel:
         data = {
             "type": "AssertionNode",
             "qualified_name": qn,
+            "source": "test",
             "kind": "assertion",
             "phase": "post",
         }
         node = CodeGraphNode.deserialize(data)
-        expected_uid = compute_uid(qn)
+        expected_uid = compute_uid("test", qn)
         # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_deserialize_computes_uid::post_0
         # Verifies that the node's uid after deserialization equals the expected uid,
         # confirming that the uid generation is deterministic and correct.

@@ -332,13 +332,14 @@ class TestTestStepNodeModel:
         data = {
             "type": "TestStepNode",
             "qualified_name": qn,
+            "source": "test",
             "kind": "test_step",
             "order": 0,
         }
         node = CodeGraphNode.deserialize(data)
-        expected_uid = compute_uid(qn)
+        expected_uid = compute_uid("test", qn)
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_deserialize_computes_uid::post_0
-        # Confirms that the node’s UID matches the expected UID, verifying that the
+        # Confirms that the node's UID matches the expected UID, verifying that the
         # deterministic UID computation (compute_uid) is correctly integrated during
         # deserialization.
         assert node.uid == expected_uid

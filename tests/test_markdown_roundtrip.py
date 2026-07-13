@@ -68,12 +68,14 @@ def _make_full_verification_graph() -> LayerGraph:
         name="Round-Trip Feature",
         qualified_name="Round-Trip Feature",
         description="The system shall support full round-trip serialization.",
+        source="test",
         tags=["design"],
     )
     llr = LLR(
         name="RT-LLR-001",
         qualified_name="RT-LLR-001",
         description="The generate operation returns valid output.",
+        source="test",
         tags=["design"],
     )
     test = TestNode(
@@ -82,6 +84,7 @@ def _make_full_verification_graph() -> LayerGraph:
         test_name="test_generate_returns_valid",
         method="automated",
         description="Invoke generate and verify output.",
+        source="test",
         tags=["design"],
     )
     pre = AssertionNode(
@@ -89,6 +92,7 @@ def _make_full_verification_graph() -> LayerGraph:
         qualified_name="cond::rt::pre::ready",
         phase="pre",
         operator="is_true",
+        source="test",
         tags=["design"],
     )
     post = AssertionNode(
@@ -96,32 +100,34 @@ def _make_full_verification_graph() -> LayerGraph:
         qualified_name="cond::rt::post::ok",
         phase="post",
         operator="==",
+        source="test",
         tags=["design"],
     )
     step = TestStepNode(
         name="",
         qualified_name="step::rt::invoke",
         description="Invoke the generate operation.",
+        source="test",
         tags=["design"],
     )
 
     # Scaffold targets
     is_ready = AttributeNode(
-        name="is_ready", qualified_name="Gen::is_ready", tags=["design"],
+        name="is_ready", qualified_name="Gen::is_ready", source="test", tags=["design"],
     )
     output = AttributeNode(
-        name="output", qualified_name="Gen::output", tags=["design"],
+        name="output", qualified_name="Gen::output", source="test", tags=["design"],
     )
     generate = AttributeNode(
-        name="generate", qualified_name="Gen::generate", tags=["design"],
+        name="generate", qualified_name="Gen::generate", source="test", tags=["design"],
     )
     lit_true = LiteralNode(
         name="true", qualified_name="literal::true",
-        value="true", tags=["design"],
+        value="true", source="test", tags=["design"],
     )
     lit_non_empty = LiteralNode(
         name="non_empty", qualified_name="literal::not_empty",
-        value="not_empty", tags=["design"],
+        value="not_empty", source="test", tags=["design"],
     )
 
     # Build tree
@@ -496,7 +502,7 @@ class TestFullComposesHierarchy:
         headings = self._extract_headings(self._fixture_text())
 
         # HLR label should be a human-readable name, not a hash
-        hlr_labels = [label for kw, label in headings if kw == "HLR"]
+        hlr_labels = [label for _depth, kw, label in headings if kw == "HLR"]
         assert len(hlr_labels) >= 1
         assert hlr_labels[0] == "Diagram Generator", \
             f"HLR label should be 'Diagram Generator', got: {hlr_labels[0]!r}"
@@ -505,7 +511,7 @@ class TestFullComposesHierarchy:
             f"HLR label looks like a uid hash: {hlr_labels[0]!r}"
 
         # LLR labels should be human-readable identifiers
-        llr_labels = [label for kw, label in headings if kw == "LLR"]
+        llr_labels = [label for _depth, kw, label in headings if kw == "LLR"]
         for label in llr_labels:
             assert not re.match(r'^llr_[a-f0-9]{8}$', label), \
                 f"LLR label looks like a uid hash: {label!r}"
@@ -652,6 +658,10 @@ class TestDecomposeOutputFormat:
 
     If the decompose output doesn't conform, the importer won't create
     COMPOSES edges and the ingested graph will have orphaned nodes.
+
+    Uses the reference decompose output fixture at
+    ``tests/unit_test_data/decompose_requirements.md`` which has been
+    updated to the human-readable label convention.
     """
 
     @staticmethod
@@ -659,9 +669,8 @@ class TestDecomposeOutputFormat:
         from pathlib import Path
 
         return (
-            Path(__file__).resolve().parent.parent
-            / "codegraph" / "requirements"
-            / "architecture-diagram-generator" / "requirements.md"
+            Path(__file__).resolve().parent
+            / "unit_test_data" / "decompose_requirements.md"
         )
 
     @staticmethod

@@ -169,8 +169,8 @@ COMMIT_SCHEMA = {
     "name": "commit_design_and_verifications",
     "description": (
         "Commit the final design and all resolved verification procedures. "
-        "This terminates the agent loop. You MUST pass the design (the same "
-        "list of CodeGraphNode dicts you previously submitted via "
+        "You MUST call this BEFORE calling finalize(). Pass the design (the "
+        "same list of CodeGraphNode dicts you previously submitted via "
         "produce_oo_design) and the verifications dict (the same structure "
         "you submitted via draft_verifications). Validates that all "
         "qualified names resolve and returns the combined result."
@@ -195,6 +195,19 @@ COMMIT_SCHEMA = {
             },
         },
         "required": ["design", "verifications"],
+    },
+}
+
+
+FINALIZE_SCHEMA = {
+    "name": "finalize",
+    "description": (
+        "Terminate the agent loop.  Takes no arguments — this is a pure "
+        "signal that the pipeline is complete."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {},
     },
 }
 
@@ -397,6 +410,13 @@ def handle_commit(
     })
 
 
+def handle_finalize(
+    ctx: VerificationDispatcher, tool_input: dict,
+) -> str:
+    """No-op termination signal.  Always succeeds."""
+    return json.dumps({"finalized": True})
+
+
 # ══════════════════════════════════════════════════════════════════════════
 # Registration
 # ══════════════════════════════════════════════════════════════════════════
@@ -411,4 +431,8 @@ def register_all(dispatcher: VerificationDispatcher) -> None:
     disp.register(
         "commit_design_and_verifications", COMMIT_SCHEMA,
         lambda inp: handle_commit(disp, inp),
+    )
+    disp.register(
+        "finalize", FINALIZE_SCHEMA,
+        lambda inp: handle_finalize(disp, inp),
     )

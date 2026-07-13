@@ -380,10 +380,10 @@ def handle_validate_design(ctx: DesignToolDispatcher, tool_input: dict) -> str:
     warnings = [e.replace("Warning: ", "") for e in errors if e.startswith("Warning:")]
 
     # ── Structural smell checks (forced — runs automatically) ────────
-    from codegraph_design.tools.design_smells import check_design_smells
-    smell_report = check_design_smells(nodes)
+    from codegraph_design.tools.design_smells import run_all_smells
+    smell_report = run_all_smells(nodes)
     for s in smell_report.smells:
-        msg = f"[{s.severity}] {s.smell_id}: {s.detail}"
+        msg = f"[{s.severity}] {s.id}: {s.detail}"
         if s.severity == "blocking":
             critical.append(msg)
         else:
@@ -415,10 +415,10 @@ def handle_produce_oo_design(ctx: DesignToolDispatcher, tool_input: dict) -> str
     warnings = [e.replace("Warning: ", "") for e in errors if e.startswith("Warning:")]
 
     # ── Structural smell checks (forced — runs automatically) ────────
-    from codegraph_design.tools.design_smells import check_design_smells
-    smell_report = check_design_smells(nodes)
+    from codegraph_design.tools.design_smells import run_all_smells
+    smell_report = run_all_smells(nodes)
     for s in smell_report.smells:
-        msg = f"[{s.severity}] {s.smell_id}: {s.detail}"
+        msg = f"[{s.severity}] {s.id}: {s.detail}"
         if s.severity == "blocking":
             critical.append(msg)
         else:

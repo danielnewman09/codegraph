@@ -222,8 +222,8 @@ def test_tools_node_dispatches_correctly(agent: _MinimalAgent) -> None:
     assert msgs[1].tool_call_id == "call2"
     assert msgs[1].name == "tool_b"
 
-    # Turn count incremented
-    assert result["turn_count"] == 2
+    # Turn count incremented (once per tools_node, not per tool call)
+    assert result["turn_count"] == 1
 
     # Dispatcher called
     assert len(agent._dummy_dispatcher.calls) == 2

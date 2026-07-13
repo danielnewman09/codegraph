@@ -24,7 +24,8 @@
           "target_uid": "vm::generate::test_no_modules",
           "target_type": "TestNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "LLR",
@@ -49,7 +50,8 @@
           "target_uid": "vm::query::test_returns_dependencies",
           "target_type": "TestNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "LLR",
@@ -74,7 +76,8 @@
           "target_uid": "vm::render_pkg::test_nested_packages",
           "target_type": "TestNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "LLR",
@@ -94,7 +97,8 @@
           "target_uid": "vm::arrow::test_no_arrows_no_deps",
           "target_type": "TestNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "LLR",
@@ -119,7 +123,8 @@
           "target_uid": "vm::filter::test_excludes_arrows_to_filtered",
           "target_type": "TestNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "LLR",
@@ -134,7 +139,8 @@
           "target_uid": "vm::deterministic::test_identical_output",
           "target_type": "TestNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "LLR",
@@ -159,7 +165,8 @@
           "target_uid": "vm::export::test_write_failure",
           "target_type": "TestNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestNode",
@@ -188,7 +195,8 @@
           "target_uid": "cond::post::no_error",
           "target_type": "AssertionNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestNode",
@@ -212,7 +220,8 @@
           "target_uid": "cond::post::error_empty_graph",
           "target_type": "AssertionNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestNode",
@@ -236,7 +245,8 @@
           "target_uid": "cond::post::error_no_modules",
           "target_type": "AssertionNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestNode",
@@ -260,7 +270,8 @@
           "target_uid": "cond::post::all_modules_in_diagram",
           "target_type": "AssertionNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestNode",
@@ -284,7 +295,8 @@
           "target_uid": "cond::post::entities_in_packages",
           "target_type": "AssertionNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestNode",
@@ -308,7 +320,8 @@
           "target_uid": "cond::post::arrows_in_diagram",
           "target_type": "AssertionNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestNode",
@@ -332,7 +345,8 @@
           "target_uid": "cond::post::package_blocks_exist",
           "target_type": "AssertionNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestNode",
@@ -356,7 +370,8 @@
           "target_uid": "cond::post::class_names_in_packages",
           "target_type": "AssertionNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestNode",
@@ -380,7 +395,8 @@
           "target_uid": "cond::post::nested_packages_exist",
           "target_type": "AssertionNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestNode",
@@ -404,7 +420,8 @@
           "target_uid": "cond::post::arrow_from_source_to_target",
           "target_type": "AssertionNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestNode",
@@ -428,7 +445,8 @@
           "target_uid": "cond::post::no_arrows_in_diagram",
           "target_type": "AssertionNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestNode",
@@ -452,7 +470,8 @@
           "target_uid": "cond::post::small_pkg_excluded",
           "target_type": "AssertionNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestNode",
@@ -476,7 +495,8 @@
           "target_uid": "cond::post::threshold_pkg_included",
           "target_type": "AssertionNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestNode",
@@ -500,7 +520,8 @@
           "target_uid": "cond::post::arrows_not_ref_filtered",
           "target_type": "AssertionNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestNode",
@@ -529,7 +550,8 @@
           "target_uid": "cond::post::outputs_identical",
           "target_type": "AssertionNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestNode",
@@ -553,7 +575,8 @@
           "target_uid": "cond::post::file_exists_and_valid",
           "target_type": "AssertionNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestNode",
@@ -577,7 +600,8 @@
           "target_uid": "cond::post::error_invalid_path",
           "target_type": "AssertionNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestNode",
@@ -601,7 +625,8 @@
           "target_uid": "cond::post::error_write_failure",
           "target_type": "AssertionNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -619,7 +644,8 @@
           "target_uid": "true",
           "target_type": "LiteralNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -637,7 +663,8 @@
           "target_uid": "literal::empty_string",
           "target_type": "LiteralNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -655,7 +682,8 @@
           "target_uid": "NoError",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -673,7 +701,8 @@
           "target_uid": "true",
           "target_type": "LiteralNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -691,7 +720,8 @@
           "target_uid": "EmptyGraphError",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -709,7 +739,8 @@
           "target_uid": "literal::0",
           "target_type": "LiteralNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -727,7 +758,8 @@
           "target_uid": "NoModulesError",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -745,7 +777,8 @@
           "target_uid": "literal::0",
           "target_type": "LiteralNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -763,7 +796,8 @@
           "target_uid": "ModuleQuery::module_count",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -781,7 +815,8 @@
           "target_uid": "literal::0",
           "target_type": "LiteralNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -799,7 +834,8 @@
           "target_uid": "literal::0",
           "target_type": "LiteralNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -817,7 +853,8 @@
           "target_uid": "literal::0",
           "target_type": "LiteralNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -835,7 +872,8 @@
           "target_uid": "literal::0",
           "target_type": "LiteralNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -853,7 +891,8 @@
           "target_uid": "literal::0",
           "target_type": "LiteralNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -871,7 +910,8 @@
           "target_uid": "literal::package",
           "target_type": "LiteralNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -889,7 +929,8 @@
           "target_uid": "literal::0",
           "target_type": "LiteralNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -907,7 +948,8 @@
           "target_uid": "PackageNode::first_class_name",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -925,7 +967,8 @@
           "target_uid": "literal::0",
           "target_type": "LiteralNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -943,7 +986,8 @@
           "target_uid": "literal::nested_package",
           "target_type": "LiteralNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -961,7 +1005,8 @@
           "target_uid": "literal::0",
           "target_type": "LiteralNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -979,7 +1024,8 @@
           "target_uid": "literal::right_arrow",
           "target_type": "LiteralNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -997,7 +1043,8 @@
           "target_uid": "literal::0",
           "target_type": "LiteralNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -1015,7 +1062,8 @@
           "target_uid": "literal::arrow",
           "target_type": "LiteralNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -1033,7 +1081,8 @@
           "target_uid": "literal::1",
           "target_type": "LiteralNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -1051,7 +1100,8 @@
           "target_uid": "PackageNode::small_pkg_name",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -1069,7 +1119,8 @@
           "target_uid": "literal::3",
           "target_type": "LiteralNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -1087,7 +1138,8 @@
           "target_uid": "PackageNode::threshold_pkg_name",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -1105,7 +1157,8 @@
           "target_uid": "literal::1",
           "target_type": "LiteralNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -1123,7 +1176,8 @@
           "target_uid": "PackageNode::small_pkg_name",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -1141,7 +1195,8 @@
           "target_uid": "literal::1",
           "target_type": "LiteralNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -1159,7 +1214,8 @@
           "target_uid": "ArchitectureDiagramGenerator::second_output",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -1177,7 +1233,8 @@
           "target_uid": "true",
           "target_type": "LiteralNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -1195,7 +1252,8 @@
           "target_uid": "true",
           "target_type": "LiteralNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -1213,7 +1271,8 @@
           "target_uid": "true",
           "target_type": "LiteralNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -1231,7 +1290,8 @@
           "target_uid": "InvalidPathError",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -1249,7 +1309,8 @@
           "target_uid": "true",
           "target_type": "LiteralNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "AssertionNode",
@@ -1267,7 +1328,8 @@
           "target_uid": "WriteFailureError",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestStepNode",
@@ -1279,7 +1341,8 @@
           "target_uid": "ArchitectureDiagramGenerator::generate",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestStepNode",
@@ -1291,7 +1354,8 @@
           "target_uid": "ArchitectureDiagramGenerator::generate",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestStepNode",
@@ -1303,7 +1367,8 @@
           "target_uid": "ArchitectureDiagramGenerator::generate",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestStepNode",
@@ -1315,7 +1380,8 @@
           "target_uid": "ArchitectureDiagramGenerator::generate",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestStepNode",
@@ -1327,7 +1393,8 @@
           "target_uid": "ArchitectureDiagramGenerator::generate",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestStepNode",
@@ -1339,7 +1406,8 @@
           "target_uid": "ArchitectureDiagramGenerator::generate",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestStepNode",
@@ -1351,7 +1419,8 @@
           "target_uid": "ArchitectureDiagramGenerator::generate",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestStepNode",
@@ -1363,7 +1432,8 @@
           "target_uid": "ArchitectureDiagramGenerator::generate",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestStepNode",
@@ -1375,7 +1445,8 @@
           "target_uid": "ArchitectureDiagramGenerator::generate",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestStepNode",
@@ -1387,7 +1458,8 @@
           "target_uid": "ArchitectureDiagramGenerator::generate",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestStepNode",
@@ -1399,7 +1471,8 @@
           "target_uid": "ArchitectureDiagramGenerator::generate",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestStepNode",
@@ -1411,7 +1484,8 @@
           "target_uid": "ArchitectureDiagramGenerator::generate",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestStepNode",
@@ -1423,7 +1497,8 @@
           "target_uid": "ArchitectureDiagramGenerator::generate",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestStepNode",
@@ -1435,7 +1510,8 @@
           "target_uid": "ArchitectureDiagramGenerator::generate",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestStepNode",
@@ -1447,7 +1523,8 @@
           "target_uid": "ArchitectureDiagramGenerator::generate",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestStepNode",
@@ -1459,7 +1536,8 @@
           "target_uid": "ArchitectureDiagramGenerator::generate",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestStepNode",
@@ -1471,7 +1549,8 @@
           "target_uid": "ArchitectureDiagramGenerator::export_to_file",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestStepNode",
@@ -1483,7 +1562,8 @@
           "target_uid": "ArchitectureDiagramGenerator::export_to_file",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     },
     {
       "type": "TestStepNode",
@@ -1495,7 +1575,8 @@
           "target_uid": "ArchitectureDiagramGenerator::export_to_file",
           "target_type": "AttributeNode"
         }
-      ]
+      ],
+      "source": "test"
     }
   ]
 }

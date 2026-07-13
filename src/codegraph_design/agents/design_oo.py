@@ -627,7 +627,16 @@ def _update_scaffold_to_design(scaffold_node, design_dict: dict) -> bool:
 
 
 def _create_design_node_fresh(design_dict: dict) -> bool:
-    """Create a new design node with ``tags=["design"]``.
+    """Create or overlay a design node with ``tags=["design"]``.
+
+    Look-up order (first match wins):
+    1. ``overlays_qualified_name`` — explicit link from the model.
+       The design properties are overlaid onto the found as-built node
+       **in place**, reusing its ``uid`` so the node is merged, not
+       duplicated.
+    2. ``qualified_name`` — implicit match by name.  Same semantics
+       as case 1.
+    3. Fallback — create a fresh node via ``CodeGraphNode.deserialize()``.
 
     Validates that ``type`` and ``kind`` are consistent — if they
     conflict (e.g. ``type="ClassNode"`` + ``kind="enumvalue"``),
@@ -663,9 +672,64 @@ def _create_design_node_fresh(design_dict: dict) -> bool:
             dtype = expected_type
             design_dict["type"] = expected_type
 
+    qn = design_dict.get("qualified_name", "")
+    dtype = design_dict.get("type", "")
+    overlays_qn = design_dict.get("overlays_qualified_name", "")
+
+    # ── Look-up targets (in priority order) ─────────────────────────
+    lookup_targets: list[tuple[str, str]] = []
+    if overlays_qn:
+        lookup_targets.append((overlays_qn, "overlays_qualified_name"))
+    if qn:
+        lookup_targets.append((qn, "qualified_name"))
+
+    # ── Try to find and overlay an existing node ────────────────────
+    if lookup_targets and dtype and dtype in CodeGraphNode._registry:
+        TargetCls = CodeGraphNode._registry[dtype]
+        # Also try to find via the overlays target's own type — the
+        # as-built node may be a different type (e.g. StructNode as-built
+        # but the model wants it to be a ClassNode).
+        for target_qn, source in lookup_targets:
+            existing = TargetCls.nodes.get_or_none(qualified_name=target_qn)
+            if existing is None and overlays_qn:
+                # Try with ANY registered type, not just TargetCls.
+                for _cls in CodeGraphNode._registry.values():
+                    try:
+                        existing = _cls.nodes.get_or_none(
+                            qualified_name=target_qn,
+                        )
+                        if existing is not None:
+                            break
+                    except Exception:
+                        pass
+            if existing is not None:
+                # Overlay design tag and properties on the existing node.
+                tags = list(existing.tags or [])
+                if "design" not in tags:
+                    tags.append("design")
+                existing.tags = tags
+                # Update descriptive properties from the design dict.
+                for key in ("description", "kind", "name"):
+                    val = design_dict.get(key)
+                    if val:
+                        setattr(existing, key, val)
+                existing.save()
+                log.info(
+                    "Overlaid design on existing node "
+                    "(%s=%s): %s (%s)",
+                    source, target_qn, qn, dtype,
+                )
+                return True
+        log.debug(
+            "No existing node found for %s (tried %s)",
+            qn, [t[0] for t in lookup_targets],
+        )
+
+    # ── Create fresh ────────────────────────────────────────────────
     node_data = dict(design_dict)
     node_data["tags"] = ["design"]
     node_data.pop("composes", None)
+    node_data.pop("overlays_qualified_name", None)
     try:
         node = CodeGraphNode.deserialize(node_data)
         node.save()
@@ -781,6 +845,38 @@ def _reconcile_design_with_scaffold(
     log.info("Reconciling design: %d flat nodes from %d root nodes",
              len(flat), len(design_nodes))
 
+    # ── Separate namespaces from compounds ─────────────────────────
+    # NamespaceNodes are handled by _create_design_namespaces which
+    # uses get_or_none to reuse existing nodes (any tag).  We exclude
+    # them from scaffold matching to avoid creating duplicates.
+    compounds = [d for d in flat if d.get("type") != "NamespaceNode"]
+    namespace_nodes = [d for d in flat if d.get("type") == "NamespaceNode"]
+    if namespace_nodes:
+        log.info("Design included %d explicit NamespaceNode(s): %s",
+                 len(namespace_nodes),
+                 [n.get("qualified_name", "") for n in namespace_nodes])
+
+    # Infer missing namespace nodes from compound qualified_names.
+    existing_qnames = {d.get("qualified_name", "") for d in flat}
+    for d in compounds:
+        qn = d.get("qualified_name", "")
+        if "::" in qn:
+            ns_qn = qn.split("::", 1)[0]
+            if ns_qn not in existing_qnames:
+                ns_dict = {
+                    "qualified_name": ns_qn,
+                    "name": ns_qn.rsplit("::", 1)[-1],
+                    "type": "NamespaceNode",
+                    "kind": "namespace",
+                }
+                namespace_nodes.append(ns_dict)
+                existing_qnames.add(ns_qn)
+                log.info("Inferred namespace node: %s", ns_qn)
+
+    # Add inferred namespaces back to flat for _link_design_composes
+    # and _create_design_namespaces — they were never scaffold nodes.
+    flat = compounds + namespace_nodes
+
     scaffold_nodes = CodeGraphNode.fetch_all_by_tag("scaffold")
     scaffold_by_seg: dict[str, list] = {}
     for sn in scaffold_nodes:
@@ -795,7 +891,7 @@ def _reconcile_design_with_scaffold(
     unmatched_design: list[dict] = []
     used_scaffold_eids: set[str] = set()
 
-    for d in flat:
+    for d in compounds:
         dqn = d.get("qualified_name", "")
         dseg = _last_segment(dqn)
         matched_sn = None
@@ -825,6 +921,7 @@ def _reconcile_design_with_scaffold(
             nodes_created += 1
 
     edges_linked = _link_design_composes(flat)
+    namespace_edges, nss_created, nss_reused = _create_design_namespaces(flat)
     scaffold_retaged = _retag_remaining_scaffold()
     scaffold_cleaned = _cleanup_orphaned_scaffold_nodes(hlr_uid)
 
@@ -832,9 +929,241 @@ def _reconcile_design_with_scaffold(
         "nodes_updated": nodes_updated,
         "nodes_created": nodes_created,
         "edges_linked": edges_linked,
+        "namespace_edges": namespace_edges,
+        "namespaces_created": nss_created,
+        "namespaces_reused": nss_reused,
         "scaffold_retaged": scaffold_retaged,
         "scaffold_cleaned": scaffold_cleaned,
     }
+
+
+def _persist_verifications(
+    hlr_uid: str,
+    verifications: dict[str, list[dict]],
+) -> tuple[int, int]:
+    """Persist VERIFIES and update CALLEE edges from resolved verifications.
+
+    After the design agent resolves notional verification stubs
+    to qualified design method names, this function:
+
+    1. Creates ``VERIFIES`` edges from each TestNode to the design
+       methods referenced in its actions' ``callee_qualified_name``.
+    2. Updates existing TestStep ``CALLEE`` edges to point to the
+       resolved design methods instead of scaffold stubs.
+
+    Args:
+        hlr_uid: The HLR's uid.
+        verifications: Dict of LLR uid → list of verification dicts
+            (same structure as ``DesignHLRResult.verifications``).
+
+    Returns:
+        (verifies_created, callee_updated) counts.
+    """
+    from codegraph.models.member import MemberNode
+
+    verifies_created = 0
+    callee_updated = 0
+
+    for llr_uid, verif_list in verifications.items():
+        llr = LLR.nodes.get_or_none(uid=llr_uid)
+        if not llr:
+            log.warning(
+                "LLR %s not found for verification persistence",
+                llr_uid[:8],
+            )
+            continue
+
+        # Get all TestNodes for this LLR and index by test_name.
+        tests = list(llr.verification_methods.all())
+        test_by_name: dict[str, TestNode] = {}
+        for t in tests:
+            if t.test_name:
+                # If duplicate test_names, prefer the first match.
+                test_by_name.setdefault(t.test_name, t)
+
+        for verif in verif_list:
+            test_name = verif.get("test_name", "")
+            test_node = test_by_name.get(test_name)
+            if not test_node:
+                log.warning(
+                    "TestNode '%s' not found for LLR %s — skipping",
+                    test_name, llr_uid[:8],
+                )
+                continue
+
+            # ── 1. Create VERIFIES edges to callee methods ──────
+            target_methods: set[str] = set()
+            for action in verif.get("actions", []):
+                callee_qn = action.get("callee_qualified_name", "")
+                if callee_qn and "::" in callee_qn:
+                    target_methods.add(callee_qn)
+
+            for qn in sorted(target_methods):
+                try:
+                    neomodel_db.cypher_query(
+                        "MATCH (test:TestNode {qualified_name: $tqn}) "
+                        "MATCH (target:MemberNode {qualified_name: $mqn}) "
+                        "MERGE (test)-[:VERIFIES]->(target)",
+                        {"tqn": test_node.qualified_name, "mqn": qn},
+                    )
+                    verifies_created += 1
+                    log.debug(
+                        "VERIFIES: %s → %s",
+                        test_node.qualified_name, qn,
+                    )
+                except Exception as exc:
+                    log.warning(
+                        "VERIFIES edge failed: TestNode %s → %s: %s",
+                        test_node.qualified_name, qn, exc,
+                    )
+
+            # ── 2. Update TestStep CALLEE edges ────────────────
+            steps = sorted(test_node.steps.all(), key=lambda s: s.order)
+            actions = verif.get("actions", [])
+            for i, action in enumerate(actions):
+                callee_qn = action.get("callee_qualified_name", "")
+                if not callee_qn or "::" not in callee_qn:
+                    continue
+                if i >= len(steps):
+                    log.warning(
+                        "Action index %d out of range for TestNode %s "
+                        "(%d steps)",
+                        i, test_node.qualified_name, len(steps),
+                    )
+                    continue
+                step = steps[i]
+                try:
+                    # Remove old CALLEE edge, create new one.
+                    neomodel_db.cypher_query(
+                        "MATCH (step:TestStepNode {qualified_name: $sqn})-[r:CALLEE]->() "
+                        "DELETE r",
+                        {"sqn": step.qualified_name},
+                    )
+                    neomodel_db.cypher_query(
+                        "MATCH (step:TestStepNode {qualified_name: $sqn}) "
+                        "MATCH (target:MemberNode {qualified_name: $mqn}) "
+                        "MERGE (step)-[:CALLEE]->(target)",
+                        {"sqn": step.qualified_name, "mqn": callee_qn},
+                    )
+                    callee_updated += 1
+                    log.debug(
+                        "CALLEE updated: step %s → %s",
+                        step.qualified_name, callee_qn,
+                    )
+                except Exception as exc:
+                    log.warning(
+                        "CALLEE update failed: step %s → %s: %s",
+                        step.qualified_name, callee_qn, exc,
+                    )
+
+    log.info(
+        "Verification persistence complete for HLR %s: "
+        "%d VERIFIES edges, %d CALLEE edges updated",
+        hlr_uid[:8], verifies_created, callee_updated,
+    )
+    return verifies_created, callee_updated
+
+
+def _create_design_namespaces(flat_design: list[dict]) -> tuple[int, int, int]:
+    """Ensure every design compound is composed under a NamespaceNode.
+
+    Extracts namespace prefixes from qualified_names (everything before
+    the last ``::``), creates/get-or-create a NamespaceNode for each,
+    and MERGEs COMPOSES edges from the namespace to each top-level
+    compound under it.
+
+    Returns:
+        Tuple of ``(edges_created, namespaces_created, namespaces_reused)``.
+    """
+    from codegraph.models.namespace import NamespaceNode
+    from codegraph.models.tags import CodeGraphNode
+
+    # Collect unique namespace prefixes from compound qualified_names.
+    compound_types = {"ClassNode", "InterfaceNode", "EnumNode", "StructNode"}
+    namespace_qns: set[str] = set()
+    for d in flat_design:
+        qn = d.get("qualified_name", "")
+        if not qn or "::" not in qn:
+            continue
+        dtype = d.get("type", "")
+        if dtype not in compound_types:
+            continue
+        prefix = qn.rsplit("::", 1)[0]
+        if prefix:
+            namespace_qns.add(prefix)
+
+    if not namespace_qns:
+        log.info("No namespace prefixes found in design — nothing to create")
+        return 0, 0, 0
+
+    edges = 0
+    namespaces_created = 0
+    namespaces_reused = 0
+    for ns_qn in sorted(namespace_qns):
+        # Get or create the NamespaceNode.
+        ns_node = NamespaceNode.nodes.get_or_none(qualified_name=ns_qn)
+        if ns_node is None:
+            ns_name = ns_qn.rsplit("::", 1)[-1] if "::" in ns_qn else ns_qn
+            try:
+                ns_node = CodeGraphNode.deserialize({
+                    "qualified_name": ns_qn,
+                    "name": ns_name,
+                    "type": "NamespaceNode",
+                    "tags": ["design"],
+                })
+                ns_node.save()
+                namespaces_created += 1
+                log.info("Created design namespace: %s", ns_qn)
+            except Exception as exc:
+                log.warning("Failed to create namespace %s: %s", ns_qn, exc)
+                continue
+        else:
+            namespaces_reused += 1
+            if "design" not in (ns_node.tags or []):
+                # Existing namespace — add design tag so it appears in
+                # design-layer queries.
+                try:
+                    tags = list(ns_node.tags or [])
+                    tags.append("design")
+                    ns_node.tags = tags
+                    ns_node.save()
+                    log.info("Added 'design' tag to existing namespace: %s", ns_qn)
+                except Exception as exc:
+                    log.warning("Failed to tag namespace %s: %s", ns_qn, exc)
+
+        # MERGE COMPOSES edges from namespace to each compound under it.
+        for d in flat_design:
+            dqn = d.get("qualified_name", "")
+            if not dqn.startswith(ns_qn + "::"):
+                continue
+            dtype = d.get("type", "")
+            if dtype not in compound_types:
+                continue
+            # Only top-level compounds (exactly one :: after namespace).
+            remainder = dqn[len(ns_qn) + 2:]
+            if "::" in remainder:
+                continue
+            try:
+                neomodel_db.cypher_query(
+                    "MATCH (ns), (c) "
+                    "WHERE ns.qualified_name = $ns_qn "
+                    "  AND c.qualified_name = $c_qn "
+                    "MERGE (ns)-[:COMPOSES]->(c)",
+                    {"ns_qn": ns_qn, "c_qn": dqn},
+                )
+                edges += 1
+            except Exception as exc:
+                log.warning(
+                    "Failed to COMPOSES %s → %s: %s", ns_qn, dqn, exc,
+                )
+
+    if edges:
+        log.info(
+            "Created %d namespace→compound COMPOSES edges "
+            "for %d namespaces (%d created, %d reused)",
+            edges, len(namespace_qns), namespaces_created, namespaces_reused,
+        )
+    return edges, namespaces_created, namespaces_reused
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -925,15 +1254,35 @@ def _generate_design_artifacts(hlr: HLR, design_nodes: list[dict]) -> dict:
         result["puml"] = f"LayerGraph load error: {exc}"
         return result
 
-    # Keep only the namespace entry — its children include all
-    # the architecture classes.  Other root entries that happen to
-    # share the namespace prefix (e.g. test fixtures) are excluded.
+    # Keep only root entries whose qualified_name falls under the
+    # namespace.  Design compounds are persisted as individual nodes
+    # (ClassNode, EnumNode, etc.); there is no separate NamespaceNode
+    # unless one existed previously.  Filter by qualified_name prefix.
+    prefix = namespace_qn + "::"
     filtered: dict = {}
     for key, entry in full_graph.entries.items():
         qn = getattr(entry.node, "qualified_name", "") or ""
         ntype = type(entry.node).__name__
+        # NamespaceNode: exact match.
         if ntype == "NamespaceNode" and qn == namespace_qn:
             filtered[key] = entry
+        # Top-level design compounds: prefix match.
+        elif qn.startswith(prefix) and "::" not in qn[len(prefix):]:
+            filtered[key] = entry
+
+    if not filtered:
+        result["design_md"] = (
+            f"no design nodes found for namespace '{namespace_qn}' "
+            f"in design graph ({len(full_graph.entries)} entries)"
+        )
+        result["puml"] = result["design_md"]
+        return result
+
+    log.info(
+        "Filtered design graph: %d entries for namespace %s "
+        "(from %d total)", len(filtered), namespace_qn,
+        len(full_graph.entries),
+    )
 
     # Also pull in external types referenced via DEPENDS_ON from
     # any kept entry or its children (e.g. codegraph.graph.LayerGraph).
@@ -947,7 +1296,10 @@ def _generate_design_artifacts(hlr: HLR, design_nodes: list[dict]) -> dict:
                 keys |= _collect_referenced_keys(child)
         return keys
 
-    for key in _collect_referenced_keys(list(filtered.values())[0]):
+    reference_keys: set[str] = set()
+    for entry in filtered.values():
+        reference_keys |= _collect_referenced_keys(entry)
+    for key in reference_keys:
         if key not in filtered:
             filtered[key] = full_graph.entries[key]
 
@@ -1223,6 +1575,21 @@ def design_and_persist_hlr(
             conditions_created += len(v.get("postconditions", []))
             actions_created += len(v.get("actions", []))
 
+    # Persist VERIFIES edges from TestNodes → design methods and update
+    # TestStep CALLEE edges from scaffold stubs to resolved design names.
+    verifies_persisted = 0
+    callees_updated = 0
+    if result.verifications:
+        try:
+            verifies_persisted, callees_updated = _persist_verifications(
+                hlr_uid, result.verifications
+            )
+        except Exception as exc:
+            log.warning(
+                "Verification persistence failed for HLR %s: %s",
+                hlr_uid[:8], exc, exc_info=True,
+            )
+
     # Create COMPOSES edges from HLR to top-level design compounds
     links_applied = 0
     from codegraph.models.compound import CompoundNode
@@ -1250,10 +1617,12 @@ def design_and_persist_hlr(
 
     log.info(
         "Design+verify complete for HLR %s: %d nodes updated, %d created, "
-        "%d COMPOSES edges, %d verifications (preserved), %d conditions, "
-        "%d actions, %d scaffold retaged, %d scaffold cleaned",
+        "%d COMPOSES edges, %d verifications resolved, %d VERIFIES persisted, "
+        "%d CALLEE updated, %d conditions, %d actions, "
+        "%d scaffold retaged, %d scaffold cleaned",
         hlr_uid[:8], recon["nodes_updated"], recon["nodes_created"],
         recon["edges_linked"], verifications_resolved,
+        verifies_persisted, callees_updated,
         conditions_created, actions_created,
         recon["scaffold_retaged"], recon["scaffold_cleaned"],
     )
@@ -1269,6 +1638,8 @@ def design_and_persist_hlr(
         "nodes_created": recon["nodes_created"],
         "edges_linked": recon["edges_linked"],
         "verifications_resolved": verifications_resolved,
+        "verifies_persisted": verifies_persisted,
+        "callees_updated": callees_updated,
         "conditions_created": conditions_created,
         "actions_created": actions_created,
         "links_applied": links_applied,

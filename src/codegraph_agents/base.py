@@ -203,6 +203,24 @@ class BaseAgent(ABC):
 
     # ── Graph nodes ─────────────────────────────────────────────
 
+    def _get_file_callback(
+        self, config: RunnableConfig
+    ) -> "FileLoggingCallback | None":
+        """Find the FileLoggingCallback in the run config callbacks.
+
+        LangGraph wraps callbacks in a ``CallbackManager`` during graph
+        execution, so we must handle both a plain list (pre-invoke) and
+        a wrapped manager.
+        """
+        callbacks = config.get("callbacks", [])
+        # LangGraph wraps callbacks in a CallbackManager — unwrap it
+        if hasattr(callbacks, "handlers"):
+            callbacks = callbacks.handlers
+        for cb in callbacks:
+            if isinstance(cb, FileLoggingCallback):
+                return cb
+        return None
+
     def _think_node(
         self,
         state: AgentState,
@@ -231,13 +249,26 @@ class BaseAgent(ABC):
         ]
 
         # Call the model
+        file_cb = self._get_file_callback(config)
         try:
             tools_schemas = getattr(
                 self.dispatcher, "all_tool_schemas", []
             )
-            ai_message = self._call_model(
+            if file_cb:
+                file_cb.log_llm_start(model=self.config.model)
+
+            ai_message, usage = self._call_model(
                 full_messages, tools_schemas
             )
+
+            if file_cb:
+                tool_calls = getattr(ai_message, "tool_calls", None) or []
+                file_cb.log_llm_end(
+                    content=str(ai_message.content) if ai_message.content else "",
+                    tool_calls=tool_calls,
+                    input_tokens=usage.get("input", 0),
+                    output_tokens=usage.get("output", 0),
+                )
         except Exception as exc:
             log.error(
                 "Model call failed: %s", exc, exc_info=True,
@@ -249,15 +280,6 @@ class BaseAgent(ABC):
                     Msg(content=f"Error: {exc}")
                 ]
             }
-
-        log.info(
-            "Model response: finish=%s, content_len=%d, tool_calls=%d",
-            getattr(ai_message, "response_metadata", {}).get(
-                "finish_reason", ""
-            ),
-            len(str(ai_message.content)) if ai_message.content else 0,
-            len(getattr(ai_message, "tool_calls", []) or []),
-        )
 
         return {"messages": [ai_message]}
 
@@ -273,12 +295,18 @@ class BaseAgent(ABC):
         last_msg = state["messages"][-1]
         tool_calls = getattr(last_msg, "tool_calls", []) or []
 
+        file_cb = self._get_file_callback(config)
+
         results: list[ToolMessage] = []
         success = True
         for tc in tool_calls:
             tool_name = tc.get("name", "")
             tool_input = tc.get("args", {})
             tool_id = tc.get("id", "")
+
+            tool_key = ""
+            if file_cb:
+                tool_key = file_cb.log_tool_start(tool_name=tool_name)
 
             try:
                 output = self.dispatcher.dispatch(
@@ -306,6 +334,19 @@ class BaseAgent(ABC):
                 log.warning(
                     "Tool '%s' failed: %s", tool_name, exc
                 )
+                if file_cb:
+                    file_cb.log_tool_error(
+                        tool_name=tool_name,
+                        error=str(exc),
+                        tool_key=tool_key,
+                    )
+            else:
+                if file_cb:
+                    file_cb.log_tool_end(
+                        tool_name=tool_name,
+                        output=str(output),
+                        tool_key=tool_key,
+                    )
 
         turn = state.get("turn_count", 0)
         errors = state.get("error_count", 0)
@@ -408,11 +449,14 @@ class BaseAgent(ABC):
         self,
         messages: list[BaseMessage],
         tools: list[dict[str, Any]],
-    ) -> AIMessage:
-        """Call the OpenAI API and return an ``AIMessage``.
+    ) -> tuple[AIMessage, dict[str, int]]:
+        """Call the OpenAI API and return ``(AIMessage, usage_dict)``.
 
         Converts LangChain messages to OpenAI dict format, calls
         the chat completions API, and parses the response.
+
+        Returns:
+            Tuple of (parsed AIMessage, {"input": int, "output": int}).
         """
         oai_messages = self._messages_to_openai(messages)
         oai_tools = self._tools_to_openai(tools)
@@ -425,6 +469,11 @@ class BaseAgent(ABC):
 
         response = self._raw_openai_call(oai_messages, oai_tools)
 
+        usage: dict[str, int] = {"input": 0, "output": 0}
+        if hasattr(response, "usage") and response.usage:
+            usage["input"] = getattr(response.usage, "prompt_tokens", 0) or 0
+            usage["output"] = getattr(response.usage, "completion_tokens", 0) or 0
+
         log.info(
             "Model response: finish=%s, content_len=%d, tool_calls=%d",
             response.choices[0].finish_reason,
@@ -432,7 +481,7 @@ class BaseAgent(ABC):
             len(response.choices[0].message.tool_calls or []),
         )
 
-        return self._parse_openai_response(response)
+        return self._parse_openai_response(response), usage
 
     def _messages_to_openai(
         self, messages: list[BaseMessage]
@@ -633,18 +682,22 @@ class BaseAgent(ABC):
     def _build_callbacks(
         self,
     ) -> list[BaseCallbackHandler]:
-        """Build the callback chain for this run."""
+        """Build the callback chain for this run.
+
+        Stores the ``FileLoggingCallback`` as ``self._file_callback``
+        so ``run()`` can call ``finalize()`` after the graph completes.
+        """
         callbacks: list[BaseCallbackHandler] = [
             AgentCallback(self.name),
         ]
+        self._file_callback: FileLoggingCallback | None = None
         if self.config.log_dir:
-            callbacks.append(
-                FileLoggingCallback(
-                    log_dir=self.config.log_dir,
-                    agent_name=self.name,
-                    run_id=self.config.run_id,
-                )
+            self._file_callback = FileLoggingCallback(
+                log_dir=self.config.log_dir,
+                agent_name=self.name,
+                run_id=self.config.run_id,
             )
+            callbacks.append(self._file_callback)
         return callbacks
 
     def run(self) -> Any:
@@ -688,6 +741,10 @@ class BaseAgent(ABC):
             )
         finally:
             self._teardown_file_logger(file_handler)
+            # Finalize the FileLoggingCallback AFTER the full multi-turn
+            # graph run completes (LangGraph may fire on_chain_end early).
+            if self._file_callback:
+                self._file_callback.finalize()
 
         # Write response.json
         self._write_response(final_state)
@@ -722,6 +779,8 @@ class BaseAgent(ABC):
             )
         finally:
             self._teardown_file_logger(file_handler)
+            if self._file_callback:
+                self._file_callback.finalize()
 
         self._write_response(final_state)
         return self.build_result(final_state)
@@ -781,15 +840,19 @@ class BaseAgent(ABC):
         )
 
     def _extract_final_tool_output(
-        self, state: AgentState
+        self,
+        state: AgentState,
+        tool_name: str | None = None,
     ) -> dict[str, Any] | None:
-        """Extract the output of the final tool from message history.
+        """Extract the output of a named tool from message history.
 
         Walks the messages backward to find the ``ToolMessage``
-        corresponding to :attr:`final_tool_name`.
+        for the given *tool_name*.  Defaults to
+        :attr:`final_tool_name`.
         """
+        target = tool_name or self.final_tool_name
         for msg in reversed(state.get("messages", [])):
-            if isinstance(msg, ToolMessage) and msg.name == self.final_tool_name:
+            if isinstance(msg, ToolMessage) and msg.name == target:
                 content = str(msg.content)
                 try:
                     return json.loads(content)

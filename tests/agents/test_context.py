@@ -159,7 +159,7 @@ class TestResolveHlrSubtree:
         )
 
         llr1 = _mock_llr("llr-001")
-        llr1.tests.all.return_value = [test1]
+        llr1.verification_methods.all.return_value = [test1]
 
         hlr = _mock_hlr()
         hlr.llrs.all.return_value = [llr1]
@@ -235,7 +235,7 @@ class TestResolveHlrSubtree:
             assertions=[],
         )
         llr1 = _mock_llr()
-        llr1.tests.all.return_value = [test1]
+        llr1.verification_methods.all.return_value = [test1]
         hlr = _mock_hlr()
         hlr.llrs.all.return_value = [llr1]
 
@@ -301,9 +301,9 @@ class TestResolveHlrSubtree:
         test_a = _mock_test(uid="t-a", name="test A")
         test_b = _mock_test(uid="t-b", name="test B")
         llr_a = _mock_llr("llr-a")
-        llr_a.tests.all.return_value = [test_a]
+        llr_a.verification_methods.all.return_value = [test_a]
         llr_b = _mock_llr("llr-b")
-        llr_b.tests.all.return_value = [test_b]
+        llr_b.verification_methods.all.return_value = [test_b]
         hlr = _mock_hlr()
         hlr.llrs.all.return_value = [llr_a, llr_b]
 

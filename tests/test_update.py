@@ -151,7 +151,8 @@ class TestUpdatePersistence:
         assert refreshed.name == "Preserve"
 
     def test_update_base_class_fields(self):
-        """update() can modify fields defined on CodeGraphNode (name, source)."""
+        """update() can modify non-identity fields on CodeGraphNode (name),
+        but rejects changes to identity fields (source, uid, qualified_name)."""
         node = ClassNode(
             qualified_name="test::BaseFields",
             name="BaseFields",
@@ -160,16 +161,11 @@ class TestUpdatePersistence:
         )
         node.save()
 
-        node.update(name="NewName", source="updated_source")
-
+        # Updating name (non-identity) should work
+        node.update(name="NewName")
         refreshed = ClassNode.nodes.get(qualified_name="test::BaseFields")
-        # codegraph:test-desc test_update.TestUpdatePersistence.test_update_base_class_fields::post_0
-        # Verifies that the name attribute of the node has been updated to the expected
-        # value, ensuring the update method correctly sets fields defined on the
-        # CodeGraphNode base class.
         assert refreshed.name == "NewName"
-        # codegraph:test-desc test_update.TestUpdatePersistence.test_update_base_class_fields::post_1
-        # Verifies that the source attribute of the node has been updated to the
-        # expected value, confirming that the update method correctly modifies the base
-        # field.
-        assert refreshed.source == "updated_source"
+
+        # Updating source (identity field) should raise
+        with pytest.raises(ValueError, match="Cannot update identity"):
+            node.update(source="updated_source")

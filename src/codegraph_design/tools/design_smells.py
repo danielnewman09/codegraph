@@ -1,22 +1,22 @@
-"""Design-smell detection tools — structural validation for OO design graphs.
+"""Design-smell detection — declarative plugin-style registration.
 
-Each smell has a severity level:
-- ``blocking`` — invalid design that must be fixed before persistence
-- ``warning``  — potential issue that should be reviewed
-- ``info``     — informational metric or observation
+Each smell checker is a function decorated with ``@register_smell``.
+The orchestrator discovers all checkers automatically.  Adding a new
+smell requires exactly one step: write the function and decorate it.
 
-The ``check_design_smells`` tool is registered on
-:class:`~codegraph_design.tools.dispatcher.DesignToolDispatcher` and is
-available during the design agent loop (before ``produce_oo_design``).
-It can also be called standalone through the bridge.
+No raw Cypher — all checks operate on in-memory ``list[dict]``
+(LayerGraph serialization format).  The Neo4j-based variant
+(``check_design_smells_neo4j``) has been removed; bridge callers can
+load design nodes from the graph then call ``run_all_smells``.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+from collections import Counter
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
     from codegraph_design.tools.dispatcher import DesignToolDispatcher
@@ -25,11 +25,10 @@ log = logging.getLogger(__name__)
 
 
 # ══════════════════════════════════════════════════════════════════════════
-# Smell severity levels
+# Severity
 # ══════════════════════════════════════════════════════════════════════════
 
 class Severity:
-    """Canonical severity levels for design smells."""
     BLOCKING = "blocking"
     WARNING = "warning"
     INFO = "info"
@@ -42,221 +41,388 @@ class Severity:
 
 
 # ══════════════════════════════════════════════════════════════════════════
-# Smell result dataclass
+# Report types
 # ══════════════════════════════════════════════════════════════════════════
 
 @dataclass
-class DesignSmell:
+class Smell:
     """A single detected design smell."""
 
-    smell_id: str
-    """Unique identifier for this smell type, e.g. ``orphaned_enum``."""
-
-    severity: str
-    """One of ``blocking``, ``warning``, ``info``."""
-
-    element: str
-    """Qualified name of the offending element."""
-
-    kind: str
-    """Node kind (e.g. ``EnumNode``, ``EnumValueNode``, ``ClassNode``)."""
-
-    detail: str
-    """Human-readable description of the smell."""
-
+    id: str            # e.g. "orphaned_enum"
+    severity: str      # blocking | warning | info
+    element: str       # qualified_name of the offending node
+    kind: str          # node type discriminator
+    detail: str        # human-readable description
     recommendation: str = ""
-    """Suggested fix."""
 
 
 @dataclass
-class DesignSmellReport:
-    """Full report from ``check_design_smells``."""
-
+class SmellReport:
     valid: bool
-    """True if there are no blocking smells."""
-
     summary: dict = field(default_factory=dict)
-    """Counts per severity level."""
-
-    smells: list[DesignSmell] = field(default_factory=list)
-    """All detected smells, ordered by severity (blocking first)."""
+    smells: list[Smell] = field(default_factory=list)
 
 
 # ══════════════════════════════════════════════════════════════════════════
-# Individual smell checkers
+# Registry
 # ══════════════════════════════════════════════════════════════════════════
 
+SmellChecker = Callable[[list[dict]], list[Smell]]
 
-def _check_orphaned_enums(nodes: list[dict]) -> list[DesignSmell]:
-    """Check for EnumNodes that have no EnumValueNode children via COMPOSES.
+_registry: list[SmellChecker] = []
+"""All registered smell checkers, in registration order."""
 
-    An enum without any values is a structural defect — it cannot
-    represent any meaningful type and will cause null-pointer issues
-    in generated code or invalid assertions in tests.
+
+def register_smell(
+    smell_id: str,
+    severity: str,
+    description: str,
+) -> Callable[[SmellChecker], SmellChecker]:
+    """Decorator: register a smell-checker function.
+
+    The checker receives ``nodes: list[dict]`` (LayerGraph dicts) and
+    returns a ``list[Smell]``.  Every ``Smell`` produced MUST use the
+    declared ``smell_id`` and ``severity``.
     """
-    smells: list[DesignSmell] = []
 
-    # Build lookup: EnumNode qualified_name → set of child EnumValueNode qnames
-    enum_values: dict[str, set[str]] = {}
-    enum_nodes: dict[str, dict] = {}
+    def decorator(fn: SmellChecker) -> SmellChecker:
+        fn._smell_id = smell_id          # type: ignore[attr-defined]
+        fn._severity = severity          # type: ignore[attr-defined]
+        fn._description = description    # type: ignore[attr-defined]
+        _registry.append(fn)
+        return fn
+
+    return decorator
+
+
+def _checker_summary() -> str:
+    """Human-readable summary of registered checkers for tool descriptions."""
+    parts = []
+    for c in _registry:
+        cid = getattr(c, "_smell_id", "?")
+        csev = getattr(c, "_severity", "?")
+        parts.append(f"{cid}({csev})")
+    return ", ".join(parts) if parts else "(none)"
+
+
+def _walk_tree(nodes: list[dict]) -> list[dict]:
+    """Walk a node tree recursively, returning all nodes at all levels.
+
+    Walks into ``composes`` of every node (NamespaceNode, ClassNode,
+    EnumNode, etc.) so checkers can inspect deeply nested compounds.
+    """
+    out: list[dict] = []
+    for node in nodes:
+        out.append(node)
+        out.extend(_walk_tree(node.get("composes", [])))
+    return out
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Built-in checkers
+# ══════════════════════════════════════════════════════════════════════════
+
+
+@register_smell(
+    "orphaned_enum", Severity.BLOCKING,
+    "Enum has no EnumValue children — structurally invalid",
+)
+def _check_orphaned_enums(nodes: list[dict]) -> list[Smell]:
+    """EnumNodes with zero EnumValueNode children."""
+    owned: dict[str, set[str]] = {}
+
+    def _collect(n: dict, enum_qn: str) -> None:
+        for child in n.get("composes", []):
+            if child.get("type") == "EnumValueNode":
+                qn = child.get("qualified_name", "")
+                if qn:
+                    owned.setdefault(enum_qn, set()).add(qn)
+            _collect(child, enum_qn)
+
+    for node in _walk_tree(nodes):
+        if node.get("type") == "EnumNode":
+            qn = node.get("qualified_name", "")
+            owned.setdefault(qn, set())
+            _collect(node, qn)
+
+    return [
+        Smell(
+            id="orphaned_enum",
+            severity=Severity.BLOCKING,
+            element=qn,
+            kind="EnumNode",
+            detail=f"Enum '{qn}' has no values",
+            recommendation="Add at least one EnumValueNode child",
+        )
+        for qn, vals in owned.items()
+        if not vals
+    ]
+
+
+@register_smell(
+    "orphaned_enumvalue", Severity.BLOCKING,
+    "EnumValue has no parent EnumNode",
+)
+def _check_orphaned_enumvalues(nodes: list[dict]) -> list[Smell]:
+    """EnumValueNodes not nested under any EnumNode."""
+    all_vals: set[str] = set()
+    owned: set[str] = set()
+
+    for node in _walk_tree(nodes):
+        ntype = node.get("type", "")
+        qn = node.get("qualified_name", "")
+        if ntype == "EnumValueNode" and qn:
+            all_vals.add(qn)
+
+        if ntype == "EnumNode":
+
+            def _walk(n: dict) -> None:
+                for child in n.get("composes", []):
+                    if child.get("type") == "EnumValueNode":
+                        child_qn = child.get("qualified_name", "")
+                        if child_qn:
+                            owned.add(child_qn)
+                    _walk(child)
+
+            _walk(node)
+
+    return [
+        Smell(
+            id="orphaned_enumvalue",
+            severity=Severity.BLOCKING,
+            element=qn,
+            kind="EnumValueNode",
+            detail=f"EnumValue '{qn}' has no parent EnumNode",
+            recommendation="Nest under the parent EnumNode's composes list",
+        )
+        for qn in sorted(all_vals - owned)
+    ]
+
+
+@register_smell(
+    "orphaned_node", Severity.BLOCKING,
+    "Design node not nested under any NamespaceNode",
+)
+def _check_orphaned_nodes(nodes: list[dict]) -> list[Smell]:
+    """Non-namespace nodes not nested under a NamespaceNode.
+
+    Collects all NamespaceNode qualified_names, then flags any
+    non-namespace node whose qualified_name doesn't start with
+    a known namespace prefix + '::'.
+
+    An empty design (no nodes at all) is trivially valid.
+    """
+    if not nodes:
+        return []
+
+    namespace_qns: set[str] = set()
+    non_namespace_data: list[tuple[str, str]] = []
 
     for node in nodes:
         ntype = node.get("type", "")
         qn = node.get("qualified_name", "")
-
-        if ntype == "EnumNode" and qn:
-            enum_nodes[qn] = node
-            enum_values.setdefault(qn, set())
-
-        elif ntype == "EnumValueNode" and qn:
-            # Find parent via edges (COMPOSES from EnumNode to EnumValueNode)
-            pass
-
-    # Walk COMPOSES edges: EnumNode → EnumValueNode
-    for node in nodes:
-        ntype = node.get("type", "")
-        if ntype != "EnumNode":
+        if not qn:
             continue
-        parent_qn = node.get("qualified_name", "")
-        for edge in node.get("edges", []):
-            if edge.get("relation_type") != "COMPOSES":
-                continue
-            target_type = edge.get("target_type", "")
-            target_uid = edge.get("target_uid", "")
-            if target_type == "EnumValueNode" and target_uid:
-                enum_values.setdefault(parent_qn, set()).add(target_uid)
+        if ntype == "NamespaceNode":
+            namespace_qns.add(qn)
+        else:
+            non_namespace_data.append((qn, ntype))
 
-    # Also walk composes (nested children)
-    def _walk_composes(n: dict, parent_qn: str) -> None:
-        for child in n.get("composes", []):
-            child_type = child.get("type", "")
-            child_qn = child.get("qualified_name", "")
-            if child_type == "EnumValueNode" and child_qn:
-                enum_values.setdefault(parent_qn, set()).add(child_qn)
-            _walk_composes(child, parent_qn)
+    if not namespace_qns:
+        return [
+            Smell(
+                id="orphaned_node",
+                severity=Severity.BLOCKING,
+                element="(root)",
+                kind="",
+                detail="Design has no NamespaceNode — every node must be "
+                       "composed into a namespace",
+                recommendation="Add a namespace node and nest all design "
+                               "nodes under it via qualified_name prefix",
+            )
+        ]
 
-    for node in nodes:
-        if node.get("type") == "EnumNode":
-            _walk_composes(node, node.get("qualified_name", ""))
-
-    for qn, node in enum_nodes.items():
-        if not enum_values.get(qn):
-            smells.append(DesignSmell(
-                smell_id="orphaned_enum",
+    smells: list[Smell] = []
+    for qn, ntype in non_namespace_data:
+        if "::" not in qn:
+            smells.append(Smell(
+                id="orphaned_node",
                 severity=Severity.BLOCKING,
                 element=qn,
-                kind="EnumNode",
-                detail=f"Enum '{qn}' has no EnumValueNode children — it defines no values",
+                kind=ntype,
+                detail=f"'{qn}' has no namespace prefix",
+                recommendation="Use a qualified name like "
+                               f"Namespace::{qn}",
+            ))
+            continue
+        root_ns = qn.split("::", 1)[0]
+        if root_ns not in namespace_qns:
+            smells.append(Smell(
+                id="orphaned_node",
+                severity=Severity.BLOCKING,
+                element=qn,
+                kind=ntype,
+                detail=f"Namespace '{root_ns}' not in design "
+                       f"(known: {sorted(namespace_qns)})",
+                recommendation=f"Add a NamespaceNode for '{root_ns}' or "
+                               "correct the qualified_name prefix",
+            ))
+    return smells
+
+
+@register_smell(
+    "duplicate_qname", Severity.BLOCKING,
+    "Two or more design nodes share the same qualified_name",
+)
+def _check_duplicate_names(nodes: list[dict]) -> list[Smell]:
+    """Duplicate qualified_name across all design nodes at any level."""
+    names = [
+        n.get("qualified_name", "")
+        for n in _walk_tree(nodes)
+        if n.get("qualified_name")
+    ]
+    return [
+        Smell(
+            id="duplicate_qname",
+            severity=Severity.BLOCKING,
+            element=qn,
+            kind="",
+            detail=f"Duplicate qualified_name '{qn}' appears {cnt} times",
+            recommendation="Every design node must have a unique qualified_name",
+        )
+        for qn, cnt in Counter(names).items()
+        if cnt > 1
+    ]
+
+
+@register_smell(
+    "missing_namespace", Severity.BLOCKING,
+    "Root design compounds (class, enum, interface) have no parent NamespaceNode",
+)
+def _check_missing_namespace(nodes: list[dict]) -> list[Smell]:
+    """Design has compound nodes but no NamespaceNode to group them under.
+
+    Every design must include at least one NamespaceNode that wraps its
+    top-level compounds.  Without it, the design graph is unrooted and
+    namespace-filtered exports (Markdown / PlantUML) won't work.
+    """
+    has_namespace = False
+    has_compound = False
+
+    for node in _walk_tree(nodes):
+        ntype = node.get("type", "")
+        if ntype == "NamespaceNode":
+            has_namespace = True
+        if ntype in ("ClassNode", "InterfaceNode", "EnumNode", "StructNode"):
+            has_compound = True
+
+    if has_compound and not has_namespace:
+        return [Smell(
+            id="missing_namespace",
+            severity=Severity.BLOCKING,
+            element="",
+            kind="NamespaceNode",
+            detail=(
+                "Design contains compound nodes (ClassNode / EnumNode / "
+                "InterfaceNode) but no NamespaceNode.  Every design must "
+                "have a NamespaceNode that composes its top-level compounds."
+            ),
+            recommendation=(
+                "Add a NamespaceNode to the design whose qualified_name "
+                "is the namespace prefix shared by all compounds "
+                "(e.g., 'cpp_sqlite'), and nest all compounds under it "
+                "via composes."
+            ),
+        )]
+    return []
+
+
+@register_smell(
+    "unscoped_qname", Severity.BLOCKING,
+    "Compound's qualified_name has no namespace prefix (no '::' separator)",
+)
+def _check_unscoped_qnames(nodes: list[dict]) -> list[Smell]:
+    """Compounds whose qualified_name is just a bare name (no namespace).
+
+    Every compound must live in a namespace.  A qualified_name like
+    ``Migration`` is invalid; it should be ``cpp_sqlite::Migration``.
+    """
+    compound_types = {"ClassNode", "InterfaceNode", "EnumNode", "StructNode"}
+    smells: list[Smell] = []
+
+    for node in _walk_tree(nodes):
+        ntype = node.get("type", "")
+        if ntype not in compound_types:
+            continue
+        qn = node.get("qualified_name", "")
+        if not qn:
+            smells.append(Smell(
+                id="unscoped_qname",
+                severity=Severity.BLOCKING,
+                element="(missing qualified_name)",
+                kind=ntype,
+                detail=f"{ntype} has no qualified_name at all",
+                recommendation="Assign a scoped qualified_name like 'ns::ClassName'",
+            ))
+        elif "::" not in qn:
+            smells.append(Smell(
+                id="unscoped_qname",
+                severity=Severity.BLOCKING,
+                element=qn,
+                kind=ntype,
+                detail=f"{ntype} '{qn}' is not scoped to a namespace",
                 recommendation=(
-                    "Add at least one EnumValueNode child via a COMPOSES edge "
-                    "or a composes nested child.  An enum with zero values is "
-                    "structurally invalid."
+                    f"Add a namespace prefix, e.g. 'mycomponent::{qn}'"
                 ),
             ))
 
     return smells
 
 
-def _check_orphaned_enumvalues(nodes: list[dict]) -> list[DesignSmell]:
-    """Check for EnumValueNodes that are not children of any EnumNode.
-
-    An EnumValue without a parent Enum is dangling — it cannot be
-    referenced by any type and is unreachable from the design surface.
-    """
-    smells: list[DesignSmell] = []
-
-    # Collect all EnumValueNode qnames and all EnumValueNode qnames
-    # reachable from an EnumNode via COMPOSES or composes.
-    all_enumvalues: set[str] = set()
-    owned_enumvalues: set[str] = set()
-
-    for node in nodes:
-        ntype = node.get("type", "")
-        qn = node.get("qualified_name", "")
-        if ntype == "EnumValueNode" and qn:
-            all_enumvalues.add(qn)
-
-        if ntype == "EnumNode":
-            for edge in node.get("edges", []):
-                if (edge.get("relation_type") == "COMPOSES"
-                        and edge.get("target_type") == "EnumValueNode"):
-                    target_uid = edge.get("target_uid", "")
-                    if target_uid:
-                        owned_enumvalues.add(target_uid)
-
-            def _walk_nested(n: dict) -> None:
-                for child in n.get("composes", []):
-                    child_type = child.get("type", "")
-                    child_qn = child.get("qualified_name", "")
-                    if child_type == "EnumValueNode" and child_qn:
-                        owned_enumvalues.add(child_qn)
-                    _walk_nested(child)
-
-            _walk_nested(node)
-
-    orphaned = all_enumvalues - owned_enumvalues
-    for qn in sorted(orphaned):
-        smells.append(DesignSmell(
-            smell_id="orphaned_enumvalue",
-            severity=Severity.BLOCKING,
-            element=qn,
-            kind="EnumValueNode",
-            detail=f"EnumValue '{qn}' is not a child of any EnumNode",
-            recommendation=(
-                "Add a COMPOSES edge from the parent EnumNode to this "
-                "EnumValueNode, or nest it under the EnumNode's composes list."
-            ),
-        ))
-
-    return smells
-
-
-# ══════════════════════════════════════════════════════════════════════════
-# Checker registry
-# ══════════════════════════════════════════════════════════════════════════
-
-_CHECKERS: list = [
-    _check_orphaned_enums,
-    _check_orphaned_enumvalues,
-]
-
-
 # ══════════════════════════════════════════════════════════════════════════
 # Orchestrator
 # ══════════════════════════════════════════════════════════════════════════
 
+def run_all_smells(nodes: list[dict]) -> SmellReport:
+    """Run every registered smell checker against a design draft.
 
-def check_design_smells(nodes: list[dict]) -> DesignSmellReport:
-    """Run all design-smell checkers against a draft OO design.
+    Each checker receives the original ``nodes`` list.  Checkers that
+    need to inspect compounds at all nesting levels (including children
+    of NamespaceNodes) should use :func:`_walk_tree`.
 
     Args:
-        nodes: A list of CodeGraphNode dicts in LayerGraph format
-            (the same format produced by the design agent).
+        nodes: CodeGraphNode dicts in LayerGraph serialization format.
 
     Returns:
-        A :class:`DesignSmellReport` with validity, summary counts, and
-        a sorted list of smells (blocking first).
+        A :class:`SmellReport` with validity, summary counts, and a
+        sorted list of smells (blocking first).
     """
-    all_smells: list[DesignSmell] = []
+    all_smells: list[Smell] = []
 
-    for checker in _CHECKERS:
+    for checker in _registry:
+        smell_id = getattr(checker, "_smell_id", "internal_error")
         try:
-            smells = checker(nodes)
-            all_smells.extend(smells)
+            all_smells.extend(checker(nodes))
         except Exception as exc:
-            log.warning("Smell checker %s failed: %s", checker.__name__, exc)
+            log.warning("Smell checker '%s' crashed: %s", smell_id, exc)
+            all_smells.append(Smell(
+                id=smell_id,
+                severity=Severity.BLOCKING,
+                element="",
+                kind="",
+                detail=f"Smell checker '{smell_id}' raised: {exc}",
+                recommendation="Report this internal error",
+            ))
 
-    # Sort by severity (blocking first)
     all_smells.sort(key=lambda s: Severity.sort_key(s.severity))
 
     summary = {
-        "blocking": sum(1 for s in all_smells if s.severity == Severity.BLOCKING),
-        "warning": sum(1 for s in all_smells if s.severity == Severity.WARNING),
-        "info": sum(1 for s in all_smells if s.severity == Severity.INFO),
-        "total": len(all_smells),
+        sev: sum(1 for s in all_smells if s.severity == sev)
+        for sev in ("blocking", "warning", "info")
     }
+    summary["total"] = len(all_smells)
 
-    return DesignSmellReport(
+    return SmellReport(
         valid=(summary["blocking"] == 0),
         summary=summary,
         smells=all_smells,
@@ -264,112 +430,16 @@ def check_design_smells(nodes: list[dict]) -> DesignSmellReport:
 
 
 # ══════════════════════════════════════════════════════════════════════════
-# Neo4j-based checker (standalone, queries the graph directly)
-# ══════════════════════════════════════════════════════════════════════════
-
-
-def check_design_smells_neo4j(tag: str = "design") -> DesignSmellReport:
-    """Run design-smell checkers against Neo4j directly.
-
-    Queries the graph for design-layer nodes (by tag) and checks for
-    structural smells.  Used by the bridge's standalone smell-checking
-    endpoint and by the design-pipeline post-design validation.
-
-    Args:
-        tag: Provenance tag to filter by (default ``"design"``).
-
-    Returns:
-        A :class:`DesignSmellReport`.
-    """
-    from neomodel import db
-
-    all_smells: list[DesignSmell] = []
-
-    # ── Orphaned enums: EnumNodes with no EnumValueNode children ───────
-    try:
-        results, _ = db.cypher_query(
-            """
-            MATCH (e:Enum)
-            WHERE $tag IN e.tags
-            OPTIONAL MATCH (e)-[:COMPOSES]->(v:EnumValue)
-            WHERE $tag IN v.tags
-            WITH e, collect(v) AS values
-            WHERE size(values) = 0
-            RETURN e.qualified_name AS qn, e.name AS name
-            ORDER BY qn
-            """,
-            {"tag": tag},
-        )
-        for row in results:
-            qn, name = row[0], row[1]
-            all_smells.append(DesignSmell(
-                smell_id="orphaned_enum",
-                severity=Severity.BLOCKING,
-                element=qn or name or "?",
-                kind="EnumNode",
-                detail=f"Enum '{qn or name}' has no EnumValueNode children",
-                recommendation="Add at least one EnumValueNode via COMPOSES edge",
-            ))
-    except Exception as exc:
-        log.warning("Neo4j orphaned-enum check failed: %s", exc)
-
-    # ── Orphaned enumvalues: EnumValueNodes with no EnumNode parent ────
-    try:
-        results, _ = db.cypher_query(
-            """
-            MATCH (v:EnumValue)
-            WHERE $tag IN v.tags
-            OPTIONAL MATCH (e:Enum)-[:COMPOSES]->(v)
-            WHERE $tag IN e.tags
-            WITH v, e
-            WHERE e IS NULL
-            RETURN v.qualified_name AS qn, v.name AS name
-            ORDER BY qn
-            """,
-            {"tag": tag},
-        )
-        for row in results:
-            qn, name = row[0], row[1]
-            all_smells.append(DesignSmell(
-                smell_id="orphaned_enumvalue",
-                severity=Severity.BLOCKING,
-                element=qn or name or "?",
-                kind="EnumValueNode",
-                detail=f"EnumValue '{qn or name}' has no parent EnumNode",
-                recommendation="Add a COMPOSES edge from the parent EnumNode to this EnumValueNode",
-            ))
-    except Exception as exc:
-        log.warning("Neo4j orphaned-enumvalue check failed: %s", exc)
-
-    all_smells.sort(key=lambda s: Severity.sort_key(s.severity))
-
-    summary = {
-        "blocking": sum(1 for s in all_smells if s.severity == Severity.BLOCKING),
-        "warning": sum(1 for s in all_smells if s.severity == Severity.WARNING),
-        "info": sum(1 for s in all_smells if s.severity == Severity.INFO),
-        "total": len(all_smells),
-    }
-
-    return DesignSmellReport(
-        valid=(summary["blocking"] == 0),
-        summary=summary,
-        smells=all_smells,
-    )
-
-
-# ══════════════════════════════════════════════════════════════════════════
-# Tool schema
+# Tool schema & handler
 # ══════════════════════════════════════════════════════════════════════════
 
 CHECK_DESIGN_SMELLS_SCHEMA = {
     "name": "check_design_smells",
     "description": (
-        "Validate a draft OO design for structural smells and defects. "
-        "Checks include: enum nodes without enumvalues (blocking), "
-        "enumvalues without a parent enum (blocking). "
-        "Returns a report with validity, severity-level summary, and "
-        "a sorted list of smells (blocking → warning → info). "
-        "Use this to check your work before calling produce_oo_design."
+        "Validate a draft OO design for structural defects. "
+        f"Checks: {_checker_summary()}. "
+        "Returns validity (no blocking smells = true), severity-level "
+        "summary, and a sorted list of smells with recommendations."
     ),
     "input_schema": {
         "type": "object",
@@ -379,8 +449,9 @@ CHECK_DESIGN_SMELLS_SCHEMA = {
                 "items": {"type": "object"},
                 "minItems": 1,
                 "description": (
-                    "A list of CodeGraphNode dicts in the LayerGraph serialization format. "
-                    "Each node has a 'type' discriminator and optional 'edges' and 'composes' arrays."
+                    "CodeGraphNode dicts in LayerGraph serialization format. "
+                    "Each node has a 'type' discriminator and optional "
+                    "'composes' and 'edges' arrays."
                 ),
             },
         },
@@ -389,20 +460,11 @@ CHECK_DESIGN_SMELLS_SCHEMA = {
 }
 
 
-# ══════════════════════════════════════════════════════════════════════════
-# Handler
-# ══════════════════════════════════════════════════════════════════════════
-
-
 def handle_check_design_smells(
     ctx: DesignToolDispatcher,
     tool_input: dict,
 ) -> str:
-    """Handle the ``check_design_smells`` tool call.
-
-    Validates the draft design on the dispatcher's ``design_draft``
-    (preferred, if available) or the provided ``nodes`` list.
-    """
+    """Handle ``check_design_smells`` — validate the draft design."""
     nodes: list[dict] = tool_input.get("nodes", [])
     if not nodes and ctx.design_draft:
         nodes = ctx.design_draft
@@ -412,23 +474,23 @@ def handle_check_design_smells(
             "valid": False,
             "summary": {"blocking": 1, "warning": 0, "info": 0, "total": 1},
             "smells": [{
-                "smell_id": "no_input",
+                "id": "no_input",
                 "severity": "blocking",
                 "element": "",
                 "kind": "",
-                "detail": "No design nodes provided and no draft available",
-                "recommendation": "Provide a nodes array or call produce_oo_design first",
+                "detail": "No design nodes provided",
+                "recommendation": "Provide nodes or call produce_oo_design first",
             }],
         })
 
-    report = check_design_smells(nodes)
+    report = run_all_smells(nodes)
 
     return json.dumps({
         "valid": report.valid,
         "summary": report.summary,
         "smells": [
             {
-                "smell_id": s.smell_id,
+                "id": s.id,
                 "severity": s.severity,
                 "element": s.element,
                 "kind": s.kind,
@@ -438,11 +500,6 @@ def handle_check_design_smells(
             for s in report.smells
         ],
     })
-
-
-# ══════════════════════════════════════════════════════════════════════════
-# Registration
-# ══════════════════════════════════════════════════════════════════════════
 
 
 def register_all(dispatcher: DesignToolDispatcher) -> None:

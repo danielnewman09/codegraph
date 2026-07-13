@@ -441,12 +441,16 @@ class MarkdownImporter:
     Args:
         tags: Tags to apply to every imported node.
             Defaults to ``frozenset({"design"})``.
+        source: Source provenance tag for all imported nodes (required for
+            deterministic uid computation).
         strict: If ``True``, raise :class:`PlantUMLParseError` on errors.
     """
 
     def __init__(self, tags: frozenset[str] | None = None,
+                 source: str = "markdown-import",
                  strict: bool = False):
         self._tags = list(tags) if tags else ["design"]
+        self._source = source
         self._strict = strict
         self.diagnostics: list[ParseDiagnostic] = []
 
@@ -736,6 +740,7 @@ class MarkdownImporter:
             "type": node_type,
             "name": name,
             "qualified_name": qname,
+            "source": self._source,
             "tags": list(self._tags),
         }
         kind = _NODE_TYPE_TO_KIND.get(node_type)
@@ -820,6 +825,7 @@ class MarkdownImporter:
             "type": member_type,
             "name": name,
             "qualified_name": qname,
+            "source": self._source,
             "tags": list(self._tags),
         }
         kind = _NODE_TYPE_TO_KIND.get(member_type)
@@ -869,6 +875,7 @@ def export_markdown(graph: LayerGraph, fields: str = "llm",
 
 
 def import_markdown(text: str, tags: frozenset[str] | None = None,
+                    source: str = "markdown-import",
                     strict: bool = False) -> LayerGraph:
     """Import Markdown text into a :class:`LayerGraph`.
 
@@ -876,9 +883,11 @@ def import_markdown(text: str, tags: frozenset[str] | None = None,
         text: Markdown document string.
         tags: Tags to apply to every imported node.
             Defaults to ``frozenset({"design"})``.
+        source: Source provenance tag for all imported nodes (required for
+            deterministic uid computation).
         strict: Raise :class:`PlantUMLParseError` on errors.
 
     Returns:
         A :class:`LayerGraph` containing the parsed graph.
     """
-    return MarkdownImporter(tags=tags, strict=strict).import_markdown(text)
+    return MarkdownImporter(tags=tags, source=source, strict=strict).import_markdown(text)
