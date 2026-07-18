@@ -417,3 +417,143 @@ class TestDesignReconciliationCounts:
             f"Expected node count to increase after design reconciliation, "
             f"but {count_before} → {count_after}"
         )
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Part 3: DEPENDS_ON edge creation (explicit edges arrays + type-signature scan)
+# ════════════════════════════════════════════════════════════════════════════
+
+
+class TestDesignDependencyEdges:
+    """Verify that _link_design_dependencies creates DEPENDS_ON edges
+    from both explicit edges arrays and type-signature scanning."""
+
+    def test_explicit_edges_create_depends_on_relations(
+        self, persisted_decomposition,
+    ):
+        """Explicit edges arrays in design nodes must produce DEPENDS_ON
+        edges in Neo4j — the primary source of dependency information.
+
+        This tests the fix where _link_design_dependencies was only
+        scanning type_signature/argsstring text fields and ignoring
+        the edges array that the agent explicitly declares."""
+        from codegraph_design.agents.design_oo import _link_design_dependencies
+        from neomodel import db
+
+        # Create source and target nodes.  The as-built target simulates
+        # an existing entity (like cpp_sqlite::Database) that the design
+        # depends on but doesn't create.
+        for qn, source, tags in [
+            ("test::MigrationManager", "test", ["design"]),
+            ("test::MigrationResult", "test", ["design"]),
+            ("test::Database", "test", ["as-built"]),
+        ]:
+            db.cypher_query(
+                "MERGE (n:ClassNode:CodeGraphNode {qualified_name: $qn})"
+                " SET n.name = $name, n.source = $source, n.tags = $tags",
+                {"qn": qn, "name": qn.split("::")[-1],
+                 "source": source, "tags": tags},
+            )
+
+        # Flat design — the agent explicitly declares edges to both
+        # another design compound and an existing as-built entity.
+        flat_design = [{
+            "type": "ClassNode",
+            "qualified_name": "test::MigrationManager",
+            "name": "MigrationManager",
+            "kind": "class",
+            "source": "test",
+            "edges": [
+                {
+                    "relation_type": "DEPENDS_ON",
+                    "target_uid": "test::MigrationResult",
+                    "target_type": "ClassNode",
+                },
+                {
+                    "relation_type": "DEPENDS_ON",
+                    "target_uid": "test::Database",
+                    "target_type": "ClassNode",
+                },
+            ],
+        }]
+
+        edges_created = _link_design_dependencies(flat_design)
+
+        assert edges_created == 2, (
+            f"Expected 2 DEPENDS_ON edges from explicit arrays, "
+            f"got {edges_created}"
+        )
+
+        # Verify edges exist in Neo4j.
+        results, _ = db.cypher_query(
+            "MATCH (s {qualified_name: 'test::MigrationManager'})"
+            "-[r:DEPENDS_ON]->(t)"
+            " RETURN t.qualified_name ORDER BY t.qualified_name"
+        )
+        targets = [row[0] for row in results]
+        assert targets == ["test::Database", "test::MigrationResult"], (
+            f"Unexpected DEPENDS_ON targets: {targets}"
+        )
+
+    def test_type_signature_scanning_creates_depends_on_relations(
+        self, persisted_decomposition,
+    ):
+        """Type-signature scanning (the legacy path) also produces
+        DEPENDS_ON edges — ensures the scanning path still works."""
+        from codegraph_design.agents.design_oo import _link_design_dependencies
+        from neomodel import db
+
+        # Create nodes: a design compound and an existing entity it references.
+        for qn, source, tags in [
+            ("test::MigrationManager", "test", ["design"]),
+            ("test::Database", "test", ["as-built"]),
+        ]:
+            db.cypher_query(
+                "MERGE (n:ClassNode:CodeGraphNode {qualified_name: $qn})"
+                " SET n.name = $name, n.source = $source, n.tags = $tags",
+                {"qn": qn, "name": qn.split("::")[-1],
+                 "source": source, "tags": tags},
+            )
+
+        # Flat design — no explicit edges array, but member type_signature
+        # references 'test::Database'.
+        flat_design = [{
+            "type": "ClassNode",
+            "qualified_name": "test::MigrationManager",
+            "name": "MigrationManager",
+            "kind": "class",
+            "source": "test",
+            "composes": [{
+                "type": "AttributeNode",
+                "qualified_name": "test::MigrationManager::db",
+                "name": "db",
+                "kind": "attribute",
+                "type_signature": "cpp_sqlite::Database&",
+                "source": "test",
+            }, {
+                "type": "MethodNode",
+                "qualified_name": "test::MigrationManager::apply",
+                "name": "apply",
+                "kind": "method",
+                "argsstring": "(test::Database &db)",
+                "source": "test",
+            }],
+        }]
+
+        edges_created = _link_design_dependencies(flat_design)
+
+        # "cpp_sqlite::Database" won't resolve (not in Neo4j),
+        # but "test::Database" will.
+        assert edges_created == 1, (
+            f"Expected 1 DEPENDS_ON edge from type-signature scanning, "
+            f"got {edges_created}"
+        )
+
+        results, _ = db.cypher_query(
+            "MATCH (s {qualified_name: 'test::MigrationManager'})"
+            "-[r:DEPENDS_ON]->(t {qualified_name: 'test::Database'})"
+            " RETURN count(r) AS c"
+        )
+        assert results[0][0] == 1, (
+            "DEPENDS_ON edge from type-signature scan was not created"
+        )

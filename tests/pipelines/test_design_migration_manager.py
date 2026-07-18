@@ -262,6 +262,46 @@ class TestDesignMigrationManager:
                 f"design.  Design QNames: {sorted(design_qnames)}"
             )
 
+        # ── Assert required edges to existing as-built entities ──
+        edge_assertions = expected.get("must_have_edges", [])
+        if edge_assertions:
+            from neomodel import db as neodb
+            for edge_spec in edge_assertions:
+                from_name = edge_spec["from_class"]
+                rel = edge_spec["relation"]
+                to_name = edge_spec["to_class"]
+                desc = edge_spec.get("description", "")
+
+                # Query for edges between nodes whose qualified_name
+                # contains the from/to class names.  This handles both
+                # exact matches (e.g., cpp_sqlite::Database) and
+                # namespace-prefixed matches.
+                query = """
+                    MATCH (a)-[r]->(b)
+                    WHERE a.qualified_name CONTAINS $from_name
+                      AND type(r) = $rel
+                      AND b.qualified_name CONTAINS $to_name
+                    RETURN count(r) > 0 as exists
+                """
+                rows, _ = neodb.cypher_query(
+                    query,
+                    {"from_name": from_name, "rel": rel, "to_name": to_name},
+                )
+                exists = rows[0][0] if rows else False
+                assert exists, (
+                    f"Edge {from_name} -[{rel}]-> {to_name} not found. "
+                    f"Description: {desc}"
+                )
+            log.info(
+                "All %d required edges verified", len(edge_assertions),
+            )
+
+        # ── Verify DEPENDS_ON edges exist (counted in result) ──
+        assert result["deps_edges"] > 0, (
+            f"Expected at least 1 DEPENDS_ON edge, "
+            f"got {result['deps_edges']}"
+        )
+
         # ── Export artifacts to unit_test_data/ ──
         out_dir = Path(__file__).parent / "unit_test_data"
         out_dir.mkdir(parents=True, exist_ok=True)

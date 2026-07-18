@@ -51,31 +51,25 @@
       "from_class": "MigrationManager",
       "relation": "DEPENDS_ON",
       "to_class": "cpp_sqlite::Database",
-      "description": "Manager needs Database to apply migrations"
+      "description": "Manager holds a Database reference to apply/verify migrations"
     },
     {
       "from_class": "MigrationManager",
       "relation": "DEPENDS_ON",
       "to_class": "cpp_sqlite::Transaction",
-      "description": "Manager passes Transaction to up/down methods"
+      "description": "Manager wraps operations in transactions via Database::withTransaction"
     },
     {
       "from_class": "MigrationManager",
-      "relation": "COMPOSES",
-      "to_class": "SchemaVersion",
-      "description": "Manager tracks applied versions via SchemaVersion records"
-    },
-    {
-      "from_class": "MigrationManager",
-      "relation": "COMPOSES",
+      "relation": "DEPENDS_ON",
       "to_class": "Migration",
-      "description": "Manager holds registered Migration instances"
+      "description": "Manager calls up()/down() on registered Migration instances"
     },
     {
       "from_class": "Migration",
       "relation": "DEPENDS_ON",
-      "to_class": "cpp_sqlite::Transaction",
-      "description": "up() and down() receive a Transaction reference"
+      "to_class": "cpp_sqlite::Database",
+      "description": "up() and down() receive a Database& to execute SQL"
     }
   ]
 }

@@ -768,36 +768,28 @@ def _link_design_composes(flat_design: list[dict]) -> int:
 
 
 def _link_design_dependencies(flat_design: list[dict]) -> int:
-    """Create DEPENDS_ON edges between design compounds based on type signatures.
+    """Create DEPENDS_ON edges from design compounds to any target in Neo4j.
 
-    Iterates the flat design node list and for each compound node
-    (ClassNode, InterfaceNode, EnumNode) inspects its member nodes'
-    ``type_signature`` and ``argsstring`` fields.  When a type reference
-    matches the ``qualified_name`` of another design compound, a
-    ``DEPENDS_ON`` edge is created from the owning compound to the
-    referenced compound.
+    Two sources of dependency information:
 
-    Type references use the codegraph ``::`` namespace separator
-    (e.g. ``diagram_gen::LayerGraph``).  Primitive types (``bool``,
-    ``int``, ``str``, ``void``, ``float``, ``double``) and standard
-    container names (``list``, ``dict``, ``set``, ``tuple``, ``Optional``,
-    ``Vec``, ``vector``, ``map``) are filtered out.
+    1. **Explicit ``edges`` array**: Each design node may declare edges in
+       its ``edges`` array with ``relation_type``, ``target_uid``, and
+       ``target_type``.  These are trusted and created directly.
+    2. **Type-signature scanning**: The ``type_signature`` and
+       ``argsstring`` fields of member nodes are scanned for
+       qualified-name references.
+
+    Both sources can reference design compounds **or** existing as-built
+    entities — targets are resolved against Neo4j via ``qualified_name``,
+    not limited to the design compound set.
+
+    References that don't resolve to any Neo4j node are silently skipped
+    (the target may not be indexed yet, e.g. standard library types).
 
     Returns:
         Number of DEPENDS_ON edges created.
     """
-    # Build the set of design compound qualified_names (the candidates
-    # that can be DEPENDS_ON targets).
-    compound_qns: set[str] = set()
     compound_types = {"ClassNode", "InterfaceNode", "EnumNode", "UnionNode", "ConceptNode"}
-    for d in flat_design:
-        if d.get("type") in compound_types:
-            qn = d.get("qualified_name", "")
-            if qn:
-                compound_qns.add(qn)
-
-    if not compound_qns:
-        return 0
 
     # Primitive / standard-library types that should never become
     # DEPENDS_ON targets.
@@ -809,50 +801,65 @@ def _link_design_dependencies(flat_design: list[dict]) -> int:
     })
 
     import re
-
-    # Pattern to extract qualified names like `ns::Type` from a
-    # type signature or argsstring.  Avoids matching primitives.
     _QN_RE = re.compile(r"\b([a-zA-Z_]\w*(?:::\w+)+)\b")
 
-    edges = 0
-    seen: set[tuple[str, str]] = set()  # (source_qn, target_qn)
+    referenced: dict[str, set[str]] = {}  # source_qn → {target_qn, ...}
 
     for d in flat_design:
         source_qn = d.get("qualified_name", "")
         if not source_qn or d.get("type") not in compound_types:
             continue
 
-        referenced: set[str] = set()
+        refs: set[str] = referenced.setdefault(source_qn, set())
 
+        # ── 1. Explicit edges array (trusted, from produce_oo_design) ──
+        for edge in d.get("edges", []):
+            rel_type = edge.get("relation_type", "")
+            if rel_type != "DEPENDS_ON":
+                continue
+            target_qn = edge.get("target_uid", "")
+            if target_qn and target_qn != source_qn:
+                refs.add(target_qn)
+
+        # ── 2. Type-signature scanning ──────────────────────────────
         for member in d.get("composes", []):
-            ts = member.get("type_signature", "")
-            if ts and ts not in _PRIMITIVES:
-                for match in _QN_RE.finditer(ts):
-                    ref = match.group(1)
-                    if ref in compound_qns and ref != source_qn:
-                        referenced.add(ref)
+            for field in ("type_signature", "argsstring"):
+                text = member.get(field, "")
+                if not text or text in _PRIMITIVES:
+                    continue
+                for match in _QN_RE.finditer(text):
+                    qn = match.group(1)
+                    if qn not in _PRIMITIVES and qn != source_qn:
+                        refs.add(qn)
 
-            # Method argsstring: (param: ns::Type, ...) -> RetType
-            args = member.get("argsstring", "")
-            if args:
-                for match in _QN_RE.finditer(args):
-                    ref = match.group(1)
-                    if ref in compound_qns and ref != source_qn:
-                        referenced.add(ref)
+    # ── Create DEPENDS_ON edges, resolving targets via Neo4j ───────
+    edges = 0
+    seen: set[tuple[str, str]] = set()
 
-        for target_qn in referenced:
+    for source_qn, targets in referenced.items():
+        for target_qn in targets:
             edge_key = (source_qn, target_qn)
             if edge_key in seen:
                 continue
             seen.add(edge_key)
             try:
-                neomodel_db.cypher_query(
-                    "MATCH (s {qualified_name: $sqn}), (t {qualified_name: $tqn}) "
-                    "MERGE (s)-[:DEPENDS_ON]->(t)",
+                # MERGE resolves whether the target is a design compound
+                # or an existing as-built entity — both live in Neo4j.
+                result, _ = neomodel_db.cypher_query(
+                    "MATCH (s {qualified_name: $sqn}) "
+                    "MATCH (t {qualified_name: $tqn}) "
+                    "MERGE (s)-[:DEPENDS_ON]->(t) "
+                    "RETURN count(t)",
                     {"sqn": source_qn, "tqn": target_qn},
                 )
-                edges += 1
-                log.info("DEPENDS_ON: %s → %s", source_qn, target_qn)
+                if result and result[0][0]:
+                    edges += 1
+                    log.info("DEPENDS_ON: %s → %s", source_qn, target_qn)
+                else:
+                    log.debug(
+                        "DEPENDS_ON target not found in Neo4j: %s → %s",
+                        source_qn, target_qn,
+                    )
             except Exception as exc:
                 log.warning("Failed to DEPENDS_ON %s → %s: %s",
                             source_qn, target_qn, exc)
