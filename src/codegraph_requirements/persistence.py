@@ -197,10 +197,14 @@ def persist_decomposition(
         _delete_llr_subtree(old_llr)
 
     # --- Deserialize into a LayerGraph with auto-scaffold creation ---
-    graph = LayerGraph.deserialize(
-        list(decomposition.nodes),
-        create_missing=True,
-    )
+    nodes = list(decomposition.nodes)
+    # Normalize: add qualified_name to LLR nodes that lack it.
+    # Legacy decompose outputs only include "name"; deserialize needs
+    # qualified_name as the identity field to derive a stable key.
+    for n in nodes:
+        if n.get("type") == "LLR" and not n.get("qualified_name"):
+            n["qualified_name"] = n.get("name", "")
+    graph = LayerGraph.deserialize(nodes, create_missing=True)
 
     # --- Validate scaffold graph: no orphaned scaffold nodes ---
     scaffold_errors = _validate_scaffold_graph(graph)

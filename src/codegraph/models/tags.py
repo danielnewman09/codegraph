@@ -481,7 +481,6 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
             This node instance (after saving).
         """
         from neomodel import db
-        from neomodel.sync_.node import StructuredNode
 
         # Ensure qualified_name is set before computing uid.
         # Types with a qualified_name property get it auto-computed
@@ -493,7 +492,20 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         try:
             computed = self._compute_uid()
         except ValueError:
-            return StructuredNode.save(self)
+            # _compute_uid() failed (e.g. source is empty).  If the node
+            # already has a uid (from round-tripped data), use MERGE on
+            # that uid.  Otherwise, refuse to save.
+            existing_uid = self._uid_value()
+            if not existing_uid:
+                raise ValueError(
+                    f"Cannot save {type(self).__name__} "
+                    f"'{getattr(self, 'name', '')}': "
+                    f"source is empty and no uid is set — a non-empty "
+                    f"'source' is required to compute a deterministic uid."
+                ) from None
+            # Use the existing uid with MERGE for idempotent save
+            self.uid = existing_uid
+            computed = existing_uid
         if computed:
             self.uid = computed
             # Use MERGE on uid for idempotent create-or-update.

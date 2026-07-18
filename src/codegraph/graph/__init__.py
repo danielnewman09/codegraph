@@ -9,8 +9,11 @@ persistence to Neo4j, and querying from Neo4j by tag.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Iterator
+
+log = logging.getLogger(__name__)
 
 from codegraph.constants import Tag, TAGS
 from codegraph.models.tags import CodeGraphNode
@@ -152,35 +155,37 @@ class LayerGraph:
                 uid_prop = model_cls._uid_prop()
                 if uid_prop and uid_prop in obj:
                     return obj[uid_prop]
-                # uid_prop exists but not in dict (e.g. LLM outputs
-                # that lack a pre-computed "uid" hash).  Deserialize
-                # the dict to compute the deterministic uid only when
-                # the dict has the primary identity field — otherwise
-                # deserialization produces a random auto-generated uid,
-                # breaking the Phase 1 / Phase 2 key stability.
+                # uid_prop exists but not in dict.  Compute the
+                # deterministic uid by deserializing — but ONLY when
+                # "source" is present.  Without "source",
+                # _compute_uid() raises ValueError and the
+                # deserializer falls back to a random auto-generated
+                # uid, producing different keys on each call.
+                # Callers (e.g. design agent) must inject "source"
+                # into LLM-produced dicts before deserializing.
                 if uid_prop:
                     identity_fields = getattr(model_cls, "_identity_fields", ())
-                    if identity_fields and obj.get(identity_fields[0]):
+                    source_val = obj.get("source", "")
+                    has_source = bool(source_val)
+                    if identity_fields and obj.get(identity_fields[0]) and has_source:
                         try:
                             node = CodeGraphNode.deserialize(obj)
                             uid = node._uid_value()
                             if uid:
                                 return uid
                         except Exception:
-                            pass
-                    # Identity field is empty — fall back to
-                    # ``name`` as a secondary identifier.  If both are
-                    # empty, raise an error: all such nodes would
-                    # collide on the same key (empty string).
-                    name_val = obj.get("name", "")
-                    if name_val:
-                        return name_val
-                    idf = identity_fields[0] if identity_fields else "name"
+                            log.debug(
+                                "_node_key: deserialize failed for %s '%s'",
+                                type_name, obj.get("name", ""),
+                                exc_info=True,
+                            )
+                    source_status = (
+                        "empty" if "source" in obj else "missing"
+                    )
                     raise ValueError(
-                        f"Node of type '{type_name}' has empty identity "
-                        f"field '{idf}' and empty 'name' — all such "
-                        f"nodes would collide on the same key. Set the "
-                        f"identity field before deserializing. "
+                        f"Node of type '{type_name}' has {source_status} "
+                        f"'source' (and no explicit 'uid') — a non-empty "
+                        f"'source' is required to derive a stable key. "
                         f"Dict keys: {sorted(obj.keys())}"
                     )
             return obj.get("name", "")

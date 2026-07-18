@@ -53,6 +53,7 @@ testpaths = ["tests"]
 markers = [
     "integration: marks tests that require Neo4j",
     "neo4j: marks tests that require a running Neo4j instance",
+    "slow: marks tests that require an LLM call (OPENAI_API_KEY)",
 ]
 
 [tool.coverage.run]

@@ -38,6 +38,7 @@ from codegraph_design.agents.decompose_hlr import (
 from codegraph_requirements.schemas import DecomposedRequirementSchema
 from codegraph_requirements.models.requirement import HLR, LLR  # register types for deserialize  # noqa: F401
 from codegraph.graph import LayerGraph
+from codegraph.uid import compute_uid
 
 # ── Path to actual decompose output from the last run ──────────────────────
 
@@ -55,6 +56,7 @@ def _make_llr(name="Test LLR", test_ids=None):
     return {
         "type": "LLR",
         "name": name,
+        "qualified_name": name,
         "source": "test",
         "description": f"Description for {name}",
         "tags": ["design"],
@@ -120,6 +122,14 @@ def _make_complete_subtree(llr_name="Test LLR", test_qname="vm::test::test_foo")
         _make_assertion(f"cond::post::{test_qname}", phase="post"),
         _make_step(f"step::{test_qname}"),
     ]
+
+
+def _find_llr_entry(graph: LayerGraph, qname: str = "Test LLR") -> "CompositeEntry":
+    """Find an LLR entry in the graph by its qualified_name."""
+    for entry in graph._all_entries():
+        if getattr(entry.node, "qualified_name", "") == qname:
+            return entry
+    raise KeyError(f"LLR '{qname}' not found in graph")
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -349,7 +359,7 @@ class TestLayerGraphFromDecomposeNodes:
         nodes = _make_complete_subtree()
         graph = LayerGraph.deserialize(nodes, create_missing=True)
 
-        llr_entry = graph.entries["Test LLR"]
+        llr_entry = _find_llr_entry(graph)
         test_children = llr_entry.children.get("TestNode", {})
         test_qnames = [
             getattr(entry.node, "qualified_name", "")
@@ -364,7 +374,7 @@ class TestLayerGraphFromDecomposeNodes:
         nodes = _make_complete_subtree()
         graph = LayerGraph.deserialize(nodes, create_missing=True)
 
-        llr_entry = graph.entries["Test LLR"]
+        llr_entry = _find_llr_entry(graph)
         test_children = llr_entry.children.get("TestNode", {})
         # Find the test by qualified_name (children keyed by UID)
         test_entry = None
@@ -415,7 +425,7 @@ class TestLayerGraphFromDecomposeNodes:
         nodes = _make_complete_subtree()
         graph = LayerGraph.deserialize(nodes, create_missing=True)
 
-        llr_entry = graph.entries["Test LLR"]
+        llr_entry = _find_llr_entry(graph)
         test_children = llr_entry.children.get("TestNode", {})
         test_entry = next(iter(test_children.values()))
 
@@ -435,7 +445,7 @@ class TestLayerGraphFromDecomposeNodes:
         nodes = _make_complete_subtree()
         graph = LayerGraph.deserialize(nodes, create_missing=True)
 
-        llr_entry = graph.entries["Test LLR"]
+        llr_entry = _find_llr_entry(graph)
         test_children = llr_entry.children.get("TestNode", {})
         test_entry = next(iter(test_children.values()))
         step_entries = list(test_entry.children.get("TestStepNode", {}).values())
@@ -465,14 +475,27 @@ def decompose_response():
 
 @pytest.fixture(scope="class")
 def decompose_nodes(decompose_response):
-    """Return just the nodes list from the response."""
-    return decompose_response["nodes"]
+    """Return just the nodes list from the response.
+
+    Adds ``qualified_name`` to any LLR nodes that lack it (legacy
+    decompose outputs only include ``name``, but ``_node_key`` needs
+    the identity field to derive a stable key).
+    """
+    nodes = decompose_response["nodes"]
+    for n in nodes:
+        if n.get("type") == "LLR" and not n.get("qualified_name"):
+            n["qualified_name"] = n.get("name", "")
+    return nodes
 
 
 @pytest.fixture(scope="class")
 def decompose_graph(decompose_response):
     """Deserialize the full decompose response into a LayerGraph."""
     nodes = decompose_response["nodes"]
+    # Add qualified_name to LLR nodes that lack it (legacy fixtures).
+    for n in nodes:
+        if n.get("type") == "LLR" and not n.get("qualified_name"):
+            n["qualified_name"] = n.get("name", "")
     return LayerGraph.deserialize(nodes, create_missing=True)
 
 

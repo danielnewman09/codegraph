@@ -767,6 +767,99 @@ def _link_design_composes(flat_design: list[dict]) -> int:
     return edges
 
 
+def _link_design_dependencies(flat_design: list[dict]) -> int:
+    """Create DEPENDS_ON edges between design compounds based on type signatures.
+
+    Iterates the flat design node list and for each compound node
+    (ClassNode, InterfaceNode, EnumNode) inspects its member nodes'
+    ``type_signature`` and ``argsstring`` fields.  When a type reference
+    matches the ``qualified_name`` of another design compound, a
+    ``DEPENDS_ON`` edge is created from the owning compound to the
+    referenced compound.
+
+    Type references use the codegraph ``::`` namespace separator
+    (e.g. ``diagram_gen::LayerGraph``).  Primitive types (``bool``,
+    ``int``, ``str``, ``void``, ``float``, ``double``) and standard
+    container names (``list``, ``dict``, ``set``, ``tuple``, ``Optional``,
+    ``Vec``, ``vector``, ``map``) are filtered out.
+
+    Returns:
+        Number of DEPENDS_ON edges created.
+    """
+    # Build the set of design compound qualified_names (the candidates
+    # that can be DEPENDS_ON targets).
+    compound_qns: set[str] = set()
+    compound_types = {"ClassNode", "InterfaceNode", "EnumNode", "UnionNode", "ConceptNode"}
+    for d in flat_design:
+        if d.get("type") in compound_types:
+            qn = d.get("qualified_name", "")
+            if qn:
+                compound_qns.add(qn)
+
+    if not compound_qns:
+        return 0
+
+    # Primitive / standard-library types that should never become
+    # DEPENDS_ON targets.
+    _PRIMITIVES = frozenset({
+        "bool", "int", "str", "void", "float", "double",
+        "char", "size_t", "uint32_t", "uint64_t", "int32_t", "int64_t",
+        "list", "dict", "set", "tuple", "Optional", "Vec", "vector",
+        "map", "string", "String", "number", "boolean",
+    })
+
+    import re
+
+    # Pattern to extract qualified names like `ns::Type` from a
+    # type signature or argsstring.  Avoids matching primitives.
+    _QN_RE = re.compile(r"\b([a-zA-Z_]\w*(?:::\w+)+)\b")
+
+    edges = 0
+    seen: set[tuple[str, str]] = set()  # (source_qn, target_qn)
+
+    for d in flat_design:
+        source_qn = d.get("qualified_name", "")
+        if not source_qn or d.get("type") not in compound_types:
+            continue
+
+        referenced: set[str] = set()
+
+        for member in d.get("composes", []):
+            ts = member.get("type_signature", "")
+            if ts and ts not in _PRIMITIVES:
+                for match in _QN_RE.finditer(ts):
+                    ref = match.group(1)
+                    if ref in compound_qns and ref != source_qn:
+                        referenced.add(ref)
+
+            # Method argsstring: (param: ns::Type, ...) -> RetType
+            args = member.get("argsstring", "")
+            if args:
+                for match in _QN_RE.finditer(args):
+                    ref = match.group(1)
+                    if ref in compound_qns and ref != source_qn:
+                        referenced.add(ref)
+
+        for target_qn in referenced:
+            edge_key = (source_qn, target_qn)
+            if edge_key in seen:
+                continue
+            seen.add(edge_key)
+            try:
+                neomodel_db.cypher_query(
+                    "MATCH (s {qualified_name: $sqn}), (t {qualified_name: $tqn}) "
+                    "MERGE (s)-[:DEPENDS_ON]->(t)",
+                    {"sqn": source_qn, "tqn": target_qn},
+                )
+                edges += 1
+                log.info("DEPENDS_ON: %s → %s", source_qn, target_qn)
+            except Exception as exc:
+                log.warning("Failed to DEPENDS_ON %s → %s: %s",
+                            source_qn, target_qn, exc)
+
+    return edges
+
+
 def _retag_remaining_scaffold() -> int:
     """Change ``tags`` from ``["scaffold"]`` to ``["design"]`` on scaffold
     nodes that still have verification edges."""
@@ -795,8 +888,17 @@ def _retag_remaining_scaffold() -> int:
 
 
 def _cleanup_orphaned_scaffold_nodes(hlr_uid: str) -> int:
-    """Delete scaffold nodes that no longer have any relationships."""
+    """Delete scaffold nodes that are no longer part of the design.
+
+    Removes:
+    1. Scaffold nodes with zero relationships (orphans).
+    2. Scaffold nodes whose parent compound was matched/updated to a
+       design node — these are stale child nodes that the new design
+       replaced with different members.
+    """
     cleaned = 0
+
+    # ── 1. Orphans: zero relationships ──
     try:
         results, _ = neomodel_db.cypher_query(
             "MATCH (n) WHERE 'scaffold' IN coalesce(n.tags, []) "
@@ -813,11 +915,33 @@ def _cleanup_orphaned_scaffold_nodes(hlr_uid: str) -> int:
                 cleaned += 1
             except Exception:
                 pass
-        if cleaned:
-            log.info("Cleaned up %d orphaned scaffold nodes for HLR %s",
-                     cleaned, hlr_uid[:8])
     except Exception as exc:
-        log.warning("Scaffold cleanup failed for HLR %s: %s", hlr_uid[:8], exc)
+        log.warning("Orphan scaffold cleanup failed: %s", exc)
+
+    # ── 2. Stale children: scaffold with COMPOSES from design parent ──
+    try:
+        results, _ = neomodel_db.cypher_query(
+            "MATCH (parent)-[:COMPOSES]->(child) "
+            "WHERE 'scaffold' IN coalesce(child.tags, []) "
+            "  AND NOT 'scaffold' IN coalesce(parent.tags, []) "
+            "RETURN elementId(child)",
+        )
+        for (eid,) in results:
+            try:
+                neomodel_db.cypher_query(
+                    "MATCH (n) WHERE elementId(n) = $eid "
+                    "DETACH DELETE n",
+                    {"eid": eid},
+                )
+                cleaned += 1
+            except Exception:
+                pass
+    except Exception as exc:
+        log.warning("Stale child scaffold cleanup failed: %s", exc)
+
+    if cleaned:
+        log.info("Cleaned up %d scaffold nodes for HLR %s",
+                 cleaned, hlr_uid[:8])
     return cleaned
 
 
@@ -921,6 +1045,7 @@ def _reconcile_design_with_scaffold(
             nodes_created += 1
 
     edges_linked = _link_design_composes(flat)
+    deps_edges = _link_design_dependencies(flat)
     namespace_edges, nss_created, nss_reused = _create_design_namespaces(flat)
     scaffold_retaged = _retag_remaining_scaffold()
     scaffold_cleaned = _cleanup_orphaned_scaffold_nodes(hlr_uid)
@@ -929,6 +1054,7 @@ def _reconcile_design_with_scaffold(
         "nodes_updated": nodes_updated,
         "nodes_created": nodes_created,
         "edges_linked": edges_linked,
+        "deps_edges": deps_edges,
         "namespace_edges": namespace_edges,
         "namespaces_created": nss_created,
         "namespaces_reused": nss_reused,
@@ -1557,7 +1683,7 @@ def design_and_persist_hlr(
     )
 
     # Reconcile design with scaffold
-    recon = {"nodes_updated": 0, "nodes_created": 0, "edges_linked": 0,
+    recon = {"nodes_updated": 0, "nodes_created": 0, "edges_linked": 0, "deps_edges": 0,
              "scaffold_retaged": 0, "scaffold_cleaned": 0}
     if result.design:
         try:
@@ -1617,11 +1743,11 @@ def design_and_persist_hlr(
 
     log.info(
         "Design+verify complete for HLR %s: %d nodes updated, %d created, "
-        "%d COMPOSES edges, %d verifications resolved, %d VERIFIES persisted, "
+        "%d COMPOSES edges, %d DEPENDS_ON edges, %d verifications resolved, %d VERIFIES persisted, "
         "%d CALLEE updated, %d conditions, %d actions, "
         "%d scaffold retaged, %d scaffold cleaned",
         hlr_uid[:8], recon["nodes_updated"], recon["nodes_created"],
-        recon["edges_linked"], verifications_resolved,
+        recon["edges_linked"], recon["deps_edges"], verifications_resolved,
         verifies_persisted, callees_updated,
         conditions_created, actions_created,
         recon["scaffold_retaged"], recon["scaffold_cleaned"],
@@ -1637,6 +1763,7 @@ def design_and_persist_hlr(
         "nodes_updated": recon["nodes_updated"],
         "nodes_created": recon["nodes_created"],
         "edges_linked": recon["edges_linked"],
+        "deps_edges": recon["deps_edges"],
         "verifications_resolved": verifications_resolved,
         "verifies_persisted": verifies_persisted,
         "callees_updated": callees_updated,

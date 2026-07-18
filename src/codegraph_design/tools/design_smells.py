@@ -338,6 +338,73 @@ def _check_missing_namespace(nodes: list[dict]) -> list[Smell]:
 
 
 @register_smell(
+    "unreferenced_dependency", Severity.WARNING,
+    "Design references external types in text fields but has no graph edge to them",
+)
+def _check_unreferenced_dependencies(nodes: list[dict]) -> list[Smell]:
+    """Flag qualified names mentioned in text fields (argsstring,
+    type_signature, brief_description) that are not owned by the design
+    and not referenced by any edge.
+
+    Agents often import existing entities into context but then only
+    mention them in text fields rather than creating proper DEPENDS_ON
+    or INVOKES edges.  This smell catches that gap.
+    """
+    import re
+    all_nodes = _walk_tree(nodes)
+
+    # Collect all qualified names owned by the design
+    owned: set[str] = set()
+    for n in all_nodes:
+        qn = n.get("qualified_name", "")
+        if qn:
+            owned.add(qn)
+
+    # Collect all target_uids from edges
+    edge_targets: set[str] = set()
+    for n in all_nodes:
+        for edge in n.get("edges", []):
+            tgt = edge.get("target_uid", "")
+            if tgt:
+                edge_targets.add(tgt)
+
+    # Scan text fields for qualified names (containing "::")
+    text_fields = ("argsstring", "type_signature", "brief_description", "description")
+    qname_pattern = re.compile(r"\b([a-zA-Z_]\w*(?:::\w+)+)\b")
+    seen: set[str] = set()
+    smells: list[Smell] = []
+
+    for n in all_nodes:
+        for field in text_fields:
+            text = n.get(field, "") or ""
+            for match in qname_pattern.finditer(text):
+                qn = match.group(1)
+                if qn in seen:
+                    continue
+                seen.add(qn)
+                # Only flag if it's not owned by the design and not in an edge
+                if qn not in owned and qn not in edge_targets:
+                    smells.append(Smell(
+                        id="unreferenced_dependency",
+                        severity=Severity.WARNING,
+                        element=n.get("qualified_name", ""),
+                        kind=n.get("type", ""),
+                        detail=(
+                            f"'{n.get('name', '')}' references '{qn}' in "
+                            f"{field} but has no edge to it"
+                        ),
+                        recommendation=(
+                            f"Add an edge: "
+                            f'{{"relation_type": "DEPENDS_ON", '
+                            f'"target_uid": "{qn}", '
+                            f'"target_type": "ClassNode"}}'
+                        ),
+                    ))
+
+    return smells
+
+
+@register_smell(
     "unscoped_qname", Severity.BLOCKING,
     "Compound's qualified_name has no namespace prefix (no '::' separator)",
 )

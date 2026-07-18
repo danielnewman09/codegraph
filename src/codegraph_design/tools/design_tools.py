@@ -397,6 +397,27 @@ def handle_validate_design(ctx: DesignToolDispatcher, tool_input: dict) -> str:
     })
 
 
+def _inject_source(nodes: list[dict], source: str) -> list[dict]:
+    """Inject ``source`` into every node dict (recursively) so that
+    ``_node_key`` can compute deterministic UIDs during deserialization.
+
+    LLM-produced designs don't include ``source``.  We derive it from
+    the dispatcher's ``component_namespace``.
+    """
+    if not source:
+        return nodes
+
+    def _walk(n: dict) -> None:
+        if "source" not in n:
+            n["source"] = source
+        for child in n.get("composes", []):
+            _walk(child)
+
+    for node in nodes:
+        _walk(node)
+    return nodes
+
+
 def handle_produce_oo_design(ctx: DesignToolDispatcher, tool_input: dict) -> str:
     """Store the final design on the dispatcher for verification tools."""
     nodes: list[dict] = tool_input.get("nodes", [])
@@ -405,6 +426,9 @@ def handle_produce_oo_design(ctx: DesignToolDispatcher, tool_input: dict) -> str
             "stored": False,
             "errors": ["No nodes provided"],
         })
+
+    # ── Inject source so _node_key can derive deterministic UIDs ────
+    _inject_source(nodes, ctx.component_namespace)
 
     # ── Edge-target and duplicate checks ────────────────────────────
     errors = _validate_oo_design(

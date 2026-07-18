@@ -25,7 +25,8 @@
           "target_type": "TestNode"
         }
       ],
-      "source": "test"
+      "source": "test",
+      "qualified_name": "Diagram Generation Operation"
     },
     {
       "type": "LLR",
@@ -51,7 +52,8 @@
           "target_type": "TestNode"
         }
       ],
-      "source": "test"
+      "source": "test",
+      "qualified_name": "Codegraph Data Acquisition"
     },
     {
       "type": "LLR",
@@ -77,7 +79,8 @@
           "target_type": "TestNode"
         }
       ],
-      "source": "test"
+      "source": "test",
+      "qualified_name": "Package Rendering with Class Detail"
     },
     {
       "type": "LLR",
@@ -98,7 +101,8 @@
           "target_type": "TestNode"
         }
       ],
-      "source": "test"
+      "source": "test",
+      "qualified_name": "Directed Relationship Arrow Rendering"
     },
     {
       "type": "LLR",
@@ -124,7 +128,8 @@
           "target_type": "TestNode"
         }
       ],
-      "source": "test"
+      "source": "test",
+      "qualified_name": "Configurable Entity Count Filter"
     },
     {
       "type": "LLR",
@@ -155,7 +160,8 @@
           "target_type": "TestNode"
         }
       ],
-      "source": "test"
+      "source": "test",
+      "qualified_name": "Deterministic Output Ordering"
     },
     {
       "type": "LLR",
@@ -181,7 +187,8 @@
           "target_type": "TestNode"
         }
       ],
-      "source": "test"
+      "source": "test",
+      "qualified_name": "Standalone File Export"
     },
     {
       "type": "TestNode",

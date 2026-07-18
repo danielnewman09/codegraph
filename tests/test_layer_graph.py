@@ -87,20 +87,11 @@ class TestNodeKey:
         # distinguishes nodes by UID rather than by class name.
         assert result == "def456"
 
-    # codegraph:test-desc test_layer_graph.TestNodeKey.test_class_node_dict_falls_back_to_name_without_uid
-    # Verifies that when a class node lacks a UID, its dictionary falls back to its
-    # name, ensuring consistent node identification and preventing key errors during
-    # graph operations.
-    def test_class_node_dict_falls_back_to_name_without_uid(self):
-        # codegraph:test-desc test_layer_graph.TestNodeKey.test_class_node_dict_falls_back_to_name_without_uid::step_0
-        # Sets up the test environment by constructing a LayerGraph and calling the node
-        # key method with a dictionary missing a UID, preparing to evaluate the fallback
-        # logic.
-        result = LayerGraph._node_key({"type": "ClassNode", "name": "Widget"})
-        # codegraph:test-desc test_layer_graph.TestNodeKey.test_class_node_dict_falls_back_to_name_without_uid::post_0
-        # Checks that the generated node key equals 'Widget', confirming that the code
-        # correctly defaults to the class name when no UID is provided.
-        assert result == "Widget"
+    def test_raises_when_both_source_and_qname_missing(self):
+        """Without source AND qualified_name, _node_key cannot derive a
+        stable key — name alone is not unique.  Must raise ValueError."""
+        with pytest.raises(ValueError, match="missing.*source"):
+            LayerGraph._node_key({"type": "ClassNode", "name": "Widget"})
 
     # codegraph:test-desc test_layer_graph.TestNodeKey.test_method_node_dict_uses_uid
     # Verifies that the method node dictionary uses the unique identifier (UID) for
@@ -135,6 +126,77 @@ class TestNodeKey:
         # UID-based keys, which is critical for maintaining consistent graph structure
         # and lookup integrity.
         assert result == "jkl012"
+
+    def test_raises_without_source_in_dict(self):
+        """_node_key must raise ValueError when 'source' and explicit
+        'uid' are both absent.  Callers are responsible for injecting
+        source before deserialization."""
+        data = {
+            "type": "ClassNode",
+            "name": "MigrationManager",
+            "qualified_name": "cpp_sqlite::MigrationManager",
+            "kind": "class",
+        }
+        with pytest.raises(ValueError, match="missing.*source"):
+            LayerGraph._node_key(data)
+
+    def test_deterministic_with_source_present(self):
+        """_node_key MUST return the same key for the same dict when
+        source IS present (uid computed from source + identity fields)."""
+        data = {
+            "type": "ClassNode",
+            "name": "MigrationManager",
+            "qualified_name": "cpp_sqlite::MigrationManager",
+            "kind": "class",
+            "source": "cpp_sqlite",
+        }
+        key1 = LayerGraph._node_key(data)
+        key2 = LayerGraph._node_key(data)
+        key3 = LayerGraph._node_key(data)
+        assert key1 == key2 == key3, (
+            f"_node_key is non-deterministic: {key1} != {key2} != {key3}"
+        )
+        # When source is present, the key should be the deterministic
+        # SHA-1 uid (40 hex chars), not a random UUID (32 hex chars).
+        assert len(key1) == 40
+
+    def test_raises_when_both_source_and_uid_absent(self):
+        """Without source or explicit uid, _node_key cannot derive a
+        stable key and must raise ValueError."""
+        data = {"type": "ClassNode", "name": "Widget", "kind": "class"}
+        with pytest.raises(ValueError, match="missing.*source"):
+            LayerGraph._node_key(data)
+
+    def test_deserialize_succeeds_with_source(self):
+        """Full deserialize of a design with source injected works."""
+        data = [
+            {
+                "type": "ClassNode",
+                "name": "Migration",
+                "qualified_name": "cpp_sqlite::Migration",
+                "kind": "class",
+                "source": "cpp_sqlite",
+                "brief_description": "Abstract base class for migrations",
+                "composes": [
+                    {
+                        "type": "MethodNode",
+                        "name": "up",
+                        "qualified_name": "cpp_sqlite::Migration::up",
+                        "kind": "method",
+                        "visibility": "public",
+                        "source": "cpp_sqlite",
+                        "brief_description": "Apply migration",
+                        "argsstring": "(Database &db)",
+                        "type_signature": "virtual void",
+                    },
+                ],
+            },
+        ]
+        graph = LayerGraph.deserialize(data)
+        assert len(graph.entries) == 1
+        # The root key is the deterministic SHA-1 uid
+        key = list(graph.entries.keys())[0]
+        assert len(key) == 40  # SHA-1 hex hash
 
     def test_file_node_instance_uses_uid(self):
         """Unsaved FileNode: uid is auto-generated (random), _node_key returns it."""
@@ -497,7 +559,7 @@ class TestDeserialize:
         # Sets up the test environment by preparing or loading the data that will be
         # used to infer tags on the graph during deserialization.
         data = [
-            {"type": "ClassNode", "name": "MyClass", "kind": "class", "tags": ["as-built"]},
+            {"type": "ClassNode", "name": "MyClass", "qualified_name": "test::MyClass", "kind": "class", "source": "test", "tags": ["as-built"]},
         ]
         graph = LayerGraph.deserialize(data)
         # codegraph:test-desc test_layer_graph.TestDeserialize.test_tags_inference_from_data::post_0
@@ -513,7 +575,7 @@ class TestDeserialize:
         # This step sets up the test by invoking the deserialize method on the
         # LayerGraph fixture, preparing it for verification of default tags.
         data = [
-            {"type": "ClassNode", "name": "MyClass", "kind": "class"},
+            {"type": "ClassNode", "name": "MyClass", "qualified_name": "test::MyClass", "kind": "class", "source": "test"},
         ]
         graph = LayerGraph.deserialize(data)
         # codegraph:test-desc test_layer_graph.TestDeserialize.test_tags_default_to_design::post_0
@@ -528,7 +590,7 @@ class TestDeserialize:
         # Sets up the test by initializing the graph object and performing the
         # deserialization of sample data that includes the legacy 'layer' field.
         data = [
-            {"type": "ClassNode", "name": "MyClass", "kind": "class", "layer": "as-built"},
+            {"type": "ClassNode", "name": "MyClass", "qualified_name": "test::MyClass", "kind": "class", "source": "test", "layer": "as-built"},
         ]
         graph = LayerGraph.deserialize(data)
         # codegraph:test-desc test_layer_graph.TestDeserialize.test_backward_compat_layer_field::post_0

@@ -6,6 +6,15 @@ tools instead of running scripts manually.
 
 Registered by ``register_all(dispatcher)`` on a
 :class:`DesignDiscoveryDispatcher`.
+
+.. todo::
+
+    Full refactor needed.  The 4 handler functions
+    (handle_generate_hlr_docs, handle_generate_feedback_docs,
+    handle_evaluate_coverage, handle_verify_callee_granularity) have zero
+    unit tests, duplicate inline-Cypher + column-index-mapping patterns, and
+    mix query/transform/present concerns.  They should be split into
+    query → transform → present layers with proper tests.
 """
 
 from __future__ import annotations
@@ -149,8 +158,7 @@ def handle_ingest_design(ctx: DesignDiscoveryDispatcher, tool_input: dict) -> st
         return json.dumps({"error": f"File not found: {file_path}"})
 
     try:
-        from neomodel import db
-        db.set_connection("bolt://neo4j:codegraph@localhost:7687")
+        from neomodel import db as neomodel_db
 
         from codegraph.export.markdown import MarkdownImporter
 
@@ -207,50 +215,67 @@ def handle_generate_hlr_docs(ctx: DesignDiscoveryDispatcher, tool_input: dict) -
     output_dir = tool_input.get("output_dir", "codegraph/requirements/generated/hlr_docs")
 
     try:
-        from neo4j import GraphDatabase
-        driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "codegraph"))
+        from neomodel import db as neomodel_db
 
-        with driver.session() as s:
-            r = s.run("""
+        results, meta = neomodel_db.cypher_query("""
                 MATCH (hlr:HLR)-[:COMPOSES]->(llr:LLR)
                 WHERE "design" IN hlr.tags
-                OPTIONAL MATCH (test:TestNode)-[:VERIFIES]->(llr)
+                OPTIONAL MATCH (llr)-[:COMPOSES]->(test:TestNode)
+                OPTIONAL MATCH (test)-[:VERIFIES]->(verifies_target)
                 OPTIONAL MATCH (test)-[:COMPOSES]->(step:TestStepNode)
-                OPTIONAL MATCH (step)-[:CALLEE]->(target)
+                OPTIONAL MATCH (step)-[:CALLEE]->(step_target)
                 RETURN hlr.name as hlr_name, hlr.description as hlr_desc,
                        llr.name as llr_name, llr.description as llr_desc,
                        test.name as test_name, test.description as test_desc,
+                       test.qualified_name as test_qname,
+                       verifies_target.name as verifies_target_name,
+                       verifies_target.qualified_name as verifies_target_qname,
                        step.name as step_name, step.description as step_desc,
-                       target.name as target_name, target.qualified_name as target_qname
+                       step_target.name as step_target_name,
+                       step_target.qualified_name as step_target_qname
                 ORDER BY hlr_name, llr_name, test_name, step_name
             """)
 
-            hlr_data = {}
-            for rec in r:
-                h = rec['hlr_name']
-                if h not in hlr_data:
-                    hlr_data[h] = {'desc': rec['hlr_desc'] or '', 'llrs': {}}
-                l_name = rec['llr_name']
-                if l_name and l_name not in hlr_data[h]['llrs']:
-                    hlr_data[h]['llrs'][l_name] = {'desc': rec['llr_desc'] or '', 'tests': {}}
-                t_name = rec['test_name']
-                if t_name and l_name and t_name not in hlr_data[h]['llrs'][l_name]['tests']:
-                    hlr_data[h]['llrs'][l_name]['tests'][t_name] = {
-                        'desc': rec['test_desc'] or '', 'steps': [], 'targets': set()
-                    }
-                step_name = rec['step_name']
-                step_desc = rec['step_desc'] or ''
-                target_qname = rec['target_qname']
-                if t_name and step_name:
-                    hlr_data[h]['llrs'][l_name]['tests'][t_name]['steps'].append(
-                        (step_name, step_desc)
-                    )
-                    if target_qname:
-                        hlr_data[h]['llrs'][l_name]['tests'][t_name]['targets'].add(
-                            target_qname
-                        )
+        # Build column index from meta for named access.
+        cols = {name: idx for idx, name in enumerate(meta)}
 
-        driver.close()
+        hlr_data = {}
+        for row in results:
+            h = row[cols["hlr_name"]]
+            if h not in hlr_data:
+                hlr_data[h] = {"desc": row[cols["hlr_desc"]] or "", "llrs": {}}
+            l_name = row[cols["llr_name"]]
+            if l_name and l_name not in hlr_data[h]["llrs"]:
+                hlr_data[h]["llrs"][l_name] = {
+                    "desc": row[cols["llr_desc"]] or "", "tests": {}
+                }
+            t_name = row[cols["test_name"]]
+            if t_name and l_name and t_name not in hlr_data[h]["llrs"][l_name]["tests"]:
+                hlr_data[h]["llrs"][l_name]["tests"][t_name] = {
+                    "desc": row[cols["test_desc"]] or "",
+                    "steps": [],
+                    "targets": set(),
+                }
+
+            # Collect VERIFIES targets.
+            verifies_qname = row[cols["verifies_target_qname"]]
+            if t_name and verifies_qname:
+                hlr_data[h]["llrs"][l_name]["tests"][t_name]["targets"].add(
+                    verifies_qname
+                )
+
+            # Collect step-level CALLEE targets.
+            step_name = row[cols["step_name"]]
+            step_desc = row[cols["step_desc"]] or ""
+            step_target_qname = row[cols["step_target_qname"]]
+            if t_name and step_name:
+                hlr_data[h]["llrs"][l_name]["tests"][t_name]["steps"].append(
+                    (step_name, step_desc)
+                )
+                if step_target_qname:
+                    hlr_data[h]["llrs"][l_name]["tests"][t_name]["targets"].add(
+                        step_target_qname
+                    )
 
         os.makedirs(output_dir, exist_ok=True)
 
@@ -344,29 +369,27 @@ def handle_generate_feedback_docs(ctx: DesignDiscoveryDispatcher, tool_input: di
     output_dir = tool_input.get("output_dir", "codegraph/requirements/generated/feedback_docs")
 
     try:
-        from neo4j import GraphDatabase
-        driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "codegraph"))
+        from neomodel import db as neomodel_db
 
-        with driver.session() as s:
-            result = s.run("""
-                MATCH (hlr:HLR)-[:COMPOSES]->(llr:LLR)
-                WHERE "design" IN hlr.tags AND "design" IN llr.tags
-                RETURN hlr.name as hlr_name, hlr.description as hlr_desc,
-                       llr.name as llr_name, llr.description as llr_desc
-                ORDER BY hlr_name, llr_name
-            """)
+        results, meta = neomodel_db.cypher_query("""
+            MATCH (hlr:HLR)-[:COMPOSES]->(llr:LLR)
+            WHERE "design" IN hlr.tags AND "design" IN llr.tags
+            RETURN hlr.name as hlr_name, hlr.description as hlr_desc,
+                   llr.name as llr_name, llr.description as llr_desc
+            ORDER BY hlr_name, llr_name
+        """)
 
-            hlr_data = {}
-            for rec in result:
-                hlr_name = rec["hlr_name"]
-                if hlr_name not in hlr_data:
-                    hlr_data[hlr_name] = {"desc": (rec["hlr_desc"] or "").strip(), "llrs": []}
-                hlr_data[hlr_name]["llrs"].append({
-                    "name": rec["llr_name"],
-                    "desc": (rec["llr_desc"] or "").strip(),
-                })
+        cols = {name: idx for idx, name in enumerate(meta)}
 
-        driver.close()
+        hlr_data = {}
+        for row in results:
+            hlr_name = row[cols["hlr_name"]]
+            if hlr_name not in hlr_data:
+                hlr_data[hlr_name] = {"desc": (row[cols["hlr_desc"]] or "").strip(), "llrs": []}
+            hlr_data[hlr_name]["llrs"].append({
+                "name": row[cols["llr_name"]],
+                "desc": (row[cols["llr_desc"]] or "").strip(),
+            })
 
         os.makedirs(output_dir, exist_ok=True)
 
@@ -428,48 +451,47 @@ def handle_evaluate_coverage(ctx: DesignDiscoveryDispatcher, tool_input: dict) -
     output_path = tool_input.get("output_path")
 
     try:
-        from neo4j import GraphDatabase
-        driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "codegraph"))
+        from neomodel import db as neomodel_db
 
-        with driver.session() as session:
-            result = session.run("""
-                MATCH (m)
-                WHERE "design" IN m.tags
-                  AND (m:MethodNode OR m:FunctionNode)
-                OPTIONAL MATCH (step:TestStepNode)-[:CALLEE]->(m)
-                WHERE "design" IN step.tags
-                OPTIONAL MATCH (step)<-[:COMPOSES]-(test:TestNode)
-                RETURN m.qualified_name as qname,
-                       m.name as name,
-                       labels(m) as labels,
-                       m.description as description,
-                       m.visibility as visibility,
-                       count(DISTINCT step) as callee_count,
-                       collect(DISTINCT step.name) as callers,
-                       collect(DISTINCT test.name) as tests
-                ORDER BY callee_count, qname
-            """)
+        results, meta = neomodel_db.cypher_query("""
+            MATCH (m)
+            WHERE "design" IN m.tags
+              AND (m:MethodNode OR m:FunctionNode)
+            OPTIONAL MATCH (step:TestStepNode)-[:CALLEE]->(m)
+            WHERE "design" IN step.tags
+            OPTIONAL MATCH (step)<-[:COMPOSES]-(test:TestNode)
+            RETURN m.qualified_name as qname,
+                   m.name as name,
+                   labels(m) as labels,
+                   m.description as description,
+                   m.visibility as visibility,
+                   count(DISTINCT step) as callee_count,
+                   collect(DISTINCT step.name) as callers,
+                   collect(DISTINCT test.name) as tests
+            ORDER BY callee_count, qname
+        """)
 
-            methods = []
-            for record in result:
-                labels = record["labels"]
-                is_method = "MethodNode" in labels
-                vis = record["visibility"] or ""
-                is_private = vis == "private" or record["name"].startswith("_")
+        cols = {name: idx for idx, name in enumerate(meta)}
 
-                methods.append({
-                    "qualified_name": record["qname"],
-                    "name": record["name"],
-                    "kind": "method" if is_method else "function",
-                    "visibility": vis if vis else ("private" if is_private else "public"),
-                    "description": record["description"] or "",
-                    "callee_count": record["callee_count"],
-                    "covered": record["callee_count"] > 0,
-                    "callers": sorted(record["callers"] or []),
-                    "tests": sorted(set(record["tests"] or [])),
-                })
+        methods = []
+        for row in results:
+            labels = row[cols["labels"]]
+            is_method = "MethodNode" in labels
+            vis = row[cols["visibility"]] or ""
+            name_val = row[cols["name"]] or ""
+            is_private = vis == "private" or name_val.startswith("_")
 
-        driver.close()
+            methods.append({
+                "qualified_name": row[cols["qname"]],
+                "name": name_val,
+                "kind": "method" if is_method else "function",
+                "visibility": vis if vis else ("private" if is_private else "public"),
+                "description": row[cols["description"]] or "",
+                "callee_count": row[cols["callee_count"]],
+                "covered": row[cols["callee_count"]] > 0,
+                "callers": sorted(row[cols["callers"]] or []),
+                "tests": sorted(set(row[cols["tests"]] or [])),
+            })
 
         # Refine visibility
         for m in methods:
@@ -519,35 +541,33 @@ def handle_evaluate_coverage(ctx: DesignDiscoveryDispatcher, tool_input: dict) -
 def handle_verify_callee_granularity(ctx: DesignDiscoveryDispatcher, tool_input: dict) -> str:
     """Verify CALLEE edges target correct granularity."""
     try:
-        from neo4j import GraphDatabase
-        driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "codegraph"))
+        from neomodel import db as neomodel_db
 
-        with driver.session() as session:
-            result = session.run("""
-                MATCH (step:TestStepNode)-[r:CALLEE]->(target)
-                WHERE "design" IN step.tags
-                RETURN step.name as step_name,
-                       target.name as target_name,
-                       target.qualified_name as target_qname,
-                       labels(target) as target_labels
-                ORDER BY step_name
-            """)
+        results, meta = neomodel_db.cypher_query("""
+            MATCH (step:TestStepNode)-[r:CALLEE]->(target)
+            WHERE "design" IN step.tags
+            RETURN step.name as step_name,
+                   target.name as target_name,
+                   target.qualified_name as target_qname,
+                   labels(target) as target_labels
+            ORDER BY step_name
+        """)
 
-            issues = []
-            for record in result:
-                step_name = record["step_name"] or ""
-                target_qname = record["target_qname"] or ""
-                target_labels = record["target_labels"]
-                is_method = "MethodNode" in target_labels
-                is_function = "FunctionNode" in target_labels
-                has_double_colon = "::" in target_qname
+        cols = {name: idx for idx, name in enumerate(meta)}
 
-                if has_double_colon and not is_method:
-                    issues.append(f"{step_name} → {target_qname}: expected MethodNode, got {target_labels}")
-                elif not has_double_colon and not is_function and "ClassNode" in target_labels:
-                    issues.append(f"{step_name} → {target_qname}: expected method-level (with ::), got ClassNode")
+        issues = []
+        for row in results:
+            step_name = row[cols["step_name"]] or ""
+            target_qname = row[cols["target_qname"]] or ""
+            target_labels = row[cols["target_labels"]]
+            is_method = "MethodNode" in target_labels
+            is_function = "FunctionNode" in target_labels
+            has_double_colon = "::" in target_qname
 
-        driver.close()
+            if has_double_colon and not is_method:
+                issues.append(f"{step_name} → {target_qname}: expected MethodNode, got {target_labels}")
+            elif not has_double_colon and not is_function and "ClassNode" in target_labels:
+                issues.append(f"{step_name} → {target_qname}: expected method-level (with ::), got ClassNode")
 
         if issues:
             return json.dumps({"verified": False, "issues": issues, "count": len(issues)})
