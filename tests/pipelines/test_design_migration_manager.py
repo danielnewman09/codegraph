@@ -1,8 +1,9 @@
 """Pipeline test: DesignAgent produces Migration Manager for cpp-sqlite.
 
 This is an end-to-end test of the DesignAgent pipeline:
-1. Load as-built cpp-sqlite classes from a saved markdown fixture
+1. Load as-built cpp-sqlite classes from a saved JSON fixture
 2. Load requirements + verification stubs from a saved markdown fixture
+   (shared via ``conftest.py``)
 3. Run DesignAgent.run_with_reconciliation()
 4. Assert the design meets minimum expectations
 
@@ -37,36 +38,10 @@ def _requires_openai():
         pytest.skip("LLM_API_KEY not set")
 
 
-def _has_neomodel_connection():
-    """Check if Neo4j is reachable."""
-    try:
-        from neomodel import db
-        db.set_connection("bolt://neo4j:codegraph@localhost:7687")
-        db.cypher_query("RETURN 1")
-        return True
-    except Exception:
-        return False
+from tests.pipelines.conftest import _has_neomodel_connection
 
 
 # ── Fixtures ─────────────────────────────────────────────────────
-
-
-@pytest.fixture(scope="module", autouse=True)
-def _cleanup_design_data():
-    """Clear stale design/scaffold/requirements nodes before the module.
-
-    Prevents constraint violations when requirements content has
-    changed between runs and old UIDs conflict with new node types.
-    """
-    if not _has_neomodel_connection():
-        return
-    from neomodel import db as neodb
-    neodb.cypher_query(
-        "MATCH (n) WHERE 'design' IN n.tags "
-        "OR 'scaffold' IN n.tags "
-        "OR 'requirements' IN n.tags "
-        "DETACH DELETE n"
-    )
 
 
 @pytest.fixture(scope="module")
@@ -109,50 +84,6 @@ def ingest_as_built():
             qnames.add(qn)
 
     return qnames
-
-
-@pytest.fixture(scope="module")
-def ingest_requirements():
-    """Import requirements + tests from the saved markdown.
-
-    Returns the HLR uid for the design agent to use.
-    """
-    import logging
-    log = logging.getLogger(__name__)
-
-    md_path = DATA_DIR / "migration_manager_requirements.md"
-    if not md_path.exists():
-        pytest.skip(f"requirements fixture not found: {md_path}")
-
-    from codegraph.export.markdown import MarkdownImporter
-
-    log.info("Ingesting requirements fixture: %s", md_path)
-    text = md_path.read_text(encoding="utf-8")
-    importer = MarkdownImporter(
-        tags=frozenset({"design"}), strict=False,
-    )
-    graph = importer.import_markdown(text)
-
-    entries = list(graph._all_entries())
-    log.info("Parsed %d entries from requirements markdown", len(entries))
-
-    graph.to_neo4j()
-    log.info("Persisted %d entries to Neo4j (design)", len(entries))
-
-    for diag in importer.diagnostics:
-        log.warning("Markdown diagnostic: %s", diag)
-
-    # Find the Database Migration Manager HLR specifically
-    from codegraph_requirements.models import HLR
-
-    hlrs = list(HLR.nodes.filter(name="Database Migration Manager"))
-    assert len(hlrs) == 1, (
-        f"Expected 1 HLR named 'Database Migration Manager', "
-        f"got {len(hlrs)}: {[h.name for h in HLR.nodes.all()]}"
-    )
-    hlr_uid = hlrs[0].uid
-    log.info("HLR uid: %s (name: %s)", hlr_uid[:16], hlrs[0].name)
-    return hlr_uid
 
 
 # ── Tests ────────────────────────────────────────────────────────
