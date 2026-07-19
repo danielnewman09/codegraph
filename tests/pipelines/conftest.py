@@ -128,6 +128,50 @@ def _cleanup_design_data():
 
 
 @pytest.fixture(scope="module")
+def ingest_requirements_v2():
+    """Import v2 requirements + tests (with all lint fixes applied).
+
+    Returns the HLR uid for use by lint/design agents.
+    """
+    import logging
+    log = logging.getLogger(__name__)
+
+    md_path = PIPELINE_DATA_DIR / "migration_manager_requirements_v2.md"
+    if not md_path.exists():
+        pytest.skip(f"v2 requirements fixture not found: {md_path}")
+
+    from codegraph.export.markdown import MarkdownImporter
+
+    log.info("Ingesting v2 requirements fixture: %s", md_path)
+    text = md_path.read_text(encoding="utf-8")
+    importer = MarkdownImporter(
+        tags=frozenset({"design"}), strict=False,
+    )
+    graph = importer.import_markdown(text)
+
+    entries = list(graph._all_entries())
+    log.info("Parsed %d entries from v2 requirements markdown", len(entries))
+
+    graph.to_neo4j()
+    log.info("Persisted %d entries to Neo4j (design)", len(entries))
+
+    for diag in importer.diagnostics:
+        log.warning("Markdown diagnostic: %s", diag)
+
+    # Find the Database Migration Manager HLR specifically
+    from codegraph_requirements.models import HLR
+
+    hlrs = list(HLR.nodes.filter(name="Database Migration Manager"))
+    assert len(hlrs) == 1, (
+        f"Expected 1 HLR named 'Database Migration Manager', "
+        f"got {len(hlrs)}: {[h.name for h in HLR.nodes.all()]}"
+    )
+    hlr_uid = hlrs[0].uid
+    log.info("HLR uid (v2): %s (name: %s)", hlr_uid[:16], hlrs[0].name)
+    return hlr_uid
+
+
+@pytest.fixture(scope="module")
 def ingest_requirements():
     """Import requirements + tests from the saved markdown.
 
