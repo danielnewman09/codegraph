@@ -2,13 +2,14 @@
 
 import pytest
 
+from codegraph_memory import DecisionNode, RationaleNode, TradeoffNode
+from codegraph_memory.export.markdown import export_adr, export_memory_summary
+from codegraph.models.compound import ClassNode
+
 
 @pytest.fixture
 def export_data(neo4j_connection):
     """Create test data for export tests."""
-    from codegraph_memory import DecisionNode, RationaleNode, TradeoffNode
-    from codegraph.models.compound import ClassNode
-
     cls = ClassNode.save_new(
         name="ExportTest", kind="class",
         qualified_name="test::ExportTest",
@@ -47,8 +48,6 @@ class TestMarkdownExport:
 
     def test_export_adr(self, export_data):
         """export_adr produces a structured ADR document."""
-        from codegraph_memory.export.markdown import export_adr
-
         adr = export_adr("memory::test-export-decision")
         assert "Decision:" in adr
         assert "SQLAlchemy" in adr
@@ -58,15 +57,11 @@ class TestMarkdownExport:
 
     def test_export_adr_not_found(self, neo4j_connection):
         """export_adr returns a comment for non-existent decisions."""
-        from codegraph_memory.export.markdown import export_adr
-
         adr = export_adr("memory::nonexistent")
         assert "not found" in adr
 
     def test_export_memory_summary(self, export_data):
         """export_memory_summary produces a design context document."""
-        from codegraph_memory.export.markdown import export_memory_summary
-
         summary = export_memory_summary("test::ExportTest")
         assert "Memory for" in summary
         assert "test::ExportTest" in summary
@@ -75,9 +70,6 @@ class TestMarkdownExport:
 
     def test_export_memory_summary_empty(self, neo4j_connection):
         """export_memory_summary returns message for no memories."""
-        from codegraph_memory.export.markdown import export_memory_summary
-        from codegraph.models.compound import ClassNode
-
         ClassNode.save_new(
             name="EmptyTest", kind="class",
             qualified_name="test::EmptyTest",

@@ -61,19 +61,8 @@ def hierarchy():
         "class": cls,
     }
 
-    # Cleanup
-    from codegraph_memory.models.decision import DecisionNode
-    from codegraph_memory.models.constraint import ConstraintNode
-    from codegraph_memory.models.assumption import AssumptionNode
-
-    for model in [DecisionNode, ConstraintNode, AssumptionNode]:
-        for node in model.nodes.all():
-            try:
-                node.delete()
-            except Exception:
-                pass
-    cls.delete()
-    ns.delete()
+    # Cleanup is handled by the parent conftest's clear_db fixture
+    # which wipes the database after every test.
 
 
 # ── Direct memories ───────────────────────────────────────────────────

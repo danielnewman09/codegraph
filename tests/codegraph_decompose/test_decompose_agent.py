@@ -21,14 +21,10 @@ pipeline that runs *after* the LLM returns.
 from __future__ import annotations
 
 import json
-import sys
 from copy import deepcopy
 from pathlib import Path
 
 import pytest
-
-# Ensure the codegraph source is on the path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from codegraph_design.agents.decompose_hlr import (
     DecompositionValidationError,

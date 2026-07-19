@@ -19,7 +19,8 @@ def code_node():
     )
     node.save()
     yield node
-    node.delete()
+    # Cleanup is handled by the parent conftest's clear_db fixture
+    # which wipes the database after every test.
 
 
 # ── Create ────────────────────────────────────────────────────────────

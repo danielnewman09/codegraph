@@ -319,6 +319,12 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
 
     def __init_subclass__(cls, **kwargs) -> None:
         super().__init_subclass__(**kwargs)
+        # Register every concrete subclass with ABCMeta to prevent
+        # negative-cache poisoning of issubclass() checks.  The ABCMeta
+        # negative cache can cause issubclass(ClassNode, CodeGraphNode)
+        # to return False after unrelated test code triggers a failed
+        # subclass check.
+        CodeGraphNode.register(cls)
         # Only register concrete classes that have their own ``_llm_fields``.
         # Mixins like CompoundNode / MemberNode set _llm_fields but are
         # still abstract (they inherit from StructuredNode directly). We skip
