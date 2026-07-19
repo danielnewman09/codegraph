@@ -401,10 +401,12 @@ class BaseAgent(ABC):
             )
             return END
 
-        for tc in tool_calls:
-            if tc.get("name") == self.final_tool_name:
-                log.info("Router: final tool '%s' → extract", self.final_tool_name)
-                return "extract"
+        # If the ONLY tool call is the final tool, skip to extract.
+        # When finalize is mixed with real tools (e.g. produce_lint_report
+        # + finalize), route to tools so the real tools execute first.
+        if len(tool_calls) == 1 and tool_calls[0].get("name") == self.final_tool_name:
+            log.info("Router: sole final tool '%s' → extract", self.final_tool_name)
+            return "extract"
 
         if state.get("turn_count", 0) >= self.config.max_turns:
             log.warning(

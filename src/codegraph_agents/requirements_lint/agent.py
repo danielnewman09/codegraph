@@ -35,6 +35,89 @@ log = logging.getLogger("codegraph_agents.requirements_lint")
 # ── Result dataclass ─────────────────────────────────────────────
 
 
+# Mapping from category codes to human-readable labels
+_CATEGORY_LABELS: dict[str, str] = {
+    "unnamed_entity": "Unnamed entity",
+    "missing_attributes": "Missing attributes",
+    "dangling_type": "Dangling type reference",
+    "naming_inconsistency": "Naming inconsistency",
+    "missing_dependency": "Missing dependency",
+    "missing_edge_case": "Missing edge case",
+    "incomplete_coverage": "Incomplete coverage",
+}
+
+_SEVERITY_ICONS: dict[str, str] = {
+    "blocking": "🔴",
+    "warning": "🟡",
+    "info": "🔵",
+}
+
+
+def _lint_report_to_markdown(report: LintReport) -> str:
+    """Render a LintReport as a readable markdown document."""
+    lines: list[str] = []
+
+    icon = {"pass": "✅", "warn": "⚠️", "fail": "❌"}.get(
+        report.overall_score, "❓"
+    )
+    lines.append("# Requirements Lint Report")
+    lines.append("")
+    lines.append(
+        f"**Score:** {icon} `{report.overall_score}`  "
+        f"|  **Readiness:** `{report.readiness}`  "
+        f"|  **Findings:** {len(report.findings)}"
+    )
+    lines.append("")
+
+    if report.summary:
+        lines.append("## Summary")
+        lines.append("")
+        lines.append(report.summary)
+        lines.append("")
+
+    if report.findings:
+        lines.append(f"## Findings ({len(report.findings)})")
+        lines.append("")
+
+        # Group by severity
+        for sev in ("blocking", "warning", "info"):
+            sev_findings = [
+                f for f in report.findings if f.severity == sev
+            ]
+            if not sev_findings:
+                continue
+            sev_icon = _SEVERITY_ICONS.get(sev, "⚪")
+            lines.append(
+                f"### {sev_icon} {sev.title()} "
+                f"({len(sev_findings)})"
+            )
+            lines.append("")
+            for i, f in enumerate(sev_findings, 1):
+                cat_label = _CATEGORY_LABELS.get(
+                    f.category, f.category
+                )
+                lines.append(f"#### {i}. {cat_label}")
+                lines.append("")
+                if f.location:
+                    lines.append(f"**Location:** {f.location}")
+                    lines.append("")
+                lines.append(f"**Issue:** {f.detail}")
+                lines.append("")
+                lines.append(
+                    f"**Recommendation:** {f.recommendation}"
+                )
+                lines.append("")
+
+    if report.errors:
+        lines.append("## Errors")
+        lines.append("")
+        for e in report.errors:
+            lines.append(f"- {e}")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
 @dataclass
 class LintFinding:
     """A single finding from the requirements lint analysis."""
@@ -82,9 +165,11 @@ class _LintDispatcher:
     def dispatch(self, tool_name: str, tool_input: dict) -> str:
         if tool_name == "produce_lint_report":
             return self._handle_produce_lint_report(tool_input)
+        if tool_name == "finalize":
+            return json.dumps({"status": "ok"})
         return json.dumps({
             "error": f"Unknown tool: {tool_name}",
-            "available": ["produce_lint_report"],
+            "available": ["produce_lint_report", "finalize"],
         })
 
     def _handle_produce_lint_report(
@@ -248,6 +333,18 @@ class _LintDispatcher:
                     ],
                 },
             },
+            {
+                "name": "finalize",
+                "description": (
+                    "Signal that the lint report has been submitted "
+                    "and the agent is done. Call this AFTER "
+                    "produce_lint_report."
+                ),
+                "input_schema": {
+                    "type": "object",
+                    "properties": {},
+                },
+            },
         ]
 
 
@@ -284,7 +381,7 @@ class RequirementsLintAgent(BaseAgent):
 
     context_needs: ClassVar[set[str]] = {"hlr_subtree"}
 
-    final_tool_name: ClassVar[str] = "produce_lint_report"
+    final_tool_name: ClassVar[str] = "finalize"
 
     # ── Dispatch ─────────────────────────────────────────────────
 
@@ -461,8 +558,13 @@ class RequirementsLintAgent(BaseAgent):
     # ── Result extraction ────────────────────────────────────────
 
     def build_result(self, state: AgentState) -> LintReport:
-        """Extract the lint report from the produce_lint_report output."""
-        result_data = self._extract_final_tool_output(
+        """Extract the lint report from the produce_lint_report call args.
+
+        The report data is in the LLM's tool-call **arguments**
+        (the AIMessage), not the tool **output** (which is just a
+        validation summary).
+        """
+        result_data = self._extract_tool_call_args(
             state, "produce_lint_report"
         )
         errors: list[str] = []
@@ -473,7 +575,7 @@ class RequirementsLintAgent(BaseAgent):
                 summary="Agent did not produce a lint report.",
                 readiness="not_ready",
                 errors=[
-                    "No produce_lint_report output found in message history"
+                    "No produce_lint_report call found in message history"
                 ],
             )
 
@@ -487,10 +589,70 @@ class RequirementsLintAgent(BaseAgent):
                 recommendation=f.get("recommendation", ""),
             ))
 
-        return LintReport(
+        report = LintReport(
             overall_score=result_data.get("overall_score", "warn"),
             summary=result_data.get("summary", ""),
             findings=findings,
             readiness=result_data.get("readiness", "needs_review"),
             errors=errors,
         )
+
+        # Write markdown report to log directory
+        self._write_lint_report_markdown(report)
+
+        return report
+
+    def _extract_tool_call_args(
+        self,
+        state: AgentState,
+        tool_name: str,
+    ) -> dict[str, Any] | None:
+        """Extract the arguments from the first AIMessage that contains
+        a tool call matching *tool_name*.
+
+        Unlike :meth:`_extract_final_tool_output` which reads the
+        ToolMessage output, this reads the LLM's tool-call input.
+        """
+        for msg in state.get("messages", []):
+            # Check if message has tool_calls attribute (AIMessage)
+            tool_calls = getattr(msg, "tool_calls", None)
+            if not tool_calls:
+                continue
+            for tc in tool_calls:
+                if tc.get("name") == tool_name:
+                    return tc.get("args", {})
+        return None
+
+    # ── Markdown report generation ───────────────────────────────
+
+    def _write_lint_report_markdown(
+        self, report: LintReport
+    ) -> str | None:
+        """Write ``lint_report.md`` to the agent's log directory.
+
+        Returns the absolute path, or None if logging is disabled.
+        """
+        if not self.config.log_dir:
+            return None
+
+        from pathlib import Path
+
+        # Same naming pattern as FileLoggingCallback:
+        #   {log_dir}/{run_id[:8]}_{agent_name}/
+        # This puts lint_report.md alongside conversation.md,
+        # agent.log.jsonl, etc.
+        run_dir = (
+            Path(self.config.log_dir)
+            / f"{self.config.run_id[:8]}_{self.name}"
+        )
+        run_dir.mkdir(parents=True, exist_ok=True)
+
+        md_path = run_dir / "lint_report.md"
+        md_path.write_text(
+            _lint_report_to_markdown(report), encoding="utf-8"
+        )
+        log.info(
+            "Wrote lint report: %s (%d findings)",
+            md_path, len(report.findings),
+        )
+        return str(md_path)

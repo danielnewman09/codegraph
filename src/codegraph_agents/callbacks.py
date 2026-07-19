@@ -231,7 +231,11 @@ class FileLoggingCallback(BaseCallbackHandler):
 
     # ── Per-turn truncation limits ─────────────────────────────
 
-    _TOOL_OUTPUT_MAX_CHARS = 8000
+    # No truncation — conversation.md is a debug log and should contain
+    # the full tool output.  The JSONL log captures structured events
+    # separately for programmatic queries, so markdown fidelity is
+    # prioritized over compactness.
+    _TOOL_OUTPUT_MAX_CHARS: int | None = None
 
     def __init__(
         self,
@@ -428,11 +432,7 @@ class FileLoggingCallback(BaseCallbackHandler):
                 f"### Assistant (turn {self._turn_count})"
             )
             self._md_lines.append("")
-            self._md_lines.append(content[:5000])
-            if len(content) > 5000:
-                self._md_lines.append(
-                    f"\n... ({len(content) - 5000} more chars)"
-                )
+            self._md_lines.append(content)
             self._md_lines.append("")
 
         # Markdown: tool call details
@@ -444,9 +444,7 @@ class FileLoggingCallback(BaseCallbackHandler):
             self._md_lines.append("")
             self._md_lines.append("```json")
             self._md_lines.append(
-                json.dumps(
-                    tc["args"], indent=2, default=str
-                )[:5000]
+                json.dumps(tc["args"], indent=2, default=str)
             )
             self._md_lines.append("```")
             self._md_lines.append("")
@@ -490,9 +488,10 @@ class FileLoggingCallback(BaseCallbackHandler):
             duration_ms = int((time.time() - start) * 1000)
 
         output_str = str(output)
+        limit = self._TOOL_OUTPUT_MAX_CHARS
         truncated = (
-            output_str[: self._TOOL_OUTPUT_MAX_CHARS]
-            if len(output_str) > self._TOOL_OUTPUT_MAX_CHARS
+            output_str[:limit]
+            if limit is not None and len(output_str) > limit
             else output_str
         )
 
@@ -519,7 +518,7 @@ class FileLoggingCallback(BaseCallbackHandler):
         self._md_lines.append("")
         self._md_lines.append("```json")
         self._md_lines.append(truncated)
-        if len(output_str) > self._TOOL_OUTPUT_MAX_CHARS:
+        if limit is not None and len(output_str) > limit:
             self._md_lines.append(
                 f"\n... ({len(output_str) - self._TOOL_OUTPUT_MAX_CHARS}"
                 " more chars)"
