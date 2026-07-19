@@ -248,3 +248,25 @@ def clear_db():
         db.cypher_query("MATCH (n) DETACH DELETE n")
     except Exception:
         pass  # Neo4j not available — no-op
+
+
+@pytest.fixture(autouse=True)
+def _check_dev_neo4j_for_integration_tests(request):
+    """Fail fast with a clear message when @pytest.mark.integration
+    tests run without a reachable Neo4j instance.
+
+    Unit tests that don't carry the integration marker are unaffected.
+    """
+    if not request.node.get_closest_marker("integration"):
+        return
+
+    from codegraph.persistence.connection import require_connection
+
+    try:
+        require_connection()
+    except Exception as exc:
+        pytest.fail(
+            f"\nNeo4j is not reachable (required by @pytest.mark.integration).\n"
+            f"  {exc}\n"
+            f"  Start it with: docker compose up -d\n"
+        )

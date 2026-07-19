@@ -13,7 +13,7 @@
       "name": "SchemaVersion",
       "kind": "class",
       "namespace": "cpp_sqlite",
-      "description": "Records applied migration metadata in schema_versions table",
+      "description": "Records applied migration metadata in schema_versions table. The agent may name this SchemaVersion or SchemaVersionRecord — the test matches by prefix.",
       "must_have_attributes": ["version", "applied_at", "checksum"]
     },
     {

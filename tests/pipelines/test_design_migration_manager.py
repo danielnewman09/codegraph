@@ -51,6 +51,24 @@ def _has_neomodel_connection():
 # ── Fixtures ─────────────────────────────────────────────────────
 
 
+@pytest.fixture(scope="module", autouse=True)
+def _cleanup_design_data():
+    """Clear stale design/scaffold/requirements nodes before the module.
+
+    Prevents constraint violations when requirements content has
+    changed between runs and old UIDs conflict with new node types.
+    """
+    if not _has_neomodel_connection():
+        return
+    from neomodel import db as neodb
+    neodb.cypher_query(
+        "MATCH (n) WHERE 'design' IN n.tags "
+        "OR 'scaffold' IN n.tags "
+        "OR 'requirements' IN n.tags "
+        "DETACH DELETE n"
+    )
+
+
 @pytest.fixture(scope="module")
 def ingest_as_built():
     """Import the cpp-sqlite as-built classes from the saved JSON export.
@@ -254,12 +272,13 @@ class TestDesignMigrationManager:
         for expected_cls in expected["must_have_classes"]:
             expected_name = expected_cls["name"]
             found = any(
-                expected_name in qn
+                qn.split("::")[-1].startswith(expected_name)
                 for qn in design_qnames
             )
             assert found, (
-                f"Required class '{expected_name}' not found in "
-                f"design.  Design QNames: {sorted(design_qnames)}"
+                f"Required class starting with '{expected_name}' "
+                f"not found in design.  "
+                f"Design QNames: {sorted(design_qnames)}"
             )
 
         # ── Assert required edges to existing as-built entities ──

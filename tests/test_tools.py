@@ -192,6 +192,24 @@ class TestToolDispatch:
 # ── Neo4j-dependent integration tests ──────────────────────────────────────
 
 
+@pytest.fixture(autouse=True)
+def _require_dev_neo4j(request):
+    """Fail fast if dev Neo4j isn't running (needed by @pytest.mark.integration)."""
+    if not request.node.get_closest_marker("integration"):
+        return
+
+    from codegraph.persistence.connection import require_connection
+
+    try:
+        require_connection()
+    except Exception as exc:
+        pytest.fail(
+            f"Dev Neo4j is not reachable (needed by @pytest.mark.integration).\n"
+            f"  Error: {exc}\n"
+            f"  Start it with: docker compose up -d"
+        )
+
+
 @pytest.mark.integration
 class TestCodeGraphDispatcherIntegration:
     """Tests that require Neo4j with data loaded."""

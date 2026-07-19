@@ -103,6 +103,30 @@ def verify_connectivity() -> bool:
         return False
 
 
+def require_connection() -> None:
+    """Verify Neo4j is reachable; raise if not.
+
+    Call this at the top of any entry point that needs Neo4j.
+    Produces a clear error message instead of a cryptic stack
+    trace deep inside neomodel/the Neo4j driver.
+
+    Raises:
+        Neo4jUnavailableError: If Neo4j is not reachable.
+    """
+    _ensure_driver()
+    try:
+        db.cypher_query("RETURN 1")
+    except Exception as exc:
+        raise Neo4jUnavailableError(
+            f"Cannot execute query against Neo4j: {exc}\n"
+            "Is Neo4j running? Start it with: docker compose up -d"
+        ) from exc
+
+
+class Neo4jUnavailableError(RuntimeError):
+    """Raised when Neo4j is not reachable."""
+
+
 def _ensure_driver() -> None:
     """Ensure neomodel's driver is initialised.
 
@@ -111,12 +135,22 @@ def _ensure_driver() -> None:
     initialisation if needed by calling ``db.set_connection()`` with the
     configured URL.
 
-    NOTE: ``db.set_connection()`` triggers an immediate connection test
-    in neomodel.  This is acceptable for production use where Neo4j is
-    running.  For offline testing, skip calling ``get_session()`` or
-    ``cypher_query()`` and test only the import path.
+    Raises:
+        Neo4jUnavailableError: If the driver cannot connect to Neo4j.
     """
     if db.driver is None:
         from codegraph.persistence.config import config
-        if config.database_url:
+
+        if not config.database_url:
+            raise Neo4jUnavailableError(
+                "No Neo4j connection URL configured. "
+                "Set NEO4J_URI environment variable."
+            )
+
+        try:
             db.set_connection(url=config.database_url)
+        except Exception as exc:
+            raise Neo4jUnavailableError(
+                f"Cannot connect to Neo4j at {config.database_url}: {exc}\n"
+                "Is Neo4j running? Start it with: docker compose up -d"
+            ) from exc
