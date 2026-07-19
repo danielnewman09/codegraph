@@ -286,7 +286,7 @@ def persist_decomposition(
 
     # --- Connect LLRs to the HLR ---
     for entry in graph.entries.values():
-        if isinstance(entry.node, LLR):
+        if type(entry.node) is LLR:
             _create_edge(hlr, entry.node, "COMPOSES")
             result.llrs_created += 1
             for test_node in entry.node.verification_methods.all():
