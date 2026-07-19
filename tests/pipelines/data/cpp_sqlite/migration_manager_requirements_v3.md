@@ -21,7 +21,6 @@ The `MigrationManager` class shall provide a schema versioning system for SQLite
 **`MigrationResult`** — Result type returned by `apply()`, `rollback()`:
 - `bool success;` — True if operation succeeded.
 - `MigrationErrorCode error;` — Error code on failure.
-- `std::string message;` — Human-readable message.
 
 **`MismatchKind`** — Enum for schema drift categories:
 - `MissingTable` — An expected table is absent.
@@ -41,7 +40,7 @@ The `MigrationManager` class shall provide a schema versioning system for SQLite
 - qualified_name: Database Migration Manager
 - tags: requirements
 ### LLR: `llr_migration_registration`
-The `MigrationManager` shall expose a `register_migration` method that accepts a `std::unique_ptr<Migration>` and stores it. Registered migrations shall be sorted by their `version` value (ascending). The manager shall reject duplicate version numbers by returning a `MigrationResult` with `success=false` and `error=MigrationErrorCode::DuplicateVersion`. Registration shall be idempotent — registering the same migration twice shall be a no-op (returns `MigrationResult` with `success=true`).
+The `MigrationManager` shall expose a `register_migration` method that accepts a `std::unique_ptr<Migration>` and stores it. Registered migrations shall be sorted by their `version` value (ascending). The manager shall reject duplicate version numbers by returning a `MigrationResult` with `success=false` and `error=MigrationErrorCode::DuplicateVersion`. Since `register_migration` takes ownership via `std::unique_ptr`, the same migration instance cannot be registered twice.
 - tags: requirements
 #### Test: `vm::migration_registration::test_duplicate_version_rejected`
 Register two migrations with the same version number. Verify the second registration returns an error result indicating a duplicate version error. Verify the original migration remains registered.
@@ -263,10 +262,10 @@ Register migrations at versions 1, 2, 3
 
 
 ### LLR: `llr_schema_verification`
-The `MigrationManager` shall provide a `verify` method that checks whether the current database schema matches the expected state from all applied migrations. The verify method shall compute a SHA-256 checksum of the current schema by querying `SELECT sql FROM sqlite_master WHERE type IN ('table','index','trigger') ORDER BY name` and hashing the concatenated SQL strings. It shall compare this checksum against the stored checksums in `schema_versions`. It shall return a `SchemaVerificationResult` containing a `std::vector<SchemaMismatch>` — a list of versions where the stored checksum does not match the live schema checksum — and an `is_consistent` boolean that is true when the mismatch list is empty. Each `SchemaMismatch` shall report the version number, the `MismatchKind` (MissingTable, ExtraTable, or ColumnDifference), and a human-readable detail string. An empty mismatch list with `is_consistent=true` indicates the schema is consistent with recorded migrations. If `schema_versions` is empty (no migrations applied), `verify` shall return `SchemaVerificationResult{mismatches={}, is_consistent=true}`. Verify is not required to be thread-safe; its behavior is undefined if called concurrently with `apply` or `rollback`.
+The `MigrationManager` shall provide a `verify` method that checks whether the current database schema matches the expected state from all applied migrations. The verify method shall compute a SHA-256 checksum of the current schema by querying `SELECT sql FROM sqlite_master WHERE type IN ('table','index','trigger') ORDER BY name` and hashing the concatenated SQL strings. It shall compare this checksum against the stored checksum of the **highest-applied** `SchemaVersion` in `schema_versions`. It shall return a `SchemaVerificationResult` containing a `std::vector<SchemaMismatch>` and an `is_consistent` boolean. If the live checksum matches the stored checksum, the result shall be `{mismatches={}, is_consistent=true}`. If they differ, the result shall contain one `SchemaMismatch` reporting the version number, `MismatchKind::ChecksumMismatch`, and a human-readable detail string. If `schema_versions` is empty (no migrations applied), `verify` shall return `{mismatches={}, is_consistent=true}`. Verify is not required to be thread-safe; its behavior is undefined if called concurrently with `apply` or `rollback`.
 - tags: requirements
 #### Test: `vm::schema_verify::test_mismatch_detected`
-Register and apply a migration at version 1 that creates a table "users". Then manually alter the database to add an unexpected table "extra". Invoke verify. Verify the result contains one mismatch entry. Verify the mismatch reports version 1 and the kind as an unexpected table.
+Register and apply a migration at version 1 that creates a table "users". Then manually alter the database to add an unexpected table "extra". Invoke verify. Verify the result contains one mismatch entry. Verify the mismatch reports version 1 and `MismatchKind::ChecksumMismatch`, with a detail describing the schema difference.
 - kind: test
 - method: automated
 - qualified_name: vm::schema_verify::test_mismatch_detected

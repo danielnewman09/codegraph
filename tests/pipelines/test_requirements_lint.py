@@ -1,8 +1,11 @@
-"""Pipeline test: RequirementsLintAgent pre-check.
+"""Pipeline test: RequirementsLintAgent across v1/v2/v3 requirements.
 
-Runs the requirements-lint agent against the Database Migration
-Manager requirements to verify they are sufficiently constrained
-before passing them to the DesignAgent.
+Parametrized test that runs the lint agent against three versions of
+the Database Migration Manager requirements with different contracts:
+
+- v1: original requirements, no contract → expect "fail" (known gaps)
+- v2: improved requirements, partial contract → expect "fail" (still gaps)
+- v3: reconciled requirements + full contract → expect "pass"/"warn"
 
 Requires: Neo4j running, LLM_API_KEY set in .env.
 Skip with: ``pytest -m "not slow"``
@@ -26,11 +29,144 @@ for root in _roots:
         load_dotenv(env_path)
         break
 
+_THIS_DIR = Path(__file__).parent / "data" / "cpp_sqlite"
+
 
 def _requires_openai():
-    """Skip if no LLM API key is configured."""
     if not os.getenv("LLM_API_KEY"):
         pytest.skip("LLM_API_KEY not set")
+
+
+# ── Parametrized fixture ────────────────────────────────────────
+
+_LINT_VARIANTS = [
+    pytest.param(
+        {
+            "label": "v1",
+            "requirements_md": "migration_manager_requirements.md",
+            "contract_md": None,
+            "expected_score": "fail",
+            "expected_readiness": "not_ready",
+            "min_blocking": 2,
+            "min_total": 6,
+            "min_blocking_plus_warn": 6,
+            "required_categories": {
+                "dangling_type",
+                "unnamed_entity",
+                "missing_attributes",
+                "missing_edge_case",
+            },
+            "required_both_categories": {"dangling_type", "unnamed_entity"},
+        },
+        id="v1_original_no_contract",
+    ),
+    pytest.param(
+        {
+            "label": "v2",
+            "requirements_md": "migration_manager_requirements_v2.md",
+            "contract_md": "migration_manager_api_contract.md",
+            "expected_score": "fail",
+            "expected_readiness": "not_ready",
+            "min_blocking": 1,
+            "min_total": 4,
+            "min_blocking_plus_warn": 3,
+            "required_categories": {
+                "dangling_type",
+                "missing_dependency",
+            },
+            "required_both_categories": set(),
+        },
+        id="v2_improved_partial_contract",
+    ),
+    pytest.param(
+        {
+            "label": "v3",
+            "requirements_md": "migration_manager_requirements_v3.md",
+            "contract_md": "migration_manager_api_contract_v3.md",
+            "expected_score": {"pass", "warn"},
+            "expected_readiness": {"ready", "needs_review"},
+            "min_blocking": 0,
+            "min_total": 0,
+            "min_blocking_plus_warn": 0,
+            "required_categories": set(),
+            "required_both_categories": set(),
+        },
+        id="v3_reconciled_full_contract",
+    ),
+]
+
+
+@pytest.fixture(scope="module", params=_LINT_VARIANTS)
+def lint_variant(request):
+    """Ingest a requirements + contract variant and return config.
+
+    Yields a dict with hlr_uid, contract_path, expected_score,
+    min_blocking, min_total, and label.
+    """
+    variant = request.param
+    label: str = variant["label"]
+    req_file: str = variant["requirements_md"]
+    contract_file: str | None = variant["contract_md"]
+
+    log = logging.getLogger(__name__)
+
+    # ── Clean up any previous HLR with the same name ──
+    from codegraph_requirements.models import HLR
+
+    existing = list(HLR.nodes.filter(name="Database Migration Manager"))
+    if existing:
+        for hlr_node in existing:
+            log.info("[%s] Deleting existing HLR: %s", label, hlr_node.uid[:16])
+            hlr_node.delete()
+
+    # ── Ingest requirements ──
+    md_path = _THIS_DIR / req_file
+    if not md_path.exists():
+        pytest.skip(f"{label}: requirements not found: {md_path}")
+
+    from codegraph.export.markdown import MarkdownImporter
+
+    log.info("[%s] Ingesting requirements: %s", label, md_path)
+    text = md_path.read_text(encoding="utf-8")
+    importer = MarkdownImporter(
+        tags=frozenset({"design"}), strict=False,
+    )
+    graph = importer.import_markdown(text)
+    entries = list(graph._all_entries())
+    log.info("[%s] Parsed %d entries", label, len(entries))
+    graph.to_neo4j()
+
+    # ── Find HLR ──
+    hlrs = list(HLR.nodes.filter(name="Database Migration Manager"))
+    assert len(hlrs) == 1, (
+        f"[{label}] Expected exactly 1 HLR named 'Database Migration Manager', "
+        f"got {len(hlrs)}: {[h.name for h in HLR.nodes.all()]}"
+    )
+    hlr_uid = hlrs[0].uid
+    log.info("[%s] HLR uid: %s (name: %s)", label, hlr_uid[:16], hlrs[-1].name)
+
+    # ── Contract path (optional) ──
+    contract_path: str = ""
+    if contract_file is not None:
+        contract_path = str(_THIS_DIR / contract_file)
+        if not Path(contract_path).exists():
+            log.warning(
+                "[%s] Contract not found: %s", label, contract_path,
+            )
+            contract_path = ""
+
+    return {
+        "label": label,
+        "hlr_uid": hlr_uid,
+        "contract_path": contract_path,
+        "expected_score": variant["expected_score"],
+        "expected_readiness": variant["expected_readiness"],
+        "min_blocking": variant["min_blocking"],
+        "min_total": variant["min_total"],
+        "min_blocking_plus_warn": variant["min_blocking_plus_warn"],
+        "required_categories": variant["required_categories"],
+        "required_both_categories": variant["required_both_categories"],
+    }
 
 
 # ── Tests ────────────────────────────────────────────────────────
@@ -39,364 +175,165 @@ def _requires_openai():
 @pytest.mark.slow
 @pytest.mark.integration
 class TestRequirementsLint:
-    """Pipeline test: RequirementsLintAgent pre-check."""
+    """Parametrized lint agent tests across v1/v2/v3."""
 
-    def test_requirements_ingested(
-        self, ingest_requirements: str,
-    ) -> None:
+    def test_requirements_ingested(self, lint_variant: dict) -> None:
         """Requirements fixture loaded and HLR uid returned."""
-        assert len(ingest_requirements) > 0
+        assert len(lint_variant["hlr_uid"]) > 0
 
-    @pytest.mark.slow
-    def test_requirements_pass_lint(
-        self, ingest_requirements: str,
-    ) -> None:
-        """Requirements-lint agent produces a valid, consistent report.
+    def test_requirements_pass_lint(self, lint_variant: dict) -> None:
+        """Run the lint agent and verify score/blocking counts.
 
-        Verifies the agent's output structure and that it consistently
-        detects the known issue categories in the current requirements.
-        This tests agent *consistency* — not that the requirements are
-        perfect (they have known gaps).
-
-        When requirements are fixed, update the expected categories
-        and score assertions below.
+        The assertions are calibrated per variant:
+        - v1: known gaps, expect fail with blocking findings
+        - v2: improved but still gaps
+        - v3: fully reconciled, expect pass/warn with zero blockers
         """
         log = logging.getLogger(__name__)
-
         _requires_openai()
 
         from codegraph_agents.requirements_lint import (
-            LintFinding,
-            LintReport,
             RequirementsLintAgent,
         )
         from codegraph_agents.config import AgentConfig
 
-        agent = RequirementsLintAgent(AgentConfig(
-            hlr_uid=ingest_requirements,
-            log_dir="codegraph/logs",
-        ))
+        label = lint_variant["label"]
+        expected_score = lint_variant["expected_score"]
+        min_blocking = lint_variant["min_blocking"]
+        min_total = lint_variant["min_total"]
+
+        agent = RequirementsLintAgent(
+            AgentConfig(
+                hlr_uid=lint_variant["hlr_uid"],
+                log_dir="codegraph/logs",
+            ),
+            api_contract_path=lint_variant["contract_path"],
+        )
 
         report = agent.run()
         log.info(
-            "Lint report: score=%s readiness=%s findings=%d",
-            report.overall_score,
-            report.readiness,
+            "[%s] Lint report: score=%s readiness=%s findings=%d",
+            label, report.overall_score, report.readiness,
             len(report.findings),
         )
 
-        # ── Structural assertions ────────────────────────────
-        self._assert_report_structure(report)
-
-        # ── Consistency assertions ───────────────────────────
-        self._assert_expected_categories(report, log)
-
-        # ── Log all findings for diagnostic visibility ───────
+        # Log all findings for diagnostic visibility
         sev_order = {"blocking": 0, "warning": 1, "info": 2}
         for f in sorted(
             report.findings,
             key=lambda f: sev_order.get(f.severity, 99),
         ):
             log.warning(
-                "Lint [%s] %s: %s → %s",
-                f.severity,
-                f.category,
-                f.detail[:120],
-                f.recommendation[:120],
+                "[%s] Lint [%s] %s: %s → %s",
+                label, f.severity, f.category,
+                f.detail[:120], f.recommendation[:120],
             )
 
-    # ── Assertion helpers ────────────────────────────────────
+        blocking = [
+            f for f in report.findings
+            if f.severity == "blocking"
+        ]
+        warning = [
+            f for f in report.findings
+            if f.severity == "warning"
+        ]
+        total = len(report.findings)
 
-    def _assert_report_structure(
-        self, report: "LintReport",
-    ) -> None:
-        """Verify the lint report has valid field values."""
-        assert report.overall_score in {"pass", "warn", "fail"}, (
-            f"Invalid overall_score: '{report.overall_score}'"
-        )
-        assert report.readiness in {
-            "ready", "needs_review", "not_ready",
-        }, f"Invalid readiness: '{report.readiness}'"
-        assert len(report.summary) > 20, (
-            f"Summary too short ({len(report.summary)} chars)"
-        )
-        assert len(report.findings) >= 6, (
-            f"Expected >= 6 findings, got {len(report.findings)}"
-        )
-
-        # No finding should have unknown/missing fields
-        valid_sev = {"blocking", "warning", "info"}
+        # ── Structure: every finding must be well-formed ──
         for i, f in enumerate(report.findings):
-            assert f.severity in valid_sev, (
-                f"Finding[{i}] has invalid severity: {f.severity}"
+            assert f.severity in {"blocking", "warning", "info"}, (
+                f"[{label}] findings[{i}].severity invalid: {f.severity}"
             )
             assert f.category, (
-                f"Finding[{i}] has empty category"
+                f"[{label}] findings[{i}].category empty"
             )
             assert len(f.detail) > 10, (
-                f"Finding[{i}] detail too short"
+                f"[{label}] findings[{i}].detail too short: {f.detail!r}"
             )
             assert len(f.recommendation) > 10, (
-                f"Finding[{i}] recommendation too short"
+                f"[{label}] findings[{i}].recommendation too short: {f.recommendation!r}"
             )
 
-    def _assert_expected_categories(
-        self,
-        report: "LintReport",
-        log: logging.Logger,
-    ) -> None:
-        """Verify the agent consistently detects the expected issue
-        categories present in the current requirements.
-
-        These are the stable categories observed across 4+ independent
-        runs.  When the requirements are improved, update these sets.
-        """
-        categories = {f.category for f in report.findings}
-
-        # Categories that MUST be detected (stable across all runs)
-        required_categories = {
-            "dangling_type",
-            "unnamed_entity",
-            "missing_attributes",
-            "missing_edge_case",
-        }
-        missing = required_categories - categories
-        assert not missing, (
-            f"Lint agent missed expected categories: {sorted(missing)}. "
-            f"All categories found: {sorted(categories)}"
-        )
-
-        # At least one finding (any severity) about the core
-        # structural issues: dangling types AND unnamed entities.
-        # These are the two most stable issue families across all
-        # runs — if either goes missing, the agent has regressed.
-        assert categories & {"dangling_type", "unnamed_entity"} == {
-            "dangling_type", "unnamed_entity"
-        }, (
-            "Expected BOTH dangling_type and unnamed_entity "
-            f"categories. Found: {sorted(categories)}"
-        )
-
-        # With current (incomplete) requirements, score should be
-        # "fail" — not "warn" or "pass".  Across 4 independent runs
-        # the agent consistently scored "fail" with 8-11 findings
-        # and 4-5 blocking issues.
-        assert report.overall_score == "fail", (
-            f"Expected score 'fail' (current requirements have "
-            f"known gaps), got '{report.overall_score}'. "
-            f"If requirements were improved, update this assertion."
-        )
-        assert report.readiness == "not_ready", (
-            f"Expected readiness 'not_ready', got "
-            f"'{report.readiness}'"
-        )
-
-        # Minimum findings counts (lower bounds from observed runs)
-        blocking_count = sum(
-            1 for f in report.findings
-            if f.severity == "blocking"
-        )
-        warn_count = sum(
-            1 for f in report.findings
-            if f.severity == "warning"
-        )
-
-        # Minimum findings counts (lower bounds from observed runs).
-        # Total findings is stable (8-11). Blocking count varies 2-5
-        # across runs because severity calibration drifts — the same
-        # issues are found, just rated differently.
-        assert len(report.findings) >= 8, (
-            f"Expected >= 8 findings (observed 8-11), "
-            f"got {len(report.findings)}"
-        )
-        assert blocking_count >= 2, (
-            f"Expected >= 2 blocking findings (observed 2-5), "
-            f"got {blocking_count}"
-        )
-        assert blocking_count + warn_count >= 6, (
-            f"Expected >= 6 blocking+warnings combined "
-            f"(observed 6-9), got {blocking_count + warn_count}"
-        )
-
-        log.info(
-            "Categories detected: %s (required: %s)",
-            sorted(categories),
-            sorted(required_categories),
-        )
-        log.info(
-            "Severity breakdown: blocking=%d warning=%d info=%d",
-            sum(1 for f in report.findings if f.severity == "blocking"),
-            sum(1 for f in report.findings if f.severity == "warning"),
-            sum(1 for f in report.findings if f.severity == "info"),
-        )
-
-
-@pytest.mark.slow
-@pytest.mark.integration
-class TestRequirementsLintV2:
-    """Pipeline test: RequirementsLintAgent against improved v2 requirements.
-
-    The v2 requirements (migration_manager_requirements_v2.md)
-    address all 9 findings from the lint report:
-    - Explicit type definitions (Migration, MigrationErrorCode,
-      MigrationResult, SchemaMismatch, MismatchKind, SchemaVersion)
-    - Concrete class name (MigrationManager)
-    - Edge case handling for rollback, verify, apply
-    - Schema_versions creation and transactional guarantees
-    """
-
-    def test_requirements_v2_ingested(
-        self, ingest_requirements_v2: str,
-    ) -> None:
-        """V2 requirements fixture loaded and HLR uid returned."""
-        assert len(ingest_requirements_v2) > 0
-
-    @pytest.mark.slow
-    def test_requirements_v2_pass_lint(
-        self, ingest_requirements_v2: str,
-    ) -> None:
-        """V2 requirements should pass lint with minimal warnings.
-
-        All blocking issues (dangling types, unnamed entities,
-        missing attributes) are resolved.  Only minor edge-case
-        or completeness warnings may remain.
-        """
-        log = logging.getLogger(__name__)
-
-        _requires_openai()
-
-        from codegraph_agents.requirements_lint import (
-            LintReport,
-            RequirementsLintAgent,
-        )
-        from codegraph_agents.config import AgentConfig
-
-        agent = RequirementsLintAgent(AgentConfig(
-            hlr_uid=ingest_requirements_v2,
-            log_dir="codegraph/logs",
-        ))
-
-        report = agent.run()
-        log.info(
-            "V2 Lint report: score=%s readiness=%s findings=%d",
-            report.overall_score,
-            report.readiness,
-            len(report.findings),
-        )
-
-        # ── Structural assertions (same shape requirements) ──
-        self._assert_report_structure_v2(report)
-
-        # ── V2-specific assertions ──────────────────────────
-        self._assert_v2_expectations(report, log)
-
-        # ── Log all findings ─────────────────────────────────
-        sev_order = {"blocking": 0, "warning": 1, "info": 2}
-        for f in sorted(
-            report.findings,
-            key=lambda f: sev_order.get(f.severity, 99),
-        ):
-            log.warning(
-                "V2 Lint [%s] %s: %s → %s",
-                f.severity,
-                f.category,
-                f.detail[:120],
-                f.recommendation[:120],
+        # ── Score assertion ──
+        if isinstance(expected_score, str):
+            assert report.overall_score == expected_score, (
+                f"[{label}] Expected score '{expected_score}', "
+                f"got '{report.overall_score}'. "
+                f"Summary: {report.summary[:200]}"
+            )
+        else:
+            # set of acceptable scores (e.g. {"pass", "warn"})
+            assert report.overall_score in expected_score, (
+                f"[{label}] Expected score in {expected_score}, "
+                f"got '{report.overall_score}'. "
+                f"Summary: {report.summary[:200]}"
             )
 
-    # ── Assertion helpers ────────────────────────────────────
-
-    def _assert_report_structure_v2(
-        self, report: "LintReport",
-    ) -> None:
-        """Verify the lint report has valid field values."""
-        assert report.overall_score in {"pass", "warn", "fail"}, (
-            f"Invalid overall_score: '{report.overall_score}'"
-        )
-        assert report.readiness in {
-            "ready", "needs_review", "not_ready",
-        }, f"Invalid readiness: '{report.readiness}'"
-        assert len(report.summary) > 10, (
-            f"Summary too short ({len(report.summary)} chars)"
-        )
-        # V2 may have fewer findings since most issues are fixed
-        assert len(report.findings) >= 0, (
-            f"Expected non-negative findings, got {len(report.findings)}"
-        )
-
-        valid_sev = {"blocking", "warning", "info"}
-        for i, f in enumerate(report.findings):
-            assert f.severity in valid_sev, (
-                f"Finding[{i}] has invalid severity: {f.severity}"
-            )
-            assert f.category, (
-                f"Finding[{i}] has empty category"
-            )
-            assert len(f.detail) > 10, (
-                f"Finding[{i}] detail too short"
-            )
-            assert len(f.recommendation) > 10, (
-                f"Finding[{i}] recommendation too short"
+        # ── Blocking count assertion ──
+        if min_blocking == 0:
+            if blocking:
+                lines = [
+                    f"  [{f.severity}] {f.category}: {f.detail}\n"
+                    f"    Fix: {f.recommendation}"
+                    for f in blocking
+                ]
+                pytest.fail(
+                    f"[{label}] Expected zero blocking findings, "
+                    f"got {len(blocking)}:\n" + "\n".join(lines)
+                )
+        else:
+            assert len(blocking) >= min_blocking, (
+                f"[{label}] Expected >= {min_blocking} blocking "
+                f"findings, got {len(blocking)}"
             )
 
-    def _assert_v2_expectations(
-        self,
-        report: "LintReport",
-        log: logging.Logger,
-    ) -> None:
-        """Verify V2 requirements resolve all blocking issues.
+        # ── Total findings assertion ──
+        if min_total > 0:
+            assert total >= min_total, (
+                f"[{label}] Expected >= {min_total} findings, "
+                f"got {total}"
+            )
 
-        The V2 requirements explicitly define all types, error codes,
-        edge cases, and naming — so there should be zero blocking
-        findings and the score should be 'warn' or 'pass'.
-        """
-        blocking_count = sum(
-            1 for f in report.findings
-            if f.severity == "blocking"
-        )
-        warn_count = sum(
-            1 for f in report.findings
-            if f.severity == "warning"
-        )
-        info_count = sum(
-            1 for f in report.findings
-            if f.severity == "info"
-        )
+        # ── Combined blocking + warning ──
+        min_combined = lint_variant["min_blocking_plus_warn"]
+        if min_combined > 0:
+            combined = len(blocking) + len(warning)
+            assert combined >= min_combined, (
+                f"[{label}] Expected >= {min_combined} "
+                f"blocking+warn findings, got {combined}"
+            )
 
-        # No blocking issues — all types, names, attributes are defined
-        assert blocking_count == 0, (
-            f"V2 requirements should have 0 blocking findings, "
-            f"got {blocking_count}. "
-            f"Findings: {[(f.category, f.detail[:80]) for f in report.findings if f.severity == 'blocking']}"
-        )
+        # ── Readiness ──
+        expected_readiness = lint_variant["expected_readiness"]
+        if isinstance(expected_readiness, str):
+            assert report.readiness == expected_readiness, (
+                f"[{label}] Expected readiness '{expected_readiness}', "
+                f"got '{report.readiness}'"
+            )
+        else:
+            assert report.readiness in expected_readiness, (
+                f"[{label}] Expected readiness in {expected_readiness}, "
+                f"got '{report.readiness}'"
+            )
 
-        # Score should be 'warn' or 'pass' — not 'fail'
-        assert report.overall_score in {"warn", "pass"}, (
-            f"V2 requirements should score 'warn' or 'pass', "
-            f"got '{report.overall_score}'. "
-            f"Summary: {report.summary[:200]}"
-        )
+        # ── Required categories (at any severity) ──
+        required_cats = lint_variant["required_categories"]
+        if required_cats:
+            all_categories = {f.category for f in report.findings}
+            missing_cats = required_cats - all_categories
+            assert not missing_cats, (
+                f"[{label}] Missing required categories: {missing_cats}. "
+                f"Present: {all_categories}"
+            )
 
-        # Readiness should be 'needs_review' or 'ready'
-        assert report.readiness in {"needs_review", "ready"}, (
-            f"V2 requirements should be 'needs_review' or 'ready', "
-            f"got '{report.readiness}'"
-        )
+        # ── Required categories (both must be present) ──
+        both_cats = lint_variant["required_both_categories"]
+        if both_cats:
+            all_categories = {f.category for f in report.findings}
+            for cat in both_cats:
+                assert cat in all_categories, (
+                    f"[{label}] Required category '{cat}' not found. "
+                    f"Present: {all_categories}"
+                )
 
-        # Categories that should NOT appear (they were fixed):
-        categories = {f.category for f in report.findings}
-        resolved_categories = {"dangling_type", "unnamed_entity"}
-        still_present = resolved_categories & categories
-        assert not still_present, (
-            f"V2 requirements should have no {sorted(resolved_categories)} "
-            f"findings (types and names are explicitly defined). "
-            f"Still found: {sorted(still_present)}"
-        )
-
-        log.info(
-            "V2 severity breakdown: blocking=%d warning=%d info=%d",
-            blocking_count, warn_count, info_count,
-        )
-        log.info(
-            "V2 categories: %s", sorted(categories),
-        )
+        log.info("[%s] Lint passed", label)

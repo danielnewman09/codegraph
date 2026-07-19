@@ -383,6 +383,15 @@ class RequirementsLintAgent(BaseAgent):
 
     final_tool_name: ClassVar[str] = "finalize"
 
+    def __init__(
+        self,
+        config: AgentConfig | None = None,
+        *,
+        api_contract_path: str = "",
+    ) -> None:
+        super().__init__(config)
+        self._api_contract_path = api_contract_path
+
     # ── Dispatch ─────────────────────────────────────────────────
 
     def _create_dispatcher(self) -> _LintDispatcher:
@@ -544,6 +553,24 @@ class RequirementsLintAgent(BaseAgent):
                 kind = dc.get("kind", "class")
                 parts.append(f"  - {kind}: {name} ({qn})")
 
+        # ── API contract ──
+        if self._api_contract_path:
+            contract_text = self._load_api_contract(
+                self._api_contract_path
+            )
+            if contract_text:
+                parts.append(
+                    "## API Contract (type definitions)\n"
+                )
+                parts.append(contract_text)
+                parts.append(
+                    "\nThe types above are part of the agreed API "
+                    "contract.  Every type referenced in the "
+                    "requirements MUST be defined in this contract.  "
+                    "If a requirement references a type not present "
+                    "here, flag it as a blocking finding."
+                )
+
         # ── Instruction ──
         parts.append(
             "\nAnalyze these requirements for completeness "
@@ -554,6 +581,34 @@ class RequirementsLintAgent(BaseAgent):
         )
 
         return [HumanMessage(content="\n".join(parts))]
+
+    # ── API contract loading ────────────────────────────────────
+
+    def _load_api_contract(self, path: str) -> str | None:
+        """Load an API contract markdown file.
+
+        Returns the full markdown text, or None if the file
+        cannot be read.
+        """
+        from pathlib import Path
+
+        p = Path(path)
+        if not p.exists():
+            log.warning("API contract not found: %s", path)
+            return None
+
+        try:
+            text = p.read_text(encoding="utf-8")
+            log.info(
+                "Loaded API contract: %s (%d chars)",
+                path, len(text),
+            )
+            return text
+        except Exception as exc:
+            log.warning(
+                "Failed to load API contract %s: %s", path, exc,
+            )
+            return None
 
     # ── Result extraction ────────────────────────────────────────
 
