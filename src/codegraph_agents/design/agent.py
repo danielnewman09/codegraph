@@ -103,6 +103,14 @@ class DesignAgent(BaseAgent):
     If the HLR has existing scaffold nodes, call
     :meth:`run_with_reconciliation` to reconcile the design with
     scaffold after the agent loop.
+
+    Args:
+        config: Agent configuration (model, run_id, etc.).
+        api_contract_path: Optional path to a codegraph-compatible
+            markdown file defining the API contract (type definitions
+            and relationships).  When provided, the contract content
+            is injected into the initial messages so the LLM knows
+            the expected type architecture.
     """
 
     name: ClassVar[str] = "design_oo"
@@ -117,6 +125,28 @@ class DesignAgent(BaseAgent):
     }
 
     final_tool_name: ClassVar[str] = "finalize"
+
+    # ── Constructor override ─────────────────────────────────────
+
+    def __init__(
+        self,
+        config: AgentConfig | None = None,
+        *,
+        api_contract_path: str | Path | None = None,
+    ) -> None:
+        super().__init__(config)
+        self._api_contract_path: str | None = (
+            str(api_contract_path) if api_contract_path else None
+        )
+
+    def __init__(
+        self,
+        config: AgentConfig | None = None,
+        *,
+        api_contract_path: str = "",
+    ) -> None:
+        super().__init__(config)
+        self._api_contract_path = api_contract_path
 
     # ── Dispatch construction ────────────────────────────────────
 
@@ -286,30 +316,92 @@ class DesignAgent(BaseAgent):
                 f"design should be scoped to this namespace."
             )
 
+        # ── API contract ──
+        if self._api_contract_path:
+            contract_text = self._load_api_contract(
+                self._api_contract_path
+            )
+            if contract_text:
+                content_parts.append(
+                    "\n\n## API Contract (type definitions)\n\n"
+                    + contract_text
+                    + "\n\nThe types above are part of the agreed API "
+                    "contract.  Your design MUST implement these "
+                    "types with the exact signatures specified.  "
+                    "You may add additional implementation details "
+                    "(private members, helper methods) but must not "
+                    "change the public API defined here."
+                )
+
         return [
             HumanMessage(content="".join(content_parts))
         ]
 
+    # ── API contract loading ────────────────────────────────────
+
+    def _load_api_contract(self, path: str) -> str | None:
+        """Load an API contract markdown file."""
+        from pathlib import Path
+
+        p = Path(path)
+        if not p.exists():
+            import logging
+            log = logging.getLogger("codegraph_agents.design")
+            log.warning("API contract not found: %s", path)
+            return None
+
+        try:
+            return p.read_text(encoding="utf-8")
+        except Exception as exc:
+            import logging
+            log = logging.getLogger("codegraph_agents.design")
+            log.warning(
+                "Failed to load API contract %s: %s", path, exc,
+            )
+            return None
+
     # ── Result extraction ────────────────────────────────────────
 
     def build_result(self, state: AgentState) -> DesignResult:
-        """Extract design + verifications from the commit tool output.
+        """Extract design + verifications from the finalize tool-call args.
 
-        Searches the message history for the ToolMessage from
-        ``commit_design_and_verifications`` (a normal tool that
-        executes in the tools node, not the termination signal).
+        The agent calls ``finalize(design=[...], ...)`` as the
+        termination tool.  We read the AIMessage's tool-call
+        arguments (not a ToolMessage, since finalize is routed
+        without execution).
         """
-        result_data = self._extract_final_tool_output(
-            state, "commit_design_and_verifications"
-        )
+        # Try reading the AIMessage's tool-call args for finalize
+        # (LLM passes design data inline: finalize(design=[...], ...))
+        result_data: dict[str, Any] | None = None
+        messages = state.get("messages", [])
+        for msg in reversed(messages):
+            tool_calls = getattr(msg, "tool_calls", None)
+            if not tool_calls:
+                continue
+            for tc in tool_calls:
+                if tc.get("name") == "finalize":
+                    args = tc.get("args", {})
+                    # Only use finalize if it actually contains design
+                    # data (LLM may call finalize() empty as a signal).
+                    if args.get("design"):
+                        result_data = args
+                        break
+            if result_data is not None:
+                break
+
         errors: list[str] = []
 
         if result_data is None:
-            errors.append(
-                "No commit_design_and_verifications output found "
-                "in message history"
+            # Fall back to commit_design_and_verifications ToolMessage
+            result_data = self._extract_final_tool_output(
+                state, "commit_design_and_verifications"
             )
-            return DesignResult(errors=errors)
+            if result_data is None:
+                errors.append(
+                    "No finalize or commit_design_and_verifications "
+                    "output found in message history"
+                )
+                return DesignResult(errors=errors)
 
         design = result_data.get("design", [])
         verifications = result_data.get("verifications", {})
@@ -438,9 +530,9 @@ class DesignAgent(BaseAgent):
                     "class", "struct", "interface", "enum",
                 ):
                     continue
-                target_node = CompoundNode.nodes.get_or_none(
+                target_node = CompoundNode.nodes.filter(
                     qualified_name=qn,
-                )
+                ).first()
                 if not target_node:
                     continue
                 try:

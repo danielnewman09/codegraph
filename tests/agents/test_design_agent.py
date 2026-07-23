@@ -11,7 +11,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-from langchain_core.messages import HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from codegraph_agents.config import AgentConfig
 from codegraph_agents.state import AgentState
@@ -288,8 +288,75 @@ class TestDesignAgentBuildMessages:
 # ── Result extraction ────────────────────────────────────────────
 
 
+def _make_state_with_finalize_aimsg(
+    design: list[dict] | None = None,
+    verifications: dict | None = None,
+    *,
+    commit_output: dict | None = None,
+    extra_tool_messages: list[ToolMessage] | None = None,
+) -> AgentState:
+    """Build an AgentState simulating the LLM calling finalize + optional commit.
+
+    The AIMessage carries the ``finalize`` tool-call args (the path where
+    the LLM passes data directly via finalize).  Optionally tacks on a
+    ``commit_design_and_verifications`` ToolMessage for the fallback path.
+    """
+    messages: list = [HumanMessage(content="design it")]
+
+    # Optional commit ToolMessage (appears before finalize in history)
+    if commit_output is not None:
+        messages.append(
+            ToolMessage(
+                content=json.dumps(commit_output),
+                tool_call_id="tc-commit",
+                name="commit_design_and_verifications",
+            )
+        )
+
+    # Extra tool messages (simulate interleaved calls)
+    if extra_tool_messages:
+        messages.extend(extra_tool_messages)
+
+    # AIMessage with finalize tool_call
+    finalize_args: dict = {}
+    if design is not None:
+        finalize_args["design"] = design
+    if verifications is not None:
+        finalize_args["verifications"] = verifications
+
+    messages.append(
+        AIMessage(
+            content="done",
+            tool_calls=[
+                {"name": "finalize", "args": finalize_args, "id": "tc-final"}
+            ],
+        )
+    )
+
+    return {
+        "messages": messages,
+        "agent_name": "design_oo",
+        "phase": "done",
+        "turn_count": 12,
+        "error_count": 0,
+    }
+
+
+def _make_state_no_tools() -> AgentState:
+    """State with only a HumanMessage — no finalize or commit at all."""
+    return {
+        "messages": [HumanMessage(content="hi")],
+        "agent_name": "design_oo",
+        "phase": "done",
+        "turn_count": 1,
+        "error_count": 0,
+    }
+
+
 class TestDesignAgentBuildResult:
     """Tests for build_result()."""
+
+    # ── commit_design_and_verifications ToolMessage path ──────
 
     def test_extracts_design_and_verifications(self) -> None:
         from codegraph_agents.design import DesignAgent
@@ -384,6 +451,238 @@ class TestDesignAgentBuildResult:
         result = agent.build_result(state)
         assert result.design[0]["qualified_name"] == "ns::Real"
         assert result.verifications == {"llr-1": [{"method": "auto"}]}
+
+    # ── finalize AIMessage extraction path ─────────────────────
+
+    def test_finalize_with_data_aimessage_path(self) -> None:
+        """LLM passes design+verifications directly in finalize() args.
+
+        The AIMessage has tool_calls=[{"name":"finalize","args":{...}}]
+        and no commit_design_and_verifications ToolMessage exists.
+        This tests the primary extraction path (before fallback).
+        """
+        from codegraph_agents.design import DesignAgent
+
+        agent = DesignAgent()
+        state = _make_state_with_finalize_aimsg(
+            design=[
+                {"qualified_name": "ns::Final", "type": "ClassNode"},
+                {"qualified_name": "ns::Aux", "type": "StructNode"},
+            ],
+            verifications={"llr-a": [{"method": "automated", "test_name": "t1"}]},
+        )
+
+        result = agent.build_result(state)
+
+        assert len(result.design) == 2
+        assert result.design[0]["qualified_name"] == "ns::Final"
+        assert result.design[1]["qualified_name"] == "ns::Aux"
+        assert result.verifications == {"llr-a": [{"method": "automated", "test_name": "t1"}]}
+        assert result.errors == []
+
+    def test_finalize_empty_falls_back_to_commit(self) -> None:
+        """Real-world pattern: finalize() empty + commit ToolMessage exists.
+
+        This is the case observed in the agent logs (July 20 run).
+        LLM calls commit_design_and_verifications first, gets a
+        ToolMessage back, then calls finalize() with empty args {}.
+        build_result should find no design in finalize args and
+        fall back to the commit ToolMessage.
+        """
+        from codegraph_agents.design import DesignAgent
+
+        agent = DesignAgent()
+        state = _make_state_with_finalize_aimsg(
+            # finalize() called with empty args — no design key at all
+            commit_output={
+                "committed": True,
+                "design": [{"qualified_name": "ns::FromCommit", "type": "ClassNode"}],
+                "verifications": {"llr-1": [{"method": "automated"}]},
+            },
+        )
+
+        result = agent.build_result(state)
+
+        assert len(result.design) == 1
+        assert result.design[0]["qualified_name"] == "ns::FromCommit"
+        assert result.verifications == {"llr-1": [{"method": "automated"}]}
+        assert result.errors == []
+
+    def test_finalize_empty_no_commit_is_error(self) -> None:
+        """finalize() called empty and NO commit ToolMessage exists.
+
+        This simulates the LLM going straight to finalize() without
+        ever calling commit_design_and_verifications.  Should return
+        errors indicating no output was found.
+        """
+        from codegraph_agents.design import DesignAgent
+
+        agent = DesignAgent()
+        state = _make_state_with_finalize_aimsg()  # no design, no commit
+
+        result = agent.build_result(state)
+
+        assert result.design == []
+        assert result.verifications == {}
+        assert any("No finalize" in e or "commit_design_and_verifications" in e
+                   for e in result.errors), (
+            f"Expected error about missing output, got: {result.errors}"
+        )
+
+    def test_finalize_with_data_skips_commit_fallback(self) -> None:
+        """Both finalize with data AND commit ToolMessage present.
+
+        The finalize AIMessage args take priority — the commit
+        ToolMessage should be ignored even if it contains different data.
+        """
+        from codegraph_agents.design import DesignAgent
+
+        agent = DesignAgent()
+        state = _make_state_with_finalize_aimsg(
+            design=[{"qualified_name": "ns::FromFinalize", "type": "ClassNode"}],
+            verifications={"llr-x": [{"method": "from_finalize"}]},
+            commit_output={
+                "committed": True,
+                "design": [{"qualified_name": "ns::FromCommit", "type": "ClassNode"}],
+                "verifications": {"llr-y": [{"method": "from_commit"}]},
+            },
+        )
+
+        result = agent.build_result(state)
+
+        assert len(result.design) == 1
+        assert result.design[0]["qualified_name"] == "ns::FromFinalize"
+        assert result.verifications == {"llr-x": [{"method": "from_finalize"}]}
+
+    def test_finalize_empty_design_list_falls_back(self) -> None:
+        """finalize(design=[]) with empty list falls back to commit.
+
+        An empty list is falsy in Python, so ``if args.get("design")``
+        evaluates to False and falls through to the commit fallback.
+        """
+        from codegraph_agents.design import DesignAgent
+
+        agent = DesignAgent()
+        state = _make_state_with_finalize_aimsg(
+            design=[],  # empty list — falsy
+            verifications={},  # empty dict — falsy
+            commit_output={
+                "committed": True,
+                "design": [{"qualified_name": "ns::FromCommit"}],
+                "verifications": {"llr-z": [{"method": "from_commit"}]},
+            },
+        )
+
+        result = agent.build_result(state)
+
+        assert len(result.design) == 1
+        assert result.design[0]["qualified_name"] == "ns::FromCommit"
+        assert result.verifications == {"llr-z": [{"method": "from_commit"}]}
+
+    def test_only_commit_no_finalize_still_works(self) -> None:
+        """Only commit_design_and_verifications ToolMessage, no finalize at all.
+
+        Simulates a run that terminated (e.g. max turns) without the
+        LLM calling finalize().  The commit ToolMessage should still
+        be found and extracted.
+        """
+        from codegraph_agents.design import DesignAgent
+
+        agent = DesignAgent()
+        state = _make_state_with_tool_output(
+            "commit_design_and_verifications",
+            {
+                "committed": True,
+                "design": [{"qualified_name": "ns::Solo", "type": "ClassNode"}],
+                "verifications": {"llr-solo": [{"method": "automated"}]},
+            },
+        )
+
+        result = agent.build_result(state)
+
+        assert len(result.design) == 1
+        assert result.design[0]["qualified_name"] == "ns::Solo"
+        assert result.verifications == {"llr-solo": [{"method": "automated"}]}
+        assert result.errors == []
+
+    def test_neither_finalize_nor_commit_is_error(self) -> None:
+        """No finalize AIMessage and no commit ToolMessage at all."""
+        from codegraph_agents.design import DesignAgent
+
+        agent = DesignAgent()
+        state = _make_state_no_tools()
+
+        result = agent.build_result(state)
+
+        assert result.design == []
+        assert result.verifications == {}
+        assert len(result.errors) >= 1
+
+    def test_finalize_found_in_middle_not_end(self) -> None:
+        """finalize() with data appears in the MIDDLE of message history.
+
+        The build_result reverses messages and finds the last
+        finalize tool_call.  An extra ToolMessage AFTER the
+        finalize AIMessage should not prevent extraction.
+        """
+        from codegraph_agents.design import DesignAgent
+
+        agent = DesignAgent()
+        state = _make_state_with_finalize_aimsg(
+            design=[{"qualified_name": "ns::Mid", "type": "ClassNode"}],
+            verifications={"llr-m": [{"method": "auto"}]},
+            extra_tool_messages=[
+                ToolMessage(
+                    content=json.dumps({"valid": True}),
+                    tool_call_id="tc-extra",
+                    name="draft_verifications",
+                ),
+            ],
+        )
+
+        result = agent.build_result(state)
+
+        assert len(result.design) == 1
+        assert result.design[0]["qualified_name"] == "ns::Mid"
+
+    def test_multiple_finalize_calls_use_last_with_design(self) -> None:
+        """Last finalize AIMessage with design data wins."""
+        from codegraph_agents.design import DesignAgent
+
+        agent = DesignAgent()
+        # Two AIMessages with finalize calls — only the last one with
+        # design data should be used (first reversed match).
+        state: AgentState = {
+            "messages": [
+                HumanMessage(content="go"),
+                AIMessage(
+                    content="first",
+                    tool_calls=[
+                        {"name": "finalize", "args": {}, "id": "tc-old"}
+                    ],
+                ),
+                AIMessage(
+                    content="second",
+                    tool_calls=[
+                        {"name": "finalize",
+                         "args": {
+                             "design": [{"qualified_name": "ns::Second"}],
+                             "verifications": {"llr-2": []},
+                         },
+                         "id": "tc-new"},
+                    ],
+                ),
+            ],
+            "agent_name": "design_oo",
+            "phase": "done",
+            "turn_count": 20,
+            "error_count": 0,
+        }
+
+        result = agent.build_result(state)
+
+        assert len(result.design) == 1
+        assert result.design[0]["qualified_name"] == "ns::Second"
 
 
 # ── run_with_reconciliation ──────────────────────────────────────

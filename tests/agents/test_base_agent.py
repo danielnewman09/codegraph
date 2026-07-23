@@ -154,7 +154,13 @@ def test_router_max_turns_exceeded(agent: _MinimalAgent) -> None:
 
 
 def test_router_multiple_tools_final_last(agent: _MinimalAgent) -> None:
-    """If any tool call is the final tool, extract immediately."""
+    """When finalize is mixed with real tools, route to 'tools' first.
+
+    Real tools (e.g. commit_design_and_verifications) MUST execute
+    before the agent terminates.  Only route to 'extract' when
+    finalize is the *sole* tool call — that is tested separately
+    in ``test_router_finalize_alone``.
+    """
     state = {
         "messages": [
             AIMessage(
@@ -174,8 +180,8 @@ def test_router_multiple_tools_final_last(agent: _MinimalAgent) -> None:
             )
         ]
     }
-    # finalize is present → extract (even if other tools are also requested)
-    assert agent._router(state) == "extract"
+    # finalize mixed with real tools → execute the real tools first
+    assert agent._router(state) == "continue"
 
 
 def test_router_no_message(agent: _MinimalAgent) -> None:

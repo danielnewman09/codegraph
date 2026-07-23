@@ -1,4 +1,4 @@
-"""Tests for codegraph.viz — Cytoscape HTML export.
+"""Tests for codegraph.export.viz — Cytoscape HTML export.
 
 Unit tests run without Neo4j. Integration tests require Neo4j and
 are marked with ``@pytest.mark.integration``.

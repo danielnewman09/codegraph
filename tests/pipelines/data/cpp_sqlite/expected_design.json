@@ -5,28 +5,55 @@
       "name": "Migration",
       "kind": "class",
       "namespace": "cpp_sqlite",
-      "description": "Base class for user-defined migrations",
-      "must_have_attributes": ["version"],
-      "must_have_methods": ["up", "down"]
+      "description": "Abstract base class. up() and down() take cpp_sqlite::Transaction& (not Database&) per API contract.",
+      "must_have_methods": ["getVersion", "up", "down"]
     },
     {
       "name": "SchemaVersion",
-      "kind": "class",
+      "kind": "struct",
       "namespace": "cpp_sqlite",
-      "description": "Records applied migration metadata in schema_versions table. The agent may name this SchemaVersion or SchemaVersionRecord — the test matches by prefix.",
+      "description": "Record of an applied migration. Must have version, applied_at, checksum per API contract.",
       "must_have_attributes": ["version", "applied_at", "checksum"]
     },
     {
       "name": "MigrationManager",
       "kind": "class",
       "namespace": "cpp_sqlite",
-      "description": "Orchestrates migration registration, application, rollback, and verification",
-      "must_have_methods": [
-        "register_migration",
-        "apply",
-        "rollback",
-        "verify"
-      ]
+      "description": "Orchestrates migration registration, application, rollback, and verification.",
+      "must_have_methods": ["register_migration", "apply", "rollback", "verify"]
+    },
+    {
+      "name": "MigrationResult",
+      "kind": "struct",
+      "namespace": "cpp_sqlite",
+      "description": "Value type returned by apply/rollback/register_migration.",
+      "must_have_attributes": ["success", "error"]
+    },
+    {
+      "name": "MigrationErrorCode",
+      "kind": "enum",
+      "namespace": "cpp_sqlite",
+      "description": "Enum for migration operation results."
+    },
+    {
+      "name": "SchemaMismatch",
+      "kind": "struct",
+      "namespace": "cpp_sqlite",
+      "description": "Describes one schema drift detection in verify().",
+      "must_have_attributes": ["version", "kind", "detail"]
+    },
+    {
+      "name": "SchemaVerificationResult",
+      "kind": "struct",
+      "namespace": "cpp_sqlite",
+      "description": "Result of verify().",
+      "must_have_attributes": ["mismatches", "is_consistent"]
+    },
+    {
+      "name": "MismatchKind",
+      "kind": "enum",
+      "namespace": "cpp_sqlite",
+      "description": "Enum for kinds of schema mismatch."
     }
   ],
   "may_also_have_classes": [
@@ -51,25 +78,19 @@
       "from_class": "MigrationManager",
       "relation": "DEPENDS_ON",
       "to_class": "cpp_sqlite::Database",
-      "description": "Manager holds a Database reference to apply/verify migrations"
-    },
-    {
-      "from_class": "MigrationManager",
-      "relation": "DEPENDS_ON",
-      "to_class": "cpp_sqlite::Transaction",
-      "description": "Manager wraps operations in transactions via Database::withTransaction"
+      "description": "Manager constructor takes Database& reference"
     },
     {
       "from_class": "MigrationManager",
       "relation": "DEPENDS_ON",
       "to_class": "Migration",
-      "description": "Manager calls up()/down() on registered Migration instances"
+      "description": "Manager registers and calls up()/down() on Migration instances"
     },
     {
       "from_class": "Migration",
       "relation": "DEPENDS_ON",
-      "to_class": "cpp_sqlite::Database",
-      "description": "up() and down() receive a Database& to execute SQL"
+      "to_class": "cpp_sqlite::Transaction",
+      "description": "up() and down() take Transaction& per API contract"
     }
   ]
 }

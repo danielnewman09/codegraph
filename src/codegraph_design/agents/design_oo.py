@@ -690,14 +690,16 @@ def _create_design_node_fresh(design_dict: dict) -> bool:
         # as-built node may be a different type (e.g. StructNode as-built
         # but the model wants it to be a ClassNode).
         for target_qn, source in lookup_targets:
-            existing = TargetCls.nodes.get_or_none(qualified_name=target_qn)
+            existing = TargetCls.nodes.filter(
+                qualified_name=target_qn,
+            ).first()
             if existing is None and overlays_qn:
                 # Try with ANY registered type, not just TargetCls.
                 for _cls in CodeGraphNode._registry.values():
                     try:
-                        existing = _cls.nodes.get_or_none(
+                        existing = _cls.nodes.filter(
                             qualified_name=target_qn,
-                        )
+                        ).first()
                         if existing is not None:
                             break
                     except Exception:
@@ -1734,7 +1736,9 @@ def design_and_persist_hlr(
         kind = node_dict.get("kind", "")
         if kind not in ("class", "struct", "interface", "enum"):
             continue
-        target_node = CompoundNode.nodes.get_or_none(qualified_name=qn)
+        target_node = CompoundNode.nodes.filter(
+            qualified_name=qn,
+        ).first()
         if not target_node:
             continue
         try:
