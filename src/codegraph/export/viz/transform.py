@@ -96,7 +96,7 @@ def layer_graph_to_cytoscape(graph: LayerGraph) -> dict:
     key_to_display: dict[str, str] = {}
     for entry in graph._all_entries():
         node = entry.node
-        display = node.name
+        display = node.qualified_name or node.name
         uid = node._uid_value()
         if uid:
             key_to_display[uid] = display
@@ -110,7 +110,23 @@ def layer_graph_to_cytoscape(graph: LayerGraph) -> dict:
         _walk_entry(entry, parent_id=None, nodes=nodes, edges=edges,
                     seen=seen, layer=layer, key_to_display=key_to_display)
 
-    return {"nodes": nodes, "edges": edges}
+    # Sanity check before returning: drop any edge whose source or target doesn't have a
+    # matching node ID.  This can happen when a collapsed member
+    # (method / attribute / enumvalue) references another collapsed
+    # member — both targets resolve to qualified names that have no
+    # standalone Cytoscape node.
+    #
+    # The filter is done here in layer_graph_to_cytoscape (not in
+    # _walk_entry) because the full node-id set is only available at
+    # the end of the walk.
+    node_ids = {n["data"]["id"] for n in nodes}
+    return {
+        "nodes": nodes,
+        "edges": [
+            e for e in edges
+            if e["data"]["source"] in node_ids and e["data"]["target"] in node_ids
+        ],
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -155,7 +171,7 @@ def _collect_skipped_member_refs(entry: CompositeEntry) -> list[tuple[str, str, 
                 continue
             # Collect references from collapsed member
             for rel_type, tgt_key, tgt_type in child_entry.references:
-                if tgt_type == "ImplementationNode":
+                if tgt_type in _EXCLUDED_NODE_TYPES:
                     continue
                 refs.append((getattr(child_entry.node, "qualified_name", "") or
                             getattr(child_entry.node, "name", ""),
@@ -193,6 +209,8 @@ def _walk_entry(
     # Emit this entry's own references
     for rel_type, target_key, target_type in entry.references:
         if target_type == "ImplementationNode":
+            continue
+        if target_type in _EXCLUDED_NODE_TYPES:
             continue
         resolved = (key_to_display or {}).get(target_key, target_key)
         edges.append(_build_edge(qname, resolved, rel_type))
