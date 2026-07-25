@@ -120,6 +120,10 @@ class CompoundNode(StructuredNode, CodeGraphNode):
     template_params = RelationshipTo('ClassNode', 'TEMPLATE_PARAM')
     specializes = RelationshipTo('ClassNode', 'SPECIALIZES')
     enforces_concept = RelationshipTo('ConceptNode', 'ENFORCES_CONCEPT')
+    constrained_by = RelationshipFrom('codegraph.models.compound.ConceptNode', 'CONSTRAINS')
+    # Any compound can be the *source* of a CONSTRAINS edge (e.g.
+    # BaseTransferObject → CONSTRAINS → TransferObject).
+    constrains = RelationshipTo('codegraph.models.compound.CompoundNode', 'CONSTRAINS')
 
     # --- Serialization contract ---
     _llm_fields: set[str] = {"qualified_name", "name", "kind", "tags", "brief_description", "visibility"}
@@ -310,6 +314,10 @@ class ConceptNode(CompoundNode):
 
     # Incoming composition (parent namespace)
     parent_namespace = RelationshipFrom('codegraph.models.namespace.NamespaceNode', 'COMPOSES')
+
+    # CONSTRAINS — this concept constrains a type/concept
+    # (e.g. TransferObject CONSTRAINS BaseTransferObject)
+    constrains = RelationshipTo('codegraph.models.compound.CompoundNode', 'CONSTRAINS')
 
 
 class ModuleNode(CompoundNode):

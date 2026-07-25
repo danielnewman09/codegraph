@@ -53,6 +53,7 @@ class NamespaceNode(StructuredNode, CodeGraphNode):
     interfaces  = RelationshipTo('codegraph.models.compound.InterfaceNode', 'COMPOSES')
     enums       = RelationshipTo('codegraph.models.compound.EnumNode', 'COMPOSES')
     unions      = RelationshipTo('codegraph.models.compound.UnionNode', 'COMPOSES')
+    concepts    = RelationshipTo('codegraph.models.compound.ConceptNode', 'COMPOSES')
     modules     = RelationshipTo('codegraph.models.compound.ModuleNode', 'COMPOSES')
     functions   = RelationshipTo('codegraph.models.member.FunctionNode', 'COMPOSES')
     namespaces  = RelationshipTo('NamespaceNode', 'COMPOSES')

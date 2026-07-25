@@ -247,7 +247,10 @@ def _walk_entry(
         if rel_type != "INCLUDES" and target_type in _EXCLUDED_NODE_TYPES:
             continue
         resolved = (key_to_display or {}).get(target_key, target_key)
-        if resolved != qname and rel_type not in ("INCLUDES",):
+        if resolved != qname and (
+            rel_type not in ("INCLUDES",)
+            or target_type not in _EXCLUDED_NODE_TYPES
+        ):
             # Deduplicate: only emit one edge per (source, target,
             # relation_type) tuple.  Multiple collapsed members of the
             # same compound may depend on the same type — visually
