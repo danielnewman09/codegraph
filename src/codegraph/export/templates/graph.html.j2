@@ -313,6 +313,9 @@
         layout: { name: 'grid', animate: false, spacingFactor: 1.1 },
       });
 
+      // Expose to window for browser-based testing / debugging.
+      window._cy = cy;
+
       let currentLayout = null;
       let activeLayoutName = 'fcose';
       let hideLabels = false;
@@ -339,6 +342,43 @@
       const originalParent = {};
       cy.nodes().forEach(function(n){ const p = n.data('parent'); if (p) originalParent[n.id()] = p; });
 
+      // Map each node to its aggregating "namespace" for the
+      // namespace-focus view.  Real namespaces (is_namespace=true)
+      // prefer compound-parent namespaces; nodes without a parent
+      // namespace fall back to the `source` field (e.g. "boost",
+      // "spdlog", "sqlite3").
+      const namespaceParent = {};
+      cy.nodes().forEach(function(n) {
+        if (n.data('is_namespace') === 'true') return;
+        let p = originalParent[n.id()];
+        while (p) {
+          const pNode = cy.getElementById(p);
+          if (pNode && !pNode.empty() && pNode.data('is_namespace') === 'true') {
+            namespaceParent[n.id()] = p;
+            break;
+          }
+          p = originalParent[p];
+        }
+        // Fallback: use the node's source as a synthetic namespace group
+        if (!namespaceParent[n.id()] && n.data('source')) {
+          namespaceParent[n.id()] = 'src:' + n.data('source');
+        }
+      });
+
+      // Synthetic elements (edges + source-group nodes) created for
+      // the namespace-focus view.  Cleared on every view change.
+      let syntheticEdges = cy.collection();
+      const syntheticNodeIds = new Set();
+      function clearSyntheticEdges() {
+        syntheticEdges.remove();
+        syntheticEdges = cy.collection();
+        syntheticNodeIds.forEach(function(id) {
+          const n = cy.getElementById(id);
+          if (n && !n.empty()) n.remove();
+        });
+        syntheticNodeIds.clear();
+      }
+
       function detachAll() {
         cy.nodes().forEach(function(n){ if (n.data('parent')) n.move({parent: null}); });
         cy.nodes('[is_namespace="true"]').addClass('detached');
@@ -364,7 +404,8 @@
       }
 
       function applyView(v) {
-        // Reset: re-attach containers and show everything.
+        // Reset: re-attach containers, show everything, drop synthetics.
+        clearSyntheticEdges();
         attachAll();
         cy.elements().show();
         if (v === 'everything') return;          // containers + all visible
@@ -379,34 +420,121 @@
           }).hide();
           return;
         }
-        // Focus namespace v: show its full compositional subtree
-        // (N + all compound descendants, nesting preserved) plus the
-        // 1-hop external neighbours of that subtree (for coupling).
-        const nsNode = cy.getElementById(v);
-        if (!nsNode || nsNode.empty()) return;
-        const subtree = nsNode.union(nsNode.descendants());
-        // Detach N from its ancestor so the ancestor (and everything
-        // outside the subtree) can be hidden without cascading into N.
-        if (nsNode.data('parent')) nsNode.move({ parent: null });
-        // External 1-hop neighbours of the subtree (non-namespace),
-        // detached from their own (hidden) parents so they can be shown.
+        // Focus namespace v: show its full compositional subtree plus
+        // aggregated edges to external parent namespaces.  Individual
+        // external dependency nodes (std::mutex, boost::unordered_map,
+        // etc.) are hidden — replaced by a single edge from the focused
+        // namespace to each external parent namespace (std, boost, …).
+        //
+        // v can be a real namespace node id, or a synthetic key
+        // ("src:boost") for dependency sources without a namespace node.
+        const nsNode = (v.startsWith('src:')) ? null : cy.getElementById(v);
+        let subtree;
+        if (nsNode && !nsNode.empty()) {
+          subtree = nsNode.union(nsNode.descendants());
+          if (nsNode.data('parent')) nsNode.move({ parent: null });
+        } else if (v.startsWith('src:')) {
+          // Synthetic source group: show all project-source nodes.
+          const srcName = v.slice(4);
+          subtree = cy.nodes().filter(function(n) {
+            return n.data('source') === projectSources.has(n.data('source')) ||
+                   (n.data('source') === srcName && !n.data('is_namespace'));
+          });
+        } else {
+          return;
+        }
+
+        // Find external non-namespace nodes connected to the subtree.
         const external = subtree.connectedEdges()
           .connectedNodes().not(subtree).not('[is_namespace="true"]');
-        external.forEach(function(n){ if (n.data('parent')) n.move({ parent: null }); });
-        const visibleNodes = subtree.union(external);
+
+        // Group external nodes by their parent namespace.
+        const nsGroup = {};
+        external.forEach(function(n) {
+          const nsP = namespaceParent[n.id()];
+          if (nsP) {
+            if (!nsGroup[nsP]) nsGroup[nsP] = new Set();
+            nsGroup[nsP].add(n.id());
+          }
+        });
+
+        // Show subtree + external namespace nodes (not the deps).
         cy.elements().hide();
-        visibleNodes.show();
-        // Edges with at least one endpoint in the subtree and both
-        // endpoints visible (internal subtree edges + cross edges to
-        // external neighbours); excludes external↔external edges.
-        cy.edges().filter(function(e){
-          return (subtree.contains(e.source()) || subtree.contains(e.target()))
-              && visibleNodes.contains(e.source()) && visibleNodes.contains(e.target());
+        subtree.show();
+        const nsIdsToShow = Object.keys(nsGroup);
+        nsIdsToShow.forEach(function(nsId) {
+          if (nsId.startsWith('src:')) {
+            // Synthetic source node — create a temporary node for it.
+            const label = nsId.slice(4);
+            if (!cy.getElementById(nsId).length) {
+              cy.add({
+                group: 'nodes',
+                data: {
+                  id: nsId,
+                  label: label,
+                  qualified_name: label,
+                  kind: 'source-group',
+                  layer: 'as-built'
+                },
+                classes: 'detached'
+              });
+            }
+            const sn = cy.getElementById(nsId);
+            if (sn && !sn.empty()) {
+              if (sn.data('parent')) sn.move({ parent: null });
+              sn.show();
+              sn.addClass('detached');
+            }
+          } else {
+            const extNs = cy.getElementById(nsId);
+            if (extNs && !extNs.empty()) {
+              if (extNs.data('parent')) extNs.move({ parent: null });
+              extNs.show();
+              extNs.addClass('detached');
+            }
+          }
+        });
+
+        // Add a synthetic edge from the focused namespace to each
+        // external parent namespace, labelled with the dependency count.
+        const sourceId = v.startsWith('src:') ? v : v;
+        nsIdsToShow.forEach(function(nsId) {
+          const count = nsGroup[nsId].size;
+          const se = cy.add({
+            group: 'edges',
+            data: {
+              id: 'synth_' + sourceId + '_' + nsId,
+              source: sourceId,
+              target: nsId,
+              label: count + ' dep' + (count > 1 ? 's' : '')
+            }
+          });
+          syntheticEdges = syntheticEdges.union(se);
+        });
+
+        // Show internal subtree edges + the synthetic namespace edges.
+        cy.edges().filter(function(e) {
+          return subtree.contains(e.source()) && subtree.contains(e.target());
         }).show();
+        syntheticEdges.show();
       }
 
       // ---- Namespace dropdown ----
       const nsSelect = document.getElementById('nsSelect');
+
+      // Collect unique source values that appear on non-project nodes
+      // and don't have a real namespace node.  These become synthetic
+      // entries in the dropdown (e.g. "boost", "spdlog", "sqlite3").
+      const projectSources = new Set(['cpp-sqlite']);
+      const extraSources = new Set();
+      cy.nodes().not('[is_namespace="true"]').forEach(function(n) {
+        const src = n.data('source');
+        if (src && !projectSources.has(src) && !n.data('is_namespace')) {
+          extraSources.add('src:' + src);
+        }
+      });
+
+      // Real namespace nodes (qualified_name).
       const nsNodes = cy.nodes('[is_namespace="true"]').sort(function(a, b){
         const qa = a.data('qualified_name') || a.id();
         const qb = b.data('qualified_name') || b.id();
@@ -416,6 +544,14 @@
         const opt = document.createElement('option');
         opt.value = n.id();
         opt.textContent = n.data('qualified_name') || n.id();
+        nsSelect.appendChild(opt);
+      });
+
+      // Synthetic source-based entries.
+      Array.from(extraSources).sort().forEach(function(srcKey){
+        const opt = document.createElement('option');
+        opt.value = srcKey;
+        opt.textContent = '[' + srcKey.slice(4) + ']';
         nsSelect.appendChild(opt);
       });
 
