@@ -90,16 +90,27 @@ def layer_graph_to_cytoscape(graph: LayerGraph) -> dict:
     edges: list[dict] = []
     seen: set[str] = set()
 
-    # Build a mapping from uid to display name.
-    # so edge target keys (which are uids) can be resolved to human-readable
-    # names for the Cytoscape edge labels.
+    # Build a mapping from uid → display name AND a reverse mapping
+    # from uid → parent compound qualified_name (for redirecting edges
+    # that target collapsed leaf members).
     key_to_display: dict[str, str] = {}
+    uid_to_parent: dict[str, str] = {}
     for entry in graph._all_entries():
         node = entry.node
         display = node.qualified_name or node.name
         uid = node._uid_value()
         if uid:
             key_to_display[uid] = display
+    # Walk children to build uid_to_parent: child uid → parent display name.
+    def _collect_parents(entries, parent_display: str | None):
+        for _key, entry in entries.items():
+            uid = entry.node._uid_value()
+            if uid and parent_display:
+                uid_to_parent[uid] = parent_display
+            for _type_key, children in entry.children.items():
+                child_display = entry.node.qualified_name or entry.node.name
+                _collect_parents(children, child_display)
+    _collect_parents(graph.entries, None)
 
     # Determine the layer name from graph tags (single tag per export).
     layer = next(iter(graph.tags)) if graph.tags else "design"
@@ -110,21 +121,34 @@ def layer_graph_to_cytoscape(graph: LayerGraph) -> dict:
         _walk_entry(entry, parent_id=None, nodes=nodes, edges=edges,
                     seen=seen, layer=layer, key_to_display=key_to_display)
 
-    # Sanity check before returning: drop any edge whose source or target doesn't have a
-    # matching node ID.  This can happen when a collapsed member
-    # (method / attribute / enumvalue) references another collapsed
-    # member — both targets resolve to qualified names that have no
-    # standalone Cytoscape node.
-    #
-    # The filter is done here in layer_graph_to_cytoscape (not in
-    # _walk_entry) because the full node-id set is only available at
-    # the end of the walk.
+    # Resolve edge targets: redirect edges pointing at collapsed leaf
+    # members to their parent compound so they don't get dropped by the
+    # dangling-edge filter below.
+    node_ids_pre = {n["data"]["id"] for n in nodes}
+    for edge in edges:
+        target = edge["data"]["target"]
+        if target not in node_ids_pre:
+            for uid, display in key_to_display.items():
+                if display == target and uid in uid_to_parent:
+                    resolved = uid_to_parent[uid]
+                    edge["data"]["target"] = resolved
+                    break
+
+    # Sanity check: drop edges whose source or target doesn't have a
+    # matching node ID.  This handles dangling references to entities
+    # that were never emitted (e.g. collapsed members, excluded types).
+    # INCLUDES edges are preserved even though their FileNode targets
+    # are excluded from rendering — they carry useful structural info.
     node_ids = {n["data"]["id"] for n in nodes}
     return {
         "nodes": nodes,
         "edges": [
             e for e in edges
-            if e["data"]["source"] in node_ids and e["data"]["target"] in node_ids
+            if e["data"]["source"] in node_ids
+            and (
+                e["data"]["target"] in node_ids
+                or e["data"]["label"] == "INCLUDES"
+            )
         ],
     }
 
@@ -171,7 +195,9 @@ def _collect_skipped_member_refs(entry: CompositeEntry) -> list[tuple[str, str, 
                 continue
             # Collect references from collapsed member
             for rel_type, tgt_key, tgt_type in child_entry.references:
-                if tgt_type in _EXCLUDED_NODE_TYPES:
+                if tgt_type == "ImplementationNode":
+                    continue
+                if rel_type != "INCLUDES" and tgt_type in _EXCLUDED_NODE_TYPES:
                     continue
                 refs.append((getattr(child_entry.node, "qualified_name", "") or
                             getattr(child_entry.node, "name", ""),
@@ -210,7 +236,10 @@ def _walk_entry(
     for rel_type, target_key, target_type in entry.references:
         if target_type == "ImplementationNode":
             continue
-        if target_type in _EXCLUDED_NODE_TYPES:
+        # INCLUDES edges target FileNodes which are excluded from the
+        # visualisation, but the edges themselves carry useful
+        # structural info — let them through.
+        if rel_type != "INCLUDES" and target_type in _EXCLUDED_NODE_TYPES:
             continue
         resolved = (key_to_display or {}).get(target_key, target_key)
         edges.append(_build_edge(qname, resolved, rel_type))

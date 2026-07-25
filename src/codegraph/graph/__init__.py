@@ -69,11 +69,16 @@ class CompositeEntry:
             A dict representing the entry with nested children.
         """
         # Start from the node's own flat serialization.
-        # Remove COMPOSES edges — they are represented by nesting.
+        # Remove COMPOSES, HAS_IMPLEMENTATION, and TEMPLATE_PARAM edges —
+        # COMPOSES is represented by nesting; HAS_IMPLEMENTATION and
+        # TEMPLATE_PARAM reference implementation/type-parameter nodes
+        # that are intentionally excluded from serialized graph views.
         serialized = self.node.serialize(fields=fields)
         edges = [
             e for e in serialized.get("edges", [])
-            if e["relation_type"] != "COMPOSES"
+            if e["relation_type"] not in (
+                "COMPOSES", "HAS_IMPLEMENTATION", "TEMPLATE_PARAM"
+            )
         ]
         serialized["edges"] = edges
 

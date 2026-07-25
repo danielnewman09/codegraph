@@ -7,7 +7,10 @@ FileNode is the target of ``DEFINED_IN`` relationships from compounds
     (any compound|member)-[:DEFINED_IN]->(FileNode)
 """
 
-from neomodel import StructuredNode, StringProperty, UniqueIdProperty
+from neomodel import (
+    StructuredNode, StringProperty, UniqueIdProperty,
+    ArrayProperty, RelationshipTo,
+)
 
 from codegraph.models.tags import CodeGraphNode
 
@@ -49,6 +52,10 @@ class FileNode(StructuredNode, CodeGraphNode):
 
     # --- Serialization contract ---
     _llm_fields: set[str] = {"name", "path", "source"}
+
+    # --- Relationships ---
+    #  • INCLUDES — this file → other FileNode (#include)
+    includes = RelationshipTo('codegraph.models.file.FileNode', 'INCLUDES')
 
     def markdown_is_heading(self) -> bool:
         """FileNode renders as a note — no heading."""

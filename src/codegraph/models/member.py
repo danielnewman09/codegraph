@@ -115,6 +115,9 @@ class MemberNode(StructuredNode, CodeGraphNode):
     # File location
     defined_in = RelationshipTo('codegraph.models.file.FileNode', 'DEFINED_IN')
 
+    # Type dependencies — this member's type signature references these types
+    depends_on = RelationshipTo('codegraph.models.compound.ClassNode', 'DEPENDS_ON')
+
     # --- Serialization contract ---
     _llm_fields: set[str] = {
         "qualified_name", "name", "kind", "tags", "brief_description",
