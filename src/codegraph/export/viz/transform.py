@@ -140,6 +140,12 @@ def layer_graph_to_cytoscape(graph: LayerGraph) -> dict:
     # INCLUDES edges are dropped here — their FileNode endpoints are
     # excluded from the visualisation, and Cytoscape refuses to render
     # edges with missing source/target nodes.
+    #
+    # Also drop self-referential edges (source == target).  These arise
+    # when a member method depends-on or invokes another member of the
+    # same class — both source and target are hoisted to the parent
+    # compound.  Self-loops add visual noise without conveying useful
+    # dependency information.
     node_ids = {n["data"]["id"] for n in nodes}
     return {
         "nodes": nodes,
@@ -147,6 +153,7 @@ def layer_graph_to_cytoscape(graph: LayerGraph) -> dict:
             e for e in edges
             if e["data"]["source"] in node_ids
             and e["data"]["target"] in node_ids
+            and e["data"]["source"] != e["data"]["target"]
         ],
     }
 
@@ -240,7 +247,8 @@ def _walk_entry(
         if rel_type != "INCLUDES" and target_type in _EXCLUDED_NODE_TYPES:
             continue
         resolved = (key_to_display or {}).get(target_key, target_key)
-        edges.append(_build_edge(qname, resolved, rel_type))
+        if resolved != qname and rel_type not in ("INCLUDES",):
+            edges.append(_build_edge(qname, resolved, rel_type))
 
     # Emit references from collapsed members — use a counter
     # for unique edge IDs since multiple members may share target.
@@ -248,7 +256,8 @@ def _walk_entry(
     for _src, tgt, rel in _collect_skipped_member_refs(entry):
         member_edge_idx += 1
         resolved = (key_to_display or {}).get(tgt, tgt)
-        edges.append(_build_edge(qname, resolved, rel, suffix=f"_m{member_edge_idx}"))
+        if resolved != qname:
+            edges.append(_build_edge(qname, resolved, rel, suffix=f"_m{member_edge_idx}"))
 
     # Recurse into composed children that get their own nodes.
     # Namespace children are all emitted as nodes (namespaces render no
