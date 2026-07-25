@@ -237,18 +237,25 @@ def _walk_entry(
     cy_node = _build_node(entry, parent_id=parent_id, layer=layer)
     nodes.append(cy_node)
 
+    # Track emitted edges to avoid duplicates from multi-member collapse.
+    emitted_edges: set[tuple[str, str, str]] = set()
+
     # Emit this entry's own references
     for rel_type, target_key, target_type in entry.references:
         if target_type == "ImplementationNode":
             continue
-        # INCLUDES edges target FileNodes which are excluded from the
-        # visualisation, but the edges themselves carry useful
-        # structural info — let them through.
         if rel_type != "INCLUDES" and target_type in _EXCLUDED_NODE_TYPES:
             continue
         resolved = (key_to_display or {}).get(target_key, target_key)
         if resolved != qname and rel_type not in ("INCLUDES",):
-            edges.append(_build_edge(qname, resolved, rel_type))
+            # Deduplicate: only emit one edge per (source, target,
+            # relation_type) tuple.  Multiple collapsed members of the
+            # same compound may depend on the same type — visually
+            # that's one dependency edge, not N.
+            edge_key = (qname, resolved, rel_type)
+            if edge_key not in emitted_edges:
+                emitted_edges.add(edge_key)
+                edges.append(_build_edge(qname, resolved, rel_type))
 
     # Emit references from collapsed members — use a counter
     # for unique edge IDs since multiple members may share target.
@@ -257,7 +264,11 @@ def _walk_entry(
         member_edge_idx += 1
         resolved = (key_to_display or {}).get(tgt, tgt)
         if resolved != qname:
-            edges.append(_build_edge(qname, resolved, rel, suffix=f"_m{member_edge_idx}"))
+            # Deduplicate collapsed member refs too
+            edge_key = (qname, resolved, rel)
+            if edge_key not in emitted_edges:
+                emitted_edges.add(edge_key)
+                edges.append(_build_edge(qname, resolved, rel, suffix=f"_m{member_edge_idx}"))
 
     # Recurse into composed children that get their own nodes.
     # Namespace children are all emitted as nodes (namespaces render no

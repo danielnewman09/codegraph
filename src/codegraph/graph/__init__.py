@@ -934,6 +934,41 @@ class LayerGraph:
                                 nodes[neighbor_key] = neighbor
                                 uid_to_key[target_uid] = neighbor_key
 
+        # Second pass: pull in namespace parents of *non-project*
+        # 1-hop neighbours.  Only the immediate parent namespace is
+        # fetched (we do NOT walk the full ancestor chain — deep
+        # cppreference hierarchies would pull in hundreds of
+        # intermediate namespace nodes).
+        #
+        # Why: namespace-focus views in the visualisation aggregate
+        # external deps to their containing namespace.  Without this,
+        # boost::unordered_map appears as an orphan (parent=boost
+        # doesn't exist in the graph) and can't be grouped.
+        initial_uids = {n._uid_value() for n in matched_nodes}
+        for node in list(nodes.values()):
+            if node._uid_value() in initial_uids:
+                continue  # project node — parent already in graph
+            for edge in node.walk_edges():
+                if edge["relation_type"] != "COMPOSES":
+                    continue
+                if edge.get("is_outgoing", True):
+                    continue  # only interested in incoming (parent→ns)
+                target_uid = edge["target_uid"]
+                target_type = edge["target_type"]
+                if target_uid not in seen_uids:
+                    seen_uids.add(target_uid)
+                    target_cls = CodeGraphNode._registry.get(target_type)
+                    if target_cls:
+                        uid_prop = target_cls._uid_prop()
+                        if uid_prop:
+                            parent_ns = target_cls.nodes.get_or_none(
+                                **{uid_prop: target_uid}
+                            )
+                            if parent_ns:
+                                ns_key = cls._node_key(parent_ns)
+                                nodes[ns_key] = parent_ns
+                                uid_to_key[target_uid] = ns_key
+
         # Build CompositeEntry instances, merging duplicates that share
         # the same qualified_name (e.g. cppreference + project copies of
         # the ``std`` namespace).  When a duplicate is found, merge its

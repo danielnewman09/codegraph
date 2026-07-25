@@ -937,39 +937,50 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         return getattr(self, uid, None)
 
     def serialize_edges(self) -> list[dict]:
-        """Return all edges from this node as a flat list of relationship dicts.
+        """Return all *outgoing* edges from this node as a flat list of
+        relationship dicts.
 
-        Walks every ``RelationshipTo`` / ``RelationshipFrom`` descriptor
-        on this *instance*, calls ``.all()`` on each manager, and emits
-        one dict per connected node with the relationship type and the
-        connected node's unique identifier.
+        Walks every ``RelationshipTo`` descriptor on this *instance*,
+        calls ``.all()`` on each manager, and emits one dict per
+        connected node with the relationship type and the connected
+        node's unique identifier.
 
-        Requires the node to be saved in Neo4j (the relationship managers
-        query the database).
+        ``RelationshipFrom`` descriptors are deliberately excluded —
+        they represent the inverse of edges already emitted by the
+        source node.  Including them would duplicate every edge in
+        exported graphs and visualisations.
+
+        Call :meth:`walk_edges` if you need the full directed-graph
+        picture including incoming edges.
+
+        Requires the node to be saved in Neo4j (the relationship
+        managers query the database).
 
         Returns:
             A list of dicts, each with keys: ``relation_type`` (Neo4j
             relationship label), ``target_uid`` (the connected node's
-            unique id value), and ``target_type`` (the connected node's
-            class name).
+            unique id value), and ``target_type`` (the connected
+            node's class name).
         """
-        from neomodel import RelationshipTo, RelationshipFrom
+        from neomodel import RelationshipTo
 
         edges: list[dict] = []
         seen: set[str] = set()
         for klass in type(self).__mro__:
             for name, val in vars(klass).items():
-                if isinstance(val, (RelationshipTo, RelationshipFrom)):
-                    if name not in seen:
-                        seen.add(name)
-                        manager = getattr(self, name)
-                        connected = manager.all()
-                        for node in connected:
-                            edges.append({
-                                "relation_type": val.definition["relation_type"],
-                                "target_uid": node._uid_value(),
-                                "target_type": type(node).__name__,
-                            })
+                if not isinstance(val, RelationshipTo):
+                    continue
+                if name in seen:
+                    continue
+                seen.add(name)
+                manager = getattr(self, name)
+                connected = manager.all()
+                for node in connected:
+                    edges.append({
+                        "relation_type": val.definition["relation_type"],
+                        "target_uid": node._uid_value(),
+                        "target_type": type(node).__name__,
+                    })
         return edges
 
     def update(self, **kwargs) -> "CodeGraphNode":
