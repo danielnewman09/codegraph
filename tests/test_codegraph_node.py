@@ -136,19 +136,19 @@ class TestSerializeRelationships:
         # is essential for accurate call-graph representation.
         assert "INVOKES" in rel_types
 
-    def test_filenode_has_no_outgoing_rels(self):
-        """FileNode has only incoming relationships, not outgoing."""
-        # codegraph:test-desc test_codegraph_node.TestSerializeRelationships.test_filenode_has_no_outgoing_rels::step_0
-        # Calls serialize_relationships on the FileNode fixture to produce the sets of
-        # ingoing and outgoing relationships for verification.
+    def test_filenode_has_includes_relationship(self):
+        """FileNode reports INCLUDES in its outgoing relationships."""
+        # codegraph:test-desc test_codegraph_node.TestSerializeRelationships.test_filenode_has_includes_relationship::step_0
+        # Calls serialize_relationships on the FileNode fixture to produce the full
+        # relationship descriptor list for verification.
         rels = FileNode.serialize_relationships()
         outgoing = [r for r in rels if r["direction"] == "OUTGOING"]
-        # FileNode is a target of DEFINED_IN but doesn't define outgoing rels
-        # codegraph:test-desc test_codegraph_node.TestSerializeRelationships.test_filenode_has_no_outgoing_rels::post_0
-        # Checks that the outgoing relationship set is empty, confirming that file nodes
-        # do not establish outgoing links, which ensures the serialization logic
-        # correctly enforces the directional constraint for FileNode.
-        assert len(outgoing) == 0
+        # FileNode now defines INCLUDES as an outgoing relationship to other FileNodes
+        # codegraph:test-desc test_codegraph_node.TestSerializeRelationships.test_filenode_has_includes_relationship::post_0
+        # Verifies that the INCLUDES relationship type is reported among the outgoing
+        # relationships, confirming that file nodes correctly report #include edges.
+        rel_types = {r["relation_type"] for r in outgoing}
+        assert "INCLUDES" in rel_types
 
 
 class TestTagQueries:
