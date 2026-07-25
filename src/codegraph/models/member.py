@@ -115,8 +115,11 @@ class MemberNode(StructuredNode, CodeGraphNode):
     # File location
     defined_in = RelationshipTo('codegraph.models.file.FileNode', 'DEFINED_IN')
 
-    # Type dependencies — this member's type signature references these types
-    depends_on = RelationshipTo('codegraph.models.compound.ClassNode', 'DEPENDS_ON')
+    # Type dependencies — this member's type signature references these types.
+    # Targets can be CompoundNode (classes, structs) or MemberNode (typedefs).
+    # Two separate relationships because neomodel can't target abstract bases.
+    depends_on_compound = RelationshipTo('codegraph.models.compound.ClassNode', 'DEPENDS_ON')
+    depends_on_member = RelationshipTo('codegraph.models.member.AttributeNode', 'DEPENDS_ON')
 
     # --- Serialization contract ---
     _llm_fields: set[str] = {

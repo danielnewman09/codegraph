@@ -137,18 +137,16 @@ def layer_graph_to_cytoscape(graph: LayerGraph) -> dict:
     # Sanity check: drop edges whose source or target doesn't have a
     # matching node ID.  This handles dangling references to entities
     # that were never emitted (e.g. collapsed members, excluded types).
-    # INCLUDES edges are preserved even though their FileNode targets
-    # are excluded from rendering — they carry useful structural info.
+    # INCLUDES edges are dropped here — their FileNode endpoints are
+    # excluded from the visualisation, and Cytoscape refuses to render
+    # edges with missing source/target nodes.
     node_ids = {n["data"]["id"] for n in nodes}
     return {
         "nodes": nodes,
         "edges": [
             e for e in edges
             if e["data"]["source"] in node_ids
-            and (
-                e["data"]["target"] in node_ids
-                or e["data"]["label"] == "INCLUDES"
-            )
+            and e["data"]["target"] in node_ids
         ],
     }
 

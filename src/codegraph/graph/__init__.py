@@ -934,19 +934,48 @@ class LayerGraph:
                                 nodes[neighbor_key] = neighbor
                                 uid_to_key[target_uid] = neighbor_key
 
-        # Build CompositeEntry instances
+        # Build CompositeEntry instances, merging duplicates that share
+        # the same qualified_name (e.g. cppreference + project copies of
+        # the ``std`` namespace).  When a duplicate is found, merge its
+        # children and references into the canonical (first) entry.
         key_to_entry: dict[str, CompositeEntry] = {}
+        # Duplicates: key → key of the canonical node with the same qname.
+        duplicate_to_canonical: dict[str, str] = {}
+        # Secondary index: qualified_name → key for duplicate detection.
+        qname_to_key: dict[str, str] = {}
         for key, node in nodes.items():
-            key_to_entry[key] = CompositeEntry(node=node)
+            entry = CompositeEntry(node=node)
+            qn = (getattr(node, "qualified_name", None)
+                  or getattr(node, "name", None))
+            if qn:
+                existing_key = qname_to_key.get(qn)
+                if existing_key is not None:
+                    # Map this duplicate to the canonical entry;
+                    # we'll merge children/references after building
+                    # the composition tree.
+                    duplicate_to_canonical[key] = existing_key
+                    # Still add to key_to_entry so the second loop
+                    # can process this node's walk_composes() and
+                    # redirect the children to the canonical entry.
+                    key_to_entry[key] = entry
+                    continue
+                qname_to_key[qn] = key
+            key_to_entry[key] = entry
 
         # Build composition tree and collect references
         child_keys: set[str] = set()
         for key, node in nodes.items():
-            entry = key_to_entry[key]
+            # If this node was a duplicate, use the canonical entry.
+            canonical_key = duplicate_to_canonical.get(key, key)
+            entry = key_to_entry.get(canonical_key)
+            if entry is None:
+                continue  # duplicate whose canonical was also a duplicate
 
             # COMPOSES: use walk_composes() for outgoing edges
             for child in node.walk_composes():
                 child_key = cls._node_key(child)
+                # Redirect child key if it's a duplicate too.
+                child_key = duplicate_to_canonical.get(child_key, child_key)
                 if child_key not in key_to_entry:
                     continue  # child not in our fetched set
                 child_entry = key_to_entry[child_key]
@@ -969,6 +998,22 @@ class LayerGraph:
                     entry.references.append(
                         (relation_type, target_key, edge["target_type"])
                     )
+
+        # Merge duplicate entries into their canonical counterparts.
+        for dup_key, canon_key in duplicate_to_canonical.items():
+            dup_entry = key_to_entry.get(dup_key)
+            canon_entry = key_to_entry.get(canon_key)
+            if dup_entry and canon_entry:
+                # Merge children
+                for child_type, child_map in dup_entry.children.items():
+                    canon_entry.children.setdefault(child_type, {}).update(child_map)
+                    for ck in child_map:
+                        child_keys.add(ck)
+                # Merge references (avoid duplicates)
+                existing_refs = set(canon_entry.references)
+                for ref in dup_entry.references:
+                    if ref not in existing_refs:
+                        canon_entry.references.append(ref)
 
         # Root entries = nodes not composed by another node
         root_entries = {
