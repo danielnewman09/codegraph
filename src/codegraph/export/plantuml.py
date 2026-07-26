@@ -86,11 +86,17 @@ class GraphView(Enum):
             members, removes concept nodes and file nodes, and
             drops file-reference edges.  Shows only the public-facing
             classes, public members, and public functions.
+        DESIGN_API: Design-layer view.  Shows the architectural design
+            (classes, structs, enums, methods, attributes) but hides
+            test scaffolding — TestNode, AssertionNode, TestStepNode,
+            TestFixtureNode, and LiteralNode nodes are omitted along
+            with their edges.
     """
 
     FULL = "full"
     COLLAPSED = "collapsed"
     PUBLIC_API = "public_api"
+    DESIGN_API = "design_api"
 
 # ── Diagnostics ────────────────────────────────────────────────────────
 
@@ -476,6 +482,11 @@ class PlantUMLExporter:
         # classes only show the members actually referenced.
         self._allowed_classes: set[str] = set()
         self._allowed_members: dict[str, set[str]] = {}
+        # Node keys (uid hashes) carrying the "test" tag.
+        # DESIGN_API hides these — they are test scaffolding, not
+        # architectural design elements. The tag is set by the design
+        # agent during node creation.
+        self._test_tagged_keys: set[str] = self._build_test_tagged_keys()
 
     # ── Derived properties ────────────────────────────────────────────
 
@@ -498,6 +509,45 @@ class PlantUMLExporter:
     def _show_concepts(self) -> bool:
         """True when concept nodes should be included."""
         return False  # concepts never shown in scoped view
+
+    def _show_tests(self) -> bool:
+        """True when test-tagged nodes should be included.
+
+        DESIGN_API hides any node carrying the ``"test"`` tag —
+        TestNode, AssertionNode, TestStepNode, TestFixtureNode,
+        and any AttributeNode/LiteralNode used as test fixtures.
+        The ``"test"`` tag is set by the design agent during node
+        creation, not inferred from node type.
+        """
+        return self.view != GraphView.DESIGN_API
+
+    def _build_test_tagged_keys(self) -> set[str]:
+        """Build a precomputed set of node keys that carry the ``"test"`` tag.
+
+        Called once during ``__init__`` so that reference filters can
+        perform O(1) lookups instead of rebuilding the flat index."""
+        keys: set[str] = set()
+        for entry in self.graph._all_entries():
+            tags = getattr(entry.node, "tags", []) or []
+            if "test" in tags:
+                keys.add(self.graph._node_key(entry.node))
+        return keys
+
+    def _target_has_tag(self, target_key: str, tag: str) -> bool:
+        """Check whether the target node identified by *target_key*
+        carries *tag*.
+
+        Uses the precomputed ``_test_tagged_keys`` set for O(1) lookup
+        when *tag* is ``"test"``; falls back to a flat-index walk for
+        other tags (which is rare)."""
+        if tag == "test":
+            return target_key in self._test_tagged_keys
+        flat = self.graph._flat_index()
+        entry = flat.get(target_key)
+        if entry is None:
+            return False
+        tags = getattr(entry.node, "tags", []) or []
+        return tag in tags
 
     def _show_external(self) -> bool:
         """True when external dependency packages should be included."""
@@ -838,6 +888,9 @@ class PlantUMLExporter:
             return []
         if node_type == "ConceptNode" and not self._show_concepts():
             return []
+        tags = getattr(node, "tags", []) or []
+        if "test" in tags and not self._show_tests():
+            return []
 
         qname = getattr(node, "qualified_name", None) or node.name
 
@@ -961,6 +1014,9 @@ class PlantUMLExporter:
                         continue
                     if target_type == "ConceptNode" and not self._show_concepts():
                         continue
+                    if self._target_has_tag(target_key, "test") and not self._show_tests():
+                        continue
+
 
                     collapsed = self._collapsed_alias_for(target_key)
                     if collapsed:
@@ -1064,6 +1120,8 @@ class PlantUMLExporter:
                         if target_type == "FileNode" and not self._show_files():
                             continue
                         if target_type == "ConceptNode" and not self._show_concepts():
+                            continue
+                        if self._target_has_tag(target_key, "test") and not self._show_tests():
                             continue
                         # Redirect to collapsed namespace package if applicable
                         collapsed = self._collapsed_alias_for(target_key)
@@ -1199,6 +1257,8 @@ class PlantUMLExporter:
         if target_type == "FileNode" and not self._show_files():
             return
         if target_type == "ConceptNode" and not self._show_concepts():
+            return
+        if self._target_has_tag(target_key, "test") and not self._show_tests():
             return
 
         source_qname = getattr(source_node, "qualified_name", None) or source_node.name

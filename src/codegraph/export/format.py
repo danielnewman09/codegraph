@@ -57,8 +57,18 @@ def export_graph(graph: LayerGraph, format: str = "markdown",
                               public_only=bool(public_only))
 
     if fmt in ("plantuml", "puml"):
-        from codegraph.export.plantuml import export_plantuml
-        return export_plantuml(graph, fields=fields)
+        from codegraph.export.plantuml import export_plantuml, GraphView
+        # Auto-select DESIGN_API view for design-tagged graphs so
+        # test scaffolding (TestNode, AssertionNode, etc.) is hidden.
+        view_kw = kwargs.get("view")
+        if isinstance(view_kw, str):
+            # Coerce string to enum (e.g. "design_api" → GraphView.DESIGN_API)
+            view_kw = GraphView(view_kw)
+        if view_kw is None and "design" in graph.tags:
+            view_kw = GraphView.DESIGN_API
+        elif view_kw is None:
+            view_kw = GraphView.FULL
+        return export_plantuml(graph, fields=fields, view=view_kw)
 
     if fmt in ("json", "json_nested"):
         import json
