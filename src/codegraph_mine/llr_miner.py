@@ -30,6 +30,9 @@ from typing import Any
 from codegraph_mine.base import RequirementMiner, MineResult
 from codegraph_mine.schemas import MinedRequirements
 from codegraph_mine.persistence import persist_mined_requirements
+from codegraph.persistence.repository import GraphRepository
+
+_repo = GraphRepository()
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -267,29 +270,18 @@ class LLRMiner(RequirementMiner):
         if tag:
             test_nodes = GraphRepository().find_by_tag(TestNode, tag)
         else:
-            test_nodes = list(TestNode.nodes.all())
+            test_nodes = _repo.find_all_by_kind("test")
 
         # Collect all compound nodes that these tests verify
         seen: set[str] = set()
         compounds: list = []
 
         for test_node in test_nodes:
-            for rel_attr in [
-                "verifies_classes",
-                "verifies_interfaces",
-                "verifies_enums",
-            ]:
-                mgr = getattr(test_node, rel_attr, None)
-                if mgr is None:
-                    continue
-                try:
-                    for node in mgr.all():
-                        uid = getattr(node, "uid", None)
-                        if uid and uid not in seen:
-                            seen.add(uid)
-                            compounds.append(node)
-                except Exception:
-                    pass
+            for node in _repo.outgoing_by_relation(test_node, "VERIFIES"):
+                uid = getattr(node, "uid", None)
+                if uid and uid not in seen:
+                    seen.add(uid)
+                    compounds.append(node)
 
         return compounds
 
@@ -380,35 +372,25 @@ class LLRMiner(RequirementMiner):
 
     def _build_test_dict(self, test_node) -> dict:
         """Build a dict of test context from a TestNode neomodel instance."""
+        from codegraph.models.test import TestStepNode, AssertionNode, TestFixtureNode
+
         qn = self.node_name(test_node)
 
         # Gather VERIFIES targets
         verifies = []
-        for rel_attr, kind in [
-            ("verifies_methods", "method"),
-            ("verifies_functions", "function"),
-            ("verifies_classes", "class"),
-            ("verifies_interfaces", "interface"),
-            ("verifies_enums", "enum"),
-            ("verifies_unions", "union"),
-            ("verifies_modules", "module"),
-        ]:
-            mgr = getattr(test_node, rel_attr, None)
-            if mgr is None:
-                continue
-            try:
-                for node in mgr.all():
-                    verifies.append({
-                        "qualified_name": self.node_name(node),
-                        "kind": kind,
-                    })
-            except Exception:
-                pass
+        for node in _repo.outgoing_by_relation(test_node, "VERIFIES"):
+            verifies.append({
+                "qualified_name": self.node_name(node),
+                "kind": getattr(node, "kind", "compound"),
+            })
 
         # Gather steps
         steps = []
         try:
-            for step in test_node.steps.all():
+            for step in _repo.composed_children(
+                test_node,
+                TestStepNode,
+            ):
                 step_dict = {
                     "qualified_name": self.node_name(step),
                     "order": getattr(step, "order", 0),
@@ -416,22 +398,11 @@ class LLRMiner(RequirementMiner):
                 }
                 # Gather callees for each step
                 callees = []
-                for callee_rel, callee_kind in [
-                    ("callee_method", "method"),
-                    ("callee_function", "function"),
-                    ("callee_class", "class"),
-                ]:
-                    mgr = getattr(step, callee_rel, None)
-                    if mgr is None:
-                        continue
-                    try:
-                        for c in mgr.all():
-                            callees.append({
-                                "qualified_name": self.node_name(c),
-                                "kind": callee_kind,
-                            })
-                    except Exception:
-                        pass
+                for c in _repo.outgoing_by_relation(step, "CALLEE"):
+                    callees.append({
+                        "qualified_name": self.node_name(c),
+                        "kind": getattr(c, "kind", "method"),
+                    })
                 step_dict["callees"] = callees
                 steps.append(step_dict)
         except Exception:
@@ -440,7 +411,10 @@ class LLRMiner(RequirementMiner):
         # Gather assertions
         assertions = []
         try:
-            for a in test_node.assertions.all():
+            for a in _repo.composed_children(
+                test_node,
+                AssertionNode,
+            ):
                 assertions.append({
                     "qualified_name": self.node_name(a),
                     "description": getattr(a, "description", "") or "",
@@ -454,7 +428,10 @@ class LLRMiner(RequirementMiner):
         # Gather fixtures
         fixtures = []
         try:
-            for f in test_node.fixtures.all():
+            for f in _repo.composed_children(
+                test_node,
+                TestFixtureNode,
+            ):
                 fixtures.append({
                     "qualified_name": self.node_name(f),
                     "name": getattr(f, "name", ""),

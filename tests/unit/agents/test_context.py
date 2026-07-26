@@ -1,7 +1,7 @@
 """Tests for built-in context resolvers.
 
 Tests the data transformation logic of each resolver by mocking
-Neo4j/neomodel model objects.  No running Neo4j required.
+the GraphRepository layer.  No running Neo4j required.
 """
 
 from __future__ import annotations
@@ -13,32 +13,20 @@ import pytest
 from codegraph_agents.config import AgentConfig
 
 
-# ── Helpers: mock neomodel objects ─────────────────────────────
+# ── Helpers: mock model objects ────────────────────────────────
 
 
 def _mock_hlr(uid: str = "hlr-001", **attrs) -> MagicMock:
     """Build a mock HLR node with default attributes."""
-    defaults: dict[str, object] = {
-        "uid": uid,
-    }
+    defaults: dict[str, object] = {"uid": uid}
     defaults.update(attrs)
-    hlr = MagicMock(**defaults)
-    # Set relationship attributes separately to avoid Mock name conflicts
-    hlr.llrs = MagicMock()
-    hlr.llrs.all.return_value = []
-    hlr.design_compounds = MagicMock()
-    hlr.design_compounds.all.return_value = []
-    hlr.component = MagicMock()
-    hlr.component.all.return_value = []
-    return hlr
+    return MagicMock(**defaults)
 
 
 def _mock_llr(uid: str = "llr-001") -> MagicMock:
-    """Build a mock LLR node with empty tests."""
+    """Build a mock LLR node."""
     llr = MagicMock()
     llr.uid = uid
-    llr.verification_methods = MagicMock()
-    llr.verification_methods.all.return_value = []
     return llr
 
 
@@ -46,18 +34,12 @@ def _mock_test(
     uid: str = "test-001",
     name: str = "test_scenario",
     description: str = "Verify something",
-    steps: list[MagicMock] | None = None,
-    assertions: list[MagicMock] | None = None,
 ) -> MagicMock:
-    """Build a mock test node with steps and assertions."""
+    """Build a mock test node."""
     test = MagicMock()
     test.uid = uid
     test.name = name
     test.description = description
-    test.steps = MagicMock()
-    test.steps.all.return_value = steps or []
-    test.assertions = MagicMock()
-    test.assertions.all.return_value = assertions or []
     return test
 
 
@@ -102,6 +84,49 @@ def _mock_component(namespace: str = "archgen") -> MagicMock:
     return comp
 
 
+def _setup_repo_compose_map(
+    repo_mock: MagicMock,
+    *,
+    llrs_for: dict[MagicMock, list[MagicMock]] | None = None,
+    tests_for: dict[MagicMock, list[MagicMock]] | None = None,
+    steps_for: dict[MagicMock, list[MagicMock]] | None = None,
+    assertions_for: dict[MagicMock, list[MagicMock]] | None = None,
+    design_compounds_for: dict[MagicMock, list[MagicMock]] | None = None,
+    components_for: dict[MagicMock, list[MagicMock]] | None = None,
+    all_hlrs: list[MagicMock] | None = None,
+) -> None:
+    """Configure a repo mock to return children based on parent identity.
+
+    Each ``*_for`` dict maps a parent mock → list of child mocks.
+    ``all_hlrs`` sets the return value of ``find_all_by_kind("hlr")``.
+    """
+
+    def _composed_children(node, child_type):
+        type_name = getattr(child_type, "__name__", str(child_type))
+        if type_name in ("LLR", "HlrNode"):
+            return (llrs_for or {}).get(node, [])
+        if type_name == "TestNode":
+            return (tests_for or {}).get(node, [])
+        if type_name == "TestStepNode":
+            return (steps_for or {}).get(node, [])
+        if type_name == "AssertionNode":
+            return (assertions_for or {}).get(node, [])
+        if type_name == "CompoundNode":
+            return (design_compounds_for or {}).get(node, [])
+        return []
+
+    repo_mock.composed_children.side_effect = _composed_children
+
+    def _incoming_composers(node, composer_type):
+        type_name = getattr(composer_type, "__name__", str(composer_type))
+        if type_name == "Component":
+            return (components_for or {}).get(node, [])
+        return []
+
+    repo_mock.incoming_composers.side_effect = _incoming_composers
+    repo_mock.find_all_by_kind.return_value = all_hlrs or []
+
+
 # ── _resolve_hlr_subtree ───────────────────────────────────────
 
 
@@ -132,11 +157,15 @@ class TestResolveHlrSubtree:
             "codegraph_requirements.models.HLR"
         ) as mock_hlr_model:
             mock_hlr_model.nodes.get_or_none.return_value = hlr
+            with patch(
+                "codegraph_agents.context.builtins.repo"
+            ) as repo_mock:
+                _setup_repo_compose_map(repo_mock)
 
-            result = ContextProvider.resolve(
-                "hlr_subtree",
-                AgentConfig(hlr_uid="hlr-001"),
-            )
+                result = ContextProvider.resolve(
+                    "hlr_subtree",
+                    AgentConfig(hlr_uid="hlr-001"),
+                )
 
         assert result["hlr"] is hlr
         assert result["llrs"] == []
@@ -154,25 +183,30 @@ class TestResolveHlrSubtree:
             uid="test-001",
             name="happy_path",
             description="Happy path test",
-            steps=[step1, step2],
-            assertions=[assertion1],
         )
 
         llr1 = _mock_llr("llr-001")
-        llr1.verification_methods.all.return_value = [test1]
-
         hlr = _mock_hlr()
-        hlr.llrs.all.return_value = [llr1]
 
         with patch(
             "codegraph_requirements.models.HLR"
         ) as mock_hlr_model:
             mock_hlr_model.nodes.get_or_none.return_value = hlr
+            with patch(
+                "codegraph_agents.context.builtins.repo"
+            ) as repo_mock:
+                _setup_repo_compose_map(
+                    repo_mock,
+                    llrs_for={hlr: [llr1]},
+                    tests_for={llr1: [test1]},
+                    steps_for={test1: [step1, step2]},
+                    assertions_for={test1: [assertion1]},
+                )
 
-            result = ContextProvider.resolve(
-                "hlr_subtree",
-                AgentConfig(hlr_uid="hlr-001"),
-            )
+                result = ContextProvider.resolve(
+                    "hlr_subtree",
+                    AgentConfig(hlr_uid="hlr-001"),
+                )
 
         notional = result["notional_verifications"]
         assert len(notional) == 1
@@ -198,17 +232,23 @@ class TestResolveHlrSubtree:
         dc2 = _mock_design_compound("archgen::ErrorState", "ErrorState", "enum")
 
         hlr = _mock_hlr()
-        hlr.design_compounds.all.return_value = [dc1, dc2]
 
         with patch(
             "codegraph_requirements.models.HLR"
         ) as mock_hlr_model:
             mock_hlr_model.nodes.get_or_none.return_value = hlr
+            with patch(
+                "codegraph_agents.context.builtins.repo"
+            ) as repo_mock:
+                _setup_repo_compose_map(
+                    repo_mock,
+                    design_compounds_for={hlr: [dc1, dc2]},
+                )
 
-            result = ContextProvider.resolve(
-                "hlr_subtree",
-                AgentConfig(hlr_uid="hlr-001"),
-            )
+                result = ContextProvider.resolve(
+                    "hlr_subtree",
+                    AgentConfig(hlr_uid="hlr-001"),
+                )
 
         compounds = result["design_compounds"]
         assert len(compounds) == 2
@@ -231,23 +271,29 @@ class TestResolveHlrSubtree:
             uid="test-empty",
             name="empty_test",
             description="No steps or assertions",
-            steps=[],
-            assertions=[],
         )
         llr1 = _mock_llr()
-        llr1.verification_methods.all.return_value = [test1]
         hlr = _mock_hlr()
-        hlr.llrs.all.return_value = [llr1]
 
         with patch(
             "codegraph_requirements.models.HLR"
         ) as mock_hlr_model:
             mock_hlr_model.nodes.get_or_none.return_value = hlr
+            with patch(
+                "codegraph_agents.context.builtins.repo"
+            ) as repo_mock:
+                _setup_repo_compose_map(
+                    repo_mock,
+                    llrs_for={hlr: [llr1]},
+                    tests_for={llr1: [test1]},
+                    steps_for={test1: []},
+                    assertions_for={test1: []},
+                )
 
-            result = ContextProvider.resolve(
-                "hlr_subtree",
-                AgentConfig(hlr_uid="hlr-001"),
-            )
+                result = ContextProvider.resolve(
+                    "hlr_subtree",
+                    AgentConfig(hlr_uid="hlr-001"),
+                )
 
         t = result["notional_verifications"][0]
         assert t["steps"] == []
@@ -263,27 +309,29 @@ class TestResolveHlrSubtree:
             operator=None,
             expected_value=None,
         )
-        test = _mock_test(
-            uid="test-nulls",
-            name=None,
-            description=None,
-            steps=[step],
-            assertions=[assertion],
-        )
+        test = _mock_test(uid="test-nulls", name=None, description=None)
         llr = _mock_llr()
-        llr.verification_methods.all.return_value = [test]
         hlr = _mock_hlr()
-        hlr.llrs.all.return_value = [llr]
 
         with patch(
             "codegraph_requirements.models.HLR"
         ) as mock_hlr_model:
             mock_hlr_model.nodes.get_or_none.return_value = hlr
+            with patch(
+                "codegraph_agents.context.builtins.repo"
+            ) as repo_mock:
+                _setup_repo_compose_map(
+                    repo_mock,
+                    llrs_for={hlr: [llr]},
+                    tests_for={llr: [test]},
+                    steps_for={test: [step]},
+                    assertions_for={test: [assertion]},
+                )
 
-            result = ContextProvider.resolve(
-                "hlr_subtree",
-                AgentConfig(hlr_uid="hlr-001"),
-            )
+                result = ContextProvider.resolve(
+                    "hlr_subtree",
+                    AgentConfig(hlr_uid="hlr-001"),
+                )
 
         t = result["notional_verifications"][0]
         assert t["test_name"] == ""
@@ -301,21 +349,28 @@ class TestResolveHlrSubtree:
         test_a = _mock_test(uid="t-a", name="test A")
         test_b = _mock_test(uid="t-b", name="test B")
         llr_a = _mock_llr("llr-a")
-        llr_a.verification_methods.all.return_value = [test_a]
         llr_b = _mock_llr("llr-b")
-        llr_b.verification_methods.all.return_value = [test_b]
         hlr = _mock_hlr()
-        hlr.llrs.all.return_value = [llr_a, llr_b]
 
         with patch(
             "codegraph_requirements.models.HLR"
         ) as mock_hlr_model:
             mock_hlr_model.nodes.get_or_none.return_value = hlr
+            with patch(
+                "codegraph_agents.context.builtins.repo"
+            ) as repo_mock:
+                _setup_repo_compose_map(
+                    repo_mock,
+                    llrs_for={hlr: [llr_a, llr_b]},
+                    tests_for={llr_a: [test_a], llr_b: [test_b]},
+                    steps_for={test_a: [], test_b: []},
+                    assertions_for={test_a: [], test_b: []},
+                )
 
-            result = ContextProvider.resolve(
-                "hlr_subtree",
-                AgentConfig(hlr_uid="hlr-001"),
-            )
+                result = ContextProvider.resolve(
+                    "hlr_subtree",
+                    AgentConfig(hlr_uid="hlr-001"),
+                )
 
         notional = result["notional_verifications"]
         assert len(notional) == 2
@@ -344,17 +399,23 @@ class TestResolveComponentNamespace:
 
         comp = _mock_component("archgen")
         hlr = _mock_hlr()
-        hlr.component.all.return_value = [comp]
 
         with patch(
             "codegraph_requirements.models.HLR"
         ) as mock_hlr_model:
             mock_hlr_model.nodes.get_or_none.return_value = hlr
+            with patch(
+                "codegraph_agents.context.builtins.repo"
+            ) as repo_mock:
+                _setup_repo_compose_map(
+                    repo_mock,
+                    components_for={hlr: [comp]},
+                )
 
-            result = ContextProvider.resolve(
-                "component_namespace",
-                AgentConfig(hlr_uid="hlr-001"),
-            )
+                result = ContextProvider.resolve(
+                    "component_namespace",
+                    AgentConfig(hlr_uid="hlr-001"),
+                )
         assert result == "archgen"
 
     def test_hlr_not_found_returns_empty(self) -> None:
@@ -377,17 +438,23 @@ class TestResolveComponentNamespace:
         from codegraph_agents.context import ContextProvider
 
         hlr = _mock_hlr()
-        hlr.component.all.return_value = []
 
         with patch(
             "codegraph_requirements.models.HLR"
         ) as mock_hlr_model:
             mock_hlr_model.nodes.get_or_none.return_value = hlr
+            with patch(
+                "codegraph_agents.context.builtins.repo"
+            ) as repo_mock:
+                _setup_repo_compose_map(
+                    repo_mock,
+                    components_for={hlr: []},
+                )
 
-            result = ContextProvider.resolve(
-                "component_namespace",
-                AgentConfig(hlr_uid="hlr-001"),
-            )
+                result = ContextProvider.resolve(
+                    "component_namespace",
+                    AgentConfig(hlr_uid="hlr-001"),
+                )
         assert result == ""
 
 
@@ -403,56 +470,59 @@ class TestResolvePriorDesignCompounds:
 
         dc = _mock_design_compound("ns::Other", "Other")
         other_hlr = _mock_hlr(uid="hlr-other")
-        other_hlr.design_compounds.all.return_value = [dc]
-
         current_hlr = _mock_hlr(uid="hlr-current")
 
         with patch(
             "codegraph_requirements.models.HLR"
         ) as mock_hlr_model:
-            mock_hlr_model.nodes.get_or_none.return_value = (
-                current_hlr
-            )
-            mock_hlr_model.nodes.all.return_value = [
-                current_hlr,
-                other_hlr,
-            ]
+            mock_hlr_model.nodes.get_or_none.return_value = current_hlr
+            with patch(
+                "codegraph_agents.context.builtins.repo"
+            ) as repo_mock:
+                _setup_repo_compose_map(
+                    repo_mock,
+                    all_hlrs=[current_hlr, other_hlr],
+                    design_compounds_for={other_hlr: [dc], current_hlr: []},
+                )
 
-            result = ContextProvider.resolve(
-                "prior_design_compounds",
-                AgentConfig(hlr_uid="hlr-current"),
-            )
+                result = ContextProvider.resolve(
+                    "prior_design_compounds",
+                    AgentConfig(hlr_uid="hlr-current"),
+                )
 
         assert len(result) == 1
         assert result[0]["qualified_name"] == "ns::Other"
 
     def test_skips_hlrs_without_design_compounds(self) -> None:
-        """HLRs without a design_compounds relationship are skipped."""
+        """HLRs without design compounds are skipped."""
         from codegraph_agents.context import ContextProvider
 
         hlr_without = _mock_hlr(uid="hlr-no-dc")
-        del hlr_without.design_compounds  # hasattr will return False
-
         dc = _mock_design_compound("ns::HasOne", "HasOne")
         hlr_with = _mock_hlr(uid="hlr-with")
-        hlr_with.design_compounds.all.return_value = [dc]
-
         current = _mock_hlr(uid="hlr-current")
 
         with patch(
             "codegraph_requirements.models.HLR"
         ) as mock_hlr_model:
             mock_hlr_model.nodes.get_or_none.return_value = current
-            mock_hlr_model.nodes.all.return_value = [
-                current,
-                hlr_without,
-                hlr_with,
-            ]
+            with patch(
+                "codegraph_agents.context.builtins.repo"
+            ) as repo_mock:
+                _setup_repo_compose_map(
+                    repo_mock,
+                    all_hlrs=[current, hlr_without, hlr_with],
+                    design_compounds_for={
+                        hlr_with: [dc],
+                        hlr_without: [],
+                        current: [],
+                    },
+                )
 
-            result = ContextProvider.resolve(
-                "prior_design_compounds",
-                AgentConfig(hlr_uid="hlr-current"),
-            )
+                result = ContextProvider.resolve(
+                    "prior_design_compounds",
+                    AgentConfig(hlr_uid="hlr-current"),
+                )
 
         assert len(result) == 1
         assert result[0]["qualified_name"] == "ns::HasOne"
@@ -467,12 +537,19 @@ class TestResolvePriorDesignCompounds:
             "codegraph_requirements.models.HLR"
         ) as mock_hlr_model:
             mock_hlr_model.nodes.get_or_none.return_value = current
-            mock_hlr_model.nodes.all.return_value = [current]
+            with patch(
+                "codegraph_agents.context.builtins.repo"
+            ) as repo_mock:
+                _setup_repo_compose_map(
+                    repo_mock,
+                    all_hlrs=[current],
+                    design_compounds_for={current: []},
+                )
 
-            result = ContextProvider.resolve(
-                "prior_design_compounds",
-                AgentConfig(hlr_uid="only-hlr"),
-            )
+                result = ContextProvider.resolve(
+                    "prior_design_compounds",
+                    AgentConfig(hlr_uid="only-hlr"),
+                )
 
         assert result == []
 
@@ -489,28 +566,31 @@ class TestResolveSiblingNamespaces:
 
         comp_a = _mock_component("archgen")
         hlr_a = _mock_hlr(uid="hlr-a")
-        hlr_a.component.all.return_value = [comp_a]
-
         comp_b = _mock_component("climate")
         hlr_b = _mock_hlr(uid="hlr-b")
-        hlr_b.component.all.return_value = [comp_b]
-
         current = _mock_hlr(uid="hlr-current")
 
         with patch(
             "codegraph_requirements.models.HLR"
         ) as mock_hlr_model:
             mock_hlr_model.nodes.get_or_none.return_value = current
-            mock_hlr_model.nodes.all.return_value = [
-                current,
-                hlr_a,
-                hlr_b,
-            ]
+            with patch(
+                "codegraph_agents.context.builtins.repo"
+            ) as repo_mock:
+                _setup_repo_compose_map(
+                    repo_mock,
+                    all_hlrs=[current, hlr_a, hlr_b],
+                    components_for={
+                        hlr_a: [comp_a],
+                        hlr_b: [comp_b],
+                        current: [],
+                    },
+                )
 
-            result = ContextProvider.resolve(
-                "sibling_namespaces",
-                AgentConfig(hlr_uid="hlr-current"),
-            )
+                result = ContextProvider.resolve(
+                    "sibling_namespaces",
+                    AgentConfig(hlr_uid="hlr-current"),
+                )
 
         assert sorted(result) == ["archgen", "climate"]
 
@@ -520,28 +600,31 @@ class TestResolveSiblingNamespaces:
 
         comp1 = _mock_component("shared_ns")
         hlr1 = _mock_hlr(uid="hlr-1")
-        hlr1.component.all.return_value = [comp1]
-
         comp2 = _mock_component("shared_ns")
         hlr2 = _mock_hlr(uid="hlr-2")
-        hlr2.component.all.return_value = [comp2]
-
         current = _mock_hlr(uid="hlr-current")
 
         with patch(
             "codegraph_requirements.models.HLR"
         ) as mock_hlr_model:
             mock_hlr_model.nodes.get_or_none.return_value = current
-            mock_hlr_model.nodes.all.return_value = [
-                current,
-                hlr1,
-                hlr2,
-            ]
+            with patch(
+                "codegraph_agents.context.builtins.repo"
+            ) as repo_mock:
+                _setup_repo_compose_map(
+                    repo_mock,
+                    all_hlrs=[current, hlr1, hlr2],
+                    components_for={
+                        hlr1: [comp1],
+                        hlr2: [comp2],
+                        current: [],
+                    },
+                )
 
-            result = ContextProvider.resolve(
-                "sibling_namespaces",
-                AgentConfig(hlr_uid="hlr-current"),
-            )
+                result = ContextProvider.resolve(
+                    "sibling_namespaces",
+                    AgentConfig(hlr_uid="hlr-current"),
+                )
 
         assert result == ["shared_ns"]
 
@@ -551,18 +634,24 @@ class TestResolveSiblingNamespaces:
 
         comp = _mock_component("current_ns")
         current = _mock_hlr(uid="hlr-current")
-        current.component.all.return_value = [comp]
 
         with patch(
             "codegraph_requirements.models.HLR"
         ) as mock_hlr_model:
             mock_hlr_model.nodes.get_or_none.return_value = current
-            mock_hlr_model.nodes.all.return_value = [current]
+            with patch(
+                "codegraph_agents.context.builtins.repo"
+            ) as repo_mock:
+                _setup_repo_compose_map(
+                    repo_mock,
+                    all_hlrs=[current],
+                    components_for={current: [comp]},
+                )
 
-            result = ContextProvider.resolve(
-                "sibling_namespaces",
-                AgentConfig(hlr_uid="hlr-current"),
-            )
+                result = ContextProvider.resolve(
+                    "sibling_namespaces",
+                    AgentConfig(hlr_uid="hlr-current"),
+                )
 
         assert result == []
 
@@ -571,28 +660,31 @@ class TestResolveSiblingNamespaces:
         from codegraph_agents.context import ContextProvider
 
         hlr_no_comp = _mock_hlr(uid="hlr-no-comp")
-        del hlr_no_comp.component
-
         comp = _mock_component("archgen")
         hlr_with_comp = _mock_hlr(uid="hlr-with")
-        hlr_with_comp.component.all.return_value = [comp]
-
         current = _mock_hlr(uid="hlr-current")
 
         with patch(
             "codegraph_requirements.models.HLR"
         ) as mock_hlr_model:
             mock_hlr_model.nodes.get_or_none.return_value = current
-            mock_hlr_model.nodes.all.return_value = [
-                current,
-                hlr_no_comp,
-                hlr_with_comp,
-            ]
+            with patch(
+                "codegraph_agents.context.builtins.repo"
+            ) as repo_mock:
+                _setup_repo_compose_map(
+                    repo_mock,
+                    all_hlrs=[current, hlr_no_comp, hlr_with_comp],
+                    components_for={
+                        hlr_with_comp: [comp],
+                        hlr_no_comp: [],
+                        current: [],
+                    },
+                )
 
-            result = ContextProvider.resolve(
-                "sibling_namespaces",
-                AgentConfig(hlr_uid="hlr-current"),
-            )
+                result = ContextProvider.resolve(
+                    "sibling_namespaces",
+                    AgentConfig(hlr_uid="hlr-current"),
+                )
 
         assert result == ["archgen"]
 
@@ -602,27 +694,30 @@ class TestResolveSiblingNamespaces:
 
         comp_empty = _mock_component("")
         hlr_empty = _mock_hlr(uid="hlr-empty")
-        hlr_empty.component.all.return_value = [comp_empty]
-
         comp_real = _mock_component("real_ns")
         hlr_real = _mock_hlr(uid="hlr-real")
-        hlr_real.component.all.return_value = [comp_real]
-
         current = _mock_hlr(uid="hlr-current")
 
         with patch(
             "codegraph_requirements.models.HLR"
         ) as mock_hlr_model:
             mock_hlr_model.nodes.get_or_none.return_value = current
-            mock_hlr_model.nodes.all.return_value = [
-                current,
-                hlr_empty,
-                hlr_real,
-            ]
+            with patch(
+                "codegraph_agents.context.builtins.repo"
+            ) as repo_mock:
+                _setup_repo_compose_map(
+                    repo_mock,
+                    all_hlrs=[current, hlr_empty, hlr_real],
+                    components_for={
+                        hlr_empty: [comp_empty],
+                        hlr_real: [comp_real],
+                        current: [],
+                    },
+                )
 
-            result = ContextProvider.resolve(
-                "sibling_namespaces",
-                AgentConfig(hlr_uid="hlr-current"),
-            )
+                result = ContextProvider.resolve(
+                    "sibling_namespaces",
+                    AgentConfig(hlr_uid="hlr-current"),
+                )
 
         assert result == ["real_ns"]

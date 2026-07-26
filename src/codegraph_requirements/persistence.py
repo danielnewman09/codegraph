@@ -40,6 +40,8 @@ from neomodel import db
 
 from codegraph_requirements.models.requirement import HLR, LLR
 from codegraph_requirements.schemas import DecomposedRequirementSchema
+from codegraph.persistence.repository import GraphRepository
+from codegraph.models.test import TestNode, AssertionNode, TestStepNode, TestFixtureNode
 
 log = logging.getLogger(__name__)
 
@@ -193,7 +195,7 @@ def persist_decomposition(
         raise ValueError(f"HLR '{hlr_uid}' not found")
 
     # --- Delete existing LLRs (and their verification subtrees) ---
-    for old_llr in hlr.llrs.all():
+    for old_llr in GraphRepository.composed_children(hlr, LLR):
         _delete_llr_subtree(old_llr)
 
     # --- Deserialize into a LayerGraph with auto-scaffold creation ---
@@ -289,11 +291,19 @@ def persist_decomposition(
         if type(entry.node) is LLR:
             _create_edge(hlr, entry.node, "COMPOSES")
             result.llrs_created += 1
-            for test_node in entry.node.verification_methods.all():
+            for test_node in GraphRepository.composed_children(
+                entry.node, TestNode
+            ):
                 result.tests_created += 1
-                result.assertions_created += len(test_node.assertions.all())
-                result.steps_created += len(test_node.steps.all())
-                result.fixtures_created += len(test_node.fixtures.all())
+                result.assertions_created += len(
+                    GraphRepository.composed_children(test_node, AssertionNode)
+                )
+                result.steps_created += len(
+                    GraphRepository.composed_children(test_node, TestStepNode)
+                )
+                result.fixtures_created += len(
+                    GraphRepository.composed_children(test_node, TestFixtureNode)
+                )
 
     log.info(
         "persist_decomposition: HLR %s — %d LLRs, %d tests, %d assertions, "
@@ -542,12 +552,18 @@ def _delete_llr_subtree(llr: LLR) -> None:
     Deletes all TestNode, AssertionNode, TestStepNode, and TestFixtureNode
     children, then the LLR itself.
     """
-    for test_node in llr.verification_methods.all():
-        for assertion in test_node.assertions.all():
+    for test_node in GraphRepository.composed_children(llr, TestNode):
+        for assertion in GraphRepository.composed_children(
+            test_node, AssertionNode
+        ):
             assertion.delete()
-        for step in test_node.steps.all():
+        for step in GraphRepository.composed_children(
+            test_node, TestStepNode
+        ):
             step.delete()
-        for fixture in test_node.fixtures.all():
+        for fixture in GraphRepository.composed_children(
+            test_node, TestFixtureNode
+        ):
             fixture.delete()
         test_node.delete()
     llr.delete()

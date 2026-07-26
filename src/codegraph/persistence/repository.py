@@ -272,16 +272,7 @@ class GraphRepository:
         ns = get_backend().get(NamespaceNode, qualified_name=qualified_name)
         if ns is None:
             return LayerGraph(tags=frozenset({"design"}))
-        seeds = (
-            [ns]
-            + list(ns.classes.all())
-            + list(ns.interfaces.all())
-            + list(ns.enums.all())
-            + list(ns.unions.all())
-            + list(ns.modules.all())
-            + list(ns.functions.all())
-            + list(ns.namespaces.all())
-        )
+        seeds = [ns] + get_backend().get_composed_children(ns)
         return self._build_layer_graph(seeds)
 
     def get_by_compound(self, qualified_name: str) -> LayerGraph:

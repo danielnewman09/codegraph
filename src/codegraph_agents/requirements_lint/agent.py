@@ -28,6 +28,9 @@ from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage
 from codegraph_agents.base import BaseAgent
 from codegraph_agents.config import AgentConfig
 from codegraph_agents.state import AgentState
+from codegraph.persistence.repository import GraphRepository
+
+_repo = GraphRepository()
 
 log = logging.getLogger("codegraph_agents.requirements_lint")
 
@@ -454,11 +457,9 @@ class RequirementsLintAgent(BaseAgent):
                     parts.append(f"\n{llr_desc}\n")
 
                 # Tests for this LLR — traverse verification_methods
-                verif_methods = (
-                    list(llr.verification_methods.all())
-                    if hasattr(llr, "verification_methods")
-                    else []
-                )
+                from codegraph.models.test import TestNode, TestStepNode, AssertionNode
+
+                verif_methods = _repo.composed_children(llr, TestNode)
                 if verif_methods:
                     parts.append(
                         f"  Tests ({len(verif_methods)}):"
@@ -478,10 +479,8 @@ class RequirementsLintAgent(BaseAgent):
                             parts.append(f"      {test_desc}")
 
                         # Steps
-                        steps = (
-                            list(test.steps.all())
-                            if hasattr(test, "steps")
-                            else []
+                        steps = _repo.composed_children(
+                            test, TestStepNode
                         )
                         if steps:
                             parts.append(
@@ -506,10 +505,8 @@ class RequirementsLintAgent(BaseAgent):
                                 parts.append(line)
 
                         # Assertions
-                        assertions = (
-                            list(test.assertions.all())
-                            if hasattr(test, "assertions")
-                            else []
+                        assertions = _repo.composed_children(
+                            test, AssertionNode
                         )
                         if assertions:
                             parts.append(

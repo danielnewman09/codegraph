@@ -36,7 +36,7 @@
             ],
             "type": "MethodNode",
             "type_signature": "CalculatorResult",
-            "uid": "a02edaa99b354a5bafc970c63211f43a",
+            "uid": "cabd1de0bb9b44e5b4a7dd5c970874e0",
             "visibility": "public"
           },
           {
@@ -68,7 +68,7 @@
             ],
             "type": "MethodNode",
             "type_signature": "bool",
-            "uid": "0759fc8dcbd34e04a271eda1e95c5292",
+            "uid": "777f5e5f93774ebf9fb6fa870e098ab0",
             "visibility": "public"
           },
           {
@@ -95,7 +95,7 @@
             ],
             "type": "AttributeNode",
             "type_signature": "int",
-            "uid": "d88a502438624689867b4bc59c38ccb7",
+            "uid": "f3b88bd2f44f4200a66cd475bea44a54",
             "visibility": "public"
           }
         ],
@@ -129,7 +129,7 @@
           "design"
         ],
         "type": "ClassNode",
-        "uid": "2db41cae607f4da18bc677929b4ca4de",
+        "uid": "9627d7c2264b4103a1de28ebde0d1fbd",
         "visibility": ""
       },
       {
@@ -166,7 +166,7 @@
             ],
             "type": "MethodNode",
             "type_signature": "double",
-            "uid": "50440599eb9245ceb8569f4c36e52f60",
+            "uid": "4c59f6cdac8b437a8c588d4e86ebbd35",
             "visibility": "public"
           },
           {
@@ -193,7 +193,7 @@
             ],
             "type": "AttributeNode",
             "type_signature": "double",
-            "uid": "78ecdc8ee6774ceea46d9aa23c13733f",
+            "uid": "897ac03940e04d2b8c3f315dd9315679",
             "visibility": "public"
           }
         ],
@@ -216,7 +216,7 @@
           "design"
         ],
         "type": "ClassNode",
-        "uid": "d24314647319489292cdcf4b2fd7a742",
+        "uid": "a2245bec8a8f4b4c96938a8e7af44af4",
         "visibility": ""
       },
       {
@@ -252,7 +252,7 @@
             ],
             "type": "MethodNode",
             "type_signature": "CalculatorResult",
-            "uid": "36dee540abff4523930b84afd235aa09",
+            "uid": "1fb05f3489d548409306a7f408339f1f",
             "visibility": "public"
           }
         ],
@@ -274,7 +274,7 @@
           "design"
         ],
         "type": "InterfaceNode",
-        "uid": "e3c1e89dbb784f569c6c79aa14518ffe",
+        "uid": "b5b247989e324db6b428479be9670901",
         "visibility": ""
       },
       {
@@ -302,7 +302,7 @@
               "design"
             ],
             "type": "EnumValueNode",
-            "uid": "cc80a17d8e784a6d88ac16d01f982771",
+            "uid": "c2a3e2002c6b4036abd31576111d34eb",
             "visibility": ""
           },
           {
@@ -326,7 +326,7 @@
               "design"
             ],
             "type": "EnumValueNode",
-            "uid": "210b34d7a97f45c58685c9994b8aa0e5",
+            "uid": "3b5ad92d30de4853bbb99f4071fc8ccb",
             "visibility": ""
           }
         ],
@@ -347,7 +347,7 @@
           "design"
         ],
         "type": "EnumNode",
-        "uid": "11270c0c8ea6452896536a58a0e3a5ad",
+        "uid": "7334e995758f40918a50f10327edccda",
         "visibility": ""
       },
       {
@@ -373,7 +373,7 @@
         ],
         "type": "FunctionNode",
         "type_signature": "",
-        "uid": "e2572f00f2ce40aca6c3f4d20f8754db",
+        "uid": "5794b972028540ca90bbe6878865d083",
         "visibility": ""
       }
     ],
@@ -388,7 +388,7 @@
       "design"
     ],
     "type": "NamespaceNode",
-    "uid": "0f464714fed947639725b982b3b4126e"
+    "uid": "7a6283abc75b4cf284db4d2ce245f497"
   },
   {
     "component_id": null,
@@ -427,7 +427,7 @@
             ],
             "type": "MethodNode",
             "type_signature": "void",
-            "uid": "61a8da467d71448ebb5daeda8de0fbf9",
+            "uid": "76897a4d58c945c893eb11932285390f",
             "visibility": "public"
           }
         ],
@@ -450,7 +450,7 @@
           "design"
         ],
         "type": "ClassNode",
-        "uid": "0473d3cdd55b485380abba7ee3826c53",
+        "uid": "1c53e81d0fd64768ad638766b4050950",
         "visibility": ""
       },
       {
@@ -487,7 +487,7 @@
             ],
             "type": "MethodNode",
             "type_signature": "void",
-            "uid": "d604316b32394ccea84eacc6b8b6f524",
+            "uid": "447c67c0556642e6b3a45acede0bbae0",
             "visibility": "private"
           },
           {
@@ -514,7 +514,7 @@
             ],
             "type": "AttributeNode",
             "type_signature": "string",
-            "uid": "a3703f3d3f4f429e8d1a066c71c3e4c6",
+            "uid": "8cf2056d2cff47f2803e03aa3f7a7f38",
             "visibility": "private"
           },
           {
@@ -541,7 +541,7 @@
             ],
             "type": "AttributeNode",
             "type_signature": "string",
-            "uid": "6411e01aba054c0ea950e17620e665c7",
+            "uid": "8e8b66580f0e4c9e8f3dcde7b7e9109e",
             "visibility": "private"
           }
         ],
@@ -575,7 +575,7 @@
           "design"
         ],
         "type": "ClassNode",
-        "uid": "bfdb7d98104449998a027950de391141",
+        "uid": "10632e6d5fe749d280afc14173689d29",
         "visibility": ""
       }
     ],
@@ -590,6 +590,6 @@
       "design"
     ],
     "type": "NamespaceNode",
-    "uid": "1264caeff95a4b36802f72269783e244"
+    "uid": "ed0d97cbc68c444997925539a24f6d1d"
   }
 ]

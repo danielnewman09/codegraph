@@ -13,8 +13,10 @@ from typing import Any
 
 from codegraph_agents.config import AgentConfig
 from codegraph_agents.context import ContextProvider
+from codegraph.persistence.repository import GraphRepository
 
 log = logging.getLogger("codegraph_agents.context.builtins")
+repo = GraphRepository()
 
 
 # ── Mandatory resolvers ────────────────────────────────────────
@@ -32,7 +34,9 @@ def _resolve_hlr_subtree(config: AgentConfig) -> dict[str, Any]:
     * ``design_compounds`` — existing design nodes already linked
       to this HLR
     """
-    from codegraph_requirements.models import HLR
+    from codegraph_requirements.models import HLR, LLR
+    from codegraph.models.test import TestNode, TestStepNode, AssertionNode
+    from codegraph.models.compound import CompoundNode
 
     hlr = HLR.nodes.get_or_none(uid=config.hlr_uid)
     if not hlr:
@@ -40,26 +44,14 @@ def _resolve_hlr_subtree(config: AgentConfig) -> dict[str, Any]:
             f"HLR with uid={config.hlr_uid} not found in Neo4j"
         )
 
-    llrs = list(hlr.llrs.all()) if hasattr(hlr, "llrs") else []
+    llrs = repo.composed_children(hlr, LLR)
 
     notional = []
     for llr in llrs:
-        tests = (
-            list(llr.verification_methods.all())
-            if hasattr(llr, "verification_methods")
-            else []
-        )
+        tests = repo.composed_children(llr, TestNode)
         for test in tests:
-            steps = (
-                list(test.steps.all())
-                if hasattr(test, "steps")
-                else []
-            )
-            assertions = (
-                list(test.assertions.all())
-                if hasattr(test, "assertions")
-                else []
-            )
+            steps = repo.composed_children(test, TestStepNode)
+            assertions = repo.composed_children(test, AssertionNode)
             notional.append({
                 "test_uid": test.uid,
                 "test_name": test.name or "",
@@ -97,16 +89,16 @@ def _resolve_hlr_subtree(config: AgentConfig) -> dict[str, Any]:
                 ],
             })
 
-    design_compounds = []
-    if hasattr(hlr, "design_compounds"):
-        for node in hlr.design_compounds.all():
-            design_compounds.append({
-                "qualified_name": (
-                    getattr(node, "qualified_name", "") or ""
-                ),
-                "name": getattr(node, "name", "") or "",
-                "kind": getattr(node, "kind", "class"),
-            })
+    design_compounds = [
+        {
+            "qualified_name": (
+                getattr(node, "qualified_name", "") or ""
+            ),
+            "name": getattr(node, "name", "") or "",
+            "kind": getattr(node, "kind", "class"),
+        }
+        for node in repo.composed_children(hlr, CompoundNode)
+    ]
 
     return {
         "hlr": hlr,
@@ -126,6 +118,7 @@ def _resolve_component_namespace(config: AgentConfig) -> str:
 
     try:
         from codegraph_requirements.models import HLR
+        from codegraph_project.models.component import Component
     except ImportError:
         log.debug(
             "codegraph_requirements not available — "
@@ -136,11 +129,7 @@ def _resolve_component_namespace(config: AgentConfig) -> str:
     hlr = HLR.nodes.get_or_none(uid=config.hlr_uid)
     if not hlr:
         return ""
-    comps = (
-        hlr.component.all()
-        if hasattr(hlr, "component")
-        else []
-    )
+    comps = repo.incoming_composers(hlr, Component)
     return getattr(comps[0], "namespace", "") if comps else ""
 
 
@@ -150,6 +139,7 @@ def _resolve_prior_design_compounds(
     """Return design compounds from *other* HLRs for cross-HLR awareness."""
     try:
         from codegraph_requirements.models import HLR
+        from codegraph.models.compound import CompoundNode
     except ImportError:
         log.debug(
             "codegraph_requirements not available — "
@@ -158,12 +148,10 @@ def _resolve_prior_design_compounds(
         return []
 
     results: list[dict[str, str]] = []
-    for other_hlr in HLR.nodes.all():
+    for other_hlr in repo.find_all_by_kind("hlr"):
         if other_hlr.uid == config.hlr_uid:
             continue
-        if not hasattr(other_hlr, "design_compounds"):
-            continue
-        for target in other_hlr.design_compounds.all():
+        for target in repo.composed_children(other_hlr, CompoundNode):
             results.append({
                 "qualified_name": (
                     getattr(target, "qualified_name", "") or ""
@@ -180,6 +168,7 @@ def _resolve_sibling_namespaces(
     """Return namespaces of sibling components for disambiguation."""
     try:
         from codegraph_requirements.models import HLR
+        from codegraph_project.models.component import Component
     except ImportError:
         log.debug(
             "codegraph_requirements not available — "
@@ -189,12 +178,10 @@ def _resolve_sibling_namespaces(
 
     namespaces: list[str] = []
     seen: set[str] = set()
-    for other_hlr in HLR.nodes.all():
+    for other_hlr in repo.find_all_by_kind("hlr"):
         if other_hlr.uid == config.hlr_uid:
             continue
-        if not hasattr(other_hlr, "component"):
-            continue
-        for comp in other_hlr.component.all():
+        for comp in repo.incoming_composers(other_hlr, Component):
             ns = getattr(comp, "namespace", "")
             if ns and ns not in seen:
                 seen.add(ns)

@@ -188,7 +188,8 @@ def _upsert_llr(
         return None
 
     # Determine index for naming (brute-force: count existing LLRs + 1)
-    existing_count = len(hlr.llrs.all())
+    from codegraph.persistence.repository import GraphRepository
+    existing_count = len(GraphRepository.composed_children(hlr, LLR))
 
     name = _make_llr_name(compound_name, existing_count)
 
@@ -252,20 +253,10 @@ def _link_hlr_to_compound(hlr, compound) -> bool:
 
 
 def _create_edge(source, target, edge_type: str) -> bool:
-    """Create an edge between two saved nodes using raw Cypher MERGE."""
+    """Create an edge between two saved nodes using the active backend."""
+    from codegraph.backends import get_backend
     try:
-        query = (
-            f"MATCH (s), (t) "
-            f"WHERE elementId(s) = $source_id AND elementId(t) = $target_id "
-            f"MERGE (s)-[:{edge_type}]->(t)"
-        )
-        db.cypher_query(
-            query,
-            {
-                "source_id": db.parse_element_id(source.element_id),
-                "target_id": db.parse_element_id(target.element_id),
-            },
-        )
+        get_backend().connect(source, target, edge_type)
         return True
     except Exception as exc:
         log.warning("Failed to create %s edge: %s", edge_type, exc)
