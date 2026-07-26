@@ -191,10 +191,10 @@ def _require_dev_neo4j(request):
     if not request.node.get_closest_marker("integration"):
         return
 
-    from codegraph.persistence.connection import require_connection
+    from codegraph.backends.neo4j.connection import Neo4jConnection
 
     try:
-        require_connection()
+        Neo4jConnection().require_connection()
     except Exception as exc:
         pytest.fail(
             f"Dev Neo4j is not reachable (needed by @pytest.mark.integration).\n"

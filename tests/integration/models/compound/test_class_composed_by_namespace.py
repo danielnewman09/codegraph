@@ -23,12 +23,14 @@ def test_class_composed_by_namespace():
         name="calc",
         kind="namespace",
         description="Calculation engine namespace",
+        source="test",
     ).save()
 
     class_node = ClassNode(
         name="CalculatorEngine",
         kind="class",
         brief_description="Core calculator engine",
+        source="test",
     ).save()
 
     # Connect from parent side

@@ -22,12 +22,14 @@ def test_enum_value_composed_by_enum():
         name="Operation",
         kind="enum",
         brief_description="Supported arithmetic operations",
+        source="test",
     ).save()
 
     value_node = EnumValueNode(
         name="ADD",
         kind="enumvalue",
         visibility="public",
+        source="test",
     ).save()
 
     # Connect from parent side

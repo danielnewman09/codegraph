@@ -160,6 +160,7 @@ class TestTestFixtureNodeFields:
             type_signature="CalculatorEngine",
             description="Direct instance of CalculatorEngine.",
             tags=["as-built"],
+            source="test",
         )
         # codegraph:test-desc test.test_test_fixture_node.TestTestFixtureNodeFields.test_all_fields_set::post_0
         # Validates the first field of the node to ensure it contains the expected
@@ -495,6 +496,7 @@ class TestTestFixtureNodeNeo4j:
             type_signature="NamespaceNode",
             description="A namespace fixture for calc namespace.",
             tags=["as-built"],
+            source="test",
         ).save()
         # codegraph:test-desc test.test_test_fixture_node.TestTestFixtureNodeNeo4j.test_create_and_save_basic_fixture::post_0
         # Asserts that the saved node was assigned a unique element_id by Neo4j,
@@ -531,6 +533,7 @@ class TestTestFixtureNodeNeo4j:
             kind="class",
             qualified_name="myapp::Foo",
             tags=["design"],
+            source="test",
         ).save()
 
         fixture = TestFixtureNode(
@@ -540,6 +543,7 @@ class TestTestFixtureNodeNeo4j:
             type_signature="Foo",
             description="Instance of Foo class.",
             tags=["as-built"],
+            source="test",
         ).save()
 
         fixture.of_type_class.connect(type_def)
@@ -573,6 +577,7 @@ class TestTestFixtureNodeNeo4j:
             order=0,
             description="Create foo = Foo()",
             tags=["as-built"],
+            source="test",
         ).save()
 
         fixture = TestFixtureNode(
@@ -582,6 +587,7 @@ class TestTestFixtureNodeNeo4j:
             type_signature="Foo",
             description="Instance created in step_0.",
             tags=["as-built"],
+            source="test",
         ).save()
 
         fixture.defined_in.connect(step)
@@ -618,6 +624,7 @@ class TestTestFixtureNodeNeo4j:
             operator="==",
             description="foo.name == 'test'",
             tags=["as-built"],
+            source="test",
         ).save()
 
         fixture = TestFixtureNode(
@@ -627,6 +634,7 @@ class TestTestFixtureNodeNeo4j:
             type_signature="Foo",
             description="Instance checked in post_0.",
             tags=["as-built"],
+            source="test",
         ).save()
 
         fixture.checked_by.connect(assertion)
@@ -662,6 +670,7 @@ class TestTestFixtureNodeNeo4j:
             method="automated",
             description="Test fixture composition.",
             tags=["as-built"],
+            source="test",
         ).save()
 
         fixture = TestFixtureNode(
@@ -671,6 +680,7 @@ class TestTestFixtureNodeNeo4j:
             type_signature="Foo",
             description="Instance created in the test.",
             tags=["as-built"],
+            source="test",
         ).save()
 
         test.fixtures.connect(fixture)
@@ -705,6 +715,7 @@ class TestTestFixtureNodeNeo4j:
             type_signature="list[NamespaceNode]",
             description="Result of enum_node.parent_namespace.all().",
             tags=["as-built"],
+            source="test",
         ).save()
 
         # type_signature captures the type without needing an OF_TYPE edge

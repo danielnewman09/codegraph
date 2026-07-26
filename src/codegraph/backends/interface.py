@@ -19,9 +19,10 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
-from codegraph.models.tags import CodeGraphNode
+if TYPE_CHECKING:
+    from codegraph.models.tags import CodeGraphNode
 
 
 
@@ -303,17 +304,29 @@ class Backend(ABC):
         self,
         query: str,
         params: dict | None = None,
-    ) -> tuple[list, dict]:
+    ) -> tuple[list[dict], list[str]]:
         """Execute a backend-native query string.
 
         For Neo4j: Cypher.  For SQLite: SQL.  Use only for stats,
         aggregation, migrations, and complex traversals that don't
         fit the CRUD model.
 
-        Returns ``(rows, metadata)`` — same shape as neomodel's
-        ``db.cypher_query()`` for backward compatibility during migration.
+        Returns ``(rows, columns)`` where *rows* is a list of dicts
+        (each keyed by column name) and *columns* is the ordered list
+        of column names.
         """
         ...
+
+    def verify_connectivity(self) -> bool:
+        """Check that the backend is reachable (safe to call before init).
+
+        Wraps :meth:`health_check` in a try/except, returning ``False``
+        instead of raising on connection failure.
+        """
+        try:
+            return self.health_check()
+        except Exception:
+            return False
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -343,6 +356,7 @@ def _require_registry_property(prop: str) -> None:
     """
 
     missing: list[str] = []
+    from codegraph.models.tags import CodeGraphNode  # lazy — avoids circular import with tags.py
     for node_cls in list(CodeGraphNode._registry.values()):
         if prop not in node_cls.defined_properties():
             missing.append(node_cls.__name__)

@@ -298,7 +298,7 @@ class InMemoryBackend(Backend):
         self,
         query: str,
         params: dict | None = None,
-    ) -> tuple[list, dict]:
+    ) -> tuple[list[dict], list[str]]:
         """Not supported for in-memory backend.
 
         Raises NotImplementedError — use the typed query methods instead.

@@ -12,7 +12,6 @@ from collections.abc import Callable
 from contextlib import contextmanager
 
 from codegraph.persistence.repository import GraphRepository
-from codegraph.persistence.connection import get_session
 from codegraph.export.format import export_graph, import_graph as format_import_graph
 from codegraph.graph import LayerGraph
 
@@ -68,16 +67,6 @@ class CodeGraphDispatcher(ToolDispatcher):
         self.current_graph: LayerGraph | None = None
 
         self._register_all()
-
-    @contextmanager
-    def session(self):
-        """Yield a Neo4j driver session.
-
-        Convenience wrapper around :func:`codegraph.connection.get_session`
-        for tools that need raw Cypher queries (discovery, lookup).
-        """
-        with get_session() as session:
-            yield session
 
     def _register_all(self) -> None:
         """Register all query, format, info, discovery, and lookup tools."""

@@ -23,12 +23,14 @@ def test_namespace_composed_by_parent_namespace():
         name="outer",
         kind="namespace",
         description="Outer namespace",
+        source="test",
     ).save()
 
     inner_ns = NamespaceNode(
         name="inner",
         kind="namespace",
         description="Inner nested namespace",
+        source="test",
     ).save()
 
     # Connect from parent side

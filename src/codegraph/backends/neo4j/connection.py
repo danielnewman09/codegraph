@@ -78,22 +78,23 @@ class Neo4jConnection:
         self,
         query: str,
         params: dict | None = None,
-    ) -> tuple[list[Any], dict]:
-        """Run a Cypher query via neomodel's built-in query runner.
-
-        Convenience wrapper around :func:`neomodel.db.cypher_query`.
+    ) -> tuple[list[dict], list[str]]:
+        """Run a Cypher query and return rows as dicts keyed by column name.
 
         Args:
             query: Cypher query string.
             params: Optional dict of query parameters.
 
         Returns:
-            A ``(results, meta)`` tuple.
+            A ``(rows, columns)`` tuple — *rows* is a list of dicts,
+            *columns* the ordered column names.
         """
         self.ensure_driver()
-        if params:
-            return db.cypher_query(query, params)
-        return db.cypher_query(query)
+        with self.get_session() as session:
+            result = session.run(query, params or {})
+            keys = list(result.keys())
+            rows = [dict(zip(keys, record.values())) for record in result]
+            return rows, keys
 
     def health_check(self) -> bool:
         """Check that Neo4j is reachable.

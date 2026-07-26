@@ -20,6 +20,7 @@ def test_class_composes_method():
         name="CalculatorEngine",
         kind="class",
         brief_description="Core calculator engine",
+        source="test",
     ).save()
 
     method_node = MethodNode(
@@ -28,6 +29,7 @@ def test_class_composes_method():
         type_signature="CalculatorResult",
         argsstring="(double a, double b)",
         visibility="public",
+        source="test",
     ).save()
 
     class_node.methods.connect(method_node)

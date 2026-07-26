@@ -220,8 +220,8 @@ def main(argv: list[str] | None = None) -> None:
 def _check_neo4j() -> None:
     """Verify Neo4j connectivity; exit with message on failure."""
     try:
-        from codegraph.persistence.connection import verify_connectivity
-        if not verify_connectivity():
+        from codegraph.backends import get_backend
+        if not get_backend().health_check():
             print(
                 "Cannot connect to Neo4j.\n"
                 "Ensure the database is running and NEO4J_URI, "

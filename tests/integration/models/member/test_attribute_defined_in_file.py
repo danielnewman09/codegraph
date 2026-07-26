@@ -30,6 +30,7 @@ def test_attribute_defined_in_file():
         name="widget.h",
         path="/src/widget.h",
         language="cpp",
+        source="test",
     ).save()
 
     attr_node = AttributeNode(
@@ -38,6 +39,7 @@ def test_attribute_defined_in_file():
         type_signature="int",
         visibility="private",
         brief_description="Widget width in pixels",
+        source="test",
     ).save()
 
     attr_node.defined_in.connect(file_node)

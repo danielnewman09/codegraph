@@ -1,14 +1,11 @@
-"""Codegraph — shared Neo4j codebase graph data model and connection.
+"""Codegraph — backend-agnostic codebase knowledge graph data model.
 
-Provides atomized neomodel Node models (Class, Interface, Enum, Union, Module,
+Provides atomized Node models (Class, Interface, Enum, Union, Module,
 Method, Attribute, EnumValue, Function, Define, Namespace, File, Parameter),
-LayerGraph container, GraphRepository for ORM reads, direct Cypher access
-via get_session() and cypher_query(), and constants (kinds, tags, predicates,
-schema DDL, language specializations).
+LayerGraph container, GraphRepository for data access, and constants
+(kinds, tags, predicates, schema DDL, language specializations).
 """
 
-from codegraph.persistence.config import NEO4J_PASSWORD, NEO4J_URI, NEO4J_USER
-from codegraph.persistence.connection import cypher_query, get_session, verify_connectivity
 from codegraph.backends import get_backend
 from codegraph.constants import (
     COMPOUND_KINDS,
@@ -103,14 +100,6 @@ __all__ = [
     "CodeGraphDispatcher",
     "ToolDispatcher",
     "create_dispatcher",
-    # Config
-    "NEO4J_URI",
-    "NEO4J_USER",
-    "NEO4J_PASSWORD",
-    # Connection
-    "get_session",
-    "cypher_query",
-    "verify_connectivity",
     # Backend
     "get_backend",
     # Constants

@@ -24,6 +24,7 @@ def test_function_composed_by_namespace():
         name="calc",
         kind="namespace",
         description="Calculation engine namespace",
+        source="test",
     ).save()
 
     func_node = FunctionNode(
@@ -32,6 +33,7 @@ def test_function_composed_by_namespace():
         type_signature="string",
         argsstring="(double value)",
         visibility="public",
+        source="test",
     ).save()
 
     # Connect from parent side

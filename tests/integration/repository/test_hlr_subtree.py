@@ -75,6 +75,7 @@ def _seed_hlr_subtree():
         name="Engine",
         kind="class",
         tags=["scaffold"],
+        source="test",
     ).save()
 
     # AttributeNodes (scaffold)
@@ -83,6 +84,7 @@ def _seed_hlr_subtree():
         name="is_ready",
         kind="attribute",
         tags=["scaffold"],
+        source="test",
     ).save()
     is_ready.parent_compound.connect(engine_cls)
 
@@ -91,6 +93,7 @@ def _seed_hlr_subtree():
         name="result",
         kind="attribute",
         tags=["scaffold"],
+        source="test",
     ).save()
     result_attr.parent_compound.connect(engine_cls)
 
@@ -99,6 +102,7 @@ def _seed_hlr_subtree():
         name="compute",
         kind="attribute",
         tags=["scaffold"],
+        source="test",
     ).save()
     compute_attr.parent_compound.connect(engine_cls)
 
@@ -107,6 +111,7 @@ def _seed_hlr_subtree():
         name="error_state",
         kind="attribute",
         tags=["scaffold"],
+        source="test",
     ).save()
     error_state.parent_compound.connect(engine_cls)
 
@@ -115,6 +120,7 @@ def _seed_hlr_subtree():
         name="ErrorFault",
         kind="attribute",
         tags=["scaffold"],
+        source="test",
     ).save()
 
     lit_true = LiteralNode(
@@ -124,6 +130,7 @@ def _seed_hlr_subtree():
         value_type="bool",
         kind="literal",
         tags=["scaffold"],
+        source="test",
     ).save()
 
     lit_42 = LiteralNode(
@@ -133,6 +140,7 @@ def _seed_hlr_subtree():
         value_type="int",
         kind="literal",
         tags=["scaffold"],
+        source="test",
     ).save()
 
     # ── Create requirement nodes ──────────────────────────────────────
@@ -140,12 +148,14 @@ def _seed_hlr_subtree():
         name="HLR-01",
         description="The system shall perform arithmetic operations correctly.",
         tags=["design"],
+        source="test",
     ).save()
 
     llr = LLR(
         name="LLR-01",
         description="The Engine shall expose a compute operation that returns the correct result for valid inputs and signals an error for invalid inputs.",
         tags=["design"],
+        source="test",
     ).save()
     hlr.llrs.connect(llr)
 
@@ -159,6 +169,7 @@ def _seed_hlr_subtree():
         method="automated",
         description="Verify compute returns correct result.",
         tags=["design"],
+        source="test",
     ).save()
     llr.verification_methods.connect(test1)
 
@@ -170,6 +181,7 @@ def _seed_hlr_subtree():
         operator="is_true",
         description="Engine is ready before compute.",
         tags=["design"],
+        source="test",
     ).save()
     test1.assertions.connect(pre1)
     pre1.left_operand_attribute.connect(is_ready)
@@ -183,6 +195,7 @@ def _seed_hlr_subtree():
         operator="==",
         description="Result equals 42 after compute.",
         tags=["design"],
+        source="test",
     ).save()
     test1.assertions.connect(post1)
     post1.left_operand_attribute.connect(result_attr)
@@ -194,6 +207,7 @@ def _seed_hlr_subtree():
         name="step_invoke_compute",
         description="Invoke the compute operation.",
         tags=["design"],
+        source="test",
     ).save()
     test1.steps.connect(step1)
     # CALLEE to scaffold AttributeNode — use raw Cypher since
@@ -217,6 +231,7 @@ def _seed_hlr_subtree():
         method="automated",
         description="Verify compute signals error for invalid input.",
         tags=["design"],
+        source="test",
     ).save()
     llr.verification_methods.connect(test2)
 
@@ -227,6 +242,7 @@ def _seed_hlr_subtree():
         operator="==",
         description="Error state indicates fault.",
         tags=["design"],
+        source="test",
     ).save()
     test2.assertions.connect(post2)
     post2.left_operand_attribute.connect(error_state)

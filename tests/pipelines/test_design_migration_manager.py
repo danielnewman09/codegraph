@@ -132,7 +132,7 @@ def v3_design_inputs() -> dict:
 # ── Tests ────────────────────────────────────────────────────────
 
 
-@pytest.skip
+@pytest.mark.skip
 @pytest.mark.slow
 @pytest.mark.integration
 class TestDesignMigrationManager:

@@ -25,8 +25,6 @@ These tests verify that:
 import re
 from pathlib import Path
 
-import pytest
-
 from codegraph.graph import LayerGraph, CompositeEntry
 from codegraph.export.markdown import export_markdown, import_markdown
 
@@ -654,7 +652,7 @@ class TestDecomposeOutputFormat:
         from pathlib import Path
 
         return (
-            Path(__file__).resolve().parent
+            Path(__file__).resolve().parents[2]
             / "unit_test_data" / "decompose_requirements.md"
         )
 
@@ -678,9 +676,8 @@ class TestDecomposeOutputFormat:
         human-readable name, not a hash-based identifier like
         ``hlr_792dc341``."""
         path = self._decompose_output_path()
-        if not path.exists():
-            pytest.skip("No decompose output file found")
-
+        assert path.exists()
+        
         text = path.read_text(encoding="utf-8")
 
         hlr_match = re.search(r'^## HLR:\s+`([^`]+)`', text, re.MULTILINE)
@@ -697,8 +694,10 @@ class TestDecomposeOutputFormat:
         """LLR heading labels should be human-readable identifiers, not
         hash-based uid prefixes like ``llr_5e3e51b0``."""
         path = self._decompose_output_path()
-        if not path.exists():
-            pytest.skip("No decompose output file found")
+        assert path.exists(), (
+            f"Decompose output fixture not found at {path}. "
+            f"Run the decompose agent to regenerate it."
+        )
 
         text = path.read_text(encoding="utf-8")
 
@@ -717,8 +716,10 @@ class TestDecomposeOutputFormat:
         (same as HLR), the importer won't create HLR→LLR COMPOSES edges.
         """
         path = self._decompose_output_path()
-        if not path.exists():
-            pytest.skip("No decompose output file found")
+        assert path.exists(), (
+            f"Decompose output fixture not found at {path}. "
+            f"Run the decompose agent to regenerate it."
+        )
 
         text = path.read_text(encoding="utf-8")
         headings = self._extract_headings(text)
@@ -747,8 +748,10 @@ class TestDecomposeOutputFormat:
         LLRs will be orphaned.
         """
         path = self._decompose_output_path()
-        if not path.exists():
-            pytest.skip("No decompose output file found")
+        assert path.exists(), (
+            f"Decompose output fixture not found at {path}. "
+            f"Run the decompose agent to regenerate it."
+        )
 
         text = path.read_text(encoding="utf-8")
         graph = import_markdown(text, tags=frozenset({"design"}))

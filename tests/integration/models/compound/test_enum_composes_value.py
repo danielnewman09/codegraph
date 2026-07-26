@@ -27,12 +27,14 @@ def test_enum_composes_value():
         name="Operation",
         kind="enum",
         brief_description="Supported arithmetic operations",
+        source="test",
     ).save()
 
     value_node = EnumValueNode(
         name="ADD",
         kind="enumvalue",
         brief_description="Represents addition",
+        source="test",
     ).save()
 
     enum_node.values.connect(value_node)

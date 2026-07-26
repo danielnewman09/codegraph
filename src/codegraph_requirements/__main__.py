@@ -35,11 +35,8 @@ def main(argv: list[str] | None = None) -> None:
 
 def _cmd_init(_args) -> None:
     """Ensure unique constraints exist for HLR and LLR nodes."""
-    from codegraph.connection import get_session as get_neo4j_session
-
-    with get_neo4j_session() as session:
-        # uid constraints are auto-created by neomodel (UniqueIdProperty).
-        # No additional uniqueness constraints needed — uid is the real primary key.
+    # uid constraints are auto-created by neomodel (UniqueIdProperty).
+    # No additional uniqueness constraints needed — uid is the real primary key.
     print("Requirements constraints created.")
 
 

@@ -24,12 +24,14 @@ def test_namespace_composes_namespace():
     outer_ns = NamespaceNode(
         name="outer",
         kind="namespace",
+        source="test",
         description="Outer namespace",
     ).save()
 
     inner_ns = NamespaceNode(
         name="inner",
         kind="namespace",
+        source="test",
         description="Inner nested namespace",
     ).save()
 

@@ -26,6 +26,7 @@ def test_class_composes_attribute():
         name="CalculatorEngine",
         kind="class",
         brief_description="Core calculator engine",
+        source="test",
     ).save()
 
     attr_node = AttributeNode(
@@ -33,6 +34,7 @@ def test_class_composes_attribute():
         kind="attribute",
         type_signature="int",
         visibility="public",
+        source="test",
     ).save()
 
     class_node.attributes.connect(attr_node)

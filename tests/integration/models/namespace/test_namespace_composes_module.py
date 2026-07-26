@@ -29,12 +29,14 @@ def test_namespace_composes_module():
         name="calc",
         kind="namespace",
         description="Calculation engine namespace",
+        source="test",
     ).save()
 
     module_node = ModuleNode(
         name="arithmetic",
         kind="module",
         brief_description="Arithmetic module",
+        source="test",
     ).save()
 
     namespace_node.modules.connect(module_node)

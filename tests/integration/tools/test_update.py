@@ -15,14 +15,14 @@ class TestUpdateValidation:
 
     def test_update_unknown_property_raises(self):
         """update() with an undeclared property key raises ValueError."""
-        node = ClassNode(qualified_name="test::UnknownProp", name="UnknownProp", kind="class")
+        node = ClassNode(source="test", qualified_name="test::UnknownProp", name="UnknownProp", kind="class")
         node.save()
         with pytest.raises(ValueError, match="Unknown propert"):
             node.update(nonexistent_field="oops")
 
     def test_update_unknown_property_lists_valid(self):
         """The error message lists valid properties when unknown keys are given."""
-        node = ClassNode(qualified_name="test::ErrMsg", name="ErrMsg", kind="class")
+        node = ClassNode(source="test", qualified_name="test::ErrMsg", name="ErrMsg", kind="class")
         node.save()
         with pytest.raises(ValueError, match="Valid properties:") as exc_info:
             node.update(bogus1="x", bogus2="y")
@@ -46,6 +46,7 @@ class TestUpdatePersistence:
             qualified_name="test::SingleField",
             name="SingleField",
             kind="class",
+            source="test",
             brief_description="original",
         )
         node.save()
@@ -80,6 +81,7 @@ class TestUpdatePersistence:
             qualified_name="test::MultiField",
             name="MultiField",
             kind="class",
+            source="test",
             brief_description="orig",
             visibility="private",
         )
@@ -105,6 +107,7 @@ class TestUpdatePersistence:
             qualified_name="test::Chain",
             name="Chain",
             kind="class",
+            source="test",
         )
         node.save()
 
@@ -126,6 +129,7 @@ class TestUpdatePersistence:
             qualified_name="test::Preserve",
             name="Preserve",
             kind="class",
+            source="test",
             brief_description="keep me",
             visibility="private",
         )

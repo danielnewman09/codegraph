@@ -26,12 +26,14 @@ def test_namespace_composes_interface():
         name="calc",
         kind="namespace",
         description="Calculation engine namespace",
+        source="test",
     ).save()
 
     interface_node = InterfaceNode(
         name="ICalculator",
         kind="interface",
         brief_description="Calculator interface contract",
+        source="test",
     ).save()
 
     namespace_node.interfaces.connect(interface_node)

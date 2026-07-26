@@ -22,12 +22,14 @@ def test_enum_composed_by_namespace():
         name="calc",
         kind="namespace",
         description="Calculation engine namespace",
+        source="test",
     ).save()
 
     enum_node = EnumNode(
         name="Operation",
         kind="enum",
         brief_description="Supported arithmetic operations",
+        source="test",
     ).save()
 
     # Connect from parent side

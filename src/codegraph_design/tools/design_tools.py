@@ -14,6 +14,7 @@ import json
 import logging
 from typing import TYPE_CHECKING
 
+from codegraph.backends import get_backend
 from codegraph.graph import LayerGraph
 
 if TYPE_CHECKING:
@@ -269,8 +270,8 @@ def _qname_in_codegraph(qname: str) -> bool:
     One Cypher probe — index-backed, no tag filtering.  Any node in the
     codegraph (any kind, any tag) is a valid reference target.
 
-    Opens its own transient session (only called when all other lookups
-    have missed, so the overhead is negligible).
+    Queries the active backend directly (only called when all other
+    lookups have missed, so the overhead is negligible).
     """
     import re
     if not qname:
@@ -278,30 +279,29 @@ def _qname_in_codegraph(qname: str) -> bool:
     safe = re.escape(qname)
     bare = safe.rsplit("::", 1)[-1] if "::" in safe else safe
     try:
-        from codegraph.persistence.connection import get_session
-        with get_session() as s:
-            result = s.run(
-                "MATCH (n) WHERE n.qualified_name = $qn "
-                "OR n.qualified_name ENDS WITH $suffix "
-                "OR n.name = $bare "
-                "RETURN n.qualified_name AS qn, n.name AS name, "
-                "labels(n) AS labels, n.tags AS tags "
-                "LIMIT 1",
-                {"qn": qname, "suffix": "::" + bare, "bare": bare},
+        from codegraph.backends import get_backend
+        rows, _ = get_backend().execute_raw(
+            "MATCH (n) WHERE n.qualified_name = $qn "
+            "OR n.qualified_name ENDS WITH $suffix "
+            "OR n.name = $bare "
+            "RETURN n.qualified_name AS qn, n.name AS name, "
+            "labels(n) AS labels, n.tags AS tags "
+            "LIMIT 1",
+            {"qn": qname, "suffix": "::" + bare, "bare": bare},
+        )
+        record = rows[0] if rows else None
+        found = bool(record and record["qn"])
+        if found:
+            log.debug(
+                "_qname_in_codegraph(%s): matched %s (labels=%s, tags=%s)",
+                qname, record["qn"], record["labels"], record["tags"],
             )
-            record = result.single()
-            found = bool(record and record["qn"])
-            if found:
-                log.debug(
-                    "_qname_in_codegraph(%s): matched %s (labels=%s, tags=%s)",
-                    qname, record["qn"], record["labels"], record["tags"],
-                )
-            else:
-                log.debug(
-                    "_qname_in_codegraph(%s): no match in codegraph",
-                    qname,
-                )
-            return found
+        else:
+            log.debug(
+                "_qname_in_codegraph(%s): no match in codegraph",
+                qname,
+            )
+        return found
     except Exception:
         return False
 
@@ -601,29 +601,28 @@ def handle_check_class_name(ctx: DesignToolDispatcher, tool_input: dict) -> str:
     # Search as-built codebase (limited, CONTAINS query)
     if len(matches) < 20:
         try:
-            with ctx.session() as s:
-                result = s.run(
-                    "MATCH (n) WHERE "
-                    "toLower(n.qualified_name) CONTAINS toLower($name) "
-                    "OR toLower(n.name) CONTAINS toLower($name) "
-                    "RETURN n.qualified_name AS qn, n.name AS name, "
-                    "labels(n) AS labels "
-                    "LIMIT $limit",
-                    {"name": name, "limit": 20 - len(matches)},
-                )
-                for record in result:
-                    qn = record.get("qn", "") or ""
-                    if qn in seen:
-                        continue
-                    seen.add(qn)
-                    labels = record.get("labels", [])
-                    kind = labels[0] if labels else ""
-                    matches.append({
-                        "qualified_name": qn,
-                        "name": record.get("name", "") or "",
-                        "kind": kind,
-                        "source": "codegraph",
-                    })
+            rows, _ = get_backend().execute_raw(
+                "MATCH (n) WHERE "
+                "toLower(n.qualified_name) CONTAINS toLower($name) "
+                "OR toLower(n.name) CONTAINS toLower($name) "
+                "RETURN n.qualified_name AS qn, n.name AS name, "
+                "labels(n) AS labels "
+                "LIMIT $limit",
+                {"name": name, "limit": 20 - len(matches)},
+            )
+            for record in rows:
+                qn = record.get("qn", "") or ""
+                if qn in seen:
+                    continue
+                seen.add(qn)
+                labels = record.get("labels", [])
+                kind = labels[0] if labels else ""
+                matches.append({
+                    "qualified_name": qn,
+                    "name": record.get("name", "") or "",
+                    "kind": kind,
+                    "source": "codegraph",
+                })
         except Exception as exc:
             log.warning("check_class_name: Neo4j search for '%s' failed: %s", name, exc)
 

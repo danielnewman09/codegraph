@@ -25,6 +25,7 @@ def test_namespace_composes_function():
         name="calc",
         kind="namespace",
         description="Calculation engine namespace",
+        source="test",
     ).save()
 
     function_node = FunctionNode(
@@ -33,6 +34,7 @@ def test_namespace_composes_function():
         type_signature="string",
         argsstring="(double value)",
         brief_description="Formats a numeric result as a string.",
+        source="test",
     ).save()
 
     namespace_node.functions.connect(function_node)

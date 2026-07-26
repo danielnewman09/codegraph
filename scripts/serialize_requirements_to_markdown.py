@@ -38,7 +38,7 @@ import codegraph_requirements.models.requirement  # noqa: F401
 import codegraph_project.models.component  # noqa: F401
 
 from neomodel import db
-from codegraph.persistence.connection import _ensure_driver
+from codegraph.backends.neo4j.connection import Neo4jConnection
 from codegraph.graph import LayerGraph, CompositeEntry
 from codegraph.export.markdown import export_markdown, import_markdown
 from codegraph.models.tags import CodeGraphNode
@@ -52,7 +52,7 @@ def build_requirements_graph() -> LayerGraph:
     relationship-manager overhead and works across the separate
     codegraph_requirements and codegraph_project packages.
     """
-    _ensure_driver()
+    Neo4jConnection().ensure_driver()
 
     # -- Fetch all Component, HLR, LLR nodes --
     query = """

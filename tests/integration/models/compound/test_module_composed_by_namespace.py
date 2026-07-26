@@ -22,12 +22,14 @@ def test_module_composed_by_namespace():
         name="calc",
         kind="namespace",
         description="Calculation engine namespace",
+        source="test",
     ).save()
 
     module_node = ModuleNode(
         name="arithmetic",
         kind="module",
         brief_description="Arithmetic module",
+        source="test",
     ).save()
 
     # Connect from parent side

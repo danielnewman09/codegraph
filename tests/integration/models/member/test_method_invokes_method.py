@@ -27,6 +27,7 @@ def test_method_invokes_method():
         type_signature="void",
         argsstring="()",
         visibility="private",
+        source="test",
     ).save()
 
     callee = MethodNode(
@@ -35,6 +36,7 @@ def test_method_invokes_method():
         type_signature="void",
         argsstring="()",
         visibility="private",
+        source="test",
     ).save()
 
     caller.invokes.connect(callee)

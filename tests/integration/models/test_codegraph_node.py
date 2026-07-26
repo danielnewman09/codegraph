@@ -29,8 +29,8 @@ class TestFindRelationshipManager:
         # This step sets up the necessary graph structure by adding the class and method
         # nodes as children to the manager, ensuring the test environment matches the
         # expected hierarchy.
-        cls_node = ClassNode(name="TestClass", kind="class").save()
-        meth_node = MethodNode(name="testMethod", kind="method").save()
+        cls_node = ClassNode(source="test", name="TestClass", kind="class").save()
+        meth_node = MethodNode(source="test", name="testMethod", kind="method").save()
         manager = CodeGraphNode.find_relationship_manager(
             cls_node, "COMPOSES", meth_node
         )
@@ -51,8 +51,8 @@ class TestFindRelationshipManager:
         # Calls the find_relationship_manager method with an unknown relationship type,
         # advancing the test to the point where a ValueError should be raised due to no
         # matching relationship.
-        cls_node = ClassNode(name="BadClass", kind="class").save()
-        meth_node = MethodNode(name="BadMethod", kind="method").save()
+        cls_node = ClassNode(source="test", name="BadClass", kind="class").save()
+        meth_node = MethodNode(source="test", name="BadMethod", kind="method").save()
         with pytest.raises(ValueError, match="No 'NONEXISTENT' relationship"):
             CodeGraphNode.find_relationship_manager(
                 cls_node, "NONEXISTENT", meth_node
@@ -66,8 +66,8 @@ class TestFindRelationshipManager:
         # Sets up the test by creating the file_node and cls_node fixtures, establishing
         # the context in which the subsequent call to find_relationship_manager with a
         # valid relation_type but wrong target type will raise a ValueError.
-        cls_node = ClassNode(name="WrongTarget", kind="class").save()
-        file_node = FileNode(name="wrongfile", path="/wrong.h").save()
+        cls_node = ClassNode(source="test", name="WrongTarget", kind="class").save()
+        file_node = FileNode(source="test", name="wrongfile", path="/wrong.h").save()
         # COMPOSES exists on ClassNode but targets MethodNode/AttributeNode/
         # NamespaceNode, not FileNode
         with pytest.raises(ValueError, match="No 'COMPOSES' relationship"):
@@ -185,7 +185,7 @@ class TestTagQueries:
         # Sets up the test environment by creating the ClassNode and calling
         # fetch_by_tag with a specified tag, producing the result fixture used in
         # assertions.
-        cls = ClassNode(name="FetchTestClass", kind="class", qualified_name="ns::FetchTestClass", tags=["design"]).save()
+        cls = ClassNode(source="test", name="FetchTestClass", kind="class", qualified_name="ns::FetchTestClass", tags=["design"]).save()
         try:
             result = GraphRepository().find_by_tag(ClassNode, "design")
             names = [n.name for n in result]
@@ -202,7 +202,7 @@ class TestTagQueries:
         # codegraph:test-desc test_codegraph_node.TestTagQueries.test_fetch_by_tag_excludes_non_matching_tags::step_0
         # Sets up the test by creating nodes with different tags and fetching nodes with
         # the 'as-built' tag, establishing the context for the subsequent assertion.
-        cls = ClassNode(name="FetchDesignOnly", kind="class", qualified_name="ns::FetchDesignOnly", tags=["design"]).save()
+        cls = ClassNode(source="test", name="FetchDesignOnly", kind="class", qualified_name="ns::FetchDesignOnly", tags=["design"]).save()
         try:
             result = GraphRepository().find_by_tag(ClassNode, "as-built")
             names = [n.name for n in result]
@@ -220,7 +220,7 @@ class TestTagQueries:
         # Sets up the test environment by initializing the fixture nodes (cls,
         # design_result, asbuilt_result) with their respective tags. This step prepares
         # the nodes needed to exercise the fetch_by_tag query.
-        cls = ClassNode(name="MultiTagClass", kind="class", qualified_name="ns::MultiTagClass", tags=["design", "as-built"]).save()
+        cls = ClassNode(source="test", name="MultiTagClass", kind="class", qualified_name="ns::MultiTagClass", tags=["design", "as-built"]).save()
         try:
             design_result = GraphRepository().find_by_tag(ClassNode, "design")
             asbuilt_result = GraphRepository().find_by_tag(ClassNode, "as-built")
@@ -244,8 +244,8 @@ class TestTagQueries:
         # Sets up the test environment by creating the tagged ClassNode and MethodNode
         # instances, then invokes the fetch_all_by_tag method to collect all nodes with
         # the given tag across types.
-        cls = ClassNode(name="FetchAllClass", kind="class", qualified_name="ns::FetchAllClass2", tags=["design"]).save()
-        meth = MethodNode(name="fetchAllMethod", kind="method", qualified_name="ns::FetchAllClass2::fetchAllMethod", tags=["design"]).save()
+        cls = ClassNode(source="test", name="FetchAllClass", kind="class", qualified_name="ns::FetchAllClass2", tags=["design"]).save()
+        meth = MethodNode(source="test", name="fetchAllMethod", kind="method", qualified_name="ns::FetchAllClass2::fetchAllMethod", tags=["design"]).save()
         try:
             result = GraphRepository().find_all_by_tag("design")
             names = [n.name for n in result]
@@ -272,7 +272,7 @@ class TestTagMutation:
         # codegraph:test-desc test_codegraph_node.TestTagMutation.test_add_tag::step_0
         # Performs the setup of the test environment, preparing the class node and its
         # initial state before the actual tag addition is executed.
-        cls = ClassNode.save_new(name="AddTagClass", kind="class", qualified_name="ns::AddTagClass")
+        cls = ClassNode.save_new(source="test", name="AddTagClass", kind="class", qualified_name="ns::AddTagClass")
         try:
             # codegraph:test-desc test_codegraph_node.TestTagMutation.test_add_tag::post_0
             # Confirms that the class node starts with an empty tags list before any
@@ -297,7 +297,7 @@ class TestTagMutation:
         # codegraph:test-desc test_codegraph_node.TestTagMutation.test_add_tag_idempotent::step_0
         # Adds the tag 'design' to the class node for the second time, simulating a
         # duplicate addition to test idempotency.
-        cls = ClassNode.save_new(name="IdempotentTagClass", kind="class", qualified_name="ns::IdempotentTagClass")
+        cls = ClassNode.save_new(source="test", name="IdempotentTagClass", kind="class", qualified_name="ns::IdempotentTagClass")
         try:
             cls.add_tag("design")
             cls.add_tag("design")
@@ -315,7 +315,7 @@ class TestTagMutation:
         # Sets up the initial state by adding two tags ('design' and 'as-built') to the
         # ClassNode, establishing a known starting point for subsequent assertions about
         # tag existence and absence.
-        cls = ClassNode.save_new(name="MultiTagClass2", kind="class", qualified_name="ns::MultiTagClass2")
+        cls = ClassNode.save_new(source="test", name="MultiTagClass2", kind="class", qualified_name="ns::MultiTagClass2")
         try:
             cls.add_tag("design")
             cls.add_tag("as-built")
@@ -342,7 +342,7 @@ class TestTagMutation:
         # codegraph:test-desc test_codegraph_node.TestTagMutation.test_remove_tag::step_0
         # Setup block that initializes the class node and applies the 'design' and
         # 'as-built' tags before the removal operation is called.
-        cls = ClassNode.save_new(name="RemoveTagClass", kind="class", qualified_name="ns::RemoveTagClass", tags=["design", "as-built"])
+        cls = ClassNode.save_new(source="test", name="RemoveTagClass", kind="class", qualified_name="ns::RemoveTagClass", tags=["design", "as-built"])
         try:
             # codegraph:test-desc test_codegraph_node.TestTagMutation.test_remove_tag::post_0
             # Verifies that the 'design' tag was initially present before removal,
@@ -369,7 +369,7 @@ class TestTagMutation:
         # codegraph:test-desc test_codegraph_node.TestTagMutation.test_remove_tag_nonexistent::step_0
         # Calls the remove_tag method with a tag name that is not present in the node's
         # tags, setting up the scenario to observe that no changes occur.
-        cls = ClassNode.save_new(name="RemoveNoopClass", kind="class", qualified_name="ns::RemoveNoopClass", tags=["design"])
+        cls = ClassNode.save_new(source="test", name="RemoveNoopClass", kind="class", qualified_name="ns::RemoveNoopClass", tags=["design"])
         try:
             cls.remove_tag("dependency")
             # codegraph:test-desc test_codegraph_node.TestTagMutation.test_remove_tag_nonexistent::post_0
@@ -384,7 +384,7 @@ class TestTagMutation:
         # codegraph:test-desc test_codegraph_node.TestTagMutation.test_has_tag_on_file_node::step_0
         # Sets up the test by creating the FileNode fixture without tags, preparing the
         # condition needed for the assertion.
-        f = FileNode.save_new(name="tagless.h", path="/src/tagless.h")
+        f = FileNode.save_new(source="test", name="tagless.h", path="/src/tagless.h")
         try:
             # codegraph:test-desc test_codegraph_node.TestTagMutation.test_has_tag_on_file_node::post_0
             # Verifies that has_tag returns False for a node lacking a tags property,
@@ -398,7 +398,7 @@ class TestTagMutation:
         # codegraph:test-desc test_codegraph_node.TestTagMutation.test_add_tag_on_file_node::step_0
         # Sets up the test by creating the necessary environment or initial state,
         # preparing to call the add_tag mutation on the FileNode.
-        f = FileNode.save_new(name="tagless2.h", path="/src/tagless2.h")
+        f = FileNode.save_new(source="test", name="tagless2.h", path="/src/tagless2.h")
         try:
             result = f.add_tag("design")
             # codegraph:test-desc test_codegraph_node.TestTagMutation.test_add_tag_on_file_node::post_0
@@ -688,7 +688,7 @@ class TestUidAccessors:
         # Sets up the test by creating and saving a ClassNode, which triggers
         # auto-generation of a UID and prepares the node for subsequent calls to the
         # _uid_value accessor.
-        cls = ClassNode(name="UidTestClass", kind="class").save()
+        cls = ClassNode(source="test", name="UidTestClass", kind="class").save()
         try:
             uid = cls._uid_value()
             # codegraph:test-desc test_codegraph_node.TestUidAccessors.test_uid_value_returns_stored_uid::post_0
@@ -817,9 +817,9 @@ class TestWalkComposes:
         # Sets up the test environment by initializing the class node, method node, and
         # attribute node fixtures, and calling walk_composes() to collect the composed
         # child names into 'child_names', preparing the data for assertion.
-        cls = ClassNode(name="MyClass", kind="class", qualified_name="ns::MyClass").save()
-        meth = MethodNode(name="draw", kind="method", qualified_name="ns::MyClass::draw").save()
-        attr = AttributeNode(name="x", kind="attribute", qualified_name="ns::MyClass::x").save()
+        cls = ClassNode(source="test", name="MyClass", kind="class", qualified_name="ns::MyClass").save()
+        meth = MethodNode(source="test", name="draw", kind="method", qualified_name="ns::MyClass::draw").save()
+        attr = AttributeNode(source="test", name="x", kind="attribute", qualified_name="ns::MyClass::x").save()
         try:
             cls.methods.connect(meth)
             cls.attributes.connect(attr)
@@ -847,7 +847,7 @@ class TestWalkComposes:
         # codegraph:test-desc test_codegraph_node.TestWalkComposes.test_walk_composes_returns_empty_for_leaf_nodes::step_0
         # Sets up the test by creating or obtaining a MethodNode that is a leaf,
         # preparing the object against which the walk_composes method will be called.
-        meth = MethodNode(name="leaf", kind="method", qualified_name="ns::leaf").save()
+        meth = MethodNode(source="test", name="leaf", kind="method", qualified_name="ns::leaf").save()
         try:
             children = get_backend().get_composed_children(meth)
             # codegraph:test-desc test_codegraph_node.TestWalkComposes.test_walk_composes_returns_empty_for_leaf_nodes::post_0
@@ -863,8 +863,8 @@ class TestWalkComposes:
         # codegraph:test-desc test_codegraph_node.TestWalkComposes.test_walk_composes_namespace_returns_classes::step_0
         # Sets up the necessary test objects (namespace and class nodes) and invokes
         # walk_composes() on the namespace to obtain the list of composed children.
-        ns = NamespaceNode(name="myns", kind="namespace", qualified_name="myns").save()
-        cls = ClassNode(name="NSClass", kind="class", qualified_name="myns::NSClass").save()
+        ns = NamespaceNode(source="test", name="myns", kind="namespace", qualified_name="myns").save()
+        cls = ClassNode(source="test", name="NSClass", kind="class", qualified_name="myns::NSClass").save()
         try:
             ns.classes.connect(cls)
             children = get_backend().get_composed_children(ns)
@@ -892,8 +892,8 @@ class TestSerializeNested:
         # codegraph:test-desc test_codegraph_node.TestSerializeNested.test_nested_includes_composes_key::step_0
         # Sets up the test by creating the ClassNode and MethodNode fixtures, preparing
         # to call serialize(nested=True).
-        cls = ClassNode(name="NestedClass", kind="class", qualified_name="ns::NestedClass").save()
-        meth = MethodNode(name="run", kind="method", qualified_name="ns::NestedClass::run").save()
+        cls = ClassNode(source="test", name="NestedClass", kind="class", qualified_name="ns::NestedClass").save()
+        meth = MethodNode(source="test", name="run", kind="method", qualified_name="ns::NestedClass::run").save()
         try:
             cls.methods.connect(meth)
             result = cls.serialize(nested=True)
@@ -924,8 +924,8 @@ class TestSerializeNested:
         # codegraph:test-desc test_codegraph_node.TestSerializeNested.test_nested_removes_composes_from_edges::step_0
         # Performs the serialization of the class and method nodes with nested=True,
         # producing the edge lists that will be checked in the subsequent assertions.
-        cls = ClassNode(name="EdgeClass", kind="class", qualified_name="ns::EdgeClass").save()
-        meth = MethodNode(name="doIt", kind="method", qualified_name="ns::EdgeClass::doIt").save()
+        cls = ClassNode(source="test", name="EdgeClass", kind="class", qualified_name="ns::EdgeClass").save()
+        meth = MethodNode(source="test", name="doIt", kind="method", qualified_name="ns::EdgeClass::doIt").save()
         try:
             cls.methods.connect(meth)
             # nested=False (default) should include COMPOSES in edges
@@ -955,7 +955,7 @@ class TestSerializeNested:
         # codegraph:test-desc test_codegraph_node.TestSerializeNested.test_nested_includes_uid_property::step_0
         # Sets up the test by instantiating a ClassNode, serving as the input for the
         # serialization call that will be validated later.
-        cls = ClassNode(name="UidClass", kind="class", qualified_name="ns::UidClass").save()
+        cls = ClassNode(source="test", name="UidClass", kind="class", qualified_name="ns::UidClass").save()
         try:
             result = cls.serialize(nested=True)
             # uid is the UniqueIdProperty — always included for resolution
@@ -972,7 +972,7 @@ class TestSerializeNested:
         # codegraph:test-desc test_codegraph_node.TestSerializeNested.test_nested_includes_uid_for_file_node::step_0
         # Calls `serialize(nested=True)` on the FileNode fixture to produce the result
         # that will be inspected for the presence of the `uid` field.
-        f = FileNode(name="uidtest.h", path="/src/uidtest.h").save()
+        f = FileNode(source="test", name="uidtest.h", path="/src/uidtest.h").save()
         try:
             result = f.serialize(nested=True)
             # FileNode has no COMPOSES relationships, but nested=True still ensures uid
@@ -990,9 +990,9 @@ class TestSerializeNested:
         # Sets up the test fixture hierarchy by creating or retrieving the ns, cls, and
         # meth objects, establishing the parent-child relationships needed for the
         # nested serialization test.
-        ns = NamespaceNode(name="recns", kind="namespace", qualified_name="recns").save()
-        cls = ClassNode(name="RecClass", kind="class", qualified_name="recns::RecClass").save()
-        meth = MethodNode(name="go", kind="method", qualified_name="recns::RecClass::go").save()
+        ns = NamespaceNode(source="test", name="recns", kind="namespace", qualified_name="recns").save()
+        cls = ClassNode(source="test", name="RecClass", kind="class", qualified_name="recns::RecClass").save()
+        meth = MethodNode(source="test", name="go", kind="method", qualified_name="recns::RecClass::go").save()
         try:
             ns.classes.connect(cls)
             cls.methods.connect(meth)
@@ -1028,8 +1028,8 @@ class TestSerializeNested:
         # Performs the serialization of the class node with 'fields=all' and captures
         # the output for both the class and its method child. This is the core action
         # that sets up the data to be verified.
-        cls = ClassNode(name="FieldsClass", kind="class", qualified_name="ns::FieldsClass", module="mymod").save()
-        meth = MethodNode(name="doFields", kind="method", qualified_name="ns::FieldsClass::doFields").save()
+        cls = ClassNode(source="test", name="FieldsClass", kind="class", qualified_name="ns::FieldsClass", module="mymod").save()
+        meth = MethodNode(source="test", name="doFields", kind="method", qualified_name="ns::FieldsClass::doFields").save()
         try:
             cls.methods.connect(meth)
 
@@ -1067,7 +1067,7 @@ class TestSerializeNested:
         # codegraph:test-desc test_codegraph_node.TestSerializeNested.test_nested_no_composes_for_leaf_nodes::step_0
         # Sets up the test by creating the MethodNode fixture and serializing it,
         # producing the result dictionary that will be checked by the assertions.
-        meth = MethodNode(name="leafNested", kind="method", qualified_name="ns::leafNested").save()
+        meth = MethodNode(source="test", name="leafNested", kind="method", qualified_name="ns::leafNested").save()
         try:
             result = meth.serialize(nested=True)
             # codegraph:test-desc test_codegraph_node.TestSerializeNested.test_nested_no_composes_for_leaf_nodes::post_0
@@ -1116,8 +1116,8 @@ class TestSerializeNested:
         # Sets up the test by calling both the old serialize() method and the new
         # serialize(nested=False) method on the composed fixture objects, producing two
         # result dictionaries for comparison.
-        cls = ClassNode(name="FlatClass", kind="class", qualified_name="ns::FlatClass").save()
-        meth = MethodNode(name="flatMethod", kind="method", qualified_name="ns::FlatClass::flatMethod").save()
+        cls = ClassNode(source="test", name="FlatClass", kind="class", qualified_name="ns::FlatClass").save()
+        meth = MethodNode(source="test", name="flatMethod", kind="method", qualified_name="ns::FlatClass::flatMethod").save()
         try:
             cls.methods.connect(meth)
             # Default (nested=False)
@@ -1147,9 +1147,9 @@ class TestSerializeNested:
         # Prepares the test environment by setting up the necessary graph nodes and
         # relationships (COMPOSES and REALIZES) so that the subsequent assertions can
         # validate serialization behavior.
-        cls = ClassNode(name="EdgeTest", kind="class", qualified_name="ns::EdgeTest").save()
-        iface = InterfaceNode(name="IEdgeTest", kind="interface", qualified_name="ns::IEdgeTest").save()
-        meth = MethodNode(name="edgeRun", kind="method", qualified_name="ns::EdgeTest::edgeRun").save()
+        cls = ClassNode(source="test", name="EdgeTest", kind="class", qualified_name="ns::EdgeTest").save()
+        iface = InterfaceNode(source="test", name="IEdgeTest", kind="interface", qualified_name="ns::IEdgeTest").save()
+        meth = MethodNode(source="test", name="edgeRun", kind="method", qualified_name="ns::EdgeTest::edgeRun").save()
         try:
             cls.realizes.connect(iface)
             cls.methods.connect(meth)
@@ -1194,9 +1194,9 @@ class TestSerializeNested:
         # Performs the setup by initializing the EnumNode with its two EnumValueNode
         # fixtures and then calling serialize(nested=True) on the EnumNode, generating
         # the serialized result that will be verified by subsequent assertions.
-        enum = EnumNode(name="Color", kind="enum", qualified_name="ns::Color").save()
-        red = EnumValueNode(name="RED", kind="enumvalue", qualified_name="ns::Color::RED").save()
-        blue = EnumValueNode(name="BLUE", kind="enumvalue", qualified_name="ns::Color::BLUE").save()
+        enum = EnumNode(source="test", name="Color", kind="enum", qualified_name="ns::Color").save()
+        red = EnumValueNode(source="test", name="RED", kind="enumvalue", qualified_name="ns::Color::RED").save()
+        blue = EnumValueNode(source="test", name="BLUE", kind="enumvalue", qualified_name="ns::Color::BLUE").save()
         try:
             enum.values.connect(red)
             enum.values.connect(blue)
@@ -1238,7 +1238,7 @@ class TestSaveNew:
         # codegraph:test-desc test_codegraph_node.TestSaveNew.test_create_simple_node::step_0
         # This step sets up the initial conditions for the test, likely by ensuring
         # `cls` is properly configured before the main save operation is tested.
-        cls = ClassNode.save_new(name="CreateTestClass", kind="class", qualified_name="ns::CreateTestClass")
+        cls = ClassNode.save_new(source="test", name="CreateTestClass", kind="class", qualified_name="ns::CreateTestClass")
         try:
             # codegraph:test-desc test_codegraph_node.TestSaveNew.test_create_simple_node::post_0
             # This assertion checks that the `cls` object has an `element_id_property`
@@ -1270,6 +1270,7 @@ class TestSaveNew:
         # optional 'tags' field, then calls save_new() to persist it, advancing to
         # verification of the saved data.
         cls = ClassNode.save_new(
+            source="test",
             name="CreateFullClass",
             kind="class",
             qualified_name="ns::CreateFullClass",
@@ -1304,6 +1305,7 @@ class TestSaveNew:
         # properties.
         with pytest.raises(ValueError, match="Unknown property"):
             ClassNode.save_new(
+                source="test",
                 name="BadClass",
                 kind="class",
                 qualified_name="ns::BadClass",
@@ -1315,7 +1317,7 @@ class TestSaveNew:
         # codegraph:test-desc test_codegraph_node.TestSaveNew.test_create_file_node::step_0
         # Calls save_new() on the FileNode, triggering the auto-generation of the refid
         # and saving the node.
-        f = FileNode.save_new(name="create_test.h", path="/src/create_test.h")
+        f = FileNode.save_new(source="test", name="create_test.h", path="/src/create_test.h")
         try:
             # codegraph:test-desc test_codegraph_node.TestSaveNew.test_create_file_node::post_0
             # Checks that the FileNode has an 'element_id_property' attribute, ensuring
@@ -1341,7 +1343,7 @@ class TestSaveNew:
         # codegraph:test-desc test_codegraph_node.TestSaveNew.test_create_namespace_node::step_0
         # Calls save_new() on the namespace node to persist it, establishing the state
         # that the assertions will check.
-        ns = NamespaceNode.save_new(name="create_ns", kind="namespace", qualified_name="create_ns")
+        ns = NamespaceNode.save_new(source="test", name="create_ns", kind="namespace", qualified_name="create_ns")
         try:
             # codegraph:test-desc test_codegraph_node.TestSaveNew.test_create_namespace_node::post_0
             # Verifies that the saved node now has an 'element_id_property' attribute,
@@ -1359,7 +1361,7 @@ class TestSaveNew:
         # codegraph:test-desc test_codegraph_node.TestSaveNew.test_create_returns_saved_instance::step_0
         # Calls save_new() on the method node to persist and retrieve it, setting up the
         # object that will be checked in the subsequent assertions.
-        meth = MethodNode.save_new(name="createMethod", kind="method", qualified_name="ns::createMethod")
+        meth = MethodNode.save_new(source="test", name="createMethod", kind="method", qualified_name="ns::createMethod")
         try:
             # codegraph:test-desc test_codegraph_node.TestSaveNew.test_create_returns_saved_instance::post_0
             # Checks that the returned method node has an 'element_id_property'
@@ -1382,9 +1384,9 @@ class TestSaveNew:
         # Sets up the test scenario by calling save_new() on the EnumNode and then
         # connecting the two EnumValueNode fixtures as its children, preparing the state
         # for subsequent assertions.
-        enum = EnumNode.save_new(name="Color", kind="enum", qualified_name="ns::Color")
-        red = EnumValueNode.save_new(name="RED", kind="enumvalue", qualified_name="ns::Color::RED")
-        blue = EnumValueNode.save_new(name="BLUE", kind="enumvalue", qualified_name="ns::Color::BLUE")
+        enum = EnumNode.save_new(source="test", name="Color", kind="enum", qualified_name="ns::Color")
+        red = EnumValueNode.save_new(source="test", name="RED", kind="enumvalue", qualified_name="ns::Color::RED")
+        blue = EnumValueNode.save_new(source="test", name="BLUE", kind="enumvalue", qualified_name="ns::Color::BLUE")
         try:
             enum.values.connect(red)
             enum.values.connect(blue)
@@ -1416,7 +1418,7 @@ class TestDelete:
         # Sets up the test by preparing the necessary environment and ensuring the
         # ClassNode exists in Neo4j; this creates the prerequisite for the deletion
         # action.
-        cls = ClassNode.save_new(name="DeleteTestClass", kind="class", qualified_name="ns::DeleteTestClass")
+        cls = ClassNode.save_new(source="test", name="DeleteTestClass", kind="class", qualified_name="ns::DeleteTestClass")
         qname = cls.qualified_name
         # Confirm it exists
         # codegraph:test-desc test_codegraph_node.TestDelete.test_delete_removes_node::post_0
@@ -1439,7 +1441,7 @@ class TestDelete:
         # codegraph:test-desc test_codegraph_node.TestDelete.test_delete_marks_as_deleted::step_0
         # Calls the delete() method on the cls fixture to trigger the deletion process,
         # advancing the test toward verifying the updated deleted flag.
-        cls = ClassNode.save_new(name="DeleteMarkClass", kind="class", qualified_name="ns::DeleteMarkClass")
+        cls = ClassNode.save_new(source="test", name="DeleteMarkClass", kind="class", qualified_name="ns::DeleteMarkClass")
         cls.delete()
         # codegraph:test-desc test_codegraph_node.TestDelete.test_delete_marks_as_deleted::post_0
         # Asserts that the 'deleted' attribute is True after delete() is called,
@@ -1461,8 +1463,8 @@ class TestDelete:
         # Sets up the test environment by creating the two ClassNode fixtures (`cls` and
         # `dep`) and establishing a non-COMPOSES relationship between them. This setup
         # is the foundation for the subsequent deletion action.
-        cls = ClassNode.save_new(name="DeleteRelClass", kind="class", qualified_name="ns::DeleteRelClass")
-        dep = ClassNode.save_new(name="DeleteDepClass", kind="class", qualified_name="ns::DeleteDepClass")
+        cls = ClassNode.save_new(source="test", name="DeleteRelClass", kind="class", qualified_name="ns::DeleteRelClass")
+        dep = ClassNode.save_new(source="test", name="DeleteDepClass", kind="class", qualified_name="ns::DeleteDepClass")
         try:
             cls.depends_on.connect(dep)
             # Confirm relationship exists
@@ -1492,8 +1494,8 @@ class TestDelete:
         # Sets up the initial test state by creating a parent namespace and a child
         # class, establishing the parent-child relationship needed to test the delete
         # behavior.
-        ns = NamespaceNode.save_new(name="delete_ns", kind="namespace", qualified_name="delete_ns")
-        cls = ClassNode.save_new(name="DeleteNSClass", kind="class", qualified_name="delete_ns::DeleteNSClass")
+        ns = NamespaceNode.save_new(source="test", name="delete_ns", kind="namespace", qualified_name="delete_ns")
+        cls = ClassNode.save_new(source="test", name="DeleteNSClass", kind="class", qualified_name="delete_ns::DeleteNSClass")
         try:
             ns.classes.connect(cls)
             # Confirm relationship exists
@@ -1522,6 +1524,7 @@ class TestDelete:
         # database, establishing a baseline for the subsequent update and delete
         # operations.
         cls = ClassNode.save_new(
+            source="test",
             name="LifecycleClass",
             kind="class",
             qualified_name="ns::LifecycleClass",
@@ -1554,8 +1557,8 @@ class TestDelete:
         # codegraph:test-desc test_codegraph_node.TestDelete.test_delete_cascades_to_composed_children::step_0
         # Sets up the test by creating a namespace node and a composed child class node,
         # establishing the parent-child relationship required to test cascade deletion.
-        ns = NamespaceNode.save_new(name="cascade_ns", kind="namespace", qualified_name="cascade_ns")
-        cls = ClassNode.save_new(name="CascadeClass", kind="class", qualified_name="cascade_ns::CascadeClass")
+        ns = NamespaceNode.save_new(source="test", name="cascade_ns", kind="namespace", qualified_name="cascade_ns")
+        cls = ClassNode.save_new(source="test", name="CascadeClass", kind="class", qualified_name="cascade_ns::CascadeClass")
         ns.classes.connect(cls)
         # Deleting namespace should cascade-delete the composed class
         ns.delete()
@@ -1575,9 +1578,9 @@ class TestDelete:
         # Sets up the test environment by creating the namespace, class, and method
         # nodes with their hierarchical relationships, establishing the multi-level
         # composition structure needed to test cascading deletion.
-        ns = NamespaceNode.save_new(name="deep_ns", kind="namespace", qualified_name="deep_ns")
-        cls = ClassNode.save_new(name="DeepClass", kind="class", qualified_name="deep_ns::DeepClass")
-        meth = MethodNode.save_new(name="deepMethod", kind="method", qualified_name="deep_ns::DeepClass::deepMethod")
+        ns = NamespaceNode.save_new(source="test", name="deep_ns", kind="namespace", qualified_name="deep_ns")
+        cls = ClassNode.save_new(source="test", name="DeepClass", kind="class", qualified_name="deep_ns::DeepClass")
+        meth = MethodNode.save_new(source="test", name="deepMethod", kind="method", qualified_name="deep_ns::DeepClass::deepMethod")
         ns.classes.connect(cls)
         cls.methods.connect(meth)
         # Deleting namespace cascades: ns -> cls -> meth
@@ -1604,9 +1607,9 @@ class TestDelete:
         # Performs the initial setup by creating the EnumNode and its two
         # EnumValueNodes, establishing the hierarchical data needed to test cascading
         # deletion.
-        enum = EnumNode.save_new(name="CascadeColor", kind="enum", qualified_name="ns::CascadeColor")
-        red = EnumValueNode.save_new(name="CASCADE_RED", kind="enumvalue", qualified_name="ns::CascadeColor::CASCADE_RED")
-        blue = EnumValueNode.save_new(name="CASCADE_BLUE", kind="enumvalue", qualified_name="ns::CascadeColor::CASCADE_BLUE")
+        enum = EnumNode.save_new(source="test", name="CascadeColor", kind="enum", qualified_name="ns::CascadeColor")
+        red = EnumValueNode.save_new(source="test", name="CASCADE_RED", kind="enumvalue", qualified_name="ns::CascadeColor::CASCADE_RED")
+        blue = EnumValueNode.save_new(source="test", name="CASCADE_BLUE", kind="enumvalue", qualified_name="ns::CascadeColor::CASCADE_BLUE")
         enum.values.connect(red)
         enum.values.connect(blue)
         enum.delete()
@@ -1630,9 +1633,9 @@ class TestDelete:
         # codegraph:test-desc test_codegraph_node.TestDelete.test_delete_cascade_preserves_non_composes_neighbors::step_0
         # Sets up the test scenario by creating `cls_a`, `cls_b`, and `meth` nodes with
         # the appropriate COMPOSES and other relationships.
-        cls_a = ClassNode.save_new(name="CascadeA", kind="class", qualified_name="ns::CascadeA")
-        cls_b = ClassNode.save_new(name="CascadeB", kind="class", qualified_name="ns::CascadeB")
-        meth = MethodNode.save_new(name="cascadeMethod", kind="method", qualified_name="ns::CascadeA::cascadeMethod")
+        cls_a = ClassNode.save_new(source="test", name="CascadeA", kind="class", qualified_name="ns::CascadeA")
+        cls_b = ClassNode.save_new(source="test", name="CascadeB", kind="class", qualified_name="ns::CascadeB")
+        meth = MethodNode.save_new(source="test", name="cascadeMethod", kind="method", qualified_name="ns::CascadeA::cascadeMethod")
         cls_a.methods.connect(meth)
         cls_a.depends_on.connect(cls_b)  # non-COMPOSES relationship
         cls_a.delete()
@@ -1664,7 +1667,7 @@ class TestSaveNewImpl:
         # Sets up the test environment by initializing the fixture and calling
         # _save_new, preparing the state that will be checked by the subsequent
         # assertions.
-        cls = CodeGraphNode._save_new(ClassNode, name="StaticCreateClass", kind="class", qualified_name="ns::StaticCreateClass")
+        cls = CodeGraphNode._save_new(ClassNode, source="test", name="StaticCreateClass", kind="class", qualified_name="ns::StaticCreateClass")
         try:
             # codegraph:test-desc test_codegraph_node.TestSaveNewImpl.test_save_new_impl::post_0
             # Verifies that the class now has an 'element_id_property' attribute after
@@ -1686,7 +1689,7 @@ class TestSaveNewImpl:
         # error response, setting up the condition to verify that the method properly
         # rejects unsupported input.
         with pytest.raises(ValueError, match="Unknown property"):
-            CodeGraphNode._save_new(ClassNode, name="BadClass", kind="class",
+            CodeGraphNode._save_new(ClassNode, source="test", name="BadClass", kind="class",
                                 qualified_name="ns::BadClass", bogus="nope")
 
     def test_save_new_matches_impl(self):
@@ -1694,8 +1697,8 @@ class TestSaveNewImpl:
         # codegraph:test-desc test_codegraph_node.TestSaveNewImpl.test_save_new_matches_impl::step_0
         # Sets up the test by creating both fixtures 'a' and 'b' using their respective
         # methods, establishing the objects needed for comparison.
-        a = ClassNode.save_new(name="DelegateA", kind="class", qualified_name="ns::DelegateA")
-        b = CodeGraphNode._save_new(ClassNode, name="DelegateB", kind="class", qualified_name="ns::DelegateB")
+        a = ClassNode.save_new(source="test", name="DelegateA", kind="class", qualified_name="ns::DelegateA")
+        b = CodeGraphNode._save_new(ClassNode, source="test", name="DelegateB", kind="class", qualified_name="ns::DelegateB")
         try:
             # codegraph:test-desc test_codegraph_node.TestSaveNewImpl.test_save_new_matches_impl::post_0
             # Checks that fixture 'a' (created by _save_new) has the

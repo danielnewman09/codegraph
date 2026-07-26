@@ -25,12 +25,14 @@ def test_class_depends_on():
         name="CalculatorEngine",
         kind="class",
         brief_description="Core calculator engine",
+        source="test",
     ).save()
 
     dependent = ClassNode(
         name="CalculatorWindow",
         kind="class",
         brief_description="Main application window for the calculator",
+        source="test",
     ).save()
 
     dependent.depends_on.connect(dependency)

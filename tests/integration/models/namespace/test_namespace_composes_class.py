@@ -27,12 +27,14 @@ def test_namespace_composes_class():
         name="calc",
         kind="namespace",
         description="Calculation engine namespace",
+        source="test",
     ).save()
 
     class_node = ClassNode(
         name="CalculatorEngine",
         kind="class",
         brief_description="Core calculator engine",
+        source="test",
     ).save()
 
     namespace_node.classes.connect(class_node)

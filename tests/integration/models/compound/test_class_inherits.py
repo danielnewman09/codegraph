@@ -27,12 +27,14 @@ def test_class_inherits():
         kind="class",
         brief_description="Abstract base window class",
         is_abstract=True,
+        source="test",
     ).save()
 
     derived_class = ClassNode(
         name="CalculatorWindow",
         kind="class",
         brief_description="Main application window for the calculator",
+        source="test",
     ).save()
 
     derived_class.base.connect(base_class)

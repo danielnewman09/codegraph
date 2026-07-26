@@ -46,7 +46,6 @@ from contextlib import contextmanager
 
 from codegraph.tools.dispatcher import CodeGraphDispatcher, ToolDispatcher
 from codegraph.persistence.repository import GraphRepository
-from codegraph.persistence.connection import get_session
 from codegraph.graph import LayerGraph, CompositeEntry
 
 log = logging.getLogger(__name__)

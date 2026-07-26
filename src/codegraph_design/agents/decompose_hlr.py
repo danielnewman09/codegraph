@@ -1889,11 +1889,10 @@ if __name__ == "__main__":
         if len(sys.argv) < 3:
             print("Usage: python -m codegraph_design.agents.decompose_hlr --hlr-uid <hlr_uid>")
             sys.exit(1)
-        from codegraph.persistence.connection import init_neo4j, close_neo4j
-        init_neo4j()
+        from codegraph.backends import get_backend
+        get_backend().health_check()  # ensure driver is initialised
         result = decompose_and_persist_hlr(hlr_uid=sys.argv[2])
         print(json.dumps(result, indent=2, default=str))
-        close_neo4j()
     else:
         description = " ".join(sys.argv[1:])
         result = decompose(description)

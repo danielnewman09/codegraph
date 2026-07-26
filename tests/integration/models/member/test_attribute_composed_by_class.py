@@ -30,6 +30,7 @@ def test_attribute_composed_by_class():
         name="CalculatorEngine",
         kind="class",
         brief_description="Core calculator engine",
+        source="test",
     ).save()
 
     attr_node = AttributeNode(
@@ -37,6 +38,7 @@ def test_attribute_composed_by_class():
         kind="attribute",
         type_signature="int",
         visibility="public",
+        source="test",
     ).save()
 
     # Connect from parent side

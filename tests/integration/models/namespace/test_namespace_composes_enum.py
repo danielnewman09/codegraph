@@ -26,12 +26,14 @@ def test_namespace_composes_enum():
         name="calc",
         kind="namespace",
         description="Calculation engine namespace",
+        source="test",
     ).save()
 
     enum_node = EnumNode(
         name="Operation",
         kind="enum",
         brief_description="Supported arithmetic operations",
+        source="test",
     ).save()
 
     namespace_node.enums.connect(enum_node)

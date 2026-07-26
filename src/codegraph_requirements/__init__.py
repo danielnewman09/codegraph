@@ -17,12 +17,9 @@ codegraph as a first-class citizen.  Provides:
 
 Usage::
 
-    from codegraph.persistence.connection import init_neo4j
     from codegraph_requirements import HLR, LLR
     from codegraph_requirements import persist_decomposition
     from codegraph_requirements import DecomposedRequirementSchema
-
-    init_neo4j()
 
     # Create an HLR
     hlr = HLR.save_new(name="Error handling", description="The system shall...")

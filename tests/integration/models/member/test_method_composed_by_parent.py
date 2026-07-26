@@ -28,6 +28,7 @@ def test_method_composed_by_class():
         name="CalculatorEngine",
         kind="class",
         brief_description="Core calculator engine",
+        source="test",
     ).save()
 
     method_node = MethodNode(
@@ -36,6 +37,7 @@ def test_method_composed_by_class():
         type_signature="CalculatorResult",
         argsstring="(double a, double b)",
         visibility="public",
+        source="test",
     ).save()
 
     # Connect from parent side
@@ -66,6 +68,7 @@ def test_method_composed_by_interface():
         name="ICalculator",
         kind="interface",
         brief_description="Calculator interface contract",
+        source="test",
     ).save()
 
     method_node = MethodNode(
@@ -74,6 +77,7 @@ def test_method_composed_by_interface():
         type_signature="CalculatorResult",
         argsstring="(Operation op, double a, double b)",
         visibility="public",
+        source="test",
     ).save()
 
     # Connect from parent side

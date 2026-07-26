@@ -20,11 +20,10 @@ via raw Cypher MERGE.
 
 Usage::
 
-    from codegraph.persistence.connection import init_neo4j
+    from codegraph.backends import get_backend
     from codegraph_requirements.persistence import persist_decomposition
 
-    init_neo4j()
-    result = persist_decomposition(
+    decomposition = persist_decomposition(
         hlr_uid="2c3463b2…",
         decomposition=decomposed,
     )

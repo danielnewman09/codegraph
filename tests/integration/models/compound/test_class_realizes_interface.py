@@ -26,12 +26,14 @@ def test_class_realizes_interface():
         kind="interface",
         brief_description="Calculator interface contract",
         is_abstract=True,
+        source="test",
     ).save()
 
     class_node = ClassNode(
         name="CalculatorEngine",
         kind="class",
         brief_description="Core calculator engine",
+        source="test",
     ).save()
 
     class_node.realizes.connect(interface_node)

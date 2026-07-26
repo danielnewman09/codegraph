@@ -22,12 +22,14 @@ def test_union_composed_by_namespace():
         name="calc",
         kind="namespace",
         description="Calculation engine namespace",
+        source="test",
     ).save()
 
     union_node = UnionNode(
         name="ValueOrError",
         kind="union",
         brief_description="Value or error union type",
+        source="test",
     ).save()
 
     # Connect from parent side

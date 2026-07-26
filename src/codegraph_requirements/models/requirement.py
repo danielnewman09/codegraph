@@ -56,8 +56,8 @@ nested structure that ``layer_graph_to_cytoscape()`` renders.
     ``CompositeHLR → HLR → LLR → TestNode``.
 
 NOTE: Before creating or querying nodes, neomodel's database connection
-must be configured (by importing ``codegraph.config`` or calling
-``codegraph.persistence.connection.init_neo4j()``).
+must be configured (by importing ``codegraph.backends`` or setting the
+``CODEGRAPH_BACKEND`` environment variable).
 """
 
 from neomodel import (

@@ -28,6 +28,7 @@ def test_interface_composes_method():
         kind="interface",
         brief_description="Calculator interface contract",
         is_abstract=True,
+        source="test",
     ).save()
 
     method_node = MethodNode(
@@ -36,6 +37,7 @@ def test_interface_composes_method():
         type_signature="CalculatorResult",
         argsstring="(Operation op, double a, double b)",
         visibility="public",
+        source="test",
     ).save()
 
     interface_node.methods.connect(method_node)

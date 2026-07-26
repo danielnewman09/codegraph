@@ -22,12 +22,14 @@ def test_interface_composed_by_namespace():
         name="calc",
         kind="namespace",
         description="Calculation engine namespace",
+        source="test",
     ).save()
 
     iface_node = InterfaceNode(
         name="ICalculator",
         kind="interface",
         brief_description="Calculator interface contract",
+        source="test",
     ).save()
 
     # Connect from parent side

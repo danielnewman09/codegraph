@@ -32,6 +32,7 @@ def test_method_defined_in_file():
         name="widget.h",
         path="/src/widget.h",
         language="cpp",
+        source="test",
     ).save()
 
     method_node = MethodNode(
@@ -41,6 +42,7 @@ def test_method_defined_in_file():
         argsstring="(Canvas c)",
         visibility="public",
         brief_description="Renders the widget onto a canvas",
+        source="test",
     ).save()
 
     method_node.defined_in.connect(file_node)

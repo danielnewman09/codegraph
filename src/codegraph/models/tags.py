@@ -17,6 +17,8 @@ from abc import ABCMeta
 from neomodel import StringProperty
 from neomodel.sync_.node import NodeMeta
 
+from codegraph.backends import get_backend
+
 
 class _CodeGraphNodeMeta(NodeMeta, ABCMeta):
     """Combined metaclass: NodeMeta for neomodel properties, ABCMeta for
@@ -419,125 +421,26 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
     # ── Save (uid computation hook) ────────────────────────────────────
 
     def _save(self) -> "CodeGraphNode":
-        """Save this node to Neo4j, computing ``uid`` from identity fields.
+        """Save this node via the active backend.
 
-        When ``_compute_uid()`` produces a deterministic non-empty hash,
-        uses a ``MERGE`` on ``uid`` for idempotent create-or-update — the
-        same logical symbol in different codebases produces the same
-        ``uid``, and re-ingesting the same node updates rather than
-        duplicating.
-
-        Falls back to neomodel's ``StructuredNode.save()`` when
-        ``_compute_uid()`` raises ``ValueError`` (e.g. source or
-        identity fields are empty), yielding an auto-generated random
-        uid.
+        Delegates to ``get_backend().save(self)``, which handles uid
+        computation, MERGE semantics, and property deflation.
 
         Returns:
             This node instance (after saving).
+
+        Raises:
+            ValueError: If ``source`` or identity fields are empty
+                (a deterministic uid cannot be derived).
         """
-        from neomodel import db
-
-        # Ensure qualified_name is set before computing uid.
-        # Types with a qualified_name property get it auto-computed
-        # from _compute_qualified_name() if empty.
-        props = type(self).defined_properties()
-        if "qualified_name" in props and not getattr(self, "qualified_name", ""):
-            self.qualified_name = self._compute_qualified_name()
-
-        try:
-            computed = self._compute_uid()
-        except ValueError:
-            # _compute_uid() failed (e.g. source is empty).  If the node
-            # already has a uid (from round-tripped data), use MERGE on
-            # that uid.  Otherwise, refuse to save.
-            existing_uid = self._uid_value()
-            if not existing_uid:
-                raise ValueError(
-                    f"Cannot save {type(self).__name__} "
-                    f"'{getattr(self, 'name', '')}': "
-                    f"source is empty and no uid is set — a non-empty "
-                    f"'source' is required to compute a deterministic uid."
-                ) from None
-            # Use the existing uid with MERGE for idempotent save
-            self.uid = existing_uid
-            computed = existing_uid
-        if computed:
-            self.uid = computed
-            # Use MERGE on uid for idempotent create-or-update.
-            # neomodel's StructuredNode.create() uses a plain CREATE
-            # which would violate the uniqueness constraint on re-ingest.
-            labels = ":".join(type(self).inherited_labels())
-
-            # Manually deflate properties without required-property
-            # validation.  ``StructuredNode.deflate(skip_empty=True)``
-            # raises ``RequiredProperty`` for required properties that
-            # are None, which prevents round-tripping markdown files
-            # where a heading exists but the description line is absent
-            # or immediately followed by another heading.  By deflating
-            # manually we skip None values gracefully.
-            #
-            # We also filter to only data properties (StringProperty,
-            # ArrayProperty, etc.) — ``defined_properties()`` includes
-            # relationship managers which do not have ``deflate()``.
-            #
-            # Required properties are always included (even if empty
-            # string) so that Neo4j stores them rather than leaving
-            # them as null.
-            from neomodel import RelationshipTo, RelationshipFrom
-            props: dict = {}
-            for pname, prop in type(self).defined_properties().items():
-                if isinstance(prop, (RelationshipTo, RelationshipFrom)):
-                    continue
-                val = getattr(self, pname, None)
-                if val is None or val == "" or val == []:
-                    # Skip empty values so that re-ingestion preserves
-                    # any existing value in Neo4j (SET n += $props
-                    # only updates keys present in $props).  Required
-                    # properties that are empty are also skipped — the
-                    # node is still created via MERGE, but the property
-                    # stays null in Neo4j until a non-empty value is
-                    # provided.
-                    continue
-                props[pname] = prop.deflate(val)
-            # Always include uid so MERGE target is stable.
-            props["uid"] = computed
-
-            # Use ``SET n += $props`` (update-only) instead of
-            # ``SET n = $props`` (replace-all) so that re-ingestion
-            # preserves existing properties not present in the current
-            # markdown (e.g. description set by a prior ingest but
-            # absent from a truncated re-export).
-            query = (
-                f"MERGE (n:{labels} {{uid: $uid}})"
-                f" SET n += $props RETURN n"
-            )
-            results, _ = db.cypher_query(
-                query, {"uid": computed, "props": props}
-            )
-            if results and results[0]:
-                # Hydrate the element_id so subsequent saves use the
-                # update path (neomodel's save checks hasattr(element_id_property)).
-                self.element_id_property = results[0][0].element_id
-            return self
-
-        return StructuredNode.save(self)
+        return get_backend().save(self)
 
     def _delete(self) -> "CodeGraphNode":
-        """Delete this node from Neo4j, cascading to composed children first.
+        """Delete this node via the active backend.
 
-        Any node reachable via an outgoing COMPOSES relationship is
-        considered an owned child and is deleted recursively (depth-
-        first, leaves first) before this node is removed.  This mirrors
-        the containment semantics of the code graph: deleting a
-        namespace deletes its classes, which delete their methods, and
-        so on.
-
-        After cascading, all remaining relationships on this node
-        (both outgoing and incoming) are explicitly disconnected to
-        clear the in-memory caches of related nodes — neomodel's
-        default ``DETACH DELETE`` removes relationships at the database
-        level but does not update other nodes' relationship manager
-        caches.
+        Delegates to ``get_backend().delete(self)``, which handles
+        recursive cascade (depth-first, leaves first), relationship
+        cache cleanup, and final node removal.
 
         Must be called on a saved node (one with an
         ``element_id_property``).  After deletion the node is marked
@@ -547,59 +450,15 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
             This node instance (marked as deleted, no longer persisted).
 
         Raises:
-            ValueError: If the node has not been saved to Neo4j yet
+            ValueError: If the node has not been saved yet
                 (no ``element_id_property``).
-
-        Example:
-            >>> ns = NamespaceNode.save_new(name="my_ns", kind="namespace",
-            ...                              qualified_name="my_ns")
-            >>> cls = ClassNode.save_new(name="Widget", kind="class",
-            ...                         qualified_name="my_ns::Widget")
-            >>> ns.classes.connect(cls)
-            >>> ns.delete()  # deletes cls first (composed child), then ns
         """
-        from neomodel import RelationshipTo, RelationshipFrom
-        from neomodel.sync_.node import StructuredNode
-        from codegraph.backends import get_backend
-
         if not hasattr(self, "element_id_property"):
             raise ValueError(
                 f"Cannot delete unsaved {type(self).__name__} instance. "
                 "Save the node first before calling delete()."
             )
-
-        # Cascade: delete all composed children (depth-first, leaves
-        # first) before deleting this node.  COMPOSES represents
-        # ownership containment, so children should not outlive their
-        # parent.
-        for child in get_backend().get_composed_children(self):
-            if hasattr(child, "element_id_property") and not getattr(child, "deleted", False):
-                child.delete()
-
-        # Disconnect all remaining relationships to clear caches of
-        # related nodes.  neomodel's DETACH DELETE removes relationships
-        # at the Cypher level but does not update other nodes'
-        # Python-side relationship caches.
-        seen: set[str] = set()
-        for klass in type(self).__mro__:
-            for name, val in vars(klass).items():
-                if not isinstance(val, (RelationshipTo, RelationshipFrom)):
-                    continue
-                if name in seen:
-                    continue
-                seen.add(name)
-                manager = getattr(self, name)
-                try:
-                    for connected in manager.all():
-                        try:
-                            manager.disconnect(connected)
-                        except Exception:
-                            pass  # best-effort disconnect
-                except Exception:
-                    pass  # unsaved or unavailable relationship manager
-
-        # Delegate to neomodel's DETACH DELETE
-        StructuredNode.delete(self)
+        get_backend().delete(self)
         return self
 
     # ── Serialization ─────────────────────────────────────────────────────
@@ -663,7 +522,6 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
             result[uid_prop] = uid_value
 
         if hasattr(self, "element_id_property"):
-            from codegraph.backends import get_backend
             all_edges = [
                 {
                     "relation_type": e.relation_type,
@@ -716,7 +574,6 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
             A list of serialized child dicts, or an empty list if this
             node has no composed children.
         """
-        from codegraph.backends import get_backend
         children = get_backend().get_composed_children(self)
         composes: list[dict] = []
         for child in children:

@@ -145,5 +145,5 @@ class Neo4jBackend(Backend):
         self,
         query: str,
         params: dict | None = None,
-    ) -> tuple[list, dict]:
+    ) -> tuple[list[dict], list[str]]:
         return self._conn.execute_raw(query, params)
