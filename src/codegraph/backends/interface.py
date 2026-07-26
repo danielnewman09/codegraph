@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from codegraph.graph import LayerGraph
     from codegraph.persistence.repository import GraphRepository
     from codegraph.persistence.memory_repository import MemoryRepository
+    from codegraph.persistence.requirements_repository import RequirementsRepository
 
 
 log = __import__("logging").getLogger(__name__)
@@ -82,6 +83,12 @@ class Backend(ABC):
     @abstractmethod
     def memory(self) -> "MemoryRepository":
         """The design memory repository."""
+        ...
+
+    @property
+    @abstractmethod
+    def requirements(self) -> "RequirementsRepository":
+        """The requirements (HLR/LLR/test) repository."""
         ...
 
     # ═══════════════════════════════════════════════════════════════════

@@ -1,47 +1,29 @@
 """Memory validation — cross-reference design vs as-built tags.
 
-Compares design-tagged memories against as-built code to surface:
-  - Design decisions not yet reflected in implementation
-  - Implementations that lack design documentation
-  - Inconsistencies between decision content and code structure
+Compares design-tagged memories against as-built code to surface
+inconsistencies.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from neomodel import db
-
+from codegraph.backends import get_backend
 from codegraph_memory.models.relationships import _inflate_code_node
 
 
 def validate_memories(source: str | None = None) -> list[dict[str, Any]]:
-    """Cross-reference design-tagged memories against as-built code.
-
-    Finds memory nodes that have "design" in their tags but whose linked
-    code nodes do NOT have "as-built" in their tags — meaning the design
-    decision hasn't been implemented yet (a TODO item).
-
-    Also finds memory nodes tagged only "as-built" (observed but never
-    designed) — implementation without design documentation.
-
-    Args:
-        source: Optional source project filter. When provided, only
-            memories from this source are checked.
-
-    Returns:
-        A list of validation findings, each with keys:
-        - ``memory``: serialized memory node
-        - ``status``: "design_not_implemented" or "undocumented_impl"
-        - ``code_qualified_name``: the linked code node's qualified_name
-    """
-    source_filter = "AND m.source = $source" if source else ""
+    """Cross-reference design-tagged memories against as-built code."""
+    backend = get_backend()
     params: dict[str, Any] = {}
+    source_filter = "AND m.source = $source" if source else ""
     if source:
         params["source"] = source
 
+    findings: list[dict[str, Any]] = []
+
     # Design-tagged memories whose linked code lacks as-built
-    results, _ = db.cypher_query(
+    rows, _ = backend.execute_raw(
         "MATCH (m)-[:MOTIVATES|CONSTRAINS|EXPLAINS|ASSUMES|TRADES_OFF|INSIGHT_INTO]->(c) "
         "WHERE 'design' IN m.tags "
         "AND NOT 'as-built' IN c.tags "
@@ -49,8 +31,7 @@ def validate_memories(source: str | None = None) -> list[dict[str, Any]]:
         "RETURN m, c.qualified_name",
         params,
     )
-    findings: list[dict[str, Any]] = []
-    for row in results:
+    for row in rows:
         memory = _inflate_code_node(row[0])
         if memory:
             findings.append({
@@ -60,7 +41,7 @@ def validate_memories(source: str | None = None) -> list[dict[str, Any]]:
             })
 
     # As-built memories whose linked code lacks design
-    results, _ = db.cypher_query(
+    rows, _ = backend.execute_raw(
         "MATCH (m)-[:MOTIVATES|CONSTRAINS|EXPLAINS|ASSUMES|TRADES_OFF|INSIGHT_INTO]->(c) "
         "WHERE 'as-built' IN m.tags "
         "AND NOT 'design' IN c.tags "
@@ -68,7 +49,7 @@ def validate_memories(source: str | None = None) -> list[dict[str, Any]]:
         "RETURN m, c.qualified_name",
         params,
     )
-    for row in results:
+    for row in rows:
         memory = _inflate_code_node(row[0])
         if memory:
             findings.append({
@@ -81,31 +62,18 @@ def validate_memories(source: str | None = None) -> list[dict[str, Any]]:
 
 
 def tag_gap_report(source: str | None = None) -> dict[str, Any]:
-    """Summary of design-tagged vs as-built-tagged memories.
-
-    Provides counts of:
-    - Design-only memories (design tag but not as-built)
-    - Validated memories (both design and as-built)
-    - As-built-only memories (as-built tag but not design)
-    - Design memories whose code targets haven't been built
-
-    Args:
-        source: Optional source project filter.
-
-    Returns:
-        A dict with count fields and lists of unvalidated decision names.
-    """
-    source_filter = "WHERE m.source = $source" if source else ""
+    """Summary of design-tagged vs as-built-tagged memories."""
+    backend = get_backend()
     params: dict[str, Any] = {}
+    source_clause = "AND m.source = $source" if source else ""
     if source:
         params["source"] = source
 
-    # Count by tag combination
-    results, _ = db.cypher_query(
+    rows, _ = backend.execute_raw(
         "MATCH (m) "
         "WHERE (m:DecisionNode OR m:ConstraintNode OR m:RationaleNode "
         "OR m:AssumptionNode OR m:TradeoffNode OR m:InsightNode) "
-        + ("AND m.source = $source" if source else "") +
+        + source_clause +
         " RETURN "
         "sum(CASE WHEN 'design' IN m.tags AND 'as-built' IN m.tags THEN 1 ELSE 0 END) AS validated, "
         "sum(CASE WHEN 'design' IN m.tags AND NOT 'as-built' IN m.tags THEN 1 ELSE 0 END) AS design_only, "
@@ -114,29 +82,28 @@ def tag_gap_report(source: str | None = None) -> dict[str, Any]:
         params,
     )
 
-    if results:
-        row = results[0]
+    if rows:
+        r = rows[0]
         counts = {
-            "validated": row[0] or 0,
-            "design_only": row[1] or 0,
-            "built_only": row[2] or 0,
-            "total": row[3] or 0,
+            "validated": r["validated"] or 0,
+            "design_only": r["design_only"] or 0,
+            "built_only": r["built_only"] or 0,
+            "total": r["total"] or 0,
         }
     else:
         counts = {"validated": 0, "design_only": 0, "built_only": 0, "total": 0}
 
-    # Unvalidated decisions (design but not as-built)
-    results, _ = db.cypher_query(
+    rows, _ = backend.execute_raw(
         "MATCH (m:DecisionNode) "
         "WHERE 'design' IN m.tags AND NOT 'as-built' IN m.tags "
-        + ("AND m.source = $source" if source else "") +
+        + source_clause +
         " RETURN m.qualified_name AS qname, m.content AS content "
         "ORDER BY m.confidence DESC",
         params,
     )
     counts["unvalidated_decisions"] = [
-        {"qualified_name": row[0], "content": row[1]}
-        for row in results
+        {"qualified_name": r["qname"], "content": r["content"]}
+        for r in rows
     ]
 
     return counts

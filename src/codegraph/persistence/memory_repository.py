@@ -97,6 +97,36 @@ class MemoryRepository(ABC):
         """
         ...
 
+    # ── Memory ↔ code node linking ───────────────────────────────
+
+    @abstractmethod
+    def link_to_code_node(
+        self,
+        memory_uid: str,
+        code_uid: str,
+        rel_type: str,
+    ) -> None:
+        """Create a MERGE edge from a memory node to a code node.
+
+        This is the canonical form of what ``MemoryGraph.to_neo4j()``
+        does for each entry — links a memory node to its target code
+        node via the declared relationship type.
+        """
+        ...
+
+    @abstractmethod
+    def find_linked_code_node(
+        self,
+        memory_uid: str,
+    ) -> dict | None:
+        """Return the code node a memory node is linked to.
+
+        Excludes memory-to-memory edges (SUPERSEDES, CONTRADICTS,
+        REFINES).  Returns ``{"uid": str, "qualified_name": str,
+        "rel_type": str}`` or None.
+        """
+        ...
+
     # ── Vector search ──────────────────────────────────────────────
 
     @abstractmethod

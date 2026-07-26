@@ -7,7 +7,7 @@ to create all constraints and indexes.
 
 from __future__ import annotations
 
-from neomodel import db
+from codegraph.backends import get_backend
 
 MEMORY_CONSTRAINTS_AND_INDEXES: list[str] = [
     # ── Uniqueness constraints ─────────────────────────────────────
@@ -110,7 +110,7 @@ def apply_schema() -> None:
     """
     for stmt in MEMORY_CONSTRAINTS_AND_INDEXES:
         try:
-            db.cypher_query(stmt)
+            get_backend().execute_raw(stmt)
         except Exception as e:
             # Index/constraint may already exist or syntax may differ
             # across Neo4j versions — log but don't crash.

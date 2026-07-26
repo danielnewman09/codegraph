@@ -21,10 +21,12 @@ from codegraph.backends.neo4j.config import Neo4jConfig
 from codegraph.backends.neo4j.connection import Neo4jConnection
 from codegraph.backends.neo4j.graph_repository import Neo4jGraphRepository
 from codegraph.backends.neo4j.memory_repository import Neo4jMemoryRepository
+from codegraph.backends.neo4j.requirements_repository import Neo4jRequirementsRepository
 from codegraph.models.tags import CodeGraphNode
 from codegraph.graph import LayerGraph
 from codegraph.persistence.repository import GraphRepository
 from codegraph.persistence.memory_repository import MemoryRepository
+from codegraph.persistence.requirements_repository import RequirementsRepository
 
 
 class Neo4jBackend(Backend):
@@ -34,6 +36,7 @@ class Neo4jBackend(Backend):
     - ``_conn`` — driver lifecycle + raw Cypher
     - ``_graph`` — Neo4jGraphRepository (code graph operations)
     - ``_memory`` — Neo4jMemoryRepository (design memory operations)
+    - ``_requirements`` — Neo4jRequirementsRepository (HLR/LLR/test ops)
     """
 
     def __init__(self, config: Neo4jConfig | None = None):
@@ -43,6 +46,7 @@ class Neo4jBackend(Backend):
         self._conn = Neo4jConnection(config)
         self._graph = Neo4jGraphRepository(self._conn)
         self._memory = Neo4jMemoryRepository(self._conn, self._graph)
+        self._requirements = Neo4jRequirementsRepository(self._conn, self._graph)
 
     # ── Lifecycle ────────────────────────────────────────────────────
 
@@ -61,6 +65,10 @@ class Neo4jBackend(Backend):
     @property
     def memory(self) -> MemoryRepository:
         return self._memory
+
+    @property
+    def requirements(self) -> RequirementsRepository:
+        return self._requirements
 
     # ── Raw query ───────────────────────────────────────────────────
 

@@ -49,6 +49,10 @@ class Neo4jGraphRepository(GraphRepository):
         return self._node_ops.find_uid_by_qualified_name(qualified_name)
 
     @override
+    def resolve_uid_by_name(self, name: str, *, label: str | None = None) -> str | None:
+        return self._node_ops.find_uid_by_name(name, label=label)
+
+    @override
     def resolve_qualified_name(self, uid: str) -> str | None:
         return self._node_ops.find_qualified_name_by_uid(uid)
 
@@ -99,10 +103,16 @@ class Neo4jGraphRepository(GraphRepository):
 
     @override
     def merge_relationship(
-        self, source_uid: str, rel_type: str, target_uid: str
+        self,
+        source_uid: str,
+        rel_type: str,
+        target_uid: str,
+        *,
+        edge_properties: dict[str, object] | None = None,
     ) -> int:
         return self._rel_ops.merge_relationship(
             source_uid, rel_type, target_uid,
+            edge_properties=edge_properties,
         )
 
     @override

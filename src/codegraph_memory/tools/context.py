@@ -12,9 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from neomodel import db
-
-from codegraph_memory.models.relationships import _inflate_code_node
+from codegraph.backends import get_backend
 
 
 def memory_context(
@@ -46,9 +44,11 @@ def memory_context(
             for each ancestor in the COMPOSES chain
           - summary: {total_memories, by_type, low_confidence, superseded}
     """
+    backend = get_backend()
+
     # ── Resolve target node ──────────────────────────────────────
-    target_info = _resolve_target(qualified_name)
-    if target_info is None:
+    target_node = backend.graph.find_by_qualified_name(qualified_name)
+    if target_node is None:
         return {
             "target": {"qualified_name": qualified_name, "kind": None},
             "direct": [],
@@ -62,13 +62,19 @@ def memory_context(
             "error": f"No code node found with qualified_name {qualified_name!r}",
         }
 
+    target_uid = target_node._uid_value()
+    labels = backend.graph.get_labels(target_uid) if target_uid else set()
+    kind = _kind_from_labels(labels)
+
+    target_info = {"qualified_name": qualified_name, "kind": kind}
+
     # ── Direct memories ───────────────────────────────────────────
     direct = _memories_for_node(qualified_name)
 
     # ── Inherited memories (upward COMPOSES) ──────────────────────
     inherited: list[dict[str, Any]] = []
-    if traverse_parents:
-        inherited = _inherited_memories(qualified_name, max_depth)
+    if traverse_parents and target_uid:
+        inherited = _inherited_memories(target_uid, qualified_name, max_depth)
 
     # ── Build summary ─────────────────────────────────────────────
     all_memories = list(direct)
@@ -88,62 +94,44 @@ def memory_context(
 
 # ── Internal helpers ────────────────────────────────────────────────
 
-def _resolve_target(qualified_name: str) -> dict[str, Any] | None:
-    """Resolve a qualified_name to a target info dict.
+_KIND_PRIORITY_TARGET = [
+    "MethodNode", "AttributeNode", "EnumValueNode",
+    "FunctionNode", "DefineNode",
+    "ClassNode", "InterfaceNode", "EnumNode", "UnionNode", "ModuleNode",
+    "NamespaceNode", "FileNode",
+]
 
-    Returns:
-        {"qualified_name": str, "kind": str} or None if not found.
-    """
-    results, _ = db.cypher_query(
-        "MATCH (n) WHERE n.qualified_name = $qname "
-        "RETURN n.qualified_name AS qname, labels(n) AS labels LIMIT 1",
-        {"qname": qualified_name},
-    )
-    if not results:
-        return None
+_KIND_PRIORITY_ANCESTOR = [
+    "NamespaceNode", "FileNode",
+    "ClassNode", "InterfaceNode", "EnumNode", "UnionNode", "ModuleNode",
+]
 
-    row = results[0]
-    labels = set(row[1]) if row[1] else set()
-    # Determine the most specific kind from labels
-    kind = "CodeGraphNode"
-    kind_priority = [
-        "MethodNode", "AttributeNode", "EnumValueNode",
-        "FunctionNode", "DefineNode",
-        "ClassNode", "InterfaceNode", "EnumNode", "UnionNode", "ModuleNode",
-        "NamespaceNode", "FileNode",
-    ]
-    for k in kind_priority:
+
+def _kind_from_labels(labels: set[str], priority: list[str] | None = None) -> str:
+    if priority is None:
+        priority = _KIND_PRIORITY_TARGET
+    for k in priority:
         if k in labels:
-            kind = k
-            break
-
-    return {
-        "qualified_name": row[0],
-        "kind": kind,
-    }
+            return k
+    return "CodeGraphNode"
 
 
 def _memories_for_node(qualified_name: str) -> list[dict[str, Any]]:
     """Return all memory nodes directly linked to a code node."""
-    results, _ = db.cypher_query(
-        "MATCH (m)-[r:MOTIVATES|CONSTRAINS|EXPLAINS|ASSUMES|TRADES_OFF|INSIGHT_INTO]->(target) "
-        "WHERE target.qualified_name = $qname "
-        "RETURN m, type(r) AS rel_type",
-        {"qname": qualified_name},
-    )
+    backend = get_backend()
+    results = backend.memory.find_for_code_node_by_qname(qualified_name)
     memories: list[dict[str, Any]] = []
-    for row in results:
-        node = _inflate_code_node(row[0])
-        if node is None:
-            continue
+    for r in results:
+        node = r["memory"]
         entry = node.serialize()
-        entry["relation"] = row[1]
+        entry["relation"] = r["rel_type"]
         memories.append(entry)
     return memories
 
 
 def _inherited_memories(
-    qualified_name: str,
+    target_uid: str,
+    target_qname: str,
     max_depth: int,
 ) -> list[dict[str, Any]]:
     """Walk COMPOSES upward and collect memories from ancestor nodes.
@@ -151,42 +139,27 @@ def _inherited_memories(
     Returns a list of {source, source_kind, depth, memories} dicts,
     ordered from nearest ancestor (depth 1) to farthest.
     """
-    # Neo4j doesn't allow parameters in variable-length patterns,
-    # so we interpolate max_depth directly (it's an int, safe from injection).
-    results, _ = db.cypher_query(
-        f"MATCH (target)<-[:COMPOSES*1..{max_depth}]-(ancestor) "
-        "WHERE target.qualified_name = $qname "
-        "MATCH (m)-[r:MOTIVATES|CONSTRAINS|EXPLAINS|ASSUMES|TRADES_OFF|INSIGHT_INTO]->(ancestor) "
-        "RETURN ancestor.qualified_name AS source_qname, "
-        "labels(ancestor) AS source_labels, "
-        "m, type(r) AS rel_type "
-        "ORDER BY source_qname",
-        {"qname": qualified_name},
-    )
+    backend = get_backend()
+    results = backend.memory.find_linked_to_ancestors(target_uid, max_depth=max_depth)
 
     # Group by ancestor
     by_ancestor: dict[str, dict[str, Any]] = {}
-    for row in results:
-        source_qname = row[0]
-        source_labels = set(row[1]) if row[1] else set()
-        memory_node = _inflate_code_node(row[2])
-        rel_type = row[3]
+    for r in results:
+        source_uid = r["source_uid"]
+        memory_node = r["memory"]
+        rel_type = r["rel_type"]
 
         if memory_node is None:
             continue
 
-        if source_qname not in by_ancestor:
-            # Determine kind
-            kind = "CodeGraphNode"
-            kind_priority = [
-                "NamespaceNode", "FileNode",
-                "ClassNode", "InterfaceNode", "EnumNode", "UnionNode", "ModuleNode",
-            ]
-            for k in kind_priority:
-                if k in source_labels:
-                    kind = k
-                    break
+        # Resolve source qualified_name from uid
+        source_qname = backend.graph.resolve_qualified_name(source_uid)
+        if source_qname is None:
+            source_qname = source_uid
 
+        if source_qname not in by_ancestor:
+            labels = backend.graph.get_labels(source_uid)
+            kind = _kind_from_labels(labels, _KIND_PRIORITY_ANCESTOR)
             by_ancestor[source_qname] = {
                 "source": source_qname,
                 "source_kind": kind,
@@ -198,12 +171,10 @@ def _inherited_memories(
         by_ancestor[source_qname]["memories"].append(entry)
 
     # Compute depth for each ancestor (approximate by qname nesting)
-    target_parts = qualified_name.split("::")
+    target_parts = target_qname.split("::")
     result: list[dict[str, Any]] = []
     for qname, data in by_ancestor.items():
         ancestor_parts = qname.split("::")
-        # Depth = how many levels up from target
-        # If target is a::b::c::method and ancestor is a::b, depth = 1
         depth = len(target_parts) - len(ancestor_parts)
         data["depth"] = max(1, depth)
         result.append(data)
@@ -217,15 +188,7 @@ def _build_summary(
     memories: list[dict[str, Any]],
     include_superseded: bool,
 ) -> dict[str, Any]:
-    """Build a summary of the memory context.
-
-    Args:
-        memories: Flat list of serialized memory dicts.
-        include_superseded: Whether to include superseded decisions.
-
-    Returns:
-        A dict with total_memories, by_type, low_confidence, superseded.
-    """
+    """Build a summary of the memory context."""
     by_type: dict[str, int] = {}
     low_confidence: list[str] = []
     superseded: list[str] = []
@@ -242,14 +205,15 @@ def _build_summary(
         if mtype == "DecisionNode" and not include_superseded:
             qname = m.get("qualified_name", "")
             if qname:
-                # Check if any other decision supersedes this one
-                results, _ = db.cypher_query(
-                    "MATCH (newer:DecisionNode)-[:SUPERSEDES]->(older:DecisionNode) "
+                backend = get_backend()
+                rows, _ = backend.execute_raw(
+                    "MATCH (newer:DecisionNode)-[:SUPERSEDES]->"
+                    "(older:DecisionNode) "
                     "WHERE older.qualified_name = $qname "
                     "RETURN newer.qualified_name",
                     {"qname": qname},
                 )
-                if results:
+                if rows:
                     superseded.append(qname)
 
     return {

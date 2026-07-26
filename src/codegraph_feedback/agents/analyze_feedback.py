@@ -263,10 +263,10 @@ def analyze_and_persist(
         A :class:`FeedbackAnalysisResult`.
     """
     # ── Load HLR from Neo4j ─────────────────────────────────────
-    from neomodel import db
+    from codegraph.backends import get_backend
 
     try:
-        results, _ = db.cypher_query(
+        results, _ = get_backend().execute_raw(
             "MATCH (hlr:HLR) WHERE hlr.uid = $uid "
             "RETURN hlr.name AS name, hlr.description AS description, "
             "hlr.uid AS uid",
@@ -289,7 +289,7 @@ def analyze_and_persist(
     # ── Resolve component name ──────────────────────────────────
     component_name = ""
     try:
-        comp_results, _ = db.cypher_query(
+        comp_results, _ = get_backend().execute_raw(
             "MATCH (c)-[:COMPOSES]->(hlr:HLR) WHERE hlr.uid = $uid "
             "RETURN c.name AS name LIMIT 1",
             {"uid": hlr_uid},

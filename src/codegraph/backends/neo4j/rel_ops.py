@@ -55,18 +55,33 @@ class Neo4jRelOps:
         source_uid: str,
         rel_type: str,
         target_uid: str,
+        *,
+        edge_properties: dict[str, object] | None = None,
     ) -> int:
         """Idempotently create a relationship between two nodes by uid.
 
+        Optionally sets *edge_properties* on the relationship.
         Returns 1 if the target was matched, 0 otherwise.
         """
-        results, _ = db.cypher_query(
-            f"MATCH (s), (t) "
-            f"WHERE s.uid = $suid AND t.uid = $tuid "
-            f"MERGE (s)-[:{rel_type}]->(t) "
-            f"RETURN count(t) AS cnt",
-            {"suid": source_uid, "tuid": target_uid},
-        )
+        parts = [
+            f"MATCH (s), (t) ",
+            f"WHERE s.uid = $suid AND t.uid = $tuid ",
+            f"MERGE (s)-[r:{rel_type}]->(t) ",
+        ]
+        if edge_properties:
+            props_clause = ", ".join(
+                f"r.{k} = $ep_{k}" for k in edge_properties
+            )
+            parts.append(f"ON CREATE SET {props_clause} ")
+            parts.append(f"ON MATCH SET {props_clause} ")
+        parts.append("RETURN count(t) AS cnt")
+
+        params: dict = {"suid": source_uid, "tuid": target_uid}
+        if edge_properties:
+            for k, v in edge_properties.items():
+                params[f"ep_{k}"] = v
+
+        results, _ = db.cypher_query(" ".join(parts), params)
         return results[0][0] if results else 0
 
     # ── Traversal ───────────────────────────────────────────────────

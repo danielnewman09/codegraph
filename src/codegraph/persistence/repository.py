@@ -39,6 +39,11 @@ class GraphRepository(ABC):
         ...
 
     @abstractmethod
+    def resolve_uid_by_name(self, name: str, *, label: str | None = None) -> str | None:
+        """Look up the ``uid`` for a node by ``name`` (optionally label-qualified)."""
+        ...
+
+    @abstractmethod
     def resolve_qualified_name(self, uid: str) -> str | None:
         """Look up the ``qualified_name`` for a node by ``uid``."""
         ...
@@ -92,9 +97,17 @@ class GraphRepository(ABC):
 
     @abstractmethod
     def merge_relationship(
-        self, source_uid: str, rel_type: str, target_uid: str
+        self,
+        source_uid: str,
+        rel_type: str,
+        target_uid: str,
+        *,
+        edge_properties: dict[str, object] | None = None,
     ) -> int:
-        """MERGE a relationship between two nodes by uid.  Returns 0 or 1."""
+        """MERGE a relationship between two nodes by uid.  Returns 0 or 1.
+
+        Optionally sets *edge_properties* on the relationship.
+        """
         ...
 
     @abstractmethod

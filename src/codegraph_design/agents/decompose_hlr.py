@@ -581,7 +581,7 @@ def _make_decompose_tool_dispatcher(
             decompose_and_persist_hlr, False for description mode).
     """
     from codegraph_requirements.models import HLR
-    from neomodel import db as neomodel_db
+    from codegraph.backends import get_backend
 
     def dispatch(tool_name: str, tool_input: dict) -> str:
         if tool_name == "validate_my_decomposition":
@@ -669,35 +669,32 @@ def _make_decompose_tool_dispatcher(
                     "rationale": rationale,
                 })
 
+            graph = get_backend().graph
+            target_uid = graph.resolve_uid_by_name(target_name, label="HLR")
+            if not target_uid:
+                return json.dumps({
+                    "status": "failed",
+                    "message": f"Could not find target HLR '{target_name}' in Neo4j. "
+                                f"Verify the name matches exactly.",
+                })
+            source_node = graph.find_by_uid(hlr_uid)
+            if not source_node:
+                return json.dumps({
+                    "status": "failed",
+                    "message": f"Source HLR with uid '{hlr_uid}' not found.",
+                })
             try:
-                result, meta = neomodel_db.cypher_query(
-                    """
-                    MATCH (source:HLR {uid: $source_uid})
-                    MATCH (target:HLR {name: $target_name})
-                    MERGE (source)-[r:DEPENDS_ON]->(target)
-                    SET r.description = $rationale
-                    RETURN source.name, type(r), target.name
-                    """,
-                    {
-                        "source_uid": hlr_uid,
-                        "target_name": target_name,
-                        "rationale": rationale,
-                    },
+                graph.merge_relationship(
+                    hlr_uid, "DEPENDS_ON", target_uid,
+                    edge_properties={"description": rationale},
                 )
-                if result:
-                    return json.dumps({
-                        "status": "created",
-                        "source": result[0][0],
-                        "relation": result[0][1],
-                        "target": result[0][2],
-                        "rationale": rationale,
-                    })
-                else:
-                    return json.dumps({
-                        "status": "failed",
-                        "message": f"Could not find target HLR '{target_name}' in Neo4j. "
-                                    f"Verify the name matches exactly.",
-                    })
+                return json.dumps({
+                    "status": "created",
+                    "source": source_node.name,
+                    "relation": "DEPENDS_ON",
+                    "target": target_name,
+                    "rationale": rationale,
+                })
             except Exception as exc:
                 log.exception("create_dependency_link failed")
                 return json.dumps({"error": f"Link error: {exc}"})

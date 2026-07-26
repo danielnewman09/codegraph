@@ -176,10 +176,10 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         """
         if "tags" not in cls.defined_properties():
             return []
-        from neomodel import db
+        from codegraph.backends import get_backend
         label = cls.__label__
         query = f"MATCH (n:`{label}`) WHERE $tag IN n.tags RETURN n"
-        results, _ = db.cypher_query(query, {"tag": tag})
+        results, _ = get_backend().execute_raw(query, {"tag": tag})
         return [cls.inflate(row[0]) for row in results]
 
     @classmethod

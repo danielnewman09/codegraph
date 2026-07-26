@@ -218,7 +218,7 @@ class CompositeHLRMiner(RequirementMiner):
         Returns:
             List of unique NamespaceNode neomodel instances.
         """
-        from neomodel import db
+        from codegraph.backends import get_backend
         from codegraph.models.namespace import NamespaceNode
 
         tag = filters.get("tag")
@@ -242,7 +242,7 @@ class CompositeHLRMiner(RequirementMiner):
         params["min_hlrs"] = self.MIN_HLRS_FOR_COMPOSITE
 
         try:
-            results, _ = db.cypher_query(query, params)
+            results, _ = get_backend().execute_raw(query, params)
         except Exception as exc:
             import logging
             logging.getLogger(__name__).error(
@@ -279,7 +279,7 @@ class CompositeHLRMiner(RequirementMiner):
           ``target`` describing structural relationships between
           compounds in the namespace.
         """
-        from neomodel import db
+        from codegraph.backends import get_backend
 
         ns_name = self.node_name(target)
         ns_desc = getattr(target, "description", "") or ""
@@ -310,7 +310,7 @@ class CompositeHLRMiner(RequirementMiner):
         ORDER BY c.qualified_name
         """
         try:
-            hlr_results, _ = db.cypher_query(
+            hlr_results, _ = get_backend().execute_raw(
                 hlr_query, {"ns_id": ns_element_id}
             )
         except Exception:
@@ -347,7 +347,7 @@ class CompositeHLRMiner(RequirementMiner):
                    c2.qualified_name AS target
             """
             try:
-                rel_results, _ = db.cypher_query(
+                rel_results, _ = get_backend().execute_raw(
                     rel_query, {"compound_qns": compound_qns}
                 )
                 for row in rel_results:
@@ -445,14 +445,14 @@ class CompositeHLRMiner(RequirementMiner):
 
     def _has_existing_requirements(self, target) -> bool:
         """Check if a composite HLR already exists for this namespace."""
-        from neomodel import db
+        from codegraph.backends import get_backend
         from codegraph_mine.persistence import _make_composite_hlr_name
 
         namespace_name = self.node_name(target)
         hlr_name = _make_composite_hlr_name(namespace_name)
 
         try:
-            results, _ = db.cypher_query(
+            results, _ = get_backend().execute_raw(
                 "MATCH (h:HLR {name: $name}) "
                 "WHERE 'composite' IN h.tags "
                 "RETURN count(h) AS cnt",

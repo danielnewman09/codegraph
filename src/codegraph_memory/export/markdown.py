@@ -7,7 +7,7 @@ context windows.  Also provides module-level memory summaries.
 
 from __future__ import annotations
 
-from neomodel import db
+from codegraph.backends import get_backend
 
 from codegraph_memory.models.relationships import _inflate_code_node
 
@@ -29,7 +29,7 @@ def export_adr(
         A markdown string representing the ADR.
     """
     # Fetch the decision
-    results, _ = db.cypher_query(
+    results, _ = backend.execute_raw(
         "MATCH (d:DecisionNode {qualified_name: $qname}) RETURN d",
         {"qname": decision_qualified_name},
     )
@@ -72,7 +72,8 @@ def export_adr(
         lines.append("")
 
     # ── Rationale ──────────────────────────────────────────────────
-    results, _ = db.cypher_query(
+    backend = get_backend()
+    results, _ = backend.execute_raw(
         "MATCH (r:RationaleNode)-[:REFINES]->(d:DecisionNode) "
         "WHERE d.qualified_name = $qname RETURN r",
         {"qname": decision_qualified_name},
@@ -92,7 +93,7 @@ def export_adr(
     if motivated:
         motivated_uids = [n.uid for n in motivated if hasattr(n, "uid")]
         if motivated_uids:
-            results, _ = db.cypher_query(
+            results, _ = backend.execute_raw(
                 "MATCH (t:TradeoffNode)-[:TRADES_OFF]->(c) "
                 "WHERE c.uid IN $uids RETURN DISTINCT t",
                 {"uids": motivated_uids},
@@ -108,7 +109,7 @@ def export_adr(
                     lines.append("")
 
     # ── Supersession chain ─────────────────────────────────────────
-    results, _ = db.cypher_query(
+    results, _ = backend.execute_raw(
         "MATCH (d:DecisionNode)-[:SUPERSEDES]->(older) "
         "WHERE d.qualified_name = $qname "
         "RETURN older.qualified_name, older.content, older.decided_at, older.tags "

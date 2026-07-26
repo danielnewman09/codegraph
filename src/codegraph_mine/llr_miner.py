@@ -338,7 +338,7 @@ class LLRMiner(RequirementMiner):
         the compound models don't carry a ``verified_by`` relationship
         manager.
         """
-        from neomodel import db
+        from codegraph.backends import get_backend
         from codegraph.models.test import TestNode
 
         compound_element_id = None
@@ -358,7 +358,7 @@ class LLRMiner(RequirementMiner):
         RETURN t
         """
         try:
-            results, _ = db.cypher_query(
+            results, _ = get_backend().execute_raw(
                 query, {"compound_id": compound_element_id}
             )
         except Exception:
@@ -585,14 +585,14 @@ class LLRMiner(RequirementMiner):
         and ``backend_migrated.models.requirement.HLR`` (both claim the
         ``HLR`` Neo4j label).
         """
-        from neomodel import db
+        from codegraph.backends import get_backend
         from codegraph_mine.persistence import _make_hlr_name
 
         compound_name = self.node_name(target)
         hlr_name = _make_hlr_name(compound_name)
 
         try:
-            results, _ = db.cypher_query(
+            results, _ = get_backend().execute_raw(
                 "MATCH (h:HLR {name: $name}) RETURN count(h) AS cnt",
                 {"name": hlr_name},
             )

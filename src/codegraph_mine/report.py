@@ -27,7 +27,7 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timezone
 
-from neomodel import db
+from codegraph.backends import get_backend
 
 log = logging.getLogger(__name__)
 
@@ -90,7 +90,7 @@ def _fetch_hlrs_with_llrs(tag: str) -> list[dict]:
     ORDER BY h.name, l.name
     """
     try:
-        results, _ = db.cypher_query(query, {"tag": tag})
+        results, _ = get_backend().execute_raw(query, {"tag": tag})
     except Exception as exc:
         log.error("_fetch_hlrs_with_llrs: query failed: %s", exc)
         return []
@@ -163,7 +163,7 @@ def _fetch_compounds_without_requirements(tag: str) -> list[dict]:
     RETURN h.name AS name
     """
     try:
-        hlr_results, _ = db.cypher_query(hlr_query, {"tag": tag})
+        hlr_results, _ = get_backend().execute_raw(hlr_query, {"tag": tag})
     except Exception:
         return []
 
@@ -178,7 +178,7 @@ def _fetch_compounds_without_requirements(tag: str) -> list[dict]:
     ORDER BY test_count DESC
     """
     try:
-        test_results, _ = db.cypher_query(test_query, {})
+        test_results, _ = get_backend().execute_raw(test_query, {})
     except Exception:
         return []
 
@@ -220,7 +220,7 @@ def _fetch_composite_hlrs(tag: str) -> list[dict]:
     ORDER BY h.name, child.name
     """
     try:
-        results, _ = db.cypher_query(query, {"tag": tag})
+        results, _ = get_backend().execute_raw(query, {"tag": tag})
     except Exception as exc:
         log.error("_fetch_composite_hlrs: query failed: %s", exc)
         return []

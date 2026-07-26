@@ -299,7 +299,23 @@ class Neo4jNodeOps:
         )
         return [r[0] for r in results]
 
-    # ── uid ↔ qualified_name resolution ─────────────────────────
+    # ── uid ↔ name ↔ qualified_name resolution ─────────────────
+
+    def find_uid_by_name(self, name: str, label: str | None = None) -> str | None:
+        """Look up uid for a node by name, optionally label-qualified."""
+        if label:
+            results, _ = db.cypher_query(
+                f"MATCH (n:`{label}`) WHERE n.name = $name "
+                "RETURN n.uid AS uid LIMIT 1",
+                {"name": name},
+            )
+        else:
+            results, _ = db.cypher_query(
+                "MATCH (n) WHERE n.name = $name "
+                "RETURN n.uid AS uid LIMIT 1",
+                {"name": name},
+            )
+        return results[0][0] if results else None
 
     def find_uid_by_qualified_name(self, qualified_name: str) -> str | None:
         """Look up uid for a node by qualified_name."""

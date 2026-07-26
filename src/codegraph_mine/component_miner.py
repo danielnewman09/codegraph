@@ -308,7 +308,7 @@ class ComponentMiner(RequirementMiner):
         - ``cross_namespace_deps``: List of cross-namespace dependency
           edges between compounds
         """
-        from neomodel import db
+        from codegraph.backends import get_backend
 
         project_name = getattr(target, "name", "") or "project"
 
@@ -332,7 +332,7 @@ class ComponentMiner(RequirementMiner):
         """
         tag = "as-built"  # default; could be parameterized
         try:
-            hlr_results, _ = db.cypher_query(hlr_query, {"tag": tag})
+            hlr_results, _ = get_backend().execute_raw(hlr_query, {"tag": tag})
         except Exception:
             hlr_results = []
 
@@ -360,7 +360,7 @@ class ComponentMiner(RequirementMiner):
         ORDER BY parent.qualified_name
         """
         try:
-            ns_results, _ = db.cypher_query(ns_query)
+            ns_results, _ = get_backend().execute_raw(ns_query)
             for row in ns_results:
                 ns_hierarchy.append({
                     "parent": row[0] or "",
@@ -391,7 +391,7 @@ class ComponentMiner(RequirementMiner):
                              c2.qualified_name AS c2
             """
             try:
-                dep_results, _ = db.cypher_query(
+                dep_results, _ = get_backend().execute_raw(
                     dep_query, {"compound_qns": compound_qns}
                 )
                 for row in dep_results:
@@ -521,10 +521,10 @@ class ComponentMiner(RequirementMiner):
 
     def _has_existing_requirements(self, target) -> bool:
         """Check if mined Components already exist."""
-        from neomodel import db
+        from codegraph.backends import get_backend
 
         try:
-            results, _ = db.cypher_query(
+            results, _ = get_backend().execute_raw(
                 "MATCH (c:Component) WHERE 'mined' IN c.tags "
                 "RETURN count(c) AS cnt"
             )

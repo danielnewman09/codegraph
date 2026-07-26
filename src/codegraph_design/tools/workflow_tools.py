@@ -158,7 +158,7 @@ def handle_ingest_design(ctx: DesignDiscoveryDispatcher, tool_input: dict) -> st
         return json.dumps({"error": f"File not found: {file_path}"})
 
     try:
-        from neomodel import db as neomodel_db
+        from codegraph.backends import get_backend
 
         from codegraph.export.markdown import MarkdownImporter
 
@@ -215,9 +215,9 @@ def handle_generate_hlr_docs(ctx: DesignDiscoveryDispatcher, tool_input: dict) -
     output_dir = tool_input.get("output_dir", "codegraph/requirements/generated/hlr_docs")
 
     try:
-        from neomodel import db as neomodel_db
+        from codegraph.backends import get_backend
 
-        results, meta = neomodel_db.cypher_query("""
+        results, meta = get_backend().execute_raw("""
                 MATCH (hlr:HLR)-[:COMPOSES]->(llr:LLR)
                 WHERE "design" IN hlr.tags
                 OPTIONAL MATCH (llr)-[:COMPOSES]->(test:TestNode)
@@ -369,9 +369,9 @@ def handle_generate_feedback_docs(ctx: DesignDiscoveryDispatcher, tool_input: di
     output_dir = tool_input.get("output_dir", "codegraph/requirements/generated/feedback_docs")
 
     try:
-        from neomodel import db as neomodel_db
+        from codegraph.backends import get_backend
 
-        results, meta = neomodel_db.cypher_query("""
+        results, meta = get_backend().execute_raw("""
             MATCH (hlr:HLR)-[:COMPOSES]->(llr:LLR)
             WHERE "design" IN hlr.tags AND "design" IN llr.tags
             RETURN hlr.name as hlr_name, hlr.description as hlr_desc,
@@ -451,9 +451,9 @@ def handle_evaluate_coverage(ctx: DesignDiscoveryDispatcher, tool_input: dict) -
     output_path = tool_input.get("output_path")
 
     try:
-        from neomodel import db as neomodel_db
+        from codegraph.backends import get_backend
 
-        results, meta = neomodel_db.cypher_query("""
+        results, meta = get_backend().execute_raw("""
             MATCH (m)
             WHERE "design" IN m.tags
               AND (m:MethodNode OR m:FunctionNode)
@@ -541,9 +541,9 @@ def handle_evaluate_coverage(ctx: DesignDiscoveryDispatcher, tool_input: dict) -
 def handle_verify_callee_granularity(ctx: DesignDiscoveryDispatcher, tool_input: dict) -> str:
     """Verify CALLEE edges target correct granularity."""
     try:
-        from neomodel import db as neomodel_db
+        from codegraph.backends import get_backend
 
-        results, meta = neomodel_db.cypher_query("""
+        results, meta = get_backend().execute_raw("""
             MATCH (step:TestStepNode)-[r:CALLEE]->(target)
             WHERE "design" IN step.tags
             RETURN step.name as step_name,

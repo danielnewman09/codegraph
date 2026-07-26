@@ -25,7 +25,7 @@ import os
 from dataclasses import dataclass, field
 
 from llm_caller import call_tool_loop
-from neomodel import db as neomodel_db
+from codegraph.backends import get_backend
 from neomodel import RelationshipTo, RelationshipFrom
 
 from codegraph.models.tags import CodeGraphNode
@@ -90,9 +90,9 @@ def get_typed_edge_targets(node, edge_type: str) -> list[dict]:
                 labels: list[str] = []
                 if hasattr(connected, "element_id_property"):
                     try:
-                        _, results = neomodel_db.cypher_query(
+                        _, results = get_backend().execute_raw(
                             "MATCH (n) WHERE elementId(n) = $eid RETURN labels(n)",
-                            {"eid": neomodel_db.parse_element_id(connected.element_id)},
+                            {"eid": (connected.element_id)},
                         )
                         if results:
                             labels = results[0][0]
@@ -546,7 +546,7 @@ def _update_scaffold_to_design(scaffold_node, design_dict: dict) -> bool:
         new_uid = compute_uid(dqn)
 
     sn_type = type(scaffold_node).__name__
-    eid = neomodel_db.parse_element_id(scaffold_node.element_id)
+    eid = (scaffold_node.element_id)
 
     set_parts = [
         "n.qualified_name = $qn",
@@ -591,7 +591,7 @@ def _update_scaffold_to_design(scaffold_node, design_dict: dict) -> bool:
         # type loses the concrete label (e.g. AttributeNode) and
         # skips the REMOVE step.  Using actual DB labels ensures we
         # know exactly what to remove.
-        actual_label_rows, __ = neomodel_db.cypher_query(
+        actual_label_rows, __ = get_backend().execute_raw(
             "MATCH (n) WHERE elementId(n) = $eid RETURN labels(n)",
             {"eid": eid},
         )
@@ -608,7 +608,7 @@ def _update_scaffold_to_design(scaffold_node, design_dict: dict) -> bool:
         label_ops = " ".join(f"SET n:`{l}`" for l in sorted(missing_labels))
         for sl in sorted(stale):
             try:
-                neomodel_db.cypher_query(
+                get_backend().execute_raw(
                     "MATCH (n) WHERE elementId(n) = $eid REMOVE n:`" + sl + "`",
                     {"eid": eid},
                 )
@@ -621,11 +621,11 @@ def _update_scaffold_to_design(scaffold_node, design_dict: dict) -> bool:
         f"SET {', '.join(set_parts)}"
     )
     try:
-        neomodel_db.cypher_query(query, params)
+        get_backend().execute_raw(query, params)
         # ── Post-update: verify no stale labels remain ──
         if stale:
             for sl in sorted(stale):
-                check_results, _ = neomodel_db.cypher_query(
+                check_results, _ = get_backend().execute_raw(
                     "MATCH (n) WHERE elementId(n) = $eid AND n:`" + sl + "` RETURN n",
                     {"eid": eid},
                 )
@@ -634,7 +634,7 @@ def _update_scaffold_to_design(scaffold_node, design_dict: dict) -> bool:
                         "Scaffold %s still has stale label %s after update; forcing removal",
                         dqn, sl,
                     )
-                    neomodel_db.cypher_query(
+                    get_backend().execute_raw(
                         "MATCH (n) WHERE elementId(n) = $eid REMOVE n:`" + sl + "`",
                         {"eid": eid},
                     )
@@ -789,11 +789,8 @@ def _link_design_composes(flat_design: list[dict]) -> int:
         if not parent_qn or parent_qn not in qnames:
             continue
         try:
-            neomodel_db.cypher_query(
-                "MATCH (s), (t) "
-                "WHERE s.qualified_name = $sqn AND t.qualified_name = $tqn "
-                "MERGE (s)-[:COMPOSES]->(t)",
-                {"sqn": parent_qn, "tqn": qn},
+            get_backend().graph.merge_relationship(
+                parent_qn, "COMPOSES", qn,
             )
             edges += 1
         except Exception as exc:
@@ -877,16 +874,10 @@ def _link_design_dependencies(flat_design: list[dict]) -> int:
                 continue
             seen.add(edge_key)
             try:
-                # MERGE resolves whether the target is a design compound
-                # or an existing as-built entity — both live in Neo4j.
-                result, _ = neomodel_db.cypher_query(
-                    "MATCH (s {qualified_name: $sqn}) "
-                    "MATCH (t {qualified_name: $tqn}) "
-                    "MERGE (s)-[:DEPENDS_ON]->(t) "
-                    "RETURN count(t)",
-                    {"sqn": source_qn, "tqn": target_qn},
+                cnt = get_backend().graph.merge_relationship(
+                    source_qn, "DEPENDS_ON", target_qn,
                 )
-                if result and result[0][0]:
+                if cnt:
                     edges += 1
                     log.info("DEPENDS_ON: %s → %s", source_qn, target_qn)
                 else:
@@ -904,81 +895,42 @@ def _link_design_dependencies(flat_design: list[dict]) -> int:
 def _retag_remaining_scaffold() -> int:
     """Change ``tags`` from ``["scaffold"]`` to ``["design"]`` on scaffold
     nodes that still have verification edges."""
+    repo = get_backend().requirements
+    uids = repo.find_scaffold_uids(
+        with_edges=["LEFT_OPERAND", "RIGHT_OPERAND", "CALLEE", "CALLER"],
+    )
     retagged = 0
-    try:
-        results, _ = neomodel_db.cypher_query(
-            "MATCH (n) WHERE 'scaffold' IN coalesce(n.tags, []) "
-            "AND EXISTS { MATCH ()-[r]->(n) WHERE type(r) IN ['LEFT_OPERAND','RIGHT_OPERAND','CALLEE','CALLER'] } "
-            "RETURN elementId(n)",
-        )
-        for (eid,) in results:
-            try:
-                neomodel_db.cypher_query(
-                    "MATCH (n) WHERE elementId(n) = $eid "
-                    "SET n.tags = ['design']",
-                    {"eid": eid},
-                )
-                retagged += 1
-            except Exception:
-                pass
-        if retagged:
-            log.info("Re-tagged %d scaffold nodes (still referenced by edges) to design", retagged)
-    except Exception as exc:
-        log.warning("Re-tagging remaining scaffold nodes failed: %s", exc)
+    for uid in uids:
+        try:
+            repo.retag_scaffold_to_design(uid)
+            retagged += 1
+        except Exception:
+            pass
+    if retagged:
+        log.info("Re-tagged %d scaffold nodes (still referenced by edges) to design", retagged)
     return retagged
 
 
 def _cleanup_orphaned_scaffold_nodes(hlr_uid: str) -> int:
-    """Delete scaffold nodes that are no longer part of the design.
-
-    Removes:
-    1. Scaffold nodes with zero relationships (orphans).
-    2. Scaffold nodes whose parent compound was matched/updated to a
-       design node — these are stale child nodes that the new design
-       replaced with different members.
-    """
+    """Delete scaffold nodes that are no longer part of the design."""
+    repo = get_backend().requirements
     cleaned = 0
 
-    # ── 1. Orphans: zero relationships ──
-    try:
-        results, _ = neomodel_db.cypher_query(
-            "MATCH (n) WHERE 'scaffold' IN coalesce(n.tags, []) "
-            "AND NOT EXISTS { MATCH (n)-[r]-() } "
-            "RETURN elementId(n)",
-        )
-        for (eid,) in results:
-            try:
-                neomodel_db.cypher_query(
-                    "MATCH (n) WHERE elementId(n) = $eid "
-                    "DETACH DELETE n",
-                    {"eid": eid},
-                )
-                cleaned += 1
-            except Exception:
-                pass
-    except Exception as exc:
-        log.warning("Orphan scaffold cleanup failed: %s", exc)
+    # 1. Orphans: zero relationships
+    for uid in repo.find_scaffold_uids(without_edges=True):
+        try:
+            repo.delete_scaffold(uid)
+            cleaned += 1
+        except Exception:
+            pass
 
-    # ── 2. Stale children: scaffold with COMPOSES from design parent ──
-    try:
-        results, _ = neomodel_db.cypher_query(
-            "MATCH (parent)-[:COMPOSES]->(child) "
-            "WHERE 'scaffold' IN coalesce(child.tags, []) "
-            "  AND NOT 'scaffold' IN coalesce(parent.tags, []) "
-            "RETURN elementId(child)",
-        )
-        for (eid,) in results:
-            try:
-                neomodel_db.cypher_query(
-                    "MATCH (n) WHERE elementId(n) = $eid "
-                    "DETACH DELETE n",
-                    {"eid": eid},
-                )
-                cleaned += 1
-            except Exception:
-                pass
-    except Exception as exc:
-        log.warning("Stale child scaffold cleanup failed: %s", exc)
+    # 2. Stale children: scaffold with non-scaffold parent
+    for uid in repo.find_scaffold_uids(parent_is_not_scaffold=True):
+        try:
+            repo.delete_scaffold(uid)
+            cleaned += 1
+        except Exception:
+            pass
 
     if cleaned:
         log.info("Cleaned up %d scaffold nodes for HLR %s",
@@ -1167,11 +1119,8 @@ def _persist_verifications(
 
             for qn in sorted(target_methods):
                 try:
-                    neomodel_db.cypher_query(
-                        "MATCH (test:TestNode {qualified_name: $tqn}) "
-                        "MATCH (target:MemberNode {qualified_name: $mqn}) "
-                        "MERGE (test)-[:VERIFIES]->(target)",
-                        {"tqn": test_node.qualified_name, "mqn": qn},
+                    get_backend().graph.merge_relationship(
+                        test_node.qualified_name, "VERIFIES", qn,
                     )
                     verifies_created += 1
                     log.debug(
@@ -1201,16 +1150,13 @@ def _persist_verifications(
                 step = steps[i]
                 try:
                     # Remove old CALLEE edge, create new one.
-                    neomodel_db.cypher_query(
+                    get_backend().execute_raw(
                         "MATCH (step:TestStepNode {qualified_name: $sqn})-[r:CALLEE]->() "
                         "DELETE r",
                         {"sqn": step.qualified_name},
                     )
-                    neomodel_db.cypher_query(
-                        "MATCH (step:TestStepNode {qualified_name: $sqn}) "
-                        "MATCH (target:MemberNode {qualified_name: $mqn}) "
-                        "MERGE (step)-[:CALLEE]->(target)",
-                        {"sqn": step.qualified_name, "mqn": callee_qn},
+                    get_backend().graph.merge_relationship(
+                        step.qualified_name, "CALLEE", callee_qn,
                     )
                     callee_updated += 1
                     log.debug(
@@ -1311,12 +1257,8 @@ def _create_design_namespaces(flat_design: list[dict]) -> tuple[int, int, int]:
             if "::" in remainder:
                 continue
             try:
-                neomodel_db.cypher_query(
-                    "MATCH (ns), (c) "
-                    "WHERE ns.qualified_name = $ns_qn "
-                    "  AND c.qualified_name = $c_qn "
-                    "MERGE (ns)-[:COMPOSES]->(c)",
-                    {"ns_qn": ns_qn, "c_qn": dqn},
+                get_backend().graph.merge_relationship(
+                    ns_qn, "COMPOSES", dqn,
                 )
                 edges += 1
             except Exception as exc:

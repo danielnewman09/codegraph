@@ -25,7 +25,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from neomodel import db
+from codegraph.backends import get_backend
 
 from codegraph_requirements.models.requirement import HLR, LLR
 from codegraph_mine.schemas import MinedRequirements, MinedCompositeHLR, MinedComponents
@@ -75,7 +75,7 @@ def persist_mined_requirements(
     Returns:
         A :class:`MineResult` with counts.
     """
-    from neomodel import db
+    from codegraph.backends import get_backend
 
     compound_name = getattr(compound, "qualified_name", "")
     if not compound_name:
@@ -642,7 +642,7 @@ def _link_component_to_hlr_exclusive(component, hlr_name: str) -> bool:
             return False
 
         # Remove existing COMPOSES edges from any Component to this HLR
-        db.cypher_query(
+        get_backend().execute_raw(
             """
             MATCH (old:Component)-[r:COMPOSES]->(h:HLR)
             WHERE elementId(h) = $hlr_id
@@ -705,7 +705,7 @@ def _verify_component_hlr_exclusivity() -> list[str]:
     (empty if all clear).
     """
     try:
-        results, _ = db.cypher_query(
+        results, _ = get_backend().execute_raw(
             """
             MATCH (c:Component)-[:COMPOSES]->(h:HLR)
             WITH h, collect(c.name) AS comps

@@ -13,8 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Iterator
 
-from neomodel import db
-
+from codegraph.backends import get_backend
 from codegraph.models.tags import CodeGraphNode
 
 from codegraph_memory.models.base import MemoryNode
@@ -24,10 +23,6 @@ from codegraph_memory.models.rationale import RationaleNode
 from codegraph_memory.models.assumption import AssumptionNode
 from codegraph_memory.models.tradeoff import TradeoffNode
 from codegraph_memory.models.insight import InsightNode
-from codegraph_memory.models.relationships import (
-    _inflate_code_node,
-    get_all_memory_for_code_node,
-)
 
 
 # Map of relationship type → memory node class
@@ -91,27 +86,20 @@ class MemoryGraph:
         Returns:
             A MemoryGraph with all memory nodes linked to the code node.
         """
-        rel_types = "|".join(_REL_TYPE_TO_CLASS)
-        results, _ = db.cypher_query(
-            f"MATCH (m)-[r:{rel_types}]->(c) "
-            f"WHERE c.qualified_name = $qname "
-            f"RETURN m, c.uid, c.qualified_name, type(r) AS rel_type",
-            {"qname": qualified_name},
+        graph_repo = get_backend().graph
+        code_uid = graph_repo.resolve_uid(qualified_name)
+
+        results = get_backend().memory.find_for_code_node_by_qname(
+            qualified_name
         )
         entries: list[MemoryEntry] = []
-        for row in results:
-            raw_memory = row[0]
-            code_uid = row[1]
-            code_qname = row[2]
-            rel_type = row[3]
-            memory = _inflate_code_node(raw_memory)
-            if memory is not None:
-                entries.append(MemoryEntry(
-                    memory=memory,
-                    code_node_uid=code_uid,
-                    code_node_qualified_name=code_qname,
-                    relation_type=rel_type,
-                ))
+        for r in results:
+            entries.append(MemoryEntry(
+                memory=r["memory"],
+                code_node_uid=code_uid,
+                code_node_qualified_name=qualified_name,
+                relation_type=r["rel_type"],
+            ))
         return cls(tags=frozenset(), entries=entries)
 
     @classmethod
@@ -126,150 +114,80 @@ class MemoryGraph:
         Returns:
             A MemoryGraph with all memory nodes matching the tag.
         """
-        results, _ = db.cypher_query(
-            "MATCH (m) "
-            "WHERE $tag IN m.tags "
-            "AND (m:DecisionNode OR m:ConstraintNode OR m:RationaleNode "
-            "OR m:AssumptionNode OR m:TradeoffNode OR m:InsightNode) "
-            "RETURN m",
-            {"tag": tag},
-        )
+        memory_repo = get_backend().memory
+        nodes = memory_repo.find_by_tag(tag)
         entries: list[MemoryEntry] = []
-        for row in results:
-            memory = _inflate_code_node(row[0])
-            if memory is not None:
-                entry = MemoryEntry(memory=memory)
-                if include_code:
-                    # Fetch linked code nodes
-                    code_results, _ = db.cypher_query(
-                        f"MATCH (m)-[r]->(c) "
-                        f"WHERE elementId(m) = $mid "
-                        f"AND NOT type(r) IN ['SUPERSEDES', 'CONTRADICTS', 'REFINES'] "
-                        f"RETURN c.uid, c.qualified_name, type(r) LIMIT 1",
-                        {"mid": db.parse_element_id(memory.element_id)},
-                    )
-                    if code_results:
-                        entry.code_node_uid = code_results[0][0]
-                        entry.code_node_qualified_name = code_results[0][1]
-                        entry.relation_type = code_results[0][2]
-                entries.append(entry)
+        for memory in nodes:
+            entry = MemoryEntry(memory=memory)
+            if include_code and hasattr(memory, "uid"):
+                linked = memory_repo.find_linked_code_node(memory.uid)
+                if linked:
+                    entry.code_node_uid = linked["uid"]
+                    entry.code_node_qualified_name = linked["qualified_name"]
+                    entry.relation_type = linked["rel_type"]
+            entries.append(entry)
         return cls(tags=frozenset({tag}), entries=entries)
 
     # ── Convenience query methods ──────────────────────────────────
 
     @classmethod
-    def constraints_for(cls, code_node: CodeGraphNode) -> list[ConstraintNode]:
-        """Return all constraints governing a code node.
+    def _memories_by_type(
+        cls,
+        code_uid: str,
+        rel_type: str,
+        node_class: type,
+    ) -> list:
+        """Return memories of a specific type+relationship for a code node.
 
-        Args:
-            code_node: A CodeGraphNode instance.
-
-        Returns:
-            A list of ConstraintNode instances linked via CONSTRAINS.
+        Internal helper shared by constraints_for, decisions_for, etc.
         """
-        if not hasattr(code_node, "element_id_property"):
-            return []
-        results, _ = db.cypher_query(
-            "MATCH (c:ConstraintNode)-[:CONSTRAINS]->(target) "
-            "WHERE elementId(target) = $tid RETURN c",
-            {"tid": db.parse_element_id(code_node.element_id)},
+        results = get_backend().memory.find_for_code_node(code_uid)
+        return [
+            r["memory"] for r in results
+            if isinstance(r["memory"], node_class) and r.get("rel_type") == rel_type
+        ]
+
+    @classmethod
+    def constraints_for(cls, code_node: CodeGraphNode) -> list[ConstraintNode]:
+        """Return all constraints governing a code node."""
+        return cls._memories_by_type(
+            code_node.uid, "CONSTRAINS", ConstraintNode
         )
-        return [n for n in (_inflate_code_node(r[0]) for r in results) if n is not None]
 
     @classmethod
     def decisions_for(cls, code_node: CodeGraphNode) -> list[DecisionNode]:
-        """Return all decisions motivating a code node.
-
-        Args:
-            code_node: A CodeGraphNode instance.
-
-        Returns:
-            A list of DecisionNode instances linked via MOTIVATES.
-        """
-        if not hasattr(code_node, "element_id_property"):
-            return []
-        results, _ = db.cypher_query(
-            "MATCH (d:DecisionNode)-[:MOTIVATES]->(target) "
-            "WHERE elementId(target) = $tid RETURN d",
-            {"tid": db.parse_element_id(code_node.element_id)},
+        """Return all decisions motivating a code node."""
+        return cls._memories_by_type(
+            code_node.uid, "MOTIVATES", DecisionNode
         )
-        return [n for n in (_inflate_code_node(r[0]) for r in results) if n is not None]
 
     @classmethod
     def insights_for(cls, code_node: CodeGraphNode) -> list[InsightNode]:
-        """Return all insights learned from a code node.
-
-        Args:
-            code_node: A CodeGraphNode instance.
-
-        Returns:
-            A list of InsightNode instances linked via INSIGHT_INTO.
-        """
-        if not hasattr(code_node, "element_id_property"):
-            return []
-        results, _ = db.cypher_query(
-            "MATCH (i:InsightNode)-[:INSIGHT_INTO]->(target) "
-            "WHERE elementId(target) = $tid RETURN i",
-            {"tid": db.parse_element_id(code_node.element_id)},
+        """Return all insights learned from a code node."""
+        return cls._memories_by_type(
+            code_node.uid, "INSIGHT_INTO", InsightNode
         )
-        return [n for n in (_inflate_code_node(r[0]) for r in results) if n is not None]
 
     @classmethod
     def rationales_for(cls, code_node: CodeGraphNode) -> list[RationaleNode]:
-        """Return all rationales explaining a code node.
-
-        Args:
-            code_node: A CodeGraphNode instance.
-
-        Returns:
-            A list of RationaleNode instances linked via EXPLAINS.
-        """
-        if not hasattr(code_node, "element_id_property"):
-            return []
-        results, _ = db.cypher_query(
-            "MATCH (r:RationaleNode)-[:EXPLAINS]->(target) "
-            "WHERE elementId(target) = $tid RETURN r",
-            {"tid": db.parse_element_id(code_node.element_id)},
+        """Return all rationales explaining a code node."""
+        return cls._memories_by_type(
+            code_node.uid, "EXPLAINS", RationaleNode
         )
-        return [n for n in (_inflate_code_node(r[0]) for r in results) if n is not None]
 
     @classmethod
     def assumptions_for(cls, code_node: CodeGraphNode) -> list[AssumptionNode]:
-        """Return all assumptions underpinning a code node.
-
-        Args:
-            code_node: A CodeGraphNode instance.
-
-        Returns:
-            A list of AssumptionNode instances linked via ASSUMES.
-        """
-        if not hasattr(code_node, "element_id_property"):
-            return []
-        results, _ = db.cypher_query(
-            "MATCH (a:AssumptionNode)-[:ASSUMES]->(target) "
-            "WHERE elementId(target) = $tid RETURN a",
-            {"tid": db.parse_element_id(code_node.element_id)},
+        """Return all assumptions underpinning a code node."""
+        return cls._memories_by_type(
+            code_node.uid, "ASSUMES", AssumptionNode
         )
-        return [n for n in (_inflate_code_node(r[0]) for r in results) if n is not None]
 
     @classmethod
     def tradeoffs_for(cls, code_node: CodeGraphNode) -> list[TradeoffNode]:
-        """Return all tradeoffs applying to a code node.
-
-        Args:
-            code_node: A CodeGraphNode instance.
-
-        Returns:
-            A list of TradeoffNode instances linked via TRADES_OFF.
-        """
-        if not hasattr(code_node, "element_id_property"):
-            return []
-        results, _ = db.cypher_query(
-            "MATCH (t:TradeoffNode)-[:TRADES_OFF]->(target) "
-            "WHERE elementId(target) = $tid RETURN t",
-            {"tid": db.parse_element_id(code_node.element_id)},
+        """Return all tradeoffs applying to a code node."""
+        return cls._memories_by_type(
+            code_node.uid, "TRADES_OFF", TradeoffNode
         )
-        return [n for n in (_inflate_code_node(r[0]) for r in results) if n is not None]
 
     @classmethod
     def affected_decisions(cls, code_node: CodeGraphNode) -> list[DecisionNode]:
@@ -282,19 +200,11 @@ class MemoryGraph:
             code_node: A CodeGraphNode instance.
 
         Returns:
-            A list of DecisionNode (and other memory) instances.
+            A list of memory node instances.
         """
-        if not hasattr(code_node, "element_id_property"):
-            return []
-        # Match the node and all its composed descendants
-        results, _ = db.cypher_query(
-            "MATCH (target)<-[:COMPOSES*0..10]-(parent) "
-            "WHERE elementId(parent) = $pid "
-            "MATCH (m)-[:MOTIVATES|CONSTRAINS|EXPLAINS|ASSUMES|TRADES_OFF|INSIGHT_INTO]->(target) "
-            "RETURN DISTINCT m",
-            {"pid": db.parse_element_id(code_node.element_id)},
+        return get_backend().memory.find_linked_to_descendants(
+            code_node.uid
         )
-        return [n for n in (_inflate_code_node(r[0]) for r in results) if n is not None]
 
     # ── Serialization ──────────────────────────────────────────────
 
@@ -364,23 +274,16 @@ class MemoryGraph:
         creates the relationship to the code node if it exists in the
         database.
         """
+        backend = get_backend()
         for entry in self.entries:
-            entry.memory.save()
+            backend.save(entry.memory)
 
             if entry.code_node_uid and entry.relation_type:
-                # Connect to the code node via raw Cypher
-                from codegraph.models.tags import CodeGraphNode
-                uid_prop = type(entry.memory)._uid_prop()
                 try:
-                    db.cypher_query(
-                        f"MATCH (m), (c) "
-                        f"WHERE elementId(m) = $mid "
-                        f"AND c.uid = $cid "
-                        f"MERGE (m)-[:{entry.relation_type}]->(c)",
-                        {
-                            "mid": db.parse_element_id(entry.memory.element_id),
-                            "cid": entry.code_node_uid,
-                        },
+                    backend.memory.link_to_code_node(
+                        entry.memory.uid,
+                        entry.code_node_uid,
+                        entry.relation_type,
                     )
                 except Exception:
                     pass  # best-effort linking

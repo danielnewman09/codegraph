@@ -35,7 +35,7 @@ import logging
 from collections import deque
 from dataclasses import dataclass, field
 
-from neomodel import db
+from codegraph.backends import get_backend
 
 from codegraph_requirements.models.requirement import HLR, LLR
 from codegraph_requirements.schemas import DecomposedRequirementSchema
@@ -104,7 +104,7 @@ def _create_edge(source, target, edge_type: str) -> bool:
             f"WHERE elementId(s) = $source_id AND elementId(t) = $target_id "
             f"MERGE (s)-[:{edge_type}]->(t)"
         )
-        db.cypher_query(
+        get_backend().execute_raw(
             query,
             {
                 "source_id": db.parse_element_id(source.element_id),
@@ -449,7 +449,7 @@ def _cleanup_orphaned_scaffolds() -> int:
     RETURN DISTINCT elementId(s) AS eid
     """
     try:
-        results, _ = db.cypher_query(query_direct)
+        results, _ = get_backend().execute_raw(query_direct)
     except Exception as exc:
         log.warning("_cleanup_orphaned_scaffolds: direct query failed: %s", exc)
         return 0
@@ -465,7 +465,7 @@ def _cleanup_orphaned_scaffolds() -> int:
     RETURN DISTINCT elementId(parent) AS eid
     """
     try:
-        results, _ = db.cypher_query(
+        results, _ = get_backend().execute_raw(
             query_parent,
             {"referenced_eids": list(directly_referenced_eids)},
         )
@@ -483,7 +483,7 @@ def _cleanup_orphaned_scaffolds() -> int:
     RETURN elementId(s) AS eid, s.qualified_name AS qn, labels(s) AS lbls
     """
     try:
-        results, _ = db.cypher_query(query_all)
+        results, _ = get_backend().execute_raw(query_all)
     except Exception as exc:
         log.warning("_cleanup_orphaned_scaffolds: list query failed: %s", exc)
         return 0
@@ -531,7 +531,7 @@ def _cleanup_orphaned_scaffolds() -> int:
     # Step 4: Delete orphaned scaffold nodes (and their edges).
     for eid in orphan_eids:
         try:
-            db.cypher_query(
+            get_backend().execute_raw(
                 "MATCH (s) WHERE elementId(s) = $eid "
                 "DETACH DELETE s",
                 {"eid": eid},

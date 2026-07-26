@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 # ── Neo4j connection (set before codegraph imports) ─────────────────────────
-from neomodel import db
+from codegraph.backends import get_backend
 
 NEO4J_URL = "bolt://neo4j:codegraph@localhost:7687"
 

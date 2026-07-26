@@ -150,7 +150,8 @@ class MemoryNode(CodeGraphNode, StructuredNode):
         be traversed via neomodel), uses raw Cypher as a fallback.
         """
         from neomodel import RelationshipTo, RelationshipFrom
-        from neomodel import db
+        from codegraph.backends import get_backend
+        backend = get_backend()
 
         edges: list[dict] = []
         seen: set[str] = set()
@@ -187,16 +188,18 @@ class MemoryNode(CodeGraphNode, StructuredNode):
                     direction = val.definition["direction"].name
                     try:
                         if direction == "OUTGOING":
-                            results, _ = db.cypher_query(
+                            results, _ = backend.execute_raw(
                                 f"MATCH (s)-[:{rel_type}]->(t) "
-                                f"WHERE elementId(s) = $sid RETURN t.uid AS uid, labels(t) AS labels",
-                                {"sid": db.parse_element_id(self.element_id)},
+                                f"WHERE elementId(s) = $sid "
+                                f"RETURN t.uid AS uid, labels(t) AS labels",
+                                {"sid": self.element_id},
                             )
                         else:
-                            results, _ = db.cypher_query(
+                            results, _ = backend.execute_raw(
                                 f"MATCH (s)<-[:{rel_type}]-(t) "
-                                f"WHERE elementId(s) = $sid RETURN t.uid AS uid, labels(t) AS labels",
-                                {"sid": db.parse_element_id(self.element_id)},
+                                f"WHERE elementId(s) = $sid "
+                                f"RETURN t.uid AS uid, labels(t) AS labels",
+                                {"sid": self.element_id},
                             )
                         for row in results:
                             target_uid = row[0]

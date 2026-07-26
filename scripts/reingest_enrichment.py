@@ -102,7 +102,7 @@ def main() -> None:
 
     # ── Phase 2: find matching nodes in Neo4j ──────────────────────────
     import codegraph.persistence.config  # noqa: F401 — sets DATABASE_URL
-    from neomodel import db
+    from codegraph.backends import get_backend
 
     qnames = list(wanted.keys())
     print(f"Looking up {len(qnames)} qualified names in Neo4j...")
@@ -114,7 +114,7 @@ def main() -> None:
         WHERE n.qualified_name = qname
         RETURN n.qualified_name AS qualified_name, n.description AS description
     """
-    results, _ = db.cypher_query(query, {"qnames": qnames})
+    results, _ = get_backend().execute_raw(query, {"qnames": qnames})
 
     existing: dict[str, str] = {row[0]: (row[1] or "") for row in results}
 
@@ -162,7 +162,7 @@ def main() -> None:
         RETURN count(n) AS updated
     """
     updates = [{"qname": q, "description": d} for q, d in changed.items()]
-    result, _ = db.cypher_query(update_query, {"updates": updates})
+    result, _ = get_backend().execute_raw(update_query, {"updates": updates})
     updated_count = result[0][0] if result else 0
     print(f"  Updated: {updated_count} nodes")
 

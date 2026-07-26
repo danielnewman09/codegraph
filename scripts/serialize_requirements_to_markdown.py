@@ -37,7 +37,7 @@ import codegraph.persistence.config  # noqa: F401
 import codegraph_requirements.models.requirement  # noqa: F401
 import codegraph_project.models.component  # noqa: F401
 
-from neomodel import db
+from codegraph.backends import get_backend
 from codegraph.backends.neo4j.connection import Neo4jConnection
 from codegraph.graph import LayerGraph, CompositeEntry
 from codegraph.export.markdown import export_markdown, import_markdown
@@ -60,7 +60,7 @@ def build_requirements_graph() -> LayerGraph:
     WHERE (n:Component OR n:HLR OR n:LLR)
     RETURN n, labels(n) AS labels
     """
-    results, _ = db.cypher_query(query)
+    results, _ = get_backend().execute_raw(query)
 
     nodes: dict[str, CodeGraphNode] = {}
     key_to_type: dict[str, str] = {}
@@ -99,7 +99,7 @@ def build_requirements_graph() -> LayerGraph:
       AND (target:Component OR target:HLR OR target:LLR)
     RETURN source, target, labels(source) AS src_labels, labels(target) AS tgt_labels
     """
-    edge_results, _ = db.cypher_query(edge_query)
+    edge_results, _ = get_backend().execute_raw(edge_query)
 
     # Build a mapping from raw node properties to the LayerGraph key.
     # For HLR/LLR the unique property is refid (UniqueIdProperty).

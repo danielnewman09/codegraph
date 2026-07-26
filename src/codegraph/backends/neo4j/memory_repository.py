@@ -172,6 +172,40 @@ class Neo4jMemoryRepository(MemoryRepository):
                 output.append(data)
         return output
 
+    # ── Memory ↔ code node linking ───────────────────────────────
+
+    @override
+    def link_to_code_node(
+        self,
+        memory_uid: str,
+        code_uid: str,
+        rel_type: str,
+    ) -> None:
+        self._conn.execute_raw(
+            f"MATCH (m) WHERE m.uid = $mid "
+            f"MATCH (c) WHERE c.uid = $cid "
+            f"MERGE (m)-[:{rel_type}]->(c)",
+            {"mid": memory_uid, "cid": code_uid},
+        )
+
+    @override
+    def find_linked_code_node(
+        self,
+        memory_uid: str,
+    ) -> dict | None:
+        rows, _ = self._conn.execute_raw(
+            "MATCH (m)-[r]->(c) "
+            "WHERE m.uid = $mid "
+            "AND NOT type(r) IN ['SUPERSEDES', 'CONTRADICTS', 'REFINES'] "
+            "RETURN c.uid AS uid, c.qualified_name AS qualified_name, "
+            "type(r) AS rel_type "
+            "LIMIT 1",
+            {"mid": memory_uid},
+        )
+        if rows:
+            return rows[0]
+        return None
+
     # ── Vector search ──────────────────────────────────────────────
 
     @override
