@@ -425,6 +425,79 @@ class TestExportRelationships:
         # represented in the diagram.
         assert "depends_on" in puml
 
+    # codegraph:test-desc test_plantuml.TestExportRelationships.test_cross_class_member_invoke
+    # This test verifies that when one class invokes a method of another class, the
+    # PlantUML arrow targets the parent class alias, not the member alias.  Member
+    # methods are rendered inline inside their parent class body and are never
+    # standalone PlantUML elements — targeting a member alias would produce an
+    # unresolved arrow pointing to nothing.
+    def test_cross_class_member_invoke(self):
+        """Arrows targeting a member node must redirect to the parent class alias.
+
+        Regression test: cpp_sqlite__ForeignKey ..> cpp_sqlite__Database__getDAO
+        should become cpp_sqlite__ForeignKey ..> cpp_sqlite__Database."""
+        ns = NamespaceNode(name="ns", kind="namespace",
+                           qualified_name="ns", tags=["design"])
+        cls_a = ClassNode(name="A", kind="class",
+                          qualified_name="ns::A", tags=["design"])
+        cls_b = ClassNode(name="B", kind="class",
+                          qualified_name="ns::B", tags=["design"])
+        # B has a method foo that A invokes
+        meth_foo = MethodNode(name="foo", kind="method",
+                              qualified_name="ns::B::foo",
+                              tags=["design"], visibility="public",
+                              type_signature="void",
+                              argsstring="()")
+        meth_foo_entry = CompositeEntry(node=meth_foo)
+        b_entry = CompositeEntry(
+            node=cls_b,
+            children={"MethodNode": {"ns::B::foo": meth_foo_entry}},
+        )
+        # A invokes B::foo (the method)
+        a_entry = CompositeEntry(
+            node=cls_a,
+            references=[("INVOKES", "ns::B::foo", "MethodNode")],
+        )
+        ns_entry = CompositeEntry(
+            node=ns,
+            children={"ClassNode": {
+                "ns::A": a_entry,
+                "ns::B": b_entry,
+            }},
+        )
+        graph = LayerGraph(tags=frozenset({"design"}), entries={"ns": ns_entry})
+        puml = export_plantuml(graph)
+
+        # The arrow must target ns__B (the parent class), NOT ns__B__foo (the member)
+        assert "ns__A ..> ns__B : invokes" in puml
+        assert "ns__A ..> ns__B__foo" not in puml
+
+    # codegraph:test-desc test_plantuml.TestExportRelationships.test_same_class_member_suppressed
+    # Verifies that references from a class to its own member methods are suppressed
+    # entirely (no arrow emitted), since the member is already rendered inside the
+    # class body.
+    def test_same_class_member_suppressed(self):
+        """Self-referential member edges (class → own member) should be suppressed."""
+        cls_a = ClassNode(name="A", kind="class",
+                          qualified_name="A", tags=["design"])
+        meth_bar = MethodNode(name="bar", kind="method",
+                              qualified_name="A::bar",
+                              tags=["design"], visibility="private",
+                              type_signature="int",
+                              argsstring="()")
+        meth_bar_entry = CompositeEntry(node=meth_bar)
+        a_entry = CompositeEntry(
+            node=cls_a,
+            children={"MethodNode": {"A::bar": meth_bar_entry}},
+            references=[("INVOKES", "A::bar", "MethodNode")],
+        )
+        graph = LayerGraph(tags=frozenset({"design"}), entries={"A": a_entry})
+        puml = export_plantuml(graph)
+
+        # Since the member is rendered inside A, self-referential invocations
+        # to own members should be suppressed entirely — no invokes edge at all.
+        assert "invokes" not in puml
+
 
 # ── Import ──────────────────────────────────────────────────────────────────
 
