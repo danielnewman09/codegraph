@@ -40,6 +40,19 @@ from codegraph_requirements.formatting import format_hlrs_for_prompt
 log = logging.getLogger(__name__)
 
 
+def _first_or_none(query_set):
+    """Like ``.first()`` but returns ``None`` on empty results.
+
+    neomodel's ``filter().first()`` raises ``DoesNotExist`` when no
+    nodes match.  This wrapper returns ``None`` instead, matching
+    the old ``get_or_none`` behaviour while still handling duplicates.
+    """
+    try:
+        return query_set.first()
+    except Exception:
+        return None
+
+
 # ══════════════════════════════════════════════════════════════════════════
 # Utility: typed edge target traversal for verification nodes
 # ══════════════════════════════════════════════════════════════════════════
@@ -549,6 +562,14 @@ def _update_scaffold_to_design(scaffold_node, design_dict: dict) -> bool:
         "tags": ["design"],
         "uid": new_uid,
     }
+    # Update parent_qualified_name — the test queries MethodNode.nodes.all()
+    # grouped by parent_qualified_name.  Without this, scaffold→design
+    # qualified_name updates break method-to-parent lookups.
+    if "::" in dqn:
+        parent_qn = dqn.rsplit("::", 1)[0]
+        if parent_qn and parent_qn != dqn:
+            set_parts.append("n.parent_qualified_name = $parent_qn")
+            params["parent_qn"] = parent_qn
     if dts:
         set_parts.append("n.type_signature = $ts")
         params["ts"] = dts
@@ -690,16 +711,16 @@ def _create_design_node_fresh(design_dict: dict) -> bool:
         # as-built node may be a different type (e.g. StructNode as-built
         # but the model wants it to be a ClassNode).
         for target_qn, source in lookup_targets:
-            existing = TargetCls.nodes.filter(
-                qualified_name=target_qn,
-            ).first()
+            existing = _first_or_none(
+                TargetCls.nodes.filter(qualified_name=target_qn)
+            )
             if existing is None and overlays_qn:
                 # Try with ANY registered type, not just TargetCls.
                 for _cls in CodeGraphNode._registry.values():
                     try:
-                        existing = _cls.nodes.filter(
-                            qualified_name=target_qn,
-                        ).first()
+                        existing = _first_or_none(
+                            _cls.nodes.filter(qualified_name=target_qn)
+                        )
                         if existing is not None:
                             break
                     except Exception:
@@ -709,6 +730,10 @@ def _create_design_node_fresh(design_dict: dict) -> bool:
                 tags = list(existing.tags or [])
                 if "design" not in tags:
                     tags.append("design")
+                # Tag test-scaffolding types with "test" for DESIGN_API filtering.
+                if dtype in ("TestNode", "AssertionNode", "TestStepNode",
+                             "TestFixtureNode") and "test" not in tags:
+                    tags.append("test")
                 existing.tags = tags
                 # Update descriptive properties from the design dict.
                 for key in ("description", "kind", "name"):
@@ -729,7 +754,13 @@ def _create_design_node_fresh(design_dict: dict) -> bool:
 
     # ── Create fresh ────────────────────────────────────────────────
     node_data = dict(design_dict)
-    node_data["tags"] = ["design"]
+    tags = ["design"]
+    # Tag test-scaffolding nodes with "test" so DESIGN_API views
+    # can filter them out cleanly by tag rather than by node type.
+    if dtype in ("TestNode", "AssertionNode", "TestStepNode",
+                 "TestFixtureNode"):
+        tags.append("test")
+    node_data["tags"] = tags
     node_data.pop("composes", None)
     node_data.pop("overlays_qualified_name", None)
     try:
@@ -1736,9 +1767,9 @@ def design_and_persist_hlr(
         kind = node_dict.get("kind", "")
         if kind not in ("class", "struct", "interface", "enum"):
             continue
-        target_node = CompoundNode.nodes.filter(
-            qualified_name=qn,
-        ).first()
+        target_node = _first_or_none(
+            CompoundNode.nodes.filter(qualified_name=qn)
+        )
         if not target_node:
             continue
         try:

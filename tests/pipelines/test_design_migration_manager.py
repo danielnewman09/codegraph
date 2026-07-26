@@ -32,6 +32,9 @@ for root in _roots:
 
 DATA_DIR = Path(__file__).parent / "data" / "cpp_sqlite"
 
+from codegraph.graph import LayerGraph
+from codegraph.export.format import export_graph
+
 
 def _requires_openai():
     """Skip if no LLM API key is configured."""
@@ -312,8 +315,12 @@ class TestDesignMigrationManager:
 
         design_methods: dict[str, set[str]] = {}
         for node in MethodNode.nodes.all():
-            parent = getattr(node, "parent_qualified_name", "") or ""
+            qn = getattr(node, "qualified_name", "") or ""
             name = getattr(node, "name", "") or ""
+            # Derive parent from qualified_name (rsplit last ::).
+            # parent_qualified_name is stored in Neo4j but not mapped
+            # by neomodel, so getattr() always misses it.
+            parent = qn.rsplit("::", 1)[0] if "::" in qn else ""
             if parent not in design_methods:
                 design_methods[parent] = set()
             design_methods[parent].add(name)
@@ -354,6 +361,16 @@ class TestDesignMigrationManager:
             dest = out_dir / "design.md"
             dest.write_text(Path(md_path).read_text(), encoding="utf-8")
             log.info("Exported design MD: %s", dest)
+
+        # ── Export design LayerGraph as JSON ──
+        design_graph = LayerGraph.from_neo4j("design")
+        json_text = export_graph(design_graph, format="json", fields="all")
+        json_dest = out_dir / "design_layergraph.json"
+        json_dest.write_text(json_text, encoding="utf-8")
+        log.info(
+            "Exported design LayerGraph JSON: %s (%d bytes)",
+            json_dest, len(json_text),
+        )
 
         log.info(
             "Design verified: %d classes, %d methods",

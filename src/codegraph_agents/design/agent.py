@@ -32,6 +32,14 @@ from codegraph_agents.state import AgentState
 log = logging.getLogger("codegraph_agents.design")
 
 
+def _first_or_none(query_set):
+    """Like ``.first()`` but returns ``None`` on empty results."""
+    try:
+        return query_set.first()
+    except Exception:
+        return None
+
+
 # ── Result dataclass ─────────────────────────────────────────────
 
 
@@ -530,9 +538,9 @@ class DesignAgent(BaseAgent):
                     "class", "struct", "interface", "enum",
                 ):
                     continue
-                target_node = CompoundNode.nodes.filter(
-                    qualified_name=qn,
-                ).first()
+                target_node = _first_or_none(
+                    CompoundNode.nodes.filter(qualified_name=qn)
+                )
                 if not target_node:
                     continue
                 try:
