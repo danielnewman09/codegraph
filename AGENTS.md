@@ -1,5 +1,12 @@
 # AGENTS.md
 
+## Git operations
+
+**NEVER perform git operations** — no `git stash`, `git checkout --`, `git
+reset`, `git commit`, `git rebase`, or any other git command that modifies
+the working tree, index, or history.  Read-only git commands (`git status`,
+`git diff`, `git log`, `git show`) are permitted for inspection only.
+
 ## Codebase exploration
 
 This repository is indexed in a codegraph knowledge graph (Neo4j). The
