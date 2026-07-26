@@ -1,0 +1,41 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package "calc" as calc {
+  class "CalculatorEngine" as calc__CalculatorEngine {
+  +add(double a, double b): CalculatorResult
+  +validateInput(string input): bool
+  +precision: int
+  }
+  class "CalculatorResult" as calc__CalculatorResult {
+  +get_value(): double
+  +value: double
+  }
+  interface "ICalculator" as calc__ICalculator {
+  +calculate(Operation op, double a, double b): CalculatorResult
+  }
+  enum "Operation" as calc__Operation {
+  ADD
+  SUBTRACT
+  }
+  class "formatResult" as calc__formatResult <<function>> {
+  }
+}
+package "ui" as ui {
+  class "BaseWindow" as ui__BaseWindow {
+  +show(): void
+  }
+  class "CalculatorWindow" as ui__CalculatorWindow {
+  -handleEquals(): void
+  -display: string
+  -currentInput: string
+  }
+}
+
+' ── Relationships ─────────────────────
+calc__CalculatorEngine ..> calc__CalculatorResult : depends_on
+calc__CalculatorEngine ..|> calc__ICalculator : realizes
+ui__CalculatorWindow ..> calc__CalculatorEngine : depends_on
+ui__CalculatorWindow <|-- ui__BaseWindow : inherits_from
+
+@enduml

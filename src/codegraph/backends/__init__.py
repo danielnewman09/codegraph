@@ -80,7 +80,12 @@ def _create_backend_from_env() -> Backend:
         config = Neo4jConfig.from_env()
         return Neo4jBackend(config)
 
+    if backend_name == "memory":
+        from codegraph.backends.memory import InMemoryBackend
+
+        return InMemoryBackend()
+
     raise ValueError(
         f"Unknown CODEGRAPH_BACKEND: '{backend_name}'. "
-        f"Supported values: neo4j"
+        f"Supported values: neo4j, memory"
     )

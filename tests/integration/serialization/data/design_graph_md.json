@@ -1,0 +1,597 @@
+[
+  {
+    "component_id": null,
+    "composes": [
+      {
+        "base_classes": [],
+        "brief_description": "The core calculator engine class that performs arithmetic operations.",
+        "component_id": null,
+        "composes": [
+          {
+            "argsstring": "(double a, double b)",
+            "body_end": 0,
+            "body_start": 0,
+            "brief_description": "Calculates the sum of two valid numeric operands.",
+            "component_id": null,
+            "compound_refid": "",
+            "definition": "",
+            "detailed_description": "",
+            "doc_embedding": [],
+            "edges": [],
+            "file_path": "",
+            "is_const": false,
+            "is_constexpr": false,
+            "is_explicit": false,
+            "is_inline": false,
+            "is_static": false,
+            "is_virtual": false,
+            "kind": "method",
+            "line_number": null,
+            "name": "add",
+            "qualified_name": "calc::CalculatorEngine::add",
+            "refid": "",
+            "source": "markdown-import",
+            "tags": [
+              "design"
+            ],
+            "type": "MethodNode",
+            "type_signature": "CalculatorResult",
+            "uid": "0b69696d218cc6dc1fc9b7427a420512d9adefb5",
+            "visibility": "public"
+          },
+          {
+            "argsstring": "(string input)",
+            "body_end": 0,
+            "body_start": 0,
+            "brief_description": "Validates that the inputs are valid numbers.",
+            "component_id": null,
+            "compound_refid": "",
+            "definition": "",
+            "detailed_description": "",
+            "doc_embedding": [],
+            "edges": [],
+            "file_path": "",
+            "is_const": false,
+            "is_constexpr": false,
+            "is_explicit": false,
+            "is_inline": false,
+            "is_static": false,
+            "is_virtual": false,
+            "kind": "method",
+            "line_number": null,
+            "name": "validateInput",
+            "qualified_name": "calc::CalculatorEngine::validateInput",
+            "refid": "",
+            "source": "markdown-import",
+            "tags": [
+              "design"
+            ],
+            "type": "MethodNode",
+            "type_signature": "bool",
+            "uid": "0816226e5e9ad392c362d11753abd3a39b503038",
+            "visibility": "public"
+          },
+          {
+            "body_end": 0,
+            "body_start": 0,
+            "brief_description": "The number of decimal places for result precision.",
+            "component_id": null,
+            "compound_refid": "",
+            "definition": "",
+            "detailed_description": "",
+            "doc_embedding": [],
+            "edges": [],
+            "file_path": "",
+            "is_const": false,
+            "is_static": false,
+            "kind": "attribute",
+            "line_number": null,
+            "name": "precision",
+            "qualified_name": "calc::CalculatorEngine::precision",
+            "refid": "",
+            "source": "markdown-import",
+            "tags": [
+              "design"
+            ],
+            "type": "AttributeNode",
+            "type_signature": "int",
+            "uid": "45e6c1066cdac72e1237315c9f7f60f421521b06",
+            "visibility": "public"
+          }
+        ],
+        "definition": "",
+        "detailed_description": "",
+        "doc_embedding": [],
+        "edges": [
+          {
+            "relation_type": "REALIZES",
+            "target_type": "InterfaceNode",
+            "target_uid": "calc::ICalculator"
+          },
+          {
+            "relation_type": "DEPENDS_ON",
+            "target_type": "ClassNode",
+            "target_uid": "calc::CalculatorResult"
+          }
+        ],
+        "file_path": "",
+        "is_abstract": false,
+        "is_final": false,
+        "kind": "class",
+        "line_number": null,
+        "module": "",
+        "name": "CalculatorEngine",
+        "qualified_name": "calc::CalculatorEngine",
+        "refid": "",
+        "source": "markdown-import",
+        "source_type": "",
+        "tags": [
+          "design"
+        ],
+        "type": "ClassNode",
+        "uid": "99239ee0b900e4092025c96c630a055e8eba1408",
+        "visibility": ""
+      },
+      {
+        "base_classes": [],
+        "brief_description": "A result wrapper class that holds the outcome of a calculator operation.",
+        "component_id": null,
+        "composes": [
+          {
+            "argsstring": "",
+            "body_end": 0,
+            "body_start": 0,
+            "brief_description": "Returns the computed value.",
+            "component_id": null,
+            "compound_refid": "",
+            "definition": "",
+            "detailed_description": "",
+            "doc_embedding": [],
+            "edges": [],
+            "file_path": "",
+            "is_const": false,
+            "is_constexpr": false,
+            "is_explicit": false,
+            "is_inline": false,
+            "is_static": false,
+            "is_virtual": false,
+            "kind": "method",
+            "line_number": null,
+            "name": "get_value: double",
+            "qualified_name": "calc::CalculatorResult::get_value: double",
+            "refid": "",
+            "source": "markdown-import",
+            "tags": [
+              "design"
+            ],
+            "type": "MethodNode",
+            "type_signature": "",
+            "uid": "c35d6ff11f978c878d1c3a7dae048d35b6aa20e6",
+            "visibility": "public"
+          },
+          {
+            "body_end": 0,
+            "body_start": 0,
+            "brief_description": "The computed numeric result.",
+            "component_id": null,
+            "compound_refid": "",
+            "definition": "",
+            "detailed_description": "",
+            "doc_embedding": [],
+            "edges": [],
+            "file_path": "",
+            "is_const": false,
+            "is_static": false,
+            "kind": "attribute",
+            "line_number": null,
+            "name": "value",
+            "qualified_name": "calc::CalculatorResult::value",
+            "refid": "",
+            "source": "markdown-import",
+            "tags": [
+              "design"
+            ],
+            "type": "AttributeNode",
+            "type_signature": "double",
+            "uid": "ee1708658ecd4fa4dbd4b6af4d6773dcb6cacfd7",
+            "visibility": "public"
+          }
+        ],
+        "definition": "",
+        "detailed_description": "",
+        "doc_embedding": [],
+        "edges": [],
+        "file_path": "",
+        "is_abstract": false,
+        "is_final": false,
+        "kind": "class",
+        "line_number": null,
+        "module": "",
+        "name": "CalculatorResult",
+        "qualified_name": "calc::CalculatorResult",
+        "refid": "",
+        "source": "markdown-import",
+        "source_type": "",
+        "tags": [
+          "design"
+        ],
+        "type": "ClassNode",
+        "uid": "754f29e7181c6a8e6c0fa2d66e83b0571df3eab0",
+        "visibility": ""
+      },
+      {
+        "brief_description": "Calculator interface contract defining the core calculation operation.",
+        "component_id": null,
+        "composes": [
+          {
+            "argsstring": "(Operation op, double a, double b)",
+            "body_end": 0,
+            "body_start": 0,
+            "brief_description": "Perform a calculation with the given operation and operands.",
+            "component_id": null,
+            "compound_refid": "",
+            "definition": "",
+            "detailed_description": "",
+            "doc_embedding": [],
+            "edges": [],
+            "file_path": "",
+            "is_const": false,
+            "is_constexpr": false,
+            "is_explicit": false,
+            "is_inline": false,
+            "is_static": false,
+            "is_virtual": false,
+            "kind": "method",
+            "line_number": null,
+            "name": "calculate",
+            "qualified_name": "calc::ICalculator::calculate",
+            "refid": "",
+            "source": "markdown-import",
+            "tags": [
+              "design"
+            ],
+            "type": "MethodNode",
+            "type_signature": "CalculatorResult",
+            "uid": "982cbd0edc30e03e63d379bb79e891aec96f32c9",
+            "visibility": "public"
+          }
+        ],
+        "definition": "",
+        "detailed_description": "",
+        "doc_embedding": [],
+        "edges": [],
+        "file_path": "",
+        "is_abstract": true,
+        "kind": "interface",
+        "line_number": null,
+        "module": "",
+        "name": "ICalculator",
+        "qualified_name": "calc::ICalculator",
+        "refid": "",
+        "source": "markdown-import",
+        "source_type": "",
+        "tags": [
+          "design"
+        ],
+        "type": "InterfaceNode",
+        "uid": "309be9f7db2a9430b677b5665cce5a04d27cb082",
+        "visibility": ""
+      },
+      {
+        "brief_description": "An enumeration of supported arithmetic operations.",
+        "component_id": null,
+        "composes": [
+          {
+            "body_end": 0,
+            "body_start": 0,
+            "brief_description": "Represents addition.",
+            "component_id": null,
+            "compound_refid": "",
+            "definition": "",
+            "detailed_description": "",
+            "doc_embedding": [],
+            "edges": [],
+            "file_path": "",
+            "kind": "enumvalue",
+            "line_number": null,
+            "name": "ADD",
+            "qualified_name": "calc::Operation::ADD",
+            "refid": "",
+            "source": "markdown-import",
+            "tags": [
+              "design"
+            ],
+            "type": "EnumValueNode",
+            "uid": "10bc7b65eaf4f16c8bd83259e5ce17e3dc62bf59",
+            "visibility": ""
+          },
+          {
+            "body_end": 0,
+            "body_start": 0,
+            "brief_description": "Represents subtraction.",
+            "component_id": null,
+            "compound_refid": "",
+            "definition": "",
+            "detailed_description": "",
+            "doc_embedding": [],
+            "edges": [],
+            "file_path": "",
+            "kind": "enumvalue",
+            "line_number": null,
+            "name": "SUBTRACT",
+            "qualified_name": "calc::Operation::SUBTRACT",
+            "refid": "",
+            "source": "markdown-import",
+            "tags": [
+              "design"
+            ],
+            "type": "EnumValueNode",
+            "uid": "5944ad0d52b47da7db379857676cc931951354e0",
+            "visibility": ""
+          }
+        ],
+        "definition": "",
+        "detailed_description": "",
+        "doc_embedding": [],
+        "edges": [],
+        "file_path": "",
+        "kind": "enum",
+        "line_number": null,
+        "module": "",
+        "name": "Operation",
+        "qualified_name": "calc::Operation",
+        "refid": "",
+        "source": "markdown-import",
+        "source_type": "",
+        "tags": [
+          "design"
+        ],
+        "type": "EnumNode",
+        "uid": "91fd735f5a9a24337a675fbc3d13f54f8394f96d",
+        "visibility": ""
+      },
+      {
+        "argsstring": "(double value)",
+        "body_end": 0,
+        "body_start": 0,
+        "brief_description": "Formats a numeric result as a string.",
+        "component_id": null,
+        "compound_refid": "",
+        "definition": "",
+        "detailed_description": "",
+        "doc_embedding": [],
+        "edges": [],
+        "file_path": "",
+        "kind": "function",
+        "line_number": null,
+        "name": "formatResult",
+        "qualified_name": "calc::formatResult",
+        "refid": "",
+        "source": "markdown-import",
+        "tags": [
+          "design"
+        ],
+        "type": "FunctionNode",
+        "type_signature": "string",
+        "uid": "967f4e7379fd7d33263fe1d01405e025097fe424",
+        "visibility": "public"
+      }
+    ],
+    "description": "Calculation engine module",
+    "edges": [],
+    "kind": "namespace",
+    "name": "calc",
+    "qualified_name": "calc",
+    "refid": "",
+    "source": "markdown-import",
+    "tags": [
+      "design"
+    ],
+    "type": "NamespaceNode",
+    "uid": "f761f78b69b8e2bdaa092427ad2b85813877c9c5"
+  },
+  {
+    "component_id": null,
+    "composes": [
+      {
+        "base_classes": [],
+        "brief_description": "Abstract base window class providing common window operations.",
+        "component_id": null,
+        "composes": [
+          {
+            "argsstring": "",
+            "body_end": 0,
+            "body_start": 0,
+            "brief_description": "Shows the window on screen.",
+            "component_id": null,
+            "compound_refid": "",
+            "definition": "",
+            "detailed_description": "",
+            "doc_embedding": [],
+            "edges": [],
+            "file_path": "",
+            "is_const": false,
+            "is_constexpr": false,
+            "is_explicit": false,
+            "is_inline": false,
+            "is_static": false,
+            "is_virtual": false,
+            "kind": "method",
+            "line_number": null,
+            "name": "show: void",
+            "qualified_name": "ui::BaseWindow::show: void",
+            "refid": "",
+            "source": "markdown-import",
+            "tags": [
+              "design"
+            ],
+            "type": "MethodNode",
+            "type_signature": "",
+            "uid": "8b391cd8a5d8f4fca66c23f89ab6b2e21fc56f0a",
+            "visibility": "public"
+          }
+        ],
+        "definition": "",
+        "detailed_description": "",
+        "doc_embedding": [],
+        "edges": [],
+        "file_path": "",
+        "is_abstract": false,
+        "is_final": false,
+        "kind": "class",
+        "line_number": null,
+        "module": "",
+        "name": "BaseWindow",
+        "qualified_name": "ui::BaseWindow",
+        "refid": "",
+        "source": "markdown-import",
+        "source_type": "",
+        "tags": [
+          "design"
+        ],
+        "type": "ClassNode",
+        "uid": "6ba9b747540ec0eeae52ff9d2bbabbf660c3f98d",
+        "visibility": ""
+      },
+      {
+        "base_classes": [],
+        "brief_description": "The main application window for the calculator.",
+        "component_id": null,
+        "definition": "",
+        "detailed_description": "",
+        "doc_embedding": [],
+        "edges": [
+          {
+            "relation_type": "INHERITS_FROM",
+            "target_type": "ClassNode",
+            "target_uid": "ui::BaseWindow"
+          },
+          {
+            "relation_type": "DEPENDS_ON",
+            "target_type": "ClassNode",
+            "target_uid": "calc::CalculatorEngine"
+          }
+        ],
+        "file_path": "",
+        "is_abstract": false,
+        "is_final": false,
+        "kind": "class",
+        "line_number": null,
+        "module": "",
+        "name": "CalculatorWindow",
+        "qualified_name": "ui::CalculatorWindow",
+        "refid": "",
+        "source": "markdown-import",
+        "source_type": "",
+        "tags": [
+          "design"
+        ],
+        "type": "ClassNode",
+        "uid": "b4eca5f7f3290de1c0d38e5699fcf41e8e8062db",
+        "visibility": "public"
+      }
+    ],
+    "description": "User interface module",
+    "edges": [],
+    "kind": "namespace",
+    "name": "ui",
+    "qualified_name": "ui",
+    "refid": "",
+    "source": "markdown-import",
+    "tags": [
+      "design"
+    ],
+    "type": "NamespaceNode",
+    "uid": "6e4b45d53482f7de8ee0af7b43bc4e71eeedbbaa"
+  },
+  {
+    "edges": [],
+    "kind": "file",
+    "language": "",
+    "name": "calculator_engine.h",
+    "path": "calculator_engine.h",
+    "qualified_name": "calculator_engine.h",
+    "refid": "",
+    "source": "markdown-import",
+    "tags": [
+      "design"
+    ],
+    "type": "FileNode",
+    "uid": "a9da2ccc3c9daf0f7ca68df9b2ebded56e630314"
+  },
+  {
+    "edges": [],
+    "kind": "file",
+    "language": "",
+    "name": "icalculator.h",
+    "path": "icalculator.h",
+    "qualified_name": "icalculator.h",
+    "refid": "",
+    "source": "markdown-import",
+    "tags": [
+      "design"
+    ],
+    "type": "FileNode",
+    "uid": "e5bccd930d60a278087722b21b3b6632f39dea76"
+  },
+  {
+    "edges": [],
+    "kind": "file",
+    "language": "",
+    "name": "operation.h",
+    "path": "operation.h",
+    "qualified_name": "operation.h",
+    "refid": "",
+    "source": "markdown-import",
+    "tags": [
+      "design"
+    ],
+    "type": "FileNode",
+    "uid": "7114be2418e298f1b6276d16c3b783635ab9891f"
+  },
+  {
+    "edges": [],
+    "kind": "file",
+    "language": "",
+    "name": "calculator_result.h",
+    "path": "calculator_result.h",
+    "qualified_name": "calculator_result.h",
+    "refid": "",
+    "source": "markdown-import",
+    "tags": [
+      "design"
+    ],
+    "type": "FileNode",
+    "uid": "3556e4baea50fb57da3d35f44d9ce90998da7a66"
+  },
+  {
+    "edges": [],
+    "kind": "file",
+    "language": "",
+    "name": "base_window.h",
+    "path": "base_window.h",
+    "qualified_name": "base_window.h",
+    "refid": "",
+    "source": "markdown-import",
+    "tags": [
+      "design"
+    ],
+    "type": "FileNode",
+    "uid": "6a0508f59d16575932a8ed2c1f5ee2576aa37bd3"
+  },
+  {
+    "edges": [],
+    "kind": "file",
+    "language": "",
+    "name": "calculator_window.h",
+    "path": "calculator_window.h",
+    "qualified_name": "calculator_window.h",
+    "refid": "",
+    "source": "markdown-import",
+    "tags": [
+      "design"
+    ],
+    "type": "FileNode",
+    "uid": "82646db8ea9de9213a2edbd9dd21c2e4ae24bce7"
+  }
+]

@@ -362,6 +362,83 @@ class GraphRepository:
         from codegraph.backends import get_backend
         return get_backend().find_all_by_kind(kind, tag)
 
+    # ── Public: relationship traversal helpers ───────────────────────
+
+    @staticmethod
+    def composed_children(
+        node: "CodeGraphNode",
+        child_type: type["CodeGraphNode"],
+    ) -> list["CodeGraphNode"]:
+        """Return children of *node* reachable via outgoing COMPOSES
+        that are instances of *child_type*.
+
+        Replaces neomodel's ``node.relations.all()`` with a
+        backend-agnostic query.  Example::
+
+            methods = GraphRepository.composed_children(cls, MethodNode)
+        """
+        return [
+            c for c in get_backend().get_composed_children(node)
+            if isinstance(c, child_type)
+        ]
+
+    @staticmethod
+    def incoming_composers(
+        node: "CodeGraphNode",
+        composer_type: type["CodeGraphNode"] | None = None,
+    ) -> list["CodeGraphNode"]:
+        """Return nodes that COMPOSE *node* (incoming COMPOSES edges).
+
+        Replaces neomodel's ``.parent_namespace.all()`` and similar
+        ``RelationshipFrom`` traversals.  Example::
+
+            parents = GraphRepository.incoming_composers(method, ClassNode)
+        """
+        backend = get_backend()
+        edges = backend.get_all_edges(node)
+        composers: list["CodeGraphNode"] = []
+        for e in edges:
+            if e.relation_type != "COMPOSES" or e.is_outgoing:
+                continue
+            target_cls = CodeGraphNode._registry.get(e.target_type)
+            if target_cls is None:
+                continue
+            if composer_type is not None and target_cls is not composer_type:
+                continue
+            composer = backend.get(target_cls, uid=e.target_uid)
+            if composer is not None:
+                composers.append(composer)
+        return composers
+
+    @staticmethod
+    def outgoing_by_relation(
+        node: "CodeGraphNode",
+        relation_type: str,
+        target_type: type["CodeGraphNode"] | None = None,
+    ) -> list["CodeGraphNode"]:
+        """Return nodes reachable via outgoing *relation_type* edges.
+
+        Replaces neomodel's ``.depends_on.all()``, ``.invokes.all()``
+        and other outgoing relationship traversals.  Example::
+
+            deps = GraphRepository.outgoing_by_relation(cls, "DEPENDS_ON")
+        """
+        backend = get_backend()
+        edges = backend.get_all_edges_outgoing(node)
+        targets: list["CodeGraphNode"] = []
+        for e in edges:
+            if e.relation_type != relation_type:
+                continue
+            target_cls = CodeGraphNode._registry.get(e.target_type)
+            if target_cls is None:
+                continue
+            if target_type is not None and target_cls is not target_type:
+                continue
+            target = backend.get(target_cls, uid=e.target_uid)
+            if target is not None:
+                targets.append(target)
+        return targets
+
     # ── Public: write method ──────────────────────────────────────────
 
     @staticmethod

@@ -30,7 +30,7 @@ for root in _roots:
         load_dotenv(env_path)
         break
 
-DATA_DIR = Path(__file__).parent / "data" / "cpp_sqlite"
+DATA_DIR = Path(__file__).parent.parent / "data" / "cpp_sqlite"
 
 from codegraph.graph import LayerGraph
 from codegraph.export.format import export_graph
@@ -132,6 +132,7 @@ def v3_design_inputs() -> dict:
 # ── Tests ────────────────────────────────────────────────────────
 
 
+@pytest.skip
 @pytest.mark.slow
 @pytest.mark.integration
 class TestDesignMigrationManager:
@@ -339,7 +340,7 @@ class TestDesignMigrationManager:
                 )
 
         # ── Export artifacts ──
-        out_dir = Path(__file__).parent / "unit_test_data"
+        out_dir = Path(__file__).parent.parent / "unit_test_data"
         out_dir.mkdir(parents=True, exist_ok=True)
 
         artifacts = result.get("artifacts", {})

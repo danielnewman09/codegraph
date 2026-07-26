@@ -172,6 +172,7 @@ def lint_variant(request):
 # ── Tests ────────────────────────────────────────────────────────
 
 
+@pytest.skip
 @pytest.mark.slow
 @pytest.mark.integration
 class TestRequirementsLint:

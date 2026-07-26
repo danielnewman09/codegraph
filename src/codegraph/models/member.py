@@ -8,8 +8,7 @@ from __future__ import annotations
 
 from neomodel import (
     StructuredNode, StringProperty, IntegerProperty, BooleanProperty,
-    ArrayProperty, FloatProperty, UniqueIdProperty,
-    RelationshipTo, RelationshipFrom,
+    ArrayProperty, FloatProperty, UniqueIdProperty, RelationshipTo, RelationshipFrom,
 )
 
 
@@ -59,6 +58,9 @@ class MemberNode(StructuredNode, CodeGraphNode):
     tags = ArrayProperty(StringProperty(), default=list,
         help_text="Provenance tags: 'design', 'as-built', 'dependency'. "
                   "Multiple tags allowed — a node can belong to several views.")
+
+    # ── File provenance ──────────────────────────────────────────
+    defined_in = RelationshipTo('codegraph.models.file.FileNode', 'DEFINED_IN')
     component_id = IntegerProperty()
     compound_refid = StringProperty(default="")
 
@@ -91,33 +93,12 @@ class MemberNode(StructuredNode, CodeGraphNode):
         help_text="Vector embedding of brief_description + detailed_description.")
 
     # --- Lazy-loaded implementation ----------------------------------------
-    #
-    #  • HAS_IMPLEMENTATION  — this member → ImplementationNode
-    #    The full source code body and its vector embedding.  Kept on a
-    #    separate node so that lightweight queries (listing, counting,
-    #    serializing) do not pull potentially large implementation text or
-    #    embedding vectors.
-    #
-    #    NOT expanded by LayerGraph — access via
-    #    ``method.implementation_ref.all()`` when source code is needed.
-    # --------------------------------------------------------------------------
-
     implementation_ref = RelationshipTo('codegraph.models.implementation.ImplementationNode', 'HAS_IMPLEMENTATION')
 
-    # --- Relationships -------------------------------------------------------
-    #
-    # Relationship glossary (all member types inherit this):
-    #
-    #  • DEFINED_IN  — this member → FileNode
-    #    The source file where this member is declared/defined.
-    # --------------------------------------------------------------------------
-
-    # File location
+    # --- File provenance ───────────────────────────────────────────────────
     defined_in = RelationshipTo('codegraph.models.file.FileNode', 'DEFINED_IN')
 
-    # Type dependencies — this member's type signature references these types.
-    # Targets can be CompoundNode (classes, structs) or MemberNode (typedefs).
-    # Two separate relationships because neomodel can't target abstract bases.
+    # --- Type dependencies ─────────────────────────────────────────────────
     depends_on_compound = RelationshipTo('codegraph.models.compound.ClassNode', 'DEPENDS_ON')
     depends_on_member = RelationshipTo('codegraph.models.member.AttributeNode', 'DEPENDS_ON')
 
@@ -161,38 +142,16 @@ class MethodNode(MemberNode):
         "type_signature", "argsstring", "visibility",
     }
 
-    # --- MethodNode relationships -------------------------------------------
-    #
-    #  ── Composition (incoming) ──
-    #  • COMPOSES (incoming)  — ClassNode | InterfaceNode → this MethodNode
-    #    The parent compound or interface owns this method.
-    #    Traversed via ``parent_compound`` / ``parent_interface``.
-    #
-    #  ── Call-callee ──
-    #  • INVOKES  — MethodNode/FunctionNode(caller) → MethodNode/FunctionNode(callee)
-    #    Call-callee relationship.  Methods and free functions can invoke
-    #    each other.
-    #
-    #  ── Type relationships ──
-    #  • HAS_ARGUMENT  — MethodNode → ClassNode
-    #    The method accepts a parameter whose type is the target class.
-    #    Example: ``void draw(Canvas c)``  →  ``draw -[:HAS_ARGUMENT]-> Canvas``.
-    #
-    #  • RETURNS  — MethodNode → ClassNode
-    #    The method's return type is the target class.
-    #    Example: ``Canvas create()``  →  ``create -[:RETURNS]-> Canvas``.
-    # --------------------------------------------------------------------------
-
     # Incoming composition
     parent_compound = RelationshipFrom('codegraph.models.compound.ClassNode', 'COMPOSES')
     parent_interface = RelationshipFrom('codegraph.models.compound.InterfaceNode', 'COMPOSES')
 
-    # Call-callee
+    # ── Call-callee ──────────────────────────────────────────────
     invokes = RelationshipTo('MethodNode', 'INVOKES')
     invokes_function = RelationshipTo('FunctionNode', 'INVOKES')
     invoked_by_function = RelationshipFrom('FunctionNode', 'INVOKES')
 
-    # Type relationships
+    # ── Type relationships ───────────────────────────────────────
     has_argument = RelationshipTo('codegraph.models.compound.ClassNode', 'HAS_ARGUMENT')
     returns = RelationshipTo('codegraph.models.compound.ClassNode', 'RETURNS')
 
@@ -219,19 +178,9 @@ class AttributeNode(MemberNode):
         "type_signature", "visibility",
     }
 
-    # --- AttributeNode relationships ----------------------------------------
-    #
-    #  ── Composition (incoming) ──
-    #  • COMPOSES (incoming)  — ClassNode → this AttributeNode
-    #    The parent class owns this attribute.
-    #    Traversed via ``parent_compound``.
-    # --------------------------------------------------------------------------
-
     # Incoming composition
     parent_compound = RelationshipFrom('codegraph.models.compound.ClassNode', 'COMPOSES')
-
-    # Outgoing — nested attributes (e.g. struct-like nesting within a class)
-    composes_attribute = RelationshipTo('codegraph.models.member.AttributeNode', 'COMPOSES')
+    composes_attribute = RelationshipFrom('codegraph.models.member.AttributeNode', 'COMPOSES')
 
 
 class EnumValueNode(MemberNode):
@@ -244,14 +193,6 @@ class EnumValueNode(MemberNode):
     kind = StringProperty(default="enumvalue")
 
     _llm_fields = {"qualified_name", "name", "kind", "tags", "brief_description", "visibility"}
-
-    # --- EnumValueNode relationships ----------------------------------------
-    #
-    #  ── Composition (incoming) ──
-    #  • COMPOSES (incoming)  — EnumNode → this EnumValueNode
-    #    The parent enum owns this constant value.
-    #    Traversed via ``parent_enum``.
-    # --------------------------------------------------------------------------
 
     # Incoming composition
     parent_enum = RelationshipFrom('codegraph.models.compound.EnumNode', 'COMPOSES')
@@ -278,23 +219,10 @@ class FunctionNode(MemberNode):
         "type_signature", "argsstring", "visibility",
     }
 
-    # --- FunctionNode relationships ------------------------------------------
-    #
-    #  ── Composition (incoming) ──
-    #  • COMPOSES (incoming)  — NamespaceNode → this FunctionNode
-    #    The parent namespace owns this function.
-    #    Traversed via ``parent_namespace``.
-    #
-    #  ── Call-callee ──
-    #  • INVOKES  — FunctionNode/MethodNode(caller) → FunctionNode/MethodNode(callee)
-    #    Call-callee relationship.  Free functions and methods can invoke
-    #    each other.
-    # --------------------------------------------------------------------------
-
     # Incoming composition
     parent_namespace = RelationshipFrom('codegraph.models.namespace.NamespaceNode', 'COMPOSES')
 
-    # Call-callee
+    # ── Call-callee ──────────────────────────────────────────────
     invokes_method = RelationshipTo('MethodNode', 'INVOKES')
     invokes_function = RelationshipTo('FunctionNode', 'INVOKES')
     invoked_by_method = RelationshipFrom('MethodNode', 'INVOKES')

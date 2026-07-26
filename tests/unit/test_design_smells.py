@@ -20,7 +20,7 @@ from codegraph_design.tools.design_smells import (
 
 log = logging.getLogger(__name__)
 
-FIXTURES_DIR = Path(__file__).resolve().parent.parent.parent / "unit_test_data" / "smells"
+FIXTURES_DIR = Path(__file__).resolve().parent / "unit_test_data" / "smells"
 
 
 def _dump(design: list[dict], stem: str) -> Path:

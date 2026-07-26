@@ -1,0 +1,293 @@
+' =============================================================================
+' Unified codegraph.export Architecture — Integrated Component Diagram
+'
+' Shows the dispatch layer, format-specific backends, helper functions, and
+' the viz/component-decomposition subsystems as one cohesive architecture.
+' Color-coded by concern with requirement annotations.
+'
+' Relationship legend:
+'   ──►  = invokes / delegates to
+'   ◆──  = composes / owns
+'   ──▷  = inherits from
+' =============================================================================
+
+@startuml
+
+skinparam classAttributeIconSize 0
+skinparam defaultFontSize 11
+skinparam packageStyle rectangle
+
+' ── Color palette ──
+!define DISPATCH_COLOR  #D6EAF8
+!define PLANTUML_COLOR  #D5F5E3
+!define MARKDOWN_COLOR  #FDEBD0
+!define VIZ_COLOR       #E8DAEF
+!define DECOMP_COLOR    #FADBD8
+!define ERROR_COLOR     #F5B7B1
+
+' ── Stereotypes ──
+skinparam class {
+  BackgroundColor<<dispatch>>   DISPATCH_COLOR
+  BackgroundColor<<plantuml>>   PLANTUML_COLOR
+  BackgroundColor<<markdown>>   MARKDOWN_COLOR
+  BackgroundColor<<viz>>        VIZ_COLOR
+  BackgroundColor<<decomp>>     DECOMP_COLOR
+  BackgroundColor<<error>>      ERROR_COLOR
+}
+
+' ═══════════════════════════════════════════════════════════════════════════
+' DISPATCH LAYER — unified format-agnostic entry points
+' ═══════════════════════════════════════════════════════════════════════════
+
+class "export_graph" <<dispatch>> {
+  {method}  (graph, format, fields, **kwargs) → str
+}
+note right of "export_graph"
+  <b>[REQ-FMT-01]</b> Single entry-point for all export formats
+  Dispatches format → plantuml | markdown | json
+end note
+
+class "import_graph" <<dispatch>> {
+  {method}  (text, format, tags, strict) → LayerGraph
+}
+note right of "import_graph"
+  <b>[REQ-FMT-02]</b> Single entry-point for all import formats
+  Dispatches format → plantuml | markdown | json
+end note
+
+' ═══════════════════════════════════════════════════════════════════════════
+' PLANTUML BACKEND — class-diagram syntax export/import
+' ═══════════════════════════════════════════════════════════════════════════
+
+class "export_plantuml" <<plantuml>> {
+  {method}  (graph, fields) → str
+}
+note right of "export_plantuml"
+  <b>[REQ-PUML-01]</b> Export LayerGraph to PlantUML class-diagram syntax
+  Thin wrapper that delegates to PlantUMLExporter
+end note
+
+class "import_plantuml" <<plantuml>> {
+  {method}  (text, tags, strict) → LayerGraph
+}
+note right of "import_plantuml"
+  <b>[REQ-PUML-02]</b> Parse PlantUML syntax back into a LayerGraph
+  Delegates to PlantUMLImporter
+end note
+
+class "PlantUMLExporter" <<plantuml>> {
+  - _aliases: dict
+  - _rel_lines: list
+  - _seen: set
+  {method}  export() → str
+  {method}  _emit_entry(entry, indent) → list
+  {method}  _emit_namespace(...)
+  {method}  _emit_file(...)
+  {method}  _emit_enum(...)
+  {method}  _emit_compound_body(...)
+  {method}  _emit_reference(...)
+}
+note right of "PlantUMLExporter"
+  <b>[REQ-PUML-03]</b> Recursive depth-first PlantUML renderer
+  Produces class/package/enum/interface declarations + arrow relationships
+end note
+
+class "PlantUMLImporter" <<plantuml>> {
+  {method}  import_plantuml(text, tags, strict) → LayerGraph
+}
+note right of "PlantUMLImporter"
+  <b>[REQ-PUML-04]</b> Parse PlantUML text → LayerGraph via nesting-based qname derivation
+end note
+
+' Helper functions (decorated as utility stereotype)
+class "_sanitize_alias" <<plantuml>> {
+  {method}  (name) → valid PlantUML alias
+}
+class "_visibility_prefix" <<plantuml>> {
+  {method}  (visibility) → prefix char
+}
+class "_format_method" <<plantuml>> {
+  {method}  (name, visibility, type_sig, args) → str
+}
+class "_format_attribute" <<plantuml>> {
+  {method}  (name, visibility, type_sig) → str
+}
+class "_format_enum_value" <<plantuml>> {
+  {method}  (name) → str
+}
+class "_extract_name" <<plantuml>> {
+  {method}  (text) → (name, rest)
+}
+
+' Error types
+class "PlantUMLParseError" <<error>> {
+  - diagnostics: list[ParseDiagnostic]
+}
+note right of "PlantUMLParseError"
+  <b>[REQ-PUML-05]</b> Raised in strict mode when structural errors are found
+end note
+
+class "ParseDiagnostic" <<error>> {
+  - line: int
+  - severity: str
+  - message: str
+}
+note right of "ParseDiagnostic"
+  <b>[REQ-PUML-06]</b> Single parse issue record (line, severity, message)
+end note
+
+' ═══════════════════════════════════════════════════════════════════════════
+' MARKDOWN BACKEND — human-readable document export/import
+' ═══════════════════════════════════════════════════════════════════════════
+
+class "export_markdown" <<markdown>> {
+  {method}  (graph, fields, public_only) → str
+}
+note right of "export_markdown"
+  <b>[REQ-MD-01]</b> Export LayerGraph to human-readable Markdown document
+  Thin wrapper that delegates to MarkdownExporter
+end note
+
+class "import_markdown" <<markdown>> {
+  {method}  (text, tags, strict) → LayerGraph
+}
+note right of "import_markdown"
+  <b>[REQ-MD-02]</b> Parse Markdown heading-nesting back into a LayerGraph
+  Delegates to MarkdownImporter
+end note
+
+class "MarkdownExporter" <<markdown>> {
+  - graph: LayerGraph
+  - fields: str
+  - public_only: bool
+  - _rel_lines: list
+  - _file_names: list
+  {method}  export() → str
+  {method}  _emit_entry(entry, depth) → list
+  {method}  _emit_enum_body(entry)
+  {method}  _emit_compound_body(entry)
+  {method}  _emit_inline_rels(entry)
+}
+note right of "MarkdownExporter"
+  <b>[REQ-MD-03]</b> Recursive Markdown renderer with public-only filtering
+  Emits heading-nesting, public method/attribute tables, relationship section
+end note
+
+class "MarkdownImporter" <<markdown>> {
+  {method}  import_markdown(text, tags, strict) → LayerGraph
+}
+note right of "MarkdownImporter"
+  <b>[REQ-MD-04]</b> Parse Markdown with heading-level nesting → LayerGraph
+end note
+
+' ═══════════════════════════════════════════════════════════════════════════
+' VIZ SUBSYSTEM — interactive HTML/Cytoscape.js visualization
+' ═══════════════════════════════════════════════════════════════════════════
+
+class "export_html" <<viz>> {
+  {method}  (graph, ...) → HTML string
+}
+note right of "export_html"
+  <b>[REQ-VIZ-01]</b> Export LayerGraph to interactive Cytoscape.js HTML
+  Orchestrates transform → labels → styles → HTML template
+end note
+
+class "layer_graph_to_cytoscape" <<viz>> {
+  {method}  (graph) → cytoscape elements
+}
+note right of "layer_graph_to_cytoscape"
+  <b>[REQ-VIZ-02]</b> Transform LayerGraph nodes/edges → Cytoscape.js JSON
+end note
+
+class "cy_stylesheet" <<viz>> {
+  {field}  Cytoscape.js style rules
+}
+note right of "cy_stylesheet"
+  <b>[REQ-VIZ-03]</b> Color/size mapping for node kinds and relationship types
+end note
+
+class "build_uml_html" <<viz>> {
+  {method}  (elements, styles, ...) → HTML page
+}
+note right of "build_uml_html"
+  <b>[REQ-VIZ-04]</b> Assemble the full interactive HTML document with pan/zoom
+end note
+
+' ═══════════════════════════════════════════════════════════════════════════
+' COMPONENT DECOMPOSITION — higher-level business-component diagram
+' ═══════════════════════════════════════════════════════════════════════════
+
+class "ComponentDecomposition" <<decomp>> {
+  - graph: LayerGraph
+  - min_size: int
+  {method}  decompose() → DecompositionResult
+  {method}  _identify_components() → list
+  {method}  _derive_requirements(c) → list
+  {method}  _collect_key_classes(c) → list
+  {method}  _find_dependencies(cs) → list
+}
+note right of "ComponentDecomposition"
+  <b>[REQ-DECOMP-01]</b> Identify high-level business components from namespaces
+  Derive requirement annotations via pattern matching
+  Collect representative key classes per component
+end note
+
+class "export_component_plantuml" <<decomp>> {
+  {method}  (graph, detail, min_size) → PlantUML string
+}
+note right of "export_component_plantuml"
+  <b>[REQ-DECOMP-02]</b> Generate component diagram with requirement annotations
+  detail=high → packages + notes; detail=medium → + key classes inside
+end note
+
+class "enrich_plantuml" <<decomp>> {
+  {method}  (class_puml, graph) → enriched PlantUML
+}
+note right of "enrich_plantuml"
+  <b>[REQ-DECOMP-03]</b> Wrap an existing class diagram with component boundary
+  annotations and requirement notes
+end note
+
+
+' ═══════════════════════════════════════════════════════════════════════════
+' RELATIONSHIPS — generalized edges showing how classes connect
+' ═══════════════════════════════════════════════════════════════════════════
+
+' ── Dispatch → format-specific functions ──
+"export_graph"  -right->  "export_plantuml"   : "format='plantuml'\n(delegates)"
+"export_graph"  -right->  "export_markdown"   : "format='markdown'\n(delegates)"
+"import_graph"  -right->  "import_plantuml"   : "format='plantuml'\n(delegates)"
+"import_graph"  -right->  "import_markdown"   : "format='markdown'\n(delegates)"
+
+' ── API functions → underlying classes ──
+"export_plantuml"  -down->  "PlantUMLExporter"   : "instantiates & calls .export()"
+"import_plantuml"  -down->  "PlantUMLImporter"   : "instantiates & calls"
+"export_markdown"  -down->  "MarkdownExporter"   : "instantiates & calls .export()"
+"import_markdown"  -down->  "MarkdownImporter"   : "instantiates & calls"
+
+' ── PlantUMLExporter uses helper functions ──
+"PlantUMLExporter"  ..>  "_sanitize_alias"       : "generates aliases from qnames"
+"PlantUMLExporter"  ..>  "_visibility_prefix"    : "converts visibility → prefix"
+"PlantUMLExporter"  ..>  "_format_method"        : "formats method declarations"
+"PlantUMLExporter"  ..>  "_format_attribute"     : "formats attribute lines"
+"PlantUMLExporter"  ..>  "_format_enum_value"    : "formats enum constants"
+
+' ── Error hierarchy ──
+"PlantUMLParseError"  -up-|>  "Exception"       : "extends"
+"PlantUMLParseError"  o--    "ParseDiagnostic"   : "composes list of"
+
+' ── Viz subsystem ──
+"export_html"  -down->  "layer_graph_to_cytoscape"  : "transforms graph → elements"
+"export_html"  -down->  "build_uml_html"            : "assembles HTML document"
+"layer_graph_to_cytoscape"  ..>  "cy_stylesheet"    : "applies style mapping"
+
+' ── Component decomposition ──
+"export_component_plantuml"  -down->  "ComponentDecomposition"  : "instantiates & calls .decompose()"
+"enrich_plantuml"            -down->  "ComponentDecomposition"  : "wraps existing diagram"
+
+' ── Cross-cutting: export_graph also handles JSON inline (no separate class) ──
+note bottom of "export_graph"
+  Also handles format="json" inline (no separate backend class)
+end note
+
+@enduml

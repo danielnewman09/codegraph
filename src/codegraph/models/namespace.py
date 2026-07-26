@@ -2,8 +2,7 @@
 
 from neomodel import (
     StructuredNode, StringProperty, IntegerProperty, ArrayProperty,
-    UniqueIdProperty,
-    RelationshipTo, RelationshipFrom,
+    UniqueIdProperty, RelationshipTo, RelationshipFrom,
 )
 
 from codegraph.models.tags import CodeGraphNode
@@ -34,36 +33,22 @@ class NamespaceNode(StructuredNode, CodeGraphNode):
     component_id = IntegerProperty()
     description = StringProperty(default="")
 
-    # --- NamespaceNode relationships ----------------------------------------
-    #
-    #  • COMPOSES (outgoing)  — NamespaceNode → ClassNode | InterfaceNode |
-    #    EnumNode | UnionNode | ModuleNode | FunctionNode | NamespaceNode
-    #    The namespace owns/contains these entities.  Each target type gets
-    #    its own descriptor so neomodel can dispatch correctly.
-    #
-    #  • COMPOSES (incoming)  — NamespaceNode ← NamespaceNode
-    #    The parent namespace owns/contains this namespace.
-    #    Traversed via ``parent_namespace``.
-    #
-    #  Self-referential COMPOSES (namespaces → namespaces) supports
-    #  nested namespaces (e.g. outer::inner).
-    # --------------------------------------------------------------------------
-
-    classes     = RelationshipTo('codegraph.models.compound.ClassNode', 'COMPOSES')
-    interfaces  = RelationshipTo('codegraph.models.compound.InterfaceNode', 'COMPOSES')
-    enums       = RelationshipTo('codegraph.models.compound.EnumNode', 'COMPOSES')
-    unions      = RelationshipTo('codegraph.models.compound.UnionNode', 'COMPOSES')
-    concepts    = RelationshipTo('codegraph.models.compound.ConceptNode', 'COMPOSES')
-    modules     = RelationshipTo('codegraph.models.compound.ModuleNode', 'COMPOSES')
-    functions   = RelationshipTo('codegraph.models.member.FunctionNode', 'COMPOSES')
-    namespaces  = RelationshipTo('NamespaceNode', 'COMPOSES')
-    tests       = RelationshipTo('codegraph.models.test.TestNode', 'COMPOSES')
-
-    # Incoming composition (parent namespace for nesting)
-    parent_namespace = RelationshipFrom('NamespaceNode', 'COMPOSES')
-
     # --- Serialization contract ---
     _llm_fields: set[str] = {"qualified_name", "name", "kind", "tags", "description"}
 
     # --- Identity fields for uid computation ---
     _identity_fields: tuple[str, ...] = ("qualified_name",)
+
+    # ── COMPOSES relationships ────────────────────────────────────
+    classes = RelationshipTo('codegraph.models.compound.ClassNode', 'COMPOSES')
+    interfaces = RelationshipTo('codegraph.models.compound.InterfaceNode', 'COMPOSES')
+    enums = RelationshipTo('codegraph.models.compound.EnumNode', 'COMPOSES')
+    unions = RelationshipTo('codegraph.models.compound.UnionNode', 'COMPOSES')
+    concepts = RelationshipTo('codegraph.models.compound.ConceptNode', 'COMPOSES')
+    modules = RelationshipTo('codegraph.models.compound.ModuleNode', 'COMPOSES')
+    functions = RelationshipTo('codegraph.models.member.FunctionNode', 'COMPOSES')
+    defines = RelationshipTo('codegraph.models.member.DefineNode', 'COMPOSES')
+    namespaces = RelationshipTo('NamespaceNode', 'COMPOSES')
+    parent_namespace = RelationshipFrom('NamespaceNode', 'COMPOSES')
+
+    tests       = RelationshipTo('codegraph.models.test.TestNode', 'COMPOSES')
