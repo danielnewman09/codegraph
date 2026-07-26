@@ -36,3 +36,5 @@ build/
 .coverage
 htmlcov/
 codegraph/logs/
+
+*.png

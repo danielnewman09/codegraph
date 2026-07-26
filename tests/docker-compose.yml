@@ -12,9 +12,19 @@ services:
     ports:
       - "7688:7687"    # Bolt
       - "7475:7474"    # HTTP / Browser
+    mem_limit: 2g
     environment:
       - NEO4J_AUTH=neo4j/codegraph-test
       - NEO4J_PLUGINS=[]
+      # Heap: initial 256 MiB, hard ceiling at 1 GiB (test workload doesn't need more)
+      - NEO4J_server_memory_heap_initial__size=256m
+      - NEO4J_server_memory_heap_max__size=1g
+      # Page cache: small — individual tests are tiny, and tmpfs storage is fast anyway
+      - NEO4J_server_memory_pagecache_size=128m
+      # Transaction log retention: keep only 1 file to bound tmpfs growth
+      - NEO4J_db_tx__log_rotation_retention__policy=1 files
+      # Prevent transaction log from growing unbounded between rotations
+      - NEO4J_db_tx__log_rotation_size=50M
     tmpfs:
       - /data
       - /logs
