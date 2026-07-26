@@ -80,6 +80,24 @@ class CompositeEntry:
                 "COMPOSES", "HAS_IMPLEMENTATION", "TEMPLATE_PARAM"
             )
         ]
+        # Include LayerGraph-level references (built during deserialization
+        # or graph construction) that aren't represented on the node's
+        # neomodel relationship managers.  This is essential for graphs
+        # that were deserialized from JSON (e.g. subgraph views) where
+        # the node is not connected to Neo4j.
+        uid_prop_name = type(self.node)._uid_prop() or "uid"
+        seen_targets = {(e["relation_type"], e["target_uid"]) for e in edges}
+        for rt, target_key, target_type in self.references:
+            if rt in ("COMPOSES", "HAS_IMPLEMENTATION", "TEMPLATE_PARAM"):
+                continue
+            if (rt, target_key) in seen_targets:
+                continue
+            seen_targets.add((rt, target_key))
+            edges.append({
+                "relation_type": rt,
+                "target_uid": target_key,
+                "target_type": target_type,
+            })
         serialized["edges"] = edges
 
         # Ensure uid property is included for roundtrip target resolution.
@@ -205,9 +223,9 @@ class LayerGraph:
         """Resolve a target key (uid hash) to a human-readable display name.
 
         Looks up *target_key* in the flat entry index and returns the
-        node's ``name`` —
-        most descriptive.  Falls back to *target_key* itself if the entry
-        is not in the graph (e.g. a filtered-out neighbour).
+        node's ``qualified_name`` if set, falling back to ``name``.
+        Falls back to *target_key* itself if the entry is not in the
+        graph (e.g. a filtered-out neighbour).
 
         Args:
             target_key: The target node's key (typically a uid hash).
@@ -218,7 +236,12 @@ class LayerGraph:
         flat = self._flat_index()
         entry = flat.get(target_key)
         if entry is not None:
-            return entry.node.qualified_name
+            qn = getattr(entry.node, "qualified_name", "") or ""
+            if qn:
+                return qn
+            name = getattr(entry.node, "name", "") or ""
+            if name:
+                return name
         return target_key
 
     @staticmethod
@@ -1057,7 +1080,9 @@ class LayerGraph:
             if key not in child_keys
         }
 
-        return cls(tags=frozenset({tag}), entries=root_entries)
+        graph = cls(tags=frozenset({tag}), entries=root_entries)
+        graph._prune_empty_namespaces()
+        return graph
 
     @classmethod
     def import_compound(cls, qname: str, tag: str | None = None) -> "LayerGraph":
@@ -1131,6 +1156,105 @@ class LayerGraph:
         """Check whether any node in the graph has the given qualified_name."""
         return qname in self._qname_index()
 
+    # ── Empty namespace pruning ──────────────────────────────────────
+
+    def _prune_empty_namespaces(self) -> None:
+        """Remove namespace nodes that have no substantive content.
+
+        A namespace is **substantive** if any of the following holds:
+
+        * it has at least one non-COMPOSES reference (edge);
+        * another entry references it;
+        * it composes at least one non-namespace child;
+        * it composes at least one namespace child that is itself
+          substantive (transitive closure).
+
+        Namespaces that fail all four checks are dead containers —
+        they were pulled into the graph by the namespace-parent
+        expansion but have no link back to the as-built code.
+
+        This is called automatically from ``from_neo4j()`` after
+        the graph is assembled.
+
+        Note: uses ``type(node).__name__ == 'NamespaceNode'`` rather
+        than ``isinstance(node, NamespaceNode)`` because the combined
+        ``_CodeGraphNodeMeta`` metaclass (neomodel NodeMeta + ABCMeta)
+        causes ``isinstance`` to spuriously return True across all
+        neomodel StructuredNode subclasses.
+        """
+        flat = self._flat_index()
+
+        # Track which keys are substantive.  Build bottom-up so we
+        # don't infinite-recurse on namespace cycles (unlikely, but
+        # defensive).
+        substantive: dict[str, bool] = {}
+
+        def _is_namespace(entry: CompositeEntry) -> bool:
+            return type(entry.node).__name__ == "NamespaceNode"
+
+        def _is_substantive(key: str, entry: CompositeEntry) -> bool:
+            if key in substantive:
+                return substantive[key]
+
+            # 1. Direct edges
+            if entry.references:
+                substantive[key] = True
+                return True
+
+            # 2. Incoming edges from other entries
+            for other in flat.values():
+                if other is entry:
+                    continue
+                for ref in other.references:
+                    if ref[1] == key:
+                        substantive[key] = True
+                        return True
+
+            # 3. Children: check for non-namespace or substantive namespace
+            has_non_ns = False
+            has_sub_ns = False
+            for type_children in entry.children.values():
+                for child_key, child_entry in type_children.items():
+                    if not _is_namespace(child_entry):
+                        has_non_ns = True
+                    elif _is_substantive(child_key, child_entry):
+                        has_sub_ns = True
+
+            result = has_non_ns or has_sub_ns
+            substantive[key] = result
+            return result
+
+        for entry in self._all_entries():
+            if _is_namespace(entry):
+                key = self._node_key(entry.node)
+                _is_substantive(key, entry)
+
+        # Prune non-substantive namespace entries.
+        # Walk the tree and remove them from parents' children dicts.
+        def _prune_from(entry: CompositeEntry) -> None:
+            for type_name in list(entry.children.keys()):
+                type_children = entry.children[type_name]
+                for child_key in list(type_children.keys()):
+                    child_entry = type_children[child_key]
+                    if _is_namespace(child_entry):
+                        if not substantive.get(child_key, False):
+                            del type_children[child_key]
+                        else:
+                            _prune_from(child_entry)
+                    else:
+                        _prune_from(child_entry)
+                if not type_children:
+                    del entry.children[type_name]
+
+        for entry in self.entries.values():
+            _prune_from(entry)
+
+        # Remove non-substantive root namespace entries
+        for key in list(self.entries.keys()):
+            entry = self.entries[key]
+            if _is_namespace(entry) and not substantive.get(key, False):
+                del self.entries[key]
+
     def merge(self, other: "LayerGraph") -> None:
         """Merge another LayerGraph into this one (mutates self).
 
@@ -1203,6 +1327,131 @@ class LayerGraph:
                     eqn = getattr(e.node, "qualified_name", None)
                     if eqn:
                         self_qnames[eqn] = e
+
+    def subgraph(self, qname: str) -> "LayerGraph":
+        """Return a new LayerGraph scoped to a compound and its 1-hop neighbours.
+
+        Finds the entry matching *qname*, includes its full composition
+        subtree (children), and pulls in every directly-referenced target
+        node from the full graph.  The result is a standalone LayerGraph
+        suitable for class-scoped visualisation.
+
+        Args:
+            qname: Fully-qualified name of the compound (e.g.
+                ``"cpp_sqlite::Database"``).
+
+        Returns:
+            A new LayerGraph containing the matched entry, its children,
+            and all 1-hop neighbour entries.
+
+        Raises:
+            ValueError: If *qname* is not found in the graph.
+        """
+        flat = self._flat_index()
+        qnames = self._qname_index()
+
+        source_entry = qnames.get(qname)
+        if source_entry is None:
+            raise ValueError(f"No entry found for '{qname}'")
+
+        source_key = self._node_key(source_entry.node)
+
+        # 1. Walk the full subtree of the source entry (the compound
+        #    plus all its members, nested types, etc.).
+        subtree_keys: set[str] = set()
+        for e in self._walk_entries(source_entry):
+            subtree_keys.add(self._node_key(e.node))
+
+        # Build a reverse index: child key → parent entry key so we
+        # can pull in parent compounds when a member node is collected
+        # as a 1-hop neighbour.
+        child_to_parent: dict[str, str] = {}
+        for parent_key, parent_entry in flat.items():
+            for type_children in parent_entry.children.values():
+                for child_key in type_children:
+                    child_to_parent[child_key] = parent_key
+
+        # 2. Collect all references from every node in the subtree.
+        #    For each reference, pull the target entry from the flat
+        #    index (if present).
+        collected_entries: dict[str, CompositeEntry] = {}
+        parent_reparent: dict[str, str] = {}  # member_key → parent_entry_key
+
+        for key in subtree_keys:
+            entry = flat.get(key)
+            if entry is None:
+                continue
+            # Deep-copy this entry's subtree so we can place it under
+            # the matching new entry.
+            new_entry = CompositeEntry(
+                node=entry.node,
+                children=dict(entry.children),
+                references=[],  # references rebuilt below
+            )
+            collected_entries[key] = new_entry
+
+        # Copy references from the source tree and resolve neighbour
+        # entries.
+        for key in subtree_keys:
+            entry = flat.get(key)
+            if entry is None:
+                continue
+            new_entry = collected_entries[key]
+            for rt, target_key, target_type in entry.references:
+                new_entry.references.append((rt, target_key, target_type))
+                if target_key in collected_entries:
+                    continue  # already in subtree
+                # Skip DEFINED_IN edges — FileNodes provide
+                # location metadata, not structural dependencies.
+                if rt == "DEFINED_IN":
+                    continue
+                target_entry = flat.get(target_key)
+                if target_entry is not None:
+                    collected_entries[target_key] = CompositeEntry(
+                        node=target_entry.node,
+                    )
+                    # If the target is a member node, pull in its
+                    # parent compound so it gets rendered as a member
+                    # line rather than a standalone element.
+                    if target_key in child_to_parent:
+                        parent_key = child_to_parent[target_key]
+                        parent_reparent[target_key] = parent_key
+                        if parent_key not in collected_entries:
+                            parent_entry = flat.get(parent_key)
+                            if parent_entry is not None:
+                                collected_entries[parent_key] = CompositeEntry(
+                                    node=parent_entry.node,
+                                    children={},  # container only; members reparented below
+                                )
+
+        # 3. Reparent member nodes under their parent compound.
+        #    Remove standalone member entries and nest them under the
+        #    parent compound that was pulled in above.
+        for member_key, parent_key in parent_reparent.items():
+            member_entry = collected_entries.pop(member_key, None)
+            parent_entry = collected_entries.get(parent_key)
+            if member_entry is None or parent_entry is None:
+                continue
+            node_type = type(member_entry.node).__name__
+            if node_type not in parent_entry.children:
+                parent_entry.children[node_type] = {}
+            parent_entry.children[node_type][member_key] = member_entry
+
+        # 4. Build a new LayerGraph.  Root entries are any collected
+        #    entries that are not children of another collected entry.
+        parent_of: set[str] = set()
+        for key, entry in collected_entries.items():
+            for type_children in entry.children.values():
+                for child_key in type_children:
+                    parent_of.add(child_key)
+
+        root_entries = {
+            key: entry
+            for key, entry in collected_entries.items()
+            if key not in parent_of
+        }
+
+        return LayerGraph(tags=self.tags, entries=root_entries)
 
     def __len__(self) -> int:
         """Number of nodes in the graph (including children)."""

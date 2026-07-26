@@ -75,12 +75,22 @@ def _is_excluded(node) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def layer_graph_to_cytoscape(graph: LayerGraph) -> dict:
+def layer_graph_to_cytoscape(
+    graph: LayerGraph,
+    *,
+    collapse_members: bool = True,
+) -> dict:
     """Walk a LayerGraph's CompositeEntry tree → Cytoscape {{nodes, edges}}.
 
     Args:
         graph: A :class:`LayerGraph` populated with nodes for a single
             tag (e.g. ``"design"``).
+        collapse_members: When True (default), leaf members (methods,
+            attributes, etc.) are collapsed into their parent compound's
+            UML label.  When False, every member is emitted as its own
+            Cytoscape node and all edges are shown between individual
+            nodes — useful for class-level scoped views where internal
+            relationships (INVOKES, DEPENDS_ON) are the focus.
 
     Returns:
         A dict with ``"nodes"`` and ``"edges"`` keys, each a list of
@@ -119,7 +129,8 @@ def layer_graph_to_cytoscape(graph: LayerGraph) -> dict:
         if _is_excluded(entry.node):
             continue
         _walk_entry(entry, parent_id=None, nodes=nodes, edges=edges,
-                    seen=seen, layer=layer, key_to_display=key_to_display)
+                    seen=seen, layer=layer, key_to_display=key_to_display,
+                    collapse_members=collapse_members)
 
     # Resolve edge targets: redirect edges pointing at collapsed leaf
     # members to their parent compound so they don't get dropped by the
@@ -220,12 +231,15 @@ def _walk_entry(
     seen: set[str],
     layer: str,
     key_to_display: dict[str, str] | None = None,
+    *,
+    collapse_members: bool = True,
 ) -> None:
     """Recursively walk a CompositeEntry, emitting Cytoscape nodes and edges.
 
-    Leaf members are NOT emitted as separate nodes — they are collapsed
-    into their parent compound's UML label.  References from collapsed
-    members ARE emitted as edges from the parent.
+    When *collapse_members* is True (default), leaf members are collapsed
+    into their parent compound's UML label.  When False, every member is
+    emitted as its own Cytoscape node — intended for class-scoped views
+    where internal relationships (INVOKES, DEPENDS_ON) are the focus.
     """
     node = entry.node
     qname = node.qualified_name
@@ -234,7 +248,8 @@ def _walk_entry(
     seen.add(qname)
 
     # Build and emit the Cytoscape node
-    cy_node = _build_node(entry, parent_id=parent_id, layer=layer)
+    cy_node = _build_node(entry, parent_id=parent_id, layer=layer,
+                         collapse_members=collapse_members)
     nodes.append(cy_node)
 
     # Track emitted edges to avoid duplicates from multi-member collapse.
@@ -252,41 +267,47 @@ def _walk_entry(
             or target_type not in _EXCLUDED_NODE_TYPES
         ):
             # Deduplicate: only emit one edge per (source, target,
-            # relation_type) tuple.  Multiple collapsed members of the
-            # same compound may depend on the same type — visually
-            # that's one dependency edge, not N.
+            # relation_type) tuple when members are collapsed.
             edge_key = (qname, resolved, rel_type)
-            if edge_key not in emitted_edges:
+            if not collapse_members or edge_key not in emitted_edges:
                 emitted_edges.add(edge_key)
                 edges.append(_build_edge(qname, resolved, rel_type))
 
-    # Emit references from collapsed members — use a counter
-    # for unique edge IDs since multiple members may share target.
-    member_edge_idx = 0
-    for _src, tgt, rel in _collect_skipped_member_refs(entry):
-        member_edge_idx += 1
-        resolved = (key_to_display or {}).get(tgt, tgt)
-        if resolved != qname:
-            # Deduplicate collapsed member refs too
-            edge_key = (qname, resolved, rel)
-            if edge_key not in emitted_edges:
-                emitted_edges.add(edge_key)
-                edges.append(_build_edge(qname, resolved, rel, suffix=f"_m{member_edge_idx}"))
+    # Emit references from collapsed members (only when collapsing).
+    # When members are emitted as separate nodes, their references are
+    # emitted as part of the walk below.
+    if collapse_members:
+        member_edge_idx = 0
+        for _src, tgt, rel in _collect_skipped_member_refs(entry):
+            member_edge_idx += 1
+            resolved = (key_to_display or {}).get(tgt, tgt)
+            if resolved != qname:
+                edge_key = (qname, resolved, rel)
+                if edge_key not in emitted_edges:
+                    emitted_edges.add(edge_key)
+                    edges.append(_build_edge(qname, resolved, rel, suffix=f"_m{member_edge_idx}"))
 
     # Recurse into composed children that get their own nodes.
-    # Namespace children are all emitted as nodes (namespaces render no
-    # UML label to collapse members into); compound children only emit
-    # entity/namespace/compound kinds (leaf members collapse into the
-    # parent compound's UML label).
     is_namespace = _is_namespace(node)
     for _type_key, children in entry.children.items():
         for _child_key, child_entry in children.items():
+            if not collapse_members and not _child_gets_own_node(is_namespace, child_entry):
+                # When not collapsing, emit every child as its own node.
+                # Leaf members that would normally be collapsed are
+                # walked with the entry's qname as parent so Cytoscape
+                # nests them inside the compound visually.
+                _walk_entry(child_entry, parent_id=qname,
+                           nodes=nodes, edges=edges, seen=seen, layer=layer,
+                           key_to_display=key_to_display,
+                           collapse_members=collapse_members)
+                continue
             if not _child_gets_own_node(is_namespace, child_entry):
                 continue
             child_parent = qname if is_namespace else parent_id
             _walk_entry(child_entry, parent_id=child_parent,
                        nodes=nodes, edges=edges, seen=seen, layer=layer,
-                       key_to_display=key_to_display)
+                       key_to_display=key_to_display,
+                       collapse_members=collapse_members)
 
 
 # ---------------------------------------------------------------------------
@@ -294,8 +315,18 @@ def _walk_entry(
 # ---------------------------------------------------------------------------
 
 
-def _build_node(entry: CompositeEntry, parent_id: str | None, layer: str) -> dict:
-    """Build a Cytoscape node data dict from a CompositeEntry."""
+def _build_node(
+    entry: CompositeEntry,
+    parent_id: str | None,
+    layer: str,
+    *,
+    collapse_members: bool = True,
+) -> dict:
+    """Build a Cytoscape node data dict from a CompositeEntry.
+
+    When *collapse_members* is False, the UML label containing collapsed
+    members is omitted — each member will have its own node in the graph.
+    """
     node = entry.node
     # Use qualified_name as the Cytoscape id —
     # human-readable and consistent with edge source/target.
@@ -334,8 +365,8 @@ def _build_node(entry: CompositeEntry, parent_id: str | None, layer: str) -> dic
             data["html_label"] = build_function_label(name, argsstring, type_sig)
             data["has_members"] = "true"
 
-    # Compound nodes with children → UML label
-    if entry.children:
+    # Compound nodes with children → UML label (only when collapsing members).
+    if collapse_members and entry.children:
         by_kind = _build_member_data(entry, layer=layer)
         if by_kind:
             stereo_key = _CODEGRAPH_STEREOTYPE_MAP.get(kind, "")

@@ -63,9 +63,34 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from enum import Enum
 
 from codegraph.graph import CompositeEntry, LayerGraph
 from codegraph.models.tags import CodeGraphNode
+
+
+# ── Graph view mode ────────────────────────────────────────────────────
+
+
+class GraphView(Enum):
+    """View mode for PlantUML export.
+
+    Attributes:
+        FULL: Everything — all nodes, all members, all dependency edges.
+        COLLAPSED: Full source code, but external dependencies (std,
+            boost, spdlog, sqlite3) are collapsed into simple package
+            declarations for a cleaner high-level view.  File nodes and
+            file-reference edges are omitted.
+        PUBLIC_API: Public API surface only.  Collapses external
+            dependencies like COLLAPSED, but also hides private
+            members, removes concept nodes and file nodes, and
+            drops file-reference edges.  Shows only the public-facing
+            classes, public members, and public functions.
+    """
+
+    FULL = "full"
+    COLLAPSED = "collapsed"
+    PUBLIC_API = "public_api"
 
 # ── Diagnostics ────────────────────────────────────────────────────────
 
@@ -281,7 +306,11 @@ def _short_display_name(node) -> str:
 def _sanitize_alias(name: str) -> str:
     """Convert a qualified name to a valid PlantUML alias.
 
-    Replaces ``::`` with ``__`` and spaces/dots with ``_``.
+    Replaces ``::`` with ``__`` and special characters (spaces,
+    dots, parentheses, angle brackets, commas, slashes, equals,
+    asterisks, ampersands) with ``_``.  The result is a valid
+    PlantUML identifier usable in ``as alias`` clauses and
+    arrow source/target references.
 
     Args:
         name: A qualified name (e.g. ``calc::CalculatorEngine``).
@@ -289,7 +318,19 @@ def _sanitize_alias(name: str) -> str:
     Returns:
         A sanitized alias (e.g. ``calc__CalculatorEngine``).
     """
-    return name.replace("::", "__").replace(".", "_").replace("/", "_").replace(" ", "_")
+    # Replace :: first (namespace separator → double underscore)
+    sanitized = name.replace("::", "__")
+    # Replace other special chars with single underscore
+    for ch in "./()<> ,=&*\"'":
+        sanitized = sanitized.replace(ch, "_")
+    # Collapse consecutive underscores from special-char runs
+    # (e.g. "foo(())bar"  →  "foo___bar"  → "foo_bar").
+    # We must NOT collapse __ from namespace separators though.
+    # Strategy: only collapse runs of 3+ underscores, then strip
+    # trailing/leading underscores from special-char runs.
+    while "___" in sanitized:
+        sanitized = sanitized.replace("___", "__")
+    return sanitized.strip("_")
 
 
 def _visibility_prefix(visibility: str) -> str:
@@ -371,6 +412,19 @@ def _format_enum_value(name: str) -> str:
     return f"  {name}"
 
 
+def _parent_qname(member_qname: str) -> str | None:
+    """Strip the last ``::name(args)`` segment to get the parent
+    compound's qualified name.
+
+    Returns None if the string doesn't contain ``::`` (e.g. it's a
+    free function or root-level type).
+    """
+    if "::" not in member_qname:
+        return None
+    idx = member_qname.rindex("::")
+    return member_qname[:idx]
+
+
 # ── PlantUML Exporter ─────────────────────────────────────────────────────
 
 
@@ -388,14 +442,154 @@ class PlantUMLExporter:
         fields: Which property fields to include for each node.
             ``"llm"`` (default) — only ``_llm_fields``.
             ``"all"`` — every defined property.
+        view: The visualisation view mode (default :attr:`GraphView.FULL`).
+            * ``FULL`` — all nodes, all members, all dependency edges.
+            * ``COLLAPSED`` — full source code but external deps
+              collapsed into packages; file nodes / file edges omitted.
+            * ``PUBLIC_API`` — like COLLAPSED but also hides private
+              members, concept nodes, and file nodes.  Shows only the
+              public-facing API surface.
     """
 
-    def __init__(self, graph: LayerGraph, fields: str = "llm"):
+    def __init__(self, graph: LayerGraph, fields: str = "llm",
+                 view: GraphView = GraphView.FULL,
+                 scope_class: str | None = None):
         self.graph = graph
         self.fields = fields
+        self.view = view
+        self.scope_class = scope_class
         self._aliases: dict[str, str] = {}      # qualified_name → alias
         self._rel_lines: list[str] = []           # arrow lines (emitted last)
+        self._rel_set: set[str] = set()            # dedup set for arrow lines
         self._seen: set[str] = set()              # aliases already emitted
+        # When collapsing deps: mapping from collapsed alias → package alias
+        self._collapsed_prefixes: dict[str, str] = {}
+        # Set of aliases that should be skipped (collapsed into package)
+        self._collapsed_keys: set[str] = set()
+        # Mapping from member target_key → parent compound alias.
+        # Used to redirect arrows targeting member nodes (which are
+        # rendered inline) to the parent compound that IS a standalone
+        # PlantUML element.
+        self._member_parent_aliases: dict[str, str] = {}
+        # Scoping: which classes and members to emit when scope_class
+        # is set.  The target class shows ALL members; dependent
+        # classes only show the members actually referenced.
+        self._allowed_classes: set[str] = set()
+        self._allowed_members: dict[str, set[str]] = {}
+
+    # ── Derived properties ────────────────────────────────────────────
+
+    def _collapse_deps(self) -> bool:
+        """True when external deps should be collapsed into packages."""
+        if self.scope_class:
+            return True  # scoped view always collapses externals
+        return self.view in (GraphView.COLLAPSED, GraphView.PUBLIC_API)
+
+    def _show_private(self) -> bool:
+        """True when private members should be included."""
+        if self.scope_class:
+            return True  # scoped view shows all members
+        return self.view != GraphView.PUBLIC_API
+
+    def _show_files(self) -> bool:
+        """True when file nodes and file edges should be included."""
+        return False  # files never shown in scoped or collapsed/public
+
+    def _show_concepts(self) -> bool:
+        """True when concept nodes should be included."""
+        return False  # concepts never shown in scoped view
+
+    def _show_external(self) -> bool:
+        """True when external dependency packages should be included."""
+        if self.scope_class:
+            return True  # scoped view always shows external packages
+        return self.view != GraphView.PUBLIC_API
+
+    # ── Scoped-view helpers ─────────────────────────────────────────
+
+    def _is_scoped(self) -> bool:
+        """True when we're exporting a class-scoped view."""
+        return self.scope_class is not None
+
+    def _entry_is_in_scope(self, entry: CompositeEntry) -> bool:
+        """Check whether *entry* should be emitted in scoped mode.
+
+        Namespaces are kept as long as any descendant qualifies;
+        compounds must have their qualified name in
+        ``_allowed_classes``.
+        """
+        node_type = type(entry.node).__name__
+        qname = getattr(entry.node, "qualified_name", None) or entry.node.name
+        if qname in self._allowed_classes:
+            return True
+        if node_type in ("NamespaceNode", "ModuleNode"):
+            # emit namespace if any allowed class lives inside it
+            return self._namespace_has_allowed_descendant(entry)
+        return False
+
+    def _namespace_has_allowed_descendant(self, entry: CompositeEntry) -> bool:
+        """Walk children of a namespace entry to check for allowed descendants."""
+        for child_type, type_children in entry.children.items():
+            for child_entry in type_children.values():
+                cqname = getattr(child_entry.node, "qualified_name", None) or ""
+                if cqname in self._allowed_classes:
+                    return True
+                if self._namespace_has_allowed_descendant(child_entry):
+                    return True
+        return False
+
+    # ── Class scoping ─────────────────────────────────────────────────
+
+    def _compute_scope(self) -> None:
+        """Populate ``_allowed_classes`` and ``_allowed_members`` by
+        walking the scoped class's members and collecting every class
+        and member they reference.
+
+        The scoped class itself gets ALL members.  Dependent classes
+        only show the specific members that are referenced.
+        """
+        if not self.scope_class:
+            return
+
+        target_entry = None
+        for entry in self.graph._all_entries():
+            if entry.node.qualified_name == self.scope_class:
+                target_entry = entry
+                break
+        if target_entry is None:
+            raise ValueError(
+                f"Scope class {self.scope_class!r} not found in graph"
+            )
+
+        target_qname = target_entry.node.qualified_name
+        self._allowed_classes.add(target_qname)
+
+        for member_type in ("MethodNode", "AttributeNode"):
+            if member_type not in target_entry.children:
+                continue
+            for child_entry in target_entry.children[member_type].values():
+                for rel_type, target_key, _target_type in child_entry.references:
+                    if rel_type == "DEFINED_IN":
+                        continue
+                    display = self.graph.resolve_target_name(target_key)
+                    if not display:
+                        continue
+                    if display.startswith(target_qname + "::"):
+                        continue
+                    if _target_type in ("MethodNode", "AttributeNode"):
+                        parent_qname = _parent_qname(display)
+                        if parent_qname:
+                            self._allowed_classes.add(parent_qname)
+                            self._allowed_members.setdefault(
+                                parent_qname, set()
+                            ).add(display)
+                    elif _target_type in ("ClassNode", "EnumNode",
+                                          "InterfaceNode", "UnionNode",
+                                          "StructNode", "FunctionNode",
+                                          "DefineNode"):
+                        self._allowed_classes.add(display)
+
+    # ── export() ─────────────────────────────────────────────────────
 
     def export(self) -> str:
         """Return the PlantUML representation as a string.
@@ -406,28 +600,218 @@ class PlantUMLExporter:
         """
         lines: list[str] = ["@startuml"]
 
+        # Compute scoped view: which classes and members to show
+        self._compute_scope()
+
         # Style hints
         lines.append("skinparam classAttributeIconSize 0")
         lines.append("")
+
+        # When collapsing dependency details, pre-compute which
+        # entries get collapsed into simple package declarations.
+        if self._collapse_deps():
+            self._build_collapsed_namespaces()
+            # In PUBLIC_API mode, external packages are hidden entirely.
+            # In COLLAPSED mode, emit synthetic package declarations.
+            if self._show_external():
+                for prefix in sorted(self._collapsed_prefixes):
+                    alias = self._collapsed_prefixes[prefix]
+                    display = _sanitize_alias(prefix).strip("_")
+                    lines.append(f'package "{display}" as {alias} {{')
+                    lines.append("}")
+                    self._seen.add(alias)
+            lines.append("")
+
+        # Pre-build the member→parent alias map before emitting any
+        # elements.  This avoids order-dependency: a reference from
+        # class A to class B's member must resolve to B's alias even
+        # when A is emitted before B.
+        #
+        # When hiding private members, build the map from ALL members
+        # (including private) so that arrows TARGETING a private
+        # member can still redirect to the parent compound.
+        self._build_member_parent_map(include_private_members=True)
 
         # Emit elements for root entries (depth-first)
         for entry in self.graph.entries.values():
             lines.extend(self._emit_entry(entry, indent=0))
 
-        # Emit relationship arrows
+        # Emit relationship arrows (sorted for deterministic output)
         if self._rel_lines:
             lines.append("")
             lines.append("' ── Relationships ─────────────────────")
-            lines.extend(self._rel_lines)
+            lines.extend(sorted(self._rel_lines))
 
         lines.append("")
         lines.append("@enduml")
         return "\n".join(lines)
 
+    def _build_member_parent_map(self,
+                                  include_private_members: bool = True) -> None:
+        """Pre-build ``_member_parent_aliases`` by walking the full
+        composition tree before any emission.
+
+        For every member (MethodNode, AttributeNode, EnumValueNode),
+        records the alias of its parent compound.  This map is used
+        during arrow emission to redirect member-targeted edges to
+        the parent compound that IS a standalone PlantUML element.
+
+        Must be called before any emission because the map is
+        populated from the tree structure, not from emission order.
+
+        Indexes by both UID hash and qualified name so lookups work
+        regardless of how the reference stores its target_key.
+
+        Args:
+            include_private_members: When False, private members are
+                excluded from the map.  The map should always be built
+                with all members (including private) so that arrows
+                targeting a hidden member can still resolve.  The
+                *filtering* happens during emission, not during map
+                construction.
+        """
+        for entry in self.graph._all_entries():
+            node = entry.node
+            qname = getattr(node, "qualified_name", None) or ""
+            # When scoped, only build the map for classes in the scope
+            if self.scope_class and qname not in self._allowed_classes:
+                continue
+            alias = _sanitize_alias(qname) if qname else ""
+            for member_type in ("MethodNode", "AttributeNode"):
+                if member_type in entry.children:
+                    for child_entry in entry.children[member_type].values():
+                        if not include_private_members:
+                            vis = getattr(child_entry.node, "visibility", "")
+                            if vis == "private":
+                                continue
+                        # When scoped, skip members not in the
+                        # allowed set for non-target classes
+                        if self.scope_class and qname != self.scope_class:
+                            child_qn = getattr(
+                                child_entry.node, "qualified_name", ""
+                            )
+                            allowed = self._allowed_members.get(qname, set())
+                            if child_qn not in allowed:
+                                continue
+                        child_node = child_entry.node
+                        self._member_parent_aliases[
+                            child_node._uid_value()
+                        ] = alias
+                        child_qname = getattr(child_node, "qualified_name", None) or ""
+                        if child_qname:
+                            self._member_parent_aliases[child_qname] = alias
+            # Also handle enum values
+            if "EnumValueNode" in entry.children:
+                for child_entry in entry.children["EnumValueNode"].values():
+                    child_node = child_entry.node
+                    self._member_parent_aliases[
+                        child_node._uid_value()
+                    ] = alias
+                    child_qname = getattr(child_node, "qualified_name", None) or ""
+                    if child_qname:
+                        self._member_parent_aliases[child_qname] = alias
+
+    # ── Collapsed-namespace support ───────────────────────────────────
+
+    def _build_collapsed_namespaces(self) -> None:
+        """Scan all entries and identify non-project namespaces to collapse.
+
+        When *view* is :attr:`GraphView.COLLAPSED` or
+        :attr:`GraphView.PUBLIC_API`, external dependencies
+        are collapsed into simple package declarations.  The project
+        namespace ``cpp_sqlite`` and root-level classes like
+        ``DAOBase`` are emitted in full; everything else is collapsed
+        into its top-level namespace prefix.
+        """
+        project_prefix = "cpp_sqlite"
+        # Known external libraries whose types we collapse into packages
+        _KNOWN_EXTERNAL: set[str] = {
+            "std", "boost", "spdlog", "sqlite3",
+            "detail", "fmt", "mp_cond",
+        }
+        # Root-level project names (no ::) that should NOT be collapsed
+        _PROJECT_ROOTS: set[str] = {"DAOBase"}
+
+        all_entries = list(self.graph._all_entries())
+        for e in all_entries:
+            qn = getattr(e.node, "qualified_name", "") or ""
+            if not qn:
+                continue
+            if qn == project_prefix or qn.startswith(project_prefix + "::"):
+                continue
+
+            if "::" in qn:
+                prefix = qn.split("::", 1)[0]
+            else:
+                prefix = qn
+
+            # Only collapse known external prefixes or root-level
+            # external entries (sqlite3_* functions, etc.)
+            if prefix not in _KNOWN_EXTERNAL and prefix not in _PROJECT_ROOTS:
+                # Check if this is a root-level external function/class
+                # (e.g. sqlite3_step, sqlite3_column_int64)
+                name = getattr(e.node, "name", "") or qn
+                found = False
+                for ext in ("sqlite3",):
+                    if name == ext or name.startswith(ext + "_"):
+                        prefix = ext
+                        found = True
+                        break
+                if not found:
+                    continue  # Project type, don't collapse
+
+            # Also skip project root-level entries
+            if prefix in _PROJECT_ROOTS:
+                continue
+
+            if prefix not in self._collapsed_prefixes:
+                self._collapsed_prefixes[prefix] = _sanitize_alias(prefix).strip("_")
+
+            key = e.node._uid_value()
+            if key:
+                self._collapsed_keys.add(key)
+
+    def _collapsed_alias_for(self, target_key: str) -> str | None:
+        """If *target_key* falls under a collapsed namespace, return
+        the package alias to redirect to.  Returns None otherwise."""
+        if not self._collapsed_prefixes:
+            return None
+
+        # Resolve the target key to a display name
+        display = self.graph.resolve_target_name(target_key)
+        if not display or display == target_key:
+            # Check if the raw key is in collapsed_keys
+            if target_key in self._collapsed_keys and self._collapsed_prefixes:
+                # We don't know the prefix — use the first one for now
+                return list(self._collapsed_prefixes.values())[0]
+            return None
+
+        # Check if display name starts with any collapsed prefix::
+        for prefix, alias in self._collapsed_prefixes.items():
+            if display == prefix or display.startswith(prefix + "::"):
+                return alias
+            # Also check root-level entries (no ::)
+            if prefix == "sqlite3" and (display == "sqlite3"
+                                         or display.startswith("sqlite3_")):
+                return alias
+
+        return None
+
+    def _should_skip_entry(self, entry: CompositeEntry) -> bool:
+        """Return True if *entry* belongs to a collapsed namespace."""
+        if not self._collapsed_keys:
+            return False
+        key = entry.node._uid_value()
+        return key in self._collapsed_keys if key else False
+
     # ── Element emission ──────────────────────────────────────────────
 
     def _emit_entry(self, entry: CompositeEntry, indent: int = 0) -> list[str]:
         """Recursively emit a CompositeEntry and its composed children.
+
+        When *view* is :attr:`GraphView.COLLAPSED` or
+        :attr:`GraphView.PUBLIC_API`, entries belonging to
+        collapsed external namespaces are skipped entirely.
 
         Args:
             entry: The CompositeEntry to emit.
@@ -436,27 +820,61 @@ class PlantUMLExporter:
         Returns:
             A list of PlantUML lines.
         """
+        # Skip entries that belong to collapsed external namespaces
+        if self._should_skip_entry(entry):
+            return []
         node = entry.node
         node_type = type(node).__name__
+
+        # Scoped-view: skip entries not in the allowed set.
+        # Namespaces are kept if any descendant qualifies.
+        if self._is_scoped() and not self._entry_is_in_scope(entry):
+            return []
+
+        # Skip file nodes and concept nodes in restricted view modes.
+        # File nodes are skipped in COLLAPSED and PUBLIC_API; concept
+        # nodes are skipped only in PUBLIC_API.
+        if node_type == "FileNode" and not self._show_files():
+            return []
+        if node_type == "ConceptNode" and not self._show_concepts():
+            return []
+
+        qname = getattr(node, "qualified_name", None) or node.name
+
+        # When scoped to a class, only emit the scoped class and its
+        # direct dependencies.  Namespaces are kept as containers only
+        # when they hold a required child.
+        if self.scope_class and qname not in self._allowed_classes:
+            # Allow namespace packages — children are filtered inside
+            if node_type in ("NamespaceNode", "ModuleNode"):
+                pass
+            else:
+                return []
+
         prefix = "  " * indent
 
         # Get or create alias
-        qname = getattr(node, "qualified_name", None) or node.name
         alias = _sanitize_alias(qname)
         self._aliases[qname] = alias
 
         # Emit references (non-COMPOSES edges) as arrows
         for rel_type, target_key, target_type in entry.references:
-            self._emit_reference(node, rel_type, target_key)
+            self._emit_reference(node, rel_type, target_key, target_type)
 
-        # Choose emission strategy by node type
-        if node_type == "NamespaceNode" or node_type == "ModuleNode":
+        # Choose emission strategy by node type.
+        # TestNode and HLR/LLR nodes with child elements use
+        # "package" to avoid PlantUML nested-class-in-class
+        # rendering errors (V1.2026.6 crashes on class{ class{ }}).
+        if node_type in ("NamespaceNode", "ModuleNode", "TestNode",
+                         "HLR", "LLR"):
             return self._emit_namespace(entry, alias, indent)
         elif node_type == "FileNode":
             return self._emit_file(entry, alias, indent)
         elif node_type == "EnumNode":
             return self._emit_enum(entry, alias, indent)
         else:
+            if self.scope_class and qname == self.scope_class:
+                return self._emit_scoped_class(entry, alias, indent)
             return self._emit_compound(entry, alias, indent)
 
     def _emit_namespace(self, entry: CompositeEntry, alias: str,
@@ -484,6 +902,110 @@ class PlantUMLExporter:
         self._seen.add(alias)
         return lines
 
+    def _emit_scoped_class(self, entry: CompositeEntry, alias: str,
+                           indent: int = 0) -> list[str]:
+        """Emit the scoped class as a pseudo-package with each member
+        rendered as a standalone ``class <<method>>`` or
+        ``class <<attribute>>`` node.  Individual member-to-dependency
+        edges are then drawn between these member nodes and their
+        targets, making the dependency graph per-method explicit."""
+        node = entry.node
+        prefix = "  " * indent
+        display_name = _short_display_name(node)
+
+        lines: list[str] = []
+        lines.append(f'{prefix}package "{display_name}" as {alias} {{')
+
+        for member_type in ("MethodNode", "AttributeNode"):
+            if member_type not in entry.children:
+                continue
+            for child_entry in entry.children[member_type].values():
+                child_node = child_entry.node
+                child_qname = (
+                    getattr(child_node, "qualified_name", None)
+                    or child_node.name
+                )
+                child_alias = self._member_alias(child_qname, alias,
+                                                 child_node.name)
+                child_display = child_node.name
+
+                # Register the member alias so edges can use it
+                self._aliases[child_qname] = child_alias
+                self._seen.add(child_alias)
+
+                # Record this member's parent alias for member-target
+                # redirects (method→method edges)
+                child_key = child_node._uid_value()
+                if child_key:
+                    self._member_parent_aliases[child_key] = alias
+
+                # Don't filter private members in scoped view — show all
+                if member_type == "MethodNode":
+                    stereotype = " <<method>>"
+                else:
+                    stereotype = " <<attribute>>"
+
+                lines.append(
+                    f'{prefix}  class "{child_display}"'
+                    f' as {child_alias}{stereotype} {{'
+                )
+                lines.append(f'{prefix}  }}')
+
+                # Emit this member's own references as edges FROM the
+                # member node (not from the parent class). This shows
+                # which specific member connects to each dependency.
+                for rel_type, target_key, target_type in child_entry.references:
+                    if rel_type in _NESTING_REL_TYPES:
+                        continue
+                    if target_type == "FileNode" and not self._show_files():
+                        continue
+                    if target_type == "ConceptNode" and not self._show_concepts():
+                        continue
+
+                    collapsed = self._collapsed_alias_for(target_key)
+                    if collapsed:
+                        target_alias = collapsed
+                    else:
+                        display_key = self.graph.resolve_target_name(target_key)
+                        target_alias = (
+                            _sanitize_alias(display_key) if display_key else ""
+                        )
+                        if target_type in _MEMBER_TYPES:
+                            parent_alias = self._member_parent_aliases.get(target_key)
+                            if parent_alias:
+                                target_alias = parent_alias
+                    if not target_alias:
+                        continue
+
+                    arrow = _REL_TYPE_TO_ARROW.get(rel_type, "..>")
+                    line = f"{child_alias} {arrow} {target_alias} : {rel_type.lower()}"
+                    # Suppress self-edges and edges back to the parent
+                    # class (internal bookkeeping, not meaningful for
+                    # the scoped dependency graph).
+                    if (child_alias == target_alias
+                            or target_alias == alias):
+                        continue
+                    if line not in self._rel_set:
+                        self._rel_set.add(line)
+                        self._rel_lines.append(line)
+
+        lines.append(f"{prefix}}}")
+        self._seen.add(alias)
+        return lines
+
+    @staticmethod
+    def _member_alias(member_qname: str, parent_alias: str,
+                      member_name: str = "") -> str:
+        """Build the PlantUML alias for a scoped-class member.
+
+        Uses the member's simple *name* (without signature) so
+        aliases stay readable.  e.g. ``Database::getDAO()`` with
+        parent ``cpp_sqlite__Database`` →
+        ``cpp_sqlite__Database__getDAO``.
+        """
+        suffix = member_name if member_name else member_qname
+        return f"{parent_alias}__{_sanitize_alias(suffix)}"
+
     def _emit_compound(self, entry: CompositeEntry, alias: str,
                        indent: int = 0) -> list[str]:
         """Emit a class, interface, union, concept, etc."""
@@ -498,11 +1020,87 @@ class PlantUMLExporter:
         stereo = f" <<{stereotype}>>" if stereotype else ""
         lines.append(f'{prefix}{keyword} "{display_name}" as {alias}{stereo} {{')
 
-        # Emit member children (methods, attributes) inside the class body
+        # Emit member children (methods, attributes) inside the class body.
+        # When showing private interface is disabled, skip private members.
         for member_type in ("MethodNode", "AttributeNode"):
             if member_type in entry.children:
                 for child_entry in entry.children[member_type].values():
+                    # Filter out private members in PUBLIC_API mode
+                    if not self._show_private():
+                        vis = getattr(child_entry.node, "visibility", "")
+                        if vis == "private":
+                            continue
+                    # When scoped, dependent classes only show the
+                    # members actually referenced — not all members.
+                    if self.scope_class:
+                        child_qname = getattr(
+                            child_entry.node, "qualified_name", ""
+                        )
+                        parent_qname = getattr(node, "qualified_name", "")
+                        if parent_qname != self.scope_class:
+                            allowed = self._allowed_members.get(
+                                parent_qname, set()
+                            )
+                            if child_qname not in allowed:
+                                continue
                     lines.append(self._format_member_line(child_entry))
+                    # Record this member's parent alias for redirecting
+                    # arrows that target member nodes (which are never
+                    # standalone PlantUML elements).
+                    child_key = child_entry.node._uid_value()
+                    if child_key:
+                        self._member_parent_aliases[child_key] = alias
+                    # Emit member-level references (INVOKES, DEPENDS_ON, etc.)
+                    # as arrows from the owning compound.  The member itself
+                    # is collapsed into the class body so its edges must
+                    # originate from the class.  Deduplicate: multiple
+                    # members may depend on the same target, but visually
+                    # that's one edge.
+                    for rel_type, target_key, target_type in child_entry.references:
+                        if rel_type in _NESTING_REL_TYPES:
+                            continue
+                        # Skip references to node types hidden in
+                        # the current view mode.
+                        if target_type == "FileNode" and not self._show_files():
+                            continue
+                        if target_type == "ConceptNode" and not self._show_concepts():
+                            continue
+                        # Redirect to collapsed namespace package if applicable
+                        collapsed = self._collapsed_alias_for(target_key)
+                        if collapsed:
+                            # In PUBLIC_API mode, external dependency
+                            # edges are dropped entirely.
+                            if self.view == GraphView.PUBLIC_API:
+                                continue
+                            target_alias = collapsed
+                        else:
+                            display_key = self.graph.resolve_target_name(target_key)
+                            target_alias = _sanitize_alias(display_key) if display_key else ""
+                            # If the target is a member type, redirect
+                            # to the parent compound's alias — members
+                            # are rendered inline and never standalone.
+                            if target_type in _MEMBER_TYPES:
+                                parent_alias = self._member_parent_aliases.get(target_key)
+                                if parent_alias:
+                                    target_alias = parent_alias
+                        if not target_alias:
+                            continue
+                        arrow = _REL_TYPE_TO_ARROW.get(rel_type, "..>")
+                        label = rel_type.lower()
+                        line = f"{alias} {arrow} {target_alias} : {label}"
+                        # Suppress self-referential arrows and arrows
+                        # to collapsed members of the same compound
+                        # (e.g. Database → Database::db_).  These are
+                        # internal tracking edges, not meaningful
+                        # external dependencies.
+                        if (alias == target_alias
+                                or target_alias.startswith(alias + "__")):
+                            continue
+                        # Deduplicate: same (source, target, label) tuple
+                        # is only emitted once per compound.
+                        if line not in self._rel_set:
+                            self._rel_set.add(line)
+                            self._rel_lines.append(line)
 
         # Emit non-member, non-namespace children nested
         for child_type, type_children in entry.children.items():
@@ -542,7 +1140,11 @@ class PlantUMLExporter:
         """Emit a file node as a note."""
         node = entry.node
         prefix = "  " * indent
-        display_name = _short_display_name(node)
+        # Use the full file name (e.g. "DBBaseTransferObject.hpp") —
+        # _short_display_name would strip "hpp" as a namespace segment
+        # since dot-splitting can't distinguish extensions from
+        # Python-style qualified names.
+        display_name = node.name
 
         lines: list[str] = []
         lines.append(f'{prefix}note "{display_name}" as {alias}')
@@ -575,28 +1177,65 @@ class PlantUMLExporter:
     # ── Reference (arrow) emission ─────────────────────────────────────
 
     def _emit_reference(self, source_node: CodeGraphNode, rel_type: str,
-                       target_key: str) -> None:
+                       target_key: str, target_type: str = "") -> None:
         """Queue a relationship arrow for later emission.
 
         Args:
             source_node: The source node of the relationship.
             rel_type: The relationship type (e.g. ``"DEPENDS_ON"``).
             target_key: The target node key (qualified name or name).
+            target_type: The target node type name (e.g. ``"MethodNode"``).
+                When *target_type* is a member type (MethodNode,
+                AttributeNode, EnumValueNode), the arrow is redirected
+                to the parent compound's alias since members are
+                rendered inline and are never standalone elements.
         """
         if rel_type in _NESTING_REL_TYPES:
             return
 
+        # Skip references to node types hidden in the current view mode.
+        # FileNode targets are hidden in COLLAPSED and PUBLIC_API;
+        # ConceptNode targets are hidden only in PUBLIC_API.
+        if target_type == "FileNode" and not self._show_files():
+            return
+        if target_type == "ConceptNode" and not self._show_concepts():
+            return
+
         source_qname = getattr(source_node, "qualified_name", None) or source_node.name
         source_alias = self._aliases.get(source_qname) or _sanitize_alias(source_qname)
-        # Resolve uid-based target key to a human-readable name
-        display_key = self.graph.resolve_target_name(target_key)
-        target_alias = _sanitize_alias(display_key)
+
+        # Check if the target falls under a collapsed namespace
+        collapsed = self._collapsed_alias_for(target_key)
+        if collapsed:
+            # In PUBLIC_API mode, external dependency edges are
+            # dropped entirely — the view shows only the project's
+            # internal relationships.
+            if self.view == GraphView.PUBLIC_API:
+                return
+            target_alias = collapsed
+        else:
+            display_key = self.graph.resolve_target_name(target_key)
+            target_alias = _sanitize_alias(display_key)
+            # If the target is a member type (MethodNode, AttributeNode,
+            # EnumValueNode), redirect the arrow to the parent compound's
+            # alias.  Members are rendered inline inside their parent
+            # class body and are never standalone PlantUML elements.
+            if target_type in _MEMBER_TYPES:
+                parent_alias = self._member_parent_aliases.get(target_key)
+                if parent_alias:
+                    target_alias = parent_alias
 
         arrow = _REL_TYPE_TO_ARROW.get(rel_type, "..>")
         label = rel_type.lower()
-
         line = f"{source_alias} {arrow} {target_alias} : {label}"
-        self._rel_lines.append(line)
+
+        # Suppress self-referential edges and edges to own members
+        if (source_alias == target_alias
+                or target_alias.startswith(source_alias + "__")):
+            return
+        if line not in self._rel_set:
+            self._rel_set.add(line)
+            self._rel_lines.append(line)
 
 
 # ── PlantUML Importer ────────────────────────────────────────────────────
@@ -1084,7 +1723,8 @@ def _extract_name(text: str) -> tuple[str, str]:
 # ── Convenience functions ─────────────────────────────────────────────────
 
 
-def export_plantuml(graph: LayerGraph, fields: str = "llm") -> str:
+def export_plantuml(graph: LayerGraph, fields: str = "llm",
+                    view: GraphView = GraphView.FULL) -> str:
     """Export a :class:`LayerGraph` to PlantUML class-diagram syntax.
 
     Args:
@@ -1092,11 +1732,18 @@ def export_plantuml(graph: LayerGraph, fields: str = "llm") -> str:
         fields: Which property fields to include for each node.
             ``"llm"`` (default) — only ``_llm_fields``.
             ``"all"`` — every defined property.
+        view: The visualisation view mode (default :attr:`GraphView.FULL`).
+            * ``FULL`` — all nodes, all members, all dependency edges.
+            * ``COLLAPSED`` — full source code but external deps
+              collapsed into packages; file nodes / file edges omitted.
+            * ``PUBLIC_API`` — like COLLAPSED but also hides private
+              members, concept nodes, and file nodes.  Shows only the
+              public-facing API surface.
 
     Returns:
         A complete PlantUML class-diagram string.
     """
-    return PlantUMLExporter(graph, fields).export()
+    return PlantUMLExporter(graph, fields, view=view).export()
 
 
 def import_plantuml(text: str, tags: frozenset[str] | None = None,

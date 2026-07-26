@@ -36,6 +36,7 @@ def export_html_from_json(
     *,
     title: str | None = None,
     size: str = "large",
+    collapse_members: bool = True,
 ) -> str:
     """Load a LayerGraph from a JSON file, render as self-contained HTML.
 
@@ -45,6 +46,9 @@ def export_html_from_json(
         output_path: Path for the output HTML file.
         title: Page title (defaults to the JSON filename stem).
         size: ``"large"`` (full-page graph) or ``"small"`` (compact).
+        collapse_members: When True (default), leaf members are collapsed
+            into parent compound UML labels.  When False, every member is
+            a separate node — useful for class-scoped views.
 
     Returns:
         The absolute path to the written HTML file.
@@ -58,7 +62,8 @@ def export_html_from_json(
     if title is None:
         title = json_path.stem
 
-    return _render_html(graph, title, output_path, size=size)
+    return _render_html(graph, title, output_path, size=size,
+                        collapse_members=collapse_members)
 
 
 def export_html(
@@ -92,10 +97,11 @@ def _render_html(
     output_path: str | Path,
     *,
     size: str = "large",
+    collapse_members: bool = True,
 ) -> str:
     """Shared renderer — transform graph to Cytoscape, write HTML."""
     # 1. Transform to Cytoscape elements
-    cy_data = layer_graph_to_cytoscape(graph)
+    cy_data = layer_graph_to_cytoscape(graph, collapse_members=collapse_members)
 
     # 2. Build stylesheet
     styles = cy_stylesheet(size=size)
