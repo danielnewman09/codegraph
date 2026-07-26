@@ -12,8 +12,6 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from neomodel import db
-
 from codegraph.backends import get_backend
 from codegraph.models.tags import CodeGraphNode
 from codegraph_memory.models.base import MemoryNode
@@ -23,7 +21,6 @@ from codegraph_memory.models.rationale import RationaleNode
 from codegraph_memory.models.assumption import AssumptionNode
 from codegraph_memory.models.tradeoff import TradeoffNode
 from codegraph_memory.models.insight import InsightNode
-from codegraph_memory.models.relationships import _inflate_code_node
 
 
 # ── Type mapping ────────────────────────────────────────────────────
@@ -305,28 +302,13 @@ def _find_existing(
         - A list of MemoryNodes if multiple matches (disambiguation needed)
         - None if no match
     """
-    label = node_cls.__label__
-
     if uid:
-        results, _ = db.cypher_query(
-            f"MATCH (n:`{label}`) WHERE n.uid = $uid RETURN n",
-            {"uid": uid},
-        )
-        nodes = [n for n in (_inflate_code_node(r[0]) for r in results) if n is not None]
-        return nodes[0] if nodes else None
+        return get_backend().graph.find_by_uid(uid)
 
     # Search by qualified_name
-    results, _ = db.cypher_query(
-        f"MATCH (n:`{label}`) WHERE n.qualified_name = $qname RETURN n",
-        {"qname": qualified_name},
+    return get_backend().graph.find_by_qualified_name(
+        qualified_name,
     )
-    nodes = [n for n in (_inflate_code_node(r[0]) for r in results) if n is not None]
-
-    if len(nodes) == 0:
-        return None
-    if len(nodes) == 1:
-        return nodes[0]
-    return nodes
 
 
 def _find_code_node(qualified_name: str) -> CodeGraphNode | None:
@@ -334,13 +316,7 @@ def _find_code_node(qualified_name: str) -> CodeGraphNode | None:
 
     Searches across all CodeGraphNode subclasses (ClassNode, MethodNode, etc.).
     """
-    results, _ = db.cypher_query(
-        "MATCH (n) WHERE n.qualified_name = $qname RETURN n LIMIT 1",
-        {"qname": qualified_name},
-    )
-    if results:
-        return _inflate_code_node(results[0][0])
-    return None
+    return get_backend().graph.find_by_qualified_name(qualified_name)
 
 
 def _link_supersedes(new_decision: MemoryNode, old_qname: str) -> None:
@@ -348,14 +324,9 @@ def _link_supersedes(new_decision: MemoryNode, old_qname: str) -> None:
     old = _find_existing(DecisionNode, old_qname, None)
     if old is None or isinstance(old, list):
         return  # silently skip if old decision not found
-    db.cypher_query(
-        "MATCH (n:DecisionNode) WHERE elementId(n) = $nid "
-        "MATCH (o:DecisionNode) WHERE elementId(o) = $oid "
-        "MERGE (n)-[:SUPERSEDES]->(o)",
-        {
-            "nid": db.parse_element_id(new_decision.element_id),
-            "oid": db.parse_element_id(old.element_id),
-        },
+    get_backend().memory.merge_edge(
+        new_decision.uid, "SUPERSEDES", old.uid,
+        source_label="DecisionNode", target_label="DecisionNode",
     )
 
 
@@ -364,14 +335,9 @@ def _link_refines(rationale: MemoryNode, decision_qname: str) -> None:
     target = _find_existing(DecisionNode, decision_qname, None)
     if target is None or isinstance(target, list):
         return
-    db.cypher_query(
-        "MATCH (r:RationaleNode) WHERE elementId(r) = $rid "
-        "MATCH (d:DecisionNode) WHERE elementId(d) = $did "
-        "MERGE (r)-[:REFINES]->(d)",
-        {
-            "rid": db.parse_element_id(rationale.element_id),
-            "did": db.parse_element_id(target.element_id),
-        },
+    get_backend().memory.merge_edge(
+        rationale.uid, "REFINES", target.uid,
+        source_label="RationaleNode", target_label="DecisionNode",
     )
 
 
@@ -380,12 +346,7 @@ def _link_contradicts(assumption: MemoryNode, other_qname: str) -> None:
     target = _find_existing(AssumptionNode, other_qname, None)
     if target is None or isinstance(target, list):
         return
-    db.cypher_query(
-        "MATCH (a:AssumptionNode) WHERE elementId(a) = $aid "
-        "MATCH (o:AssumptionNode) WHERE elementId(o) = $oid "
-        "MERGE (a)-[:CONTRADICTS]->(o)",
-        {
-            "aid": db.parse_element_id(assumption.element_id),
-            "oid": db.parse_element_id(target.element_id),
-        },
+    get_backend().memory.merge_edge(
+        assumption.uid, "CONTRADICTS", target.uid,
+        source_label="AssumptionNode", target_label="AssumptionNode",
     )

@@ -200,3 +200,253 @@ class Neo4jNodeOps:
                 nodes = [n for n in nodes if tag in (n.tags or [])]
             result.extend(nodes)
         return result
+
+    # ── uid-based node queries ────────────────────────────────────
+
+    def find_by_uid(self, uid: str) -> "CodeGraphNode | None":
+        """Find any node by its deterministic uid."""
+        results, _ = db.cypher_query(
+            "MATCH (n) WHERE n.uid = $uid RETURN n LIMIT 1",
+            {"uid": uid},
+            resolve_objects=True,
+        )
+        if not results:
+            return None
+        return CodeGraphNode.inflate(results[0][0])
+
+    def get_labels(self, uid: str) -> set[str]:
+        """Return Neo4j labels for a node by uid."""
+        results, _ = db.cypher_query(
+            "MATCH (n) WHERE n.uid = $uid RETURN labels(n) AS lbls",
+            {"uid": uid},
+        )
+        if not results:
+            return set()
+        return set(results[0][0])
+
+    def set_labels(self, uid: str, labels: list[str]) -> None:
+        """Replace all labels on a node.
+
+        First queries current labels, adds new ones, removes stale ones.
+        """
+        if not labels:
+            return
+        old = self.get_labels(uid)
+        if not old:
+            return
+        new = set(labels)
+        to_add = new - old
+        to_remove = old - new
+        if to_add:
+            add_clause = " ".join(f"SET n:`{l}`" for l in sorted(to_add))
+            db.cypher_query(
+                f"MATCH (n) WHERE n.uid = $uid {add_clause}",
+                {"uid": uid},
+            )
+        for label in sorted(to_remove):
+            db.cypher_query(
+                f"MATCH (n) WHERE n.uid = $uid REMOVE n:`{label}`",
+                {"uid": uid},
+            )
+
+    def remove_labels(self, uid: str, labels: list[str]) -> None:
+        """Remove specific labels from a node."""
+        if not labels:
+            return
+        for label in labels:
+            db.cypher_query(
+                f"MATCH (n) WHERE n.uid = $uid REMOVE n:`{label}`",
+                {"uid": uid},
+            )
+
+    def update_properties(
+        self, uid: str, props: dict, *, add_labels: list[str] | None = None
+    ) -> bool:
+        """SET properties and optionally add labels on a node by uid."""
+        if not props and not add_labels:
+            return False
+        params: dict = {"uid": uid}
+        set_parts: list[str] = []
+        for key, val in props.items():
+            param = f"prop_{key}"
+            set_parts.append(f"n.{key} = ${param}")
+            params[param] = val
+        label_ops = ""
+        if add_labels:
+            label_ops = " ".join(f"SET n:`{l}`" for l in add_labels)
+        query = (
+            f"MATCH (n) WHERE n.uid = $uid "
+            f"{label_ops} "
+            f"SET {', '.join(set_parts)}"
+        )
+        results, _ = db.cypher_query(query, params)
+        return len(results) > 0
+
+    def delete_by_uid(self, uid: str) -> bool:
+        """Delete a node (DETACH DELETE) by uid."""
+        results, _ = db.cypher_query(
+            "MATCH (n) WHERE n.uid = $uid "
+            "DETACH DELETE n RETURN count(n) AS cnt",
+            {"uid": uid},
+        )
+        return results and results[0][0] > 0
+
+    def find_uids_by_tag(self, tag: str) -> list[str]:
+        """Return all uids for nodes whose tags array contains tag."""
+        results, _ = db.cypher_query(
+            "MATCH (n) WHERE $tag IN coalesce(n.tags, []) RETURN n.uid AS uid",
+            {"tag": tag},
+        )
+        return [r[0] for r in results]
+
+    # ── uid ↔ qualified_name resolution ─────────────────────────
+
+    def find_uid_by_qualified_name(self, qualified_name: str) -> str | None:
+        """Look up uid for a node by qualified_name."""
+        results, _ = db.cypher_query(
+            "MATCH (n) WHERE n.qualified_name = $qn "
+            "RETURN n.uid AS uid LIMIT 1",
+            {"qn": qualified_name},
+        )
+        return results[0][0] if results else None
+
+    def find_qualified_name_by_uid(self, uid: str) -> str | None:
+        """Look up qualified_name for a node by uid."""
+        results, _ = db.cypher_query(
+            "MATCH (n) WHERE n.uid = $uid "
+            "RETURN n.qualified_name AS qn LIMIT 1",
+            {"uid": uid},
+        )
+        return results[0][0] if results else None
+
+    # ── Edge deletion ──────────────────────────────────────────
+
+    def delete_outgoing_relationships(
+        self, source_uid: str, rel_type: str
+    ) -> int:
+        """Delete all outgoing relationships of rel_type from node."""
+        results, _ = db.cypher_query(
+            f"MATCH (n)-[r:{rel_type}]->() "
+            "WHERE n.uid = $uid "
+            "DELETE r "
+            "RETURN count(r) AS cnt",
+            {"uid": source_uid},
+        )
+        return results[0][0] if results else 0
+
+    # ── Existence check ────────────────────────────────────────
+
+    def node_exists(self, uid: str) -> bool:
+        """Check whether a node with given uid exists."""
+        results, _ = db.cypher_query(
+            "MATCH (n) WHERE n.uid = $uid RETURN count(n) AS cnt",
+            {"uid": uid},
+        )
+        return results[0][0] > 0 if results else False
+
+    # ── Tag-condition queries ───────────────────────────────────
+
+    def find_uids_by_tag_condition(
+        self,
+        tag: str,
+        *,
+        condition_clause: str = "",
+        params: dict | None = None,
+    ) -> list[str]:
+        """Return uids for nodes with tag + optional condition."""
+        cypher = "MATCH (n) WHERE $tag IN coalesce(n.tags, []) "
+        if condition_clause:
+            cypher += f"AND {condition_clause} "
+        cypher += "RETURN n.uid AS uid"
+        results, _ = db.cypher_query(cypher, {"tag": tag, **(params or {})})
+        return [r[0] for r in results]
+
+    # ── Full-text search ───────────────────────────────────────
+
+    def search_fulltext(
+        self,
+        query: str,
+        *,
+        index_name: str = "",
+        labels: str = "",
+        tag: str | None = None,
+        limit: int = 20,
+    ) -> list[dict]:
+        """Full-text search with optional label/tag filters.
+
+        Falls back to a CONTAINS search if the index doesn't exist.
+        """
+        try:
+            cypher = (
+                f"CALL db.index.fulltext.queryNodes('{index_name}', $query) "
+                "YIELD node, score "
+            )
+            params: dict = {"query": query, "limit": limit}
+            if tag:
+                cypher += "WHERE $tag IN node.tags "
+                params["tag"] = tag
+            cypher += "RETURN node, score ORDER BY score DESC LIMIT $limit"
+            results, _ = db.cypher_query(cypher, params, resolve_objects=True)
+            return [
+                {"node": CodeGraphNode.inflate(r[0]), "score": r[1]}
+                for r in results
+                if CodeGraphNode.inflate(r[0]) is not None
+            ]
+        except Exception:
+            # Fallback: CONTAINS search
+            label_clause = f"m:{labels}" if labels else "m"
+            tag_clause = ""
+            params: dict = {"query": query, "limit": limit}
+            if tag:
+                tag_clause = "AND $tag IN m.tags "
+                params["tag"] = tag
+            cypher = (
+                f"MATCH ({label_clause}) "
+                "WHERE (toLower(m.content) CONTAINS toLower($query) "
+                "OR toLower(m.qualified_name) CONTAINS toLower($query)) "
+                f"{tag_clause}"
+                "RETURN m AS node, 1.0 AS score "
+                "LIMIT $limit"
+            )
+            results, _ = db.cypher_query(cypher, params, resolve_objects=True)
+            return [
+                {"node": CodeGraphNode.inflate(r[0]), "score": 1.0}
+                for r in results
+                if CodeGraphNode.inflate(r[0]) is not None
+            ]
+
+    # ── Vector / semantic search ────────────────────────────────
+
+    def search_vector(
+        self,
+        embedding: list[float],
+        *,
+        index_name: str = "",
+        labels: str = "",
+        tag: str | None = None,
+        limit: int = 10,
+    ) -> list[dict]:
+        """Vector similarity search across node embeddings.
+
+        Returns empty list if vector index is not available.
+        """
+        if not embedding:
+            return []
+        try:
+            cypher = (
+                f"CALL db.index.vector.queryNodes('{index_name}', $limit, $embedding) "
+                "YIELD node, score "
+            )
+            params: dict = {"embedding": embedding, "limit": limit}
+            if tag:
+                cypher += "WHERE $tag IN node.tags "
+                params["tag"] = tag
+            cypher += "RETURN node, score ORDER BY score DESC"
+            results, _ = db.cypher_query(cypher, params, resolve_objects=True)
+            return [
+                {"node": CodeGraphNode.inflate(r[0]), "score": r[1]}
+                for r in results
+                if CodeGraphNode.inflate(r[0]) is not None
+            ]
+        except Exception:
+            return []

@@ -1,597 +1,303 @@
-"""GraphRepository — data access layer for the codebase graph.
+"""GraphRepository — abstract interface for code graph operations.
 
-Provides scope-based read methods that return LayerGraph objects, plus a
-single bulk write method.  Uses the active backend for all queries.
+Defines the contract that every backend must implement.  Neo4j, SQLite,
+Postgres, etc. each provide a concrete implementation.
+
+All methods use ``uid`` as the canonical cross-backend key.
+
+Usage::
+
+    from codegraph.backends import get_backend
+
+    node = get_backend().graph.find_by_uid("abc123")
+    labels = get_backend().graph.get_labels("abc123")
 """
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from codegraph.constants import Tag
+    from codegraph.graph import LayerGraph
+    from codegraph.models.tags import CodeGraphNode
 
 
-from codegraph.backends import get_backend
-from codegraph.backends.interface import Backend
-from codegraph.constants import Tag
-from codegraph.graph import LayerGraph, CompositeEntry
-from codegraph.models.compound import (
-    ClassNode, InterfaceNode, EnumNode, UnionNode, ModuleNode,
-)
-from codegraph.models.member import (
-    MethodNode, AttributeNode, EnumValueNode, FunctionNode, DefineNode,
-)
-from codegraph.models.namespace import NamespaceNode
-from codegraph.models.tags import CodeGraphNode
+class GraphRepository(ABC):
+    """Abstract interface for code graph data access.
 
-_COMPOUND_TYPES = [ClassNode, InterfaceNode, EnumNode, UnionNode, ModuleNode]
-_MEMBER_TYPES = [MethodNode, AttributeNode, EnumValueNode, FunctionNode, DefineNode]
-_NAMESPACE_TYPES = [NamespaceNode]
-
-
-class GraphRepository:
-    """Data access layer for the codebase graph.
-
-    Accepts an optional ``Backend`` in the constructor.  When not
-    provided, uses the globally-configured backend via ``get_backend()``.
-
-    All read methods return LayerGraph objects.  The single write method
-    delegates to the backend's ``bulk_save()``.
+    Concrete implementations (Neo4jGraphRepository, SQLiteGraphRepository,
+    etc.) provide the storage-specific logic.
     """
 
-    def __init__(self, backend: "Backend | None" = None):
-        if backend is None:
-            backend = get_backend()
-        self._backend = backend
+    # ── uid / qualified_name resolution ───────────────────────────
 
-    # ── Private helpers ────────────────────────────────────────────────
+    @abstractmethod
+    def resolve_uid(self, qualified_name: str) -> str | None:
+        """Look up the ``uid`` for a node by ``qualified_name``."""
+        ...
 
-    @staticmethod
-    def _get_node_by_qualified_name(qualified_name: str) -> CodeGraphNode | None:
-        """Search compound and namespace types by qualified_name.
+    @abstractmethod
+    def resolve_qualified_name(self, uid: str) -> str | None:
+        """Look up the ``qualified_name`` for a node by ``uid``."""
+        ...
 
-        Uses the active backend for the lookup.
+    # ── Node lookup ───────────────────────────────────────────────
 
-        Args:
-            qualified_name: The fully-qualified name to search for.
+    @abstractmethod
+    def find_by_uid(self, uid: str) -> "CodeGraphNode | None":
+        """Find any node by its deterministic uid."""
+        ...
 
-        Returns:
-            First matching CodeGraphNode instance, or None if not found.
+    @abstractmethod
+    def find_by_qualified_name(
+        self, qualified_name: str
+    ) -> "CodeGraphNode | None":
+        """Convenience: resolve qname → uid, then find_by_uid."""
+        ...
+
+    # ── Node label operations ─────────────────────────────────────
+
+    @abstractmethod
+    def get_labels(self, uid: str) -> set[str]:
+        """Return labels (type tags) for a node by uid."""
+        ...
+
+    @abstractmethod
+    def set_labels(self, uid: str, labels: list[str]) -> None:
+        """Replace all labels on a node."""
+        ...
+
+    @abstractmethod
+    def remove_labels(self, uid: str, labels: list[str]) -> None:
+        """Remove specific labels from a node."""
+        ...
+
+    # ── Node mutation ─────────────────────────────────────────────
+
+    @abstractmethod
+    def update_properties(
+        self, uid: str, props: dict, *, add_labels: list[str] | None = None
+    ) -> bool:
+        """SET properties (and optionally add labels) on a node by uid."""
+        ...
+
+    @abstractmethod
+    def delete_by_uid(self, uid: str) -> bool:
+        """Delete a node (DETACH) by uid."""
+        ...
+
+    # ── Relationships ─────────────────────────────────────────────
+
+    @abstractmethod
+    def merge_relationship(
+        self, source_uid: str, rel_type: str, target_uid: str
+    ) -> int:
+        """MERGE a relationship between two nodes by uid.  Returns 0 or 1."""
+        ...
+
+    @abstractmethod
+    def merge_labeled_relationship(
+        self,
+        source_uid: str,
+        source_label: str,
+        rel_type: str,
+        target_uid: str,
+        target_label: str,
+    ) -> None:
+        """MERGE a relationship between two labeled nodes by uid.
+
+        Used for memory-to-memory edges (SUPERSEDES, REFINES,
+        CONTRADICTS) where uid alone isn't enough to disambiguate.
         """
-        for node_cls in _COMPOUND_TYPES + _NAMESPACE_TYPES:
-            node = get_backend().get(node_cls, qualified_name=qualified_name)
-            if node is not None:
-                return node
-        return None
+        ...
 
-    @staticmethod
-    def _get_member_by_qualified_name(qualified_name: str) -> CodeGraphNode | None:
-        """Search member types by qualified_name.
+    # ── Traversal ─────────────────────────────────────────────────
 
-        Uses the active backend for the lookup.
+    @abstractmethod
+    def get_ancestors(
+        self, uid: str, max_depth: int = 10
+    ) -> list[dict]:
+        """Walk COMPOSES upward from uid.
 
-        Args:
-            qualified_name: The fully-qualified name to search for.
-
-        Returns:
-            First matching CodeGraphNode instance, or None if not found.
+        Returns ``[{"uid": str, "labels": list[str]}]``.
         """
-        for node_cls in _MEMBER_TYPES:
-            node = get_backend().get(node_cls, qualified_name=qualified_name)
-            if node is not None:
-                return node
-        return None
+        ...
 
-    def get_hlr_subtree(self, uid: str, tag: str = "") -> LayerGraph:
-        """Fetch the full requirements subtree for an HLR, optionally filtered by tag.
+    @abstractmethod
+    def get_descendants(
+        self, uid: str, max_depth: int = 10
+    ) -> list[dict]:
+        """Walk COMPOSES downward from uid."""
+        ...
 
-        Performs multi-hop COMPOSES traversal starting from the HLR:
-        HLR → LLRs → TestNodes → AssertionNodes / TestStepNodes.
-        Then expands 1-hop neighbours on the leaf nodes to include
-        scaffold/design nodes referenced by LEFT_OPERAND, RIGHT_OPERAND,
-        and CALLEE edges.
+    # ── Tag queries ───────────────────────────────────────────────
 
-        Args:
-            uid: The HLR's ``uid`` (deterministic unique ID).
-            tag: Optional tag to filter the subtree by.  When provided, only
-                nodes that carry this tag (plus their ancestors to preserve
-                tree structure) are included.  Use ``"scaffold"`` to see
-                scaffold nodes, ``"design"`` for design nodes, etc.
+    @abstractmethod
+    def find_uids_by_tag(self, tag: str) -> list[str]:
+        """Return all uids for nodes whose ``tags`` contain *tag*."""
+        ...
 
-        Returns:
-            A LayerGraph containing the full requirements tree and its
-            scaffold neighbours, or an empty LayerGraph if the HLR is
-            not found.
+    @abstractmethod
+    def find_uids_by_tag_and_condition(
+        self,
+        tag: str,
+        *,
+        condition_clause: str = "",
+        params: dict | None = None,
+    ) -> list[str]:
+        """Return uids for nodes with *tag* + optional condition."""
+        ...
+
+    # ── Related-node queries ──────────────────────────────────────
+
+    @abstractmethod
+    def find_related_nodes(
+        self,
+        target_uid: str,
+        rel_pattern: str,
+        *,
+        source_labels: str | None = None,
+    ) -> list[dict]:
+        """Find source nodes that have relationship matching
+        *rel_pattern* to the target node by *target_uid*.
+
+        Returns ``[{"node": CodeGraphNode, "rel_type": str}]``.
         """
-        from codegraph_requirements.models import HLR
+        ...
 
-        hlr = get_backend().get(HLR, uid=uid)
-        if hlr is None:
-            return LayerGraph(tags=frozenset({"design"}))
+    # ── Full-text search ──────────────────────────────────────────
 
-        # Phase 1: multi-hop COMPOSES traversal from HLR
-        seen_uids: set[str] = set()
-        queue: list[CodeGraphNode] = [hlr]
-        composes_reachable: list[CodeGraphNode] = []
+    @abstractmethod
+    def search_fulltext(
+        self,
+        query: str,
+        *,
+        index_name: str,
+        labels: str = "",
+        tag: str | None = None,
+        limit: int = 20,
+    ) -> list[dict]:
+        """Full-text search with optional label/tag filters.
 
-        while queue:
-            node = queue.pop(0)
-            uid = node._uid_value()
-            if not uid or uid in seen_uids:
-                continue
-            seen_uids.add(uid)
-            composes_reachable.append(node)
-
-            for child in get_backend().get_composed_children(node):
-                child_uid = child._uid_value()
-                if child_uid and child_uid not in seen_uids:
-                    queue.append(child)
-
-        # Phase 2: pass all visited nodes to _build_layer_graph for
-        # 1-hop expansion (scaffold neighbours via LEFT_OPERAND etc.)
-        graph = self._build_layer_graph(composes_reachable)
-
-        # Phase 3: if tag is specified, filter entries to matching nodes
-        # and their ancestors (preserving the tree structure)
-        if tag:
-            graph = _filter_graph_by_tag(graph, tag)
-
-        return graph
-
-    @staticmethod
-    def _build_layer_graph(seeds: list[CodeGraphNode]) -> LayerGraph:
-        """Build a LayerGraph from seed nodes plus 1-hop neighbors.
-
-        Uses the active backend for all data access.
-
-        Args:
-            seeds: List of seed CodeGraphNode instances to start from.
-
-        Returns:
-            A LayerGraph containing seed nodes and their 1-hop neighbors,
-            with COMPOSES edges creating nesting and other edges as
-            references.
+        Falls back to CONTAINS if the index doesn't exist.
         """
-        nodes: dict[str, CodeGraphNode] = {}
-        uid_to_key: dict[str, str] = {}
+        ...
 
-        # Phase 1: add seed nodes
-        for node in seeds:
-            key = LayerGraph._node_key(node)
-            nodes[key] = node
-            uid = node._uid_value()
-            if uid:
-                uid_to_key[uid] = key
+    # ── Vector search ─────────────────────────────────────────────
 
-        # Phase 2: expand 1-hop neighbors
-        for node in list(seeds):
-            for edge_info in get_backend().get_all_edges(node):
-                if edge_info.relation_type == "HAS_IMPLEMENTATION":
-                    continue
-                target_uid = edge_info.target_uid
-                target_type = edge_info.target_type
-                if target_uid not in uid_to_key:
-                    target_cls = CodeGraphNode._registry.get(target_type)
-                    if target_cls:
-                        uid_prop = target_cls._uid_prop()
-                        if uid_prop:
-                            neighbor = get_backend().get(
-                                target_cls, **{uid_prop: target_uid}
-                            )
-                            if neighbor:
-                                neighbor_key = LayerGraph._node_key(neighbor)
-                                nodes[neighbor_key] = neighbor
-                                uid_to_key[target_uid] = neighbor_key
+    @abstractmethod
+    def search_vector(
+        self,
+        embedding: list[float],
+        *,
+        index_name: str,
+        labels: str = "",
+        tag: str | None = None,
+        limit: int = 10,
+    ) -> list[dict]:
+        """Vector similarity search.  Returns empty if unavailable."""
+        ...
 
-        # Phase 3: build CompositeEntry instances
-        key_to_entry: dict[str, CompositeEntry] = {}
-        for key, node in nodes.items():
-            key_to_entry[key] = CompositeEntry(node=node)
+    # ── Scope-based reads ─────────────────────────────────────────
 
-        # Phase 4: build composition tree and collect references
-        child_keys: set[str] = set()
-        for key, node in nodes.items():
-            entry = key_to_entry[key]
+    @abstractmethod
+    def get_by_tag(self, tag: "Tag") -> "LayerGraph":
+        """Fetch all nodes with tag plus 1-hop neighbours."""
+        ...
 
-            # COMPOSES: use get_backend().get_composed_children(node)
-            for child in get_backend().get_composed_children(node):
-                child_key = LayerGraph._node_key(child)
-                if child_key not in key_to_entry:
-                    continue
-                child_entry = key_to_entry[child_key]
-                child_type = type(child).__name__
-                entry.children.setdefault(child_type, {})[child_key] = child_entry
-                child_keys.add(child_key)
+    @abstractmethod
+    def get_by_source(self, source: str) -> "LayerGraph":
+        """Fetch all nodes from a source project plus neighbours."""
+        ...
 
-            # Non-COMPOSES references: use get_backend().get_all_edges(node)
-            for edge_info in get_backend().get_all_edges(node):
-                relation_type = edge_info.relation_type
-                if relation_type in ("COMPOSES", "HAS_IMPLEMENTATION"):
-                    continue
-                target_key = uid_to_key.get(edge_info.target_uid)
-                if target_key and target_key in key_to_entry:
-                    entry.references.append(
-                        (relation_type, target_key, edge_info.target_type)
-                    )
+    @abstractmethod
+    def get_by_namespace(self, qualified_name: str) -> "LayerGraph":
+        """Fetch a namespace and its composed entities."""
+        ...
 
-        # Phase 5: root entries = nodes not composed by another node
-        root_entries = {
-            key: entry
-            for key, entry in key_to_entry.items()
-            if key not in child_keys
-        }
+    @abstractmethod
+    def get_by_compound(self, qualified_name: str) -> "LayerGraph":
+        """Fetch a compound node and its 1-hop neighbours."""
+        ...
 
-        # Phase 6: derive tags from seeds
-        all_tags: set[str] = set()
-        for node in seeds:
-            if "tags" in type(node).defined_properties():
-                node_tags = getattr(node, "tags", None)
-                if node_tags:
-                    all_tags.update(node_tags)
-        tags = frozenset(all_tags) if all_tags else frozenset({"design"})
+    @abstractmethod
+    def get_by_neighbourhood(self, qualified_name: str) -> "LayerGraph":
+        """Fetch any node and its 1-hop neighbourhood."""
+        ...
 
-        return LayerGraph(tags=tags, entries=root_entries)
+    @abstractmethod
+    def get_by_kind(
+        self, kind: str, tag: "Tag | None" = None
+    ) -> "LayerGraph":
+        """Fetch all nodes of a given kind."""
+        ...
 
-    # ── Public: scope-based read methods ──────────────────────────────
+    @abstractmethod
+    def get_hlr_subtree(self, uid: str, tag: str = "") -> "LayerGraph":
+        """Fetch the full requirements subtree for an HLR."""
+        ...
 
-    def get_by_tag(self, tag: Tag) -> LayerGraph:
-        """Fetch all nodes with a given tag plus their 1-hop neighbors.
+    # ── Flat queries ──────────────────────────────────────────────
 
-        Args:
-            tag: The tag to query (``"design"``, ``"as-built"``, ``"dependency"``).
-
-        Returns:
-            A LayerGraph containing all matching nodes and neighbors.
-        """
-        seeds = get_backend().find_all_by_tag(tag)
-        return self._build_layer_graph(seeds)
-
-    def get_by_source(self, source: str) -> LayerGraph:
-        """Fetch all nodes from a given source project plus neighbors.
-
-        Args:
-            source: The source project name (e.g. "codegraph", "llvm").
-
-        Returns:
-            A LayerGraph containing all matching nodes and neighbors.
-        """
-        seeds = get_backend().find_all_by_source(source)
-        return self._build_layer_graph(seeds)
-
-    def get_by_namespace(self, qualified_name: str) -> LayerGraph:
-        """Fetch a namespace, its composed entities, and their 1-hop neighbors.
-
-        Retrieves a namespace and all entities it composes (classes, interfaces,
-        enums, unions, modules, functions, and sub-namespaces), plus their
-        1-hop neighbors.
-
-        Args:
-            qualified_name: The namespace's fully-qualified name.
-
-        Returns:
-            A LayerGraph containing the namespace and related nodes,
-            or an empty LayerGraph if not found.
-        """
-        ns = get_backend().get(NamespaceNode, qualified_name=qualified_name)
-        if ns is None:
-            return LayerGraph(tags=frozenset({"design"}))
-        seeds = [ns] + get_backend().get_composed_children(ns)
-        return self._build_layer_graph(seeds)
-
-    def get_by_compound(self, qualified_name: str) -> LayerGraph:
-        """Fetch a compound node and its 1-hop neighbors.
-
-        Args:
-            qualified_name: The compound's fully-qualified name.
-
-        Returns:
-            A LayerGraph containing the compound and its neighbors,
-            or an empty LayerGraph if not found.
-        """
-        compound = self._get_node_by_qualified_name(qualified_name)
-        if compound is None:
-            return LayerGraph(tags=frozenset({"design"}))
-        return self._build_layer_graph([compound])
-
-    def get_by_neighbourhood(self, qualified_name: str) -> LayerGraph:
-        """Fetch a node of any type and its 1-hop neighbourhood.
-
-        Args:
-            qualified_name: The node's fully-qualified name.
-
-        Returns:
-            A LayerGraph containing the node and its 1-hop neighbourhood,
-            or an empty LayerGraph if not found.
-        """
-        node = self._get_node_by_qualified_name(qualified_name)
-        if node is None:
-            node = self._get_member_by_qualified_name(qualified_name)
-        if node is None:
-            return LayerGraph(tags=frozenset({"design"}))
-        return self._build_layer_graph([node])
-
-    def get_by_kind(self, kind: str, tag: Tag | None = None) -> LayerGraph:
-        """Fetch all nodes of a given kind, optionally filtered by tag.
-
-        Args:
-            kind: The node kind to filter by (e.g. "class", "method").
-            tag: Optional tag to additionally filter by.
-
-        Returns:
-            A LayerGraph containing all matching nodes and neighbors.
-        """
-        seeds = get_backend().find_all_by_kind(kind, tag)
-        return self._build_layer_graph(seeds)
-
-    # ── Public: flat query methods (no graph expansion) ──────────────
-    #
-    # These are thin wrappers around backend queries.  Use them instead
-    # of importing ``get_backend`` directly — they keep higher-level
-    # modules decoupled from the storage layer.
-
+    @abstractmethod
     def find_by_tag(
         self, node_type: type["CodeGraphNode"], tag: str
     ) -> list["CodeGraphNode"]:
-        """Return all nodes of *node_type* whose tags contain *tag*.
+        """Return nodes of *node_type* whose tags contain *tag*."""
+        ...
 
-        Thin wrapper around ``backend.find_by_tag()``.
-        """
-        from codegraph.backends import get_backend
-        return get_backend().find_by_tag(node_type, tag)
-
+    @abstractmethod
     def find_all_by_tag(self, tag: str) -> list["CodeGraphNode"]:
         """Return all nodes across all types whose tags contain *tag*."""
-        from codegraph.backends import get_backend
-        return get_backend().find_all_by_tag(tag)
+        ...
 
+    @abstractmethod
     def find_all_by_source(self, source: str) -> list["CodeGraphNode"]:
-        """Return all nodes across all types matching *source*."""
-        from codegraph.backends import get_backend
-        return get_backend().find_all_by_source(source)
+        """Return all nodes matching *source*."""
+        ...
 
+    @abstractmethod
     def find_all_by_kind(
         self, kind: str, tag: str | None = None
     ) -> list["CodeGraphNode"]:
         """Return all nodes matching *kind* (and optionally *tag*)."""
-        from codegraph.backends import get_backend
-        return get_backend().find_all_by_kind(kind, tag)
+        ...
 
-    # ── Public: relationship traversal helpers ───────────────────────
+    # ── Relationship traversal ────────────────────────────────────
 
-    @staticmethod
+    @abstractmethod
     def composed_children(
+        self,
         node: "CodeGraphNode",
         child_type: type["CodeGraphNode"],
     ) -> list["CodeGraphNode"]:
-        """Return children of *node* reachable via outgoing COMPOSES
-        that are instances of *child_type*.
+        """Return children reachable via outgoing COMPOSES."""
+        ...
 
-        Replaces neomodel's ``node.relations.all()`` with a
-        backend-agnostic query.  Example::
-
-            methods = GraphRepository.composed_children(cls, MethodNode)
-        """
-        return [
-            c for c in get_backend().get_composed_children(node)
-            if isinstance(c, child_type)
-        ]
-
-    @staticmethod
+    @abstractmethod
     def incoming_composers(
+        self,
         node: "CodeGraphNode",
         composer_type: type["CodeGraphNode"] | None = None,
     ) -> list["CodeGraphNode"]:
-        """Return nodes that COMPOSE *node* (incoming COMPOSES edges).
+        """Return nodes that COMPOSE *node* (incoming COMPOSES)."""
+        ...
 
-        Replaces neomodel's ``.parent_namespace.all()`` and similar
-        ``RelationshipFrom`` traversals.  Example::
-
-            parents = GraphRepository.incoming_composers(method, ClassNode)
-        """
-        backend = get_backend()
-        edges = backend.get_all_edges(node)
-        composers: list["CodeGraphNode"] = []
-        for e in edges:
-            if e.relation_type != "COMPOSES" or e.is_outgoing:
-                continue
-            target_cls = CodeGraphNode._registry.get(e.target_type)
-            if target_cls is None:
-                continue
-            if composer_type is not None and target_cls is not composer_type:
-                continue
-            composer = backend.get(target_cls, uid=e.target_uid)
-            if composer is not None:
-                composers.append(composer)
-        return composers
-
-    @staticmethod
+    @abstractmethod
     def outgoing_by_relation(
+        self,
         node: "CodeGraphNode",
         relation_type: str,
         target_type: type["CodeGraphNode"] | None = None,
     ) -> list["CodeGraphNode"]:
-        """Return nodes reachable via outgoing *relation_type* edges.
+        """Return nodes reachable via outgoing *relation_type* edges."""
+        ...
 
-        Replaces neomodel's ``.depends_on.all()``, ``.invokes.all()``
-        and other outgoing relationship traversals.  Example::
+    # ── Write ─────────────────────────────────────────────────────
 
-            deps = GraphRepository.outgoing_by_relation(cls, "DEPENDS_ON")
-        """
-        backend = get_backend()
-        edges = backend.get_all_edges_outgoing(node)
-        targets: list["CodeGraphNode"] = []
-        for e in edges:
-            if e.relation_type != relation_type:
-                continue
-            target_cls = CodeGraphNode._registry.get(e.target_type)
-            if target_cls is None:
-                continue
-            if target_type is not None and target_cls is not target_type:
-                continue
-            target = backend.get(target_cls, uid=e.target_uid)
-            if target is not None:
-                targets.append(target)
-        return targets
-
-    # ── Public: write method ──────────────────────────────────────────
-
-    @staticmethod
-    def save_layer_graph(graph: LayerGraph) -> None:
-        """Persist a LayerGraph.  Delegates to the active backend's
-        ``bulk_save()``.
-
-        Args:
-            graph: The LayerGraph to persist.
-        """
-        get_backend().bulk_save(graph)
-
-
-# ══════════════════════════════════════════════════════════════════════════
-# Helper: filter LayerGraph entries by tag (preserving ancestry)
-# ══════════════════════════════════════════════════════════════════════════
-
-
-def _filter_graph_by_tag(graph: LayerGraph, tag: str) -> LayerGraph:
-    """Filter a LayerGraph to only entries whose node carries *tag*,
-    plus their ancestors (to preserve tree structure).
-
-    Returns a new LayerGraph with the same tags and the pruned entries.
-    """
-    # ── Collect tagged keys (walk entire tree, not just roots) ──
-    tagged_keys: set[str] = set()
-
-    def _collect_tagged(entry) -> None:
-        key = LayerGraph._node_key(entry.node)
-        node_tags: list[str] = getattr(entry.node, "tags", None) or []
-        if tag in node_tags:
-            tagged_keys.add(key)
-        for type_children in entry.children.values():
-            for child_entry in type_children.values():
-                _collect_tagged(child_entry)
-
-    for entry in graph.entries.values():
-        _collect_tagged(entry)
-
-    if not tagged_keys:
-        # No matches — return empty graph
-        return LayerGraph(tags=graph.tags)
-
-    # Walk from each root entry; keep entries that are ancestors of a tagged
-    # node or are themselves tagged
-    keep_keys: set[str] = set()
-
-    def _walk(entry, path: list[str]) -> bool:
-        """Return True if this entry or any descendant has the tag."""
-        key = LayerGraph._node_key(entry.node)
-        has_tag = key in tagged_keys
-        descendant_has = False
-        for type_children in entry.children.values():
-            for child_key, child_entry in type_children.items():
-                if _walk(child_entry, path + [key]):
-                    descendant_has = True
-        if has_tag or descendant_has:
-            keep_keys.add(key)
-            keep_keys.update(path)
-            return True
-        return False
-
-    for entry in graph.entries.values():
-        _walk(entry, [])
-
-    # Build filtered entries dict: prune children to only keep_keys
-    filtered: dict = {}
-
-    def _prune(entry):
-        key = LayerGraph._node_key(entry.node)
-        if key not in keep_keys:
-            return None
-        from codegraph.graph import CompositeEntry
-        new_entry = CompositeEntry(node=entry.node)
-        new_entry.references = list(entry.references)
-        for child_type, type_children in entry.children.items():
-            for child_key, child_entry in type_children.items():
-                if child_key in keep_keys:
-                    pruned = _prune(child_entry)
-                    if pruned is not None:
-                        new_entry.children.setdefault(child_type, {})[child_key] = pruned
-        return new_entry
-
-    for key, entry in graph.entries.items():
-        if key in keep_keys:
-            pruned = _prune(entry)
-            if pruned is not None:
-                filtered[key] = pruned
-
-    return LayerGraph(tags=graph.tags, entries=filtered)
-
-
-def _filter_graph_by_types(graph: LayerGraph, keep_types: frozenset[str]) -> LayerGraph:
-    """Filter a LayerGraph to only entries whose node type name is in *keep_types*,
-    plus their ancestors (to preserve tree structure).
-
-    Returns a new LayerGraph with the same tags and the pruned entries.
-
-    Example:
-        ``keep_types=frozenset({"HLR", "LLR"})`` returns a requirements-only
-        graph, stripping design classes, assertions, steps, and test nodes.
-    """
-    # Build a set of entry keys whose node type matches (walk entire tree)
-    matching_keys: set[str] = set()
-
-    def _collect_matching(entry) -> None:
-        key = LayerGraph._node_key(entry.node)
-        node_type_name = type(entry.node).__name__
-        if node_type_name in keep_types:
-            matching_keys.add(key)
-        for type_children in entry.children.values():
-            for child_entry in type_children.values():
-                _collect_matching(child_entry)
-
-    for entry in graph.entries.values():
-        _collect_matching(entry)
-
-    if not matching_keys:
-        return LayerGraph(tags=graph.tags)
-
-    # Walk from each root entry; keep matching entries + ancestors
-    keep_keys: set[str] = set()
-
-    def _walk(entry, path: list[str]) -> bool:
-        key = LayerGraph._node_key(entry.node)
-        has_match = key in matching_keys
-        descendant_has = False
-        for type_children in entry.children.values():
-            for child_key, child_entry in type_children.items():
-                if _walk(child_entry, path + [key]):
-                    descendant_has = True
-        if has_match or descendant_has:
-            keep_keys.add(key)
-            keep_keys.update(path)
-            return True
-        return False
-
-    for entry in graph.entries.values():
-        _walk(entry, [])
-
-    # Build filtered entries
-    from codegraph.graph import CompositeEntry
-    filtered: dict = {}
-
-    def _prune(entry):
-        key = LayerGraph._node_key(entry.node)
-        if key not in keep_keys:
-            return None
-        new_entry = CompositeEntry(node=entry.node)
-        new_entry.references = list(entry.references)
-        for child_type, type_children in entry.children.items():
-            for child_key, child_entry in type_children.items():
-                if child_key in keep_keys:
-                    pruned = _prune(child_entry)
-                    if pruned is not None:
-                        new_entry.children.setdefault(child_type, {})[child_key] = pruned
-        return new_entry
-
-    for key, entry in graph.entries.items():
-        if key in keep_keys:
-            pruned = _prune(entry)
-            if pruned is not None:
-                filtered[key] = pruned
-
-    return LayerGraph(tags=graph.tags, entries=filtered)
+    @abstractmethod
+    def save_layer_graph(self, graph: "LayerGraph") -> None:
+        """Persist a LayerGraph."""
+        ...

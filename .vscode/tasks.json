@@ -167,7 +167,7 @@
       "label": "codegraph: coverage",
       "detail": "Run tests with code coverage (term + html reports) and open the HTML report.",
       "type": "shell",
-      "command": "pytest --cov=src/codegraph --cov-report=term-missing --cov-report=html:htmlcov; open htmlcov/index.html",
+      "command": "pytest --cov --cov-report=term-missing --cov-report=html:htmlcov; open htmlcov/index.html",
       "options": {
         "cwd": "${workspaceFolder}",
         "env": { "PATH": "${env:HOME}/dev/.venv/bin:${env:PATH}" }
@@ -180,7 +180,7 @@
       "label": "codegraph: coverage (fail under 75)",
       "detail": "Run tests with coverage; fail if under 75% line coverage. Opens HTML report.",
       "type": "shell",
-      "command": "pytest --cov=src/codegraph --cov-report=term-missing --cov-report=html:htmlcov --cov-fail-under=75; open htmlcov/index.html",
+      "command": "pytest --cov --cov-report=term-missing --cov-report=html:htmlcov --cov-fail-under=75; open htmlcov/index.html",
       "options": {
         "cwd": "${workspaceFolder}",
         "env": { "PATH": "${env:HOME}/dev/.venv/bin:${env:PATH}" }

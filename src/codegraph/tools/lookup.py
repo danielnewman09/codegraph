@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from codegraph.tools.dispatcher import CodeGraphDispatcher
 
+from codegraph.backends import get_backend
+
 log = logging.getLogger(__name__)
 
 # Curated qualified names for standard containers used as mechanism values.
@@ -162,16 +164,15 @@ def _query_container_nodes(ctx, container_qnames: list[str]) -> list[dict]:
     infos: list[dict] = []
 
     try:
-        with ctx.session() as session:
-            result = session.run(
-                "MATCH (n:CompoundNode) "
-                "WHERE n.qualified_name IN $names "
-                "RETURN n.qualified_name AS qn, n.name AS name, "
-                "n.kind AS kind, n.source AS source, "
-                "n.brief_description AS brief",
-                parameters={"names": container_qnames},
-            )
-            for record in result:
+        rows, _ = get_backend().execute_raw(
+            "MATCH (n:CompoundNode) "
+            "WHERE n.qualified_name IN $names "
+            "RETURN n.qualified_name AS qn, n.name AS name, "
+            "n.kind AS kind, n.source AS source, "
+            "n.brief_description AS brief",
+            {"names": container_qnames},
+        )
+        for record in rows:
                 qn = record["qn"]
                 bare = record["name"] or qn.rsplit("::", 1)[-1]
                 # Populate the lookup: both bare → qn and qn → qn
@@ -195,12 +196,11 @@ def _query_alias_nodes(ctx) -> dict[str, str]:
     alias_map: dict[str, str] = dict(_STD_ALIAS_MAP)
 
     try:
-        with ctx.session() as session:
-            result = session.run(
-                "MATCH (m:MemberNode {source: 'cppreference', kind: 'typedef'}) "
-                "RETURN m.qualified_name AS qn, m.name AS name"
-            )
-            for record in result:
+        rows, _ = get_backend().execute_raw(
+            "MATCH (m:MemberNode {source: 'cppreference', kind: 'typedef'}) "
+            "RETURN m.qualified_name AS qn, m.name AS name"
+        )
+        for record in rows:
                 qn = record["qn"]
                 name = record["name"]
                 if qn and name:
@@ -301,17 +301,17 @@ def handle_dependency_list(ctx: CodeGraphDispatcher, tool_input: dict) -> str:
     params["limit"] = limit
 
     try:
-        with ctx.session() as session:
-            for record in session.run(cypher, params):
-                results.append({
-                    "qualified_name": record["qn"],
-                    "name": record["name"] or record["qn"].rsplit("::", 1)[-1],
-                    "kind": record["kind"] or "class",
-                    "source": record["source"] or "",
-                    "description": record["brief"] or "",
-                })
+        rows, _ = get_backend().execute_raw(cypher, params)
+        for record in rows:
+            results.append({
+                "qualified_name": record["qn"],
+                "name": record["name"] or record["qn"].rsplit("::", 1)[-1],
+                "kind": record["kind"] or "class",
+                "source": record["source"] or "",
+                "description": record["brief"] or "",
+            })
     except Exception:
-        log.warning("dependency_list: Neo4j query failed", exc_info=True)
+        log.warning("dependency_list: query failed", exc_info=True)
 
     return json.dumps({"dependencies": results, "count": len(results)})
 

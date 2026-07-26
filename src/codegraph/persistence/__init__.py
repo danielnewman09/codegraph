@@ -8,19 +8,23 @@ Modules
 -------
 - :mod:`repository` — backend-agnostic read/write data access layer
   (:class:`GraphRepository`).
+- :mod:`memory_repository` — data access layer for design memory nodes
+  (:class:`MemoryRepository`).
 - :mod:`docker` — project-local Neo4j Docker container management.
 - :mod:`db_cli` — CLI entry point for ``codegraph-db``.
 """
 
 from codegraph.persistence.repository import GraphRepository
+from codegraph.persistence.memory_repository import MemoryRepository
 
 # Backend access — re-export for convenience
 from codegraph.backends import get_backend, set_backend
 from codegraph.backends.neo4j import Neo4jBackend
 
 __all__ = [
-    # Repository
+    # Repositories
     "GraphRepository",
+    "MemoryRepository",
     # Backend
     "get_backend",
     "set_backend",
