@@ -49,6 +49,8 @@ class FileNode(StructuredNode, CodeGraphNode):
     )
     path = StringProperty(default="")
     language = StringProperty(default="")
+    tags = ArrayProperty(StringProperty(), default=[])
+    kind = StringProperty(default="file")
 
     # --- Serialization contract ---
     _llm_fields: set[str] = {"name", "path", "source"}

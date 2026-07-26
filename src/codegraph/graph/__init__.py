@@ -15,6 +15,9 @@ from typing import Iterator
 
 log = logging.getLogger(__name__)
 
+from codegraph.backends.interface import Backend
+from codegraph.backends import get_backend
+
 from codegraph.constants import Tag, TAGS
 from codegraph.models.tags import CodeGraphNode
 
@@ -752,125 +755,106 @@ class LayerGraph:
 
         return cls._deserialize_flat(data, create_missing=create_missing)
 
-    # ── to_neo4j ───────────────────────────────────────────────────────
+    # ── to_backend / from_backend ──────────────────────────────────────
+
+    def to_backend(self, backend: Backend) -> None:
+        """Persist to any backend (replaces to_neo4j)."""
+        backend.bulk_save(self)
+
+    @classmethod
+    def from_backend(cls, backend: Backend, tag: str) -> "LayerGraph":
+        """Load from any backend (replaces from_neo4j).
+
+        The backend returns a flat list of nodes.  Tree construction
+        (COMPOSES nesting, duplicate merging, namespace pruning) is
+        pure Python in this method.
+        """
+        matched_nodes = backend.bulk_load_by_tag(tag)
+
+        nodes: dict[str, CodeGraphNode] = {}
+        uid_to_key: dict[str, str] = {}
+        seen_uids: set[str] = set()
+
+        for node in matched_nodes:
+            key = cls._node_key(node)
+            nodes[key] = node
+            uid = node._uid_value()
+            if uid:
+                uid_to_key[uid] = key
+                seen_uids.add(uid)
+
+        key_to_entry: dict[str, CompositeEntry] = {}
+        duplicate_to_canonical: dict[str, str] = {}
+        qname_to_key: dict[str, str] = {}
+        for key, node in nodes.items():
+            entry = CompositeEntry(node=node)
+            qn = (getattr(node, "qualified_name", None)
+                  or getattr(node, "name", None))
+            if qn:
+                existing_key = qname_to_key.get(qn)
+                if existing_key is not None:
+                    duplicate_to_canonical[key] = existing_key
+                    key_to_entry[key] = entry
+                    continue
+                qname_to_key[qn] = key
+            key_to_entry[key] = entry
+
+        child_keys: set[str] = set()
+        for key, node in nodes.items():
+            canonical_key = duplicate_to_canonical.get(key, key)
+            entry = key_to_entry.get(canonical_key)
+            if entry is None:
+                continue
+
+            for child in backend.get_composed_children(node):
+                child_key = cls._node_key(child)
+                child_key = duplicate_to_canonical.get(child_key, child_key)
+                if child_key not in key_to_entry:
+                    continue
+                child_entry = key_to_entry[child_key]
+                child_type = type(child).__name__
+                entry.children.setdefault(child_type, {})[child_key] = child_entry
+                child_keys.add(child_key)
+
+            for edge in backend.get_all_edges(node):
+                if edge.relation_type in ("COMPOSES", "HAS_IMPLEMENTATION"):
+                    continue
+                if not edge.is_outgoing:
+                    continue
+                target_key = uid_to_key.get(edge.target_uid)
+                if target_key and target_key in key_to_entry:
+                    entry.references.append(
+                        (edge.relation_type, target_key, edge.target_type)
+                    )
+
+        for dup_key, canon_key in duplicate_to_canonical.items():
+            dup_entry = key_to_entry.get(dup_key)
+            canon_entry = key_to_entry.get(canon_key)
+            if dup_entry and canon_entry:
+                for ct, cm in dup_entry.children.items():
+                    canon_entry.children.setdefault(ct, {}).update(cm)
+                    for ck in cm:
+                        child_keys.add(ck)
+                existing_refs = set(canon_entry.references)
+                for ref in dup_entry.references:
+                    if ref not in existing_refs:
+                        canon_entry.references.append(ref)
+
+        root_entries = {
+            key: entry
+            for key, entry in key_to_entry.items()
+            if key not in child_keys
+        }
+
+        graph = cls(tags=frozenset({tag}), entries=root_entries)
+        graph._prune_empty_namespaces()
+        return graph
+
+    # ── to_neo4j (compat) ────────────────────────────────────────────
 
     def to_neo4j(self) -> None:
-        """Persist all nodes and relationships to Neo4j.
-
-        Walks the entry tree depth-first.  Saves every node, then
-        connects COMPOSES children via the parent's relationship manager
-        and connects reference edges via ``find_relationship_manager()``.
-        """
-        # Build flat indexes for resolving reference targets.
-        # uid_index: keyed by node uid (from _node_key).
-        # qname_index: keyed by qualified_name (for markdown-imported
-        #   references that use qnames, not uids).
-        flat = self._flat_index()
-        qname_index: dict[str, CompositeEntry] = {}
-        for entry in self._all_entries():
-            qname = getattr(entry.node, "qualified_name", None)
-            if qname:
-                qname_index[qname] = entry
-
-        # Phase 1: save all nodes
-        for entry in self._all_entries():
-            entry.node.save()
-
-        # Phase 2: connect relationships
-        for entry in self._all_entries():
-            source_node = entry.node
-            source_key = self._node_key(source_node)
-
-            # Connect COMPOSES children
-            for target_type, type_children in entry.children.items():
-                for child_key, child_entry in type_children.items():
-                    try:
-                        manager = CodeGraphNode.find_relationship_manager(
-                            source_node, "COMPOSES", child_entry.node
-                        )
-                        manager.connect(child_entry.node)
-                    except ValueError:
-                        # Fallback: raw Cypher for COMPOSES connections
-                        # where no typed relationship manager exists
-                        # (e.g. AttributeNode → AttributeNode from a
-                        # markdown file where a scaffold attribute was
-                        # exported with a class-like body section).
-                        from neomodel import db
-                        db.cypher_query(
-                            f"MATCH (s), (t) "
-                            f"WHERE elementId(s) = $src "
-                            f"AND elementId(t) = $tgt "
-                            f"MERGE (s)-[:COMPOSES]->(t)",
-                            {
-                                "src": db.parse_element_id(
-                                    source_node.element_id
-                                ),
-                                "tgt": db.parse_element_id(
-                                    child_entry.node.element_id
-                                ),
-                            },
-                        )
-
-            # Connect references
-            for relation_type, target_key, target_type in entry.references:
-                target_entry = flat.get(target_key) or qname_index.get(target_key)
-                if target_entry is not None:
-                    try:
-                        manager = CodeGraphNode.find_relationship_manager(
-                            source_node, relation_type, target_entry.node
-                        )
-                        manager.connect(target_entry.node)
-                    except ValueError:
-                        # Fallback: raw Cypher for polymorphic relationships
-                        # declared on a base class (e.g. INSTANCE_OF on
-                        # CompoundNode) where the concrete target subclass
-                        # (e.g. ClassNode) is not matched by
-                        # find_relationship_manager's exact-name check.
-                        # neomodel's inherited labels still make .all()
-                        # work for querying; this fallback covers the write
-                        # path.
-                        from neomodel import db
-                        db.cypher_query(
-                            f"MATCH (s), (t) "
-                            f"WHERE elementId(s) = $src "
-                            f"AND elementId(t) = $tgt "
-                            f"MERGE (s)-[:{relation_type}]->(t)",
-                            {
-                                "src": db.parse_element_id(
-                                    source_node.element_id
-                                ),
-                                "tgt": db.parse_element_id(
-                                    target_entry.node.element_id
-                                ),
-                            },
-                        )
-                else:
-                    # Cross-document reference: target not in this graph.
-                    # Look up the target in Neo4j by qualified_name or name
-                    # (e.g. tests referencing design-layer LLRs/classes
-                    # ingested from a separate markdown file).
-                    # LLR/HLR/Component nodes use `name`; ClassNode/
-                    # FunctionNode use `qualified_name`.
-                    from neomodel import db
-                    results, _ = db.cypher_query(
-                        "MATCH (t) "
-                        "WHERE t.qualified_name = $qname OR t.name = $qname "
-                        "RETURN elementId(t) LIMIT 1",
-                        {"qname": target_key},
-                    )
-                    if results:
-                        db.cypher_query(
-                            f"MATCH (s), (t) "
-                            f"WHERE elementId(s) = $src "
-                            f"AND elementId(t) = $tgt "
-                            f"MERGE (s)-[:{relation_type}]->(t)",
-                            {
-                                "src": db.parse_element_id(
-                                    source_node.element_id
-                                ),
-                                "tgt": db.parse_element_id(results[0][0]),
-                            },
-                        )
+        """Persist via the active backend. Delegates to to_backend()."""
+        self.to_backend(get_backend())
 
     # ── Serialization ──────────────────────────────────────────────────
 
@@ -898,191 +882,12 @@ class LayerGraph:
         """
         return [entry.serialize(fields=fields) for entry in self.entries.values()]
 
-    # ── from_neo4j ─────────────────────────────────────────────────────
+    # ── from_neo4j (compat) ──────────────────────────────────────────
 
     @classmethod
     def from_neo4j(cls, tag: str) -> "LayerGraph":
-        """Query Neo4j for all nodes where *tag* is in their tags, plus their
-        first-level neighbors.  Collect into a nested LayerGraph.
-
-        This includes both endpoints of any edge touching a tag-matched
-        node, even if the neighbor's tags don't include *tag*.
-
-        COMPOSES edges from compound nodes create nesting; all other
-        edge types are stored as references.
-
-        Args:
-            tag: The tag to query for (``"design"``, ``"as-built"``,
-                ``"dependency"``).
-
-        Returns:
-            A LayerGraph containing all matching nodes and their first-level
-            neighbours in a nested composition structure.
-        """
-        # Fetch all tag-matched nodes
-        matched_nodes = CodeGraphNode.fetch_all_by_tag(tag)
-
-        nodes: dict[str, CodeGraphNode] = {}
-        uid_to_key: dict[str, str] = {}
-        seen_uids: set[str] = set()
-
-        # Add all tag-matched nodes
-        for node in matched_nodes:
-            key = cls._node_key(node)
-            nodes[key] = node
-            uid = node._uid_value()
-            if uid:
-                uid_to_key[uid] = key
-                seen_uids.add(uid)
-
-        # Expand to first-level neighbors
-        for node in matched_nodes:
-            for edge in node.walk_edges():
-                # Skip lazy-loaded relationships — fetched on demand
-                if edge["relation_type"] == "HAS_IMPLEMENTATION":
-                    continue
-                target_uid = edge["target_uid"]
-                target_type = edge["target_type"]
-                if target_uid not in seen_uids:
-                    seen_uids.add(target_uid)
-                    target_cls = CodeGraphNode._registry.get(target_type)
-                    if target_cls:
-                        uid_prop = target_cls._uid_prop()
-                        if uid_prop:
-                            neighbor = target_cls.nodes.get_or_none(
-                                **{uid_prop: target_uid}
-                            )
-                            if neighbor:
-                                neighbor_key = cls._node_key(neighbor)
-                                nodes[neighbor_key] = neighbor
-                                uid_to_key[target_uid] = neighbor_key
-
-        # Second pass: pull in namespace parents of *non-project*
-        # 1-hop neighbours.  Only the immediate parent namespace is
-        # fetched (we do NOT walk the full ancestor chain — deep
-        # cppreference hierarchies would pull in hundreds of
-        # intermediate namespace nodes).
-        #
-        # Why: namespace-focus views in the visualisation aggregate
-        # external deps to their containing namespace.  Without this,
-        # boost::unordered_map appears as an orphan (parent=boost
-        # doesn't exist in the graph) and can't be grouped.
-        initial_uids = {n._uid_value() for n in matched_nodes}
-        for node in list(nodes.values()):
-            if node._uid_value() in initial_uids:
-                continue  # project node — parent already in graph
-            for edge in node.walk_edges():
-                if edge["relation_type"] != "COMPOSES":
-                    continue
-                if edge.get("is_outgoing", True):
-                    continue  # only interested in incoming (parent→ns)
-                target_uid = edge["target_uid"]
-                target_type = edge["target_type"]
-                if target_uid not in seen_uids:
-                    seen_uids.add(target_uid)
-                    target_cls = CodeGraphNode._registry.get(target_type)
-                    if target_cls:
-                        uid_prop = target_cls._uid_prop()
-                        if uid_prop:
-                            parent_ns = target_cls.nodes.get_or_none(
-                                **{uid_prop: target_uid}
-                            )
-                            if parent_ns:
-                                ns_key = cls._node_key(parent_ns)
-                                nodes[ns_key] = parent_ns
-                                uid_to_key[target_uid] = ns_key
-
-        # Build CompositeEntry instances, merging duplicates that share
-        # the same qualified_name (e.g. cppreference + project copies of
-        # the ``std`` namespace).  When a duplicate is found, merge its
-        # children and references into the canonical (first) entry.
-        key_to_entry: dict[str, CompositeEntry] = {}
-        # Duplicates: key → key of the canonical node with the same qname.
-        duplicate_to_canonical: dict[str, str] = {}
-        # Secondary index: qualified_name → key for duplicate detection.
-        qname_to_key: dict[str, str] = {}
-        for key, node in nodes.items():
-            entry = CompositeEntry(node=node)
-            qn = (getattr(node, "qualified_name", None)
-                  or getattr(node, "name", None))
-            if qn:
-                existing_key = qname_to_key.get(qn)
-                if existing_key is not None:
-                    # Map this duplicate to the canonical entry;
-                    # we'll merge children/references after building
-                    # the composition tree.
-                    duplicate_to_canonical[key] = existing_key
-                    # Still add to key_to_entry so the second loop
-                    # can process this node's walk_composes() and
-                    # redirect the children to the canonical entry.
-                    key_to_entry[key] = entry
-                    continue
-                qname_to_key[qn] = key
-            key_to_entry[key] = entry
-
-        # Build composition tree and collect references
-        child_keys: set[str] = set()
-        for key, node in nodes.items():
-            # If this node was a duplicate, use the canonical entry.
-            canonical_key = duplicate_to_canonical.get(key, key)
-            entry = key_to_entry.get(canonical_key)
-            if entry is None:
-                continue  # duplicate whose canonical was also a duplicate
-
-            # COMPOSES: use walk_composes() for outgoing edges
-            for child in node.walk_composes():
-                child_key = cls._node_key(child)
-                # Redirect child key if it's a duplicate too.
-                child_key = duplicate_to_canonical.get(child_key, child_key)
-                if child_key not in key_to_entry:
-                    continue  # child not in our fetched set
-                child_entry = key_to_entry[child_key]
-                child_type = type(child).__name__
-                entry.children.setdefault(child_type, {})[child_key] = child_entry
-                child_keys.add(child_key)
-
-            # Non-COMPOSES references: use walk_edges(),
-            # but only outgoing edges — incoming edges are the
-            # reverse of another node's outgoing edge and would
-            # create spurious bidirectional references.
-            for edge in node.walk_edges():
-                relation_type = edge["relation_type"]
-                if relation_type in ("COMPOSES", "HAS_IMPLEMENTATION"):
-                    continue
-                if not edge.get("is_outgoing", True):
-                    continue
-                target_key = uid_to_key.get(edge["target_uid"])
-                if target_key and target_key in key_to_entry:
-                    entry.references.append(
-                        (relation_type, target_key, edge["target_type"])
-                    )
-
-        # Merge duplicate entries into their canonical counterparts.
-        for dup_key, canon_key in duplicate_to_canonical.items():
-            dup_entry = key_to_entry.get(dup_key)
-            canon_entry = key_to_entry.get(canon_key)
-            if dup_entry and canon_entry:
-                # Merge children
-                for child_type, child_map in dup_entry.children.items():
-                    canon_entry.children.setdefault(child_type, {}).update(child_map)
-                    for ck in child_map:
-                        child_keys.add(ck)
-                # Merge references (avoid duplicates)
-                existing_refs = set(canon_entry.references)
-                for ref in dup_entry.references:
-                    if ref not in existing_refs:
-                        canon_entry.references.append(ref)
-
-        # Root entries = nodes not composed by another node
-        root_entries = {
-            key: entry
-            for key, entry in key_to_entry.items()
-            if key not in child_keys
-        }
-
-        graph = cls(tags=frozenset({tag}), entries=root_entries)
-        graph._prune_empty_namespaces()
-        return graph
+        """Load via the active backend. Delegates to from_backend()."""
+        return cls.from_backend(get_backend(), tag)
 
     @classmethod
     def import_compound(cls, qname: str, tag: str | None = None) -> "LayerGraph":
@@ -1119,19 +924,19 @@ class LayerGraph:
         key = cls._node_key(node)
         entry = CompositeEntry(node=node)
 
-        for child in node.walk_composes():
+        for child in get_backend().get_composed_children(node):
             child_key = cls._node_key(child)
             child_entry = CompositeEntry(node=child)
             child_type = type(child).__name__
             entry.children.setdefault(child_type, {})[child_key] = child_entry
 
-        for edge in node.walk_edges():
-            rt = edge["relation_type"]
+        for edge in get_backend().get_all_edges(node):
+            rt = edge.relation_type
             if rt in ("COMPOSES", "HAS_IMPLEMENTATION"):
                 continue
-            if not edge.get("is_outgoing", True):
+            if not edge.is_outgoing:
                 continue
-            entry.references.append((rt, edge["target_uid"], edge["target_type"]))
+            entry.references.append((rt, edge.target_uid, edge.target_type))
 
         return cls(tags=actual_tags, entries={key: entry})
 

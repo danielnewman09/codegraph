@@ -31,7 +31,7 @@ def populated_graph(neo4j_connection):
         content="Use PostgreSQL for ACID guarantees.",
         tags=["design"], confidence=0.8, source="test",
     )
-    decision.motivates.connect(db_layer)
+    decision.motivates_compound.connect(db_layer)
 
     constraint = ConstraintNode.save_new(
         qualified_name="memory::test-perf-sla",
@@ -39,8 +39,8 @@ def populated_graph(neo4j_connection):
         content="Query latency < 50ms at p99.",
         tags=["design"], confidence=0.9, source="test",
     )
-    constraint.constrains.connect(db_layer)
-    constraint.constrains.connect(query_method)
+    constraint.constrains_compound.connect(db_layer)
+    constraint.constrains_member.connect(query_method)
 
     assumption = AssumptionNode.save_new(
         qualified_name="memory::test-cloud-stability",
@@ -48,7 +48,7 @@ def populated_graph(neo4j_connection):
         content="Same-region deployment, < 1ms latency.",
         tags=["design"], confidence=0.7, source="test",
     )
-    assumption.assumes.connect(db_layer)
+    assumption.assumes_compound.connect(db_layer)
 
     tradeoff = TradeoffNode.save_new(
         qualified_name="memory::test-orm-overhead",
@@ -56,7 +56,7 @@ def populated_graph(neo4j_connection):
         content="SQLAlchemy adds ~20ms per query.",
         tags=["as-built"], confidence=0.9, source="test",
     )
-    tradeoff.trades_off.connect(db_layer)
+    tradeoff.trades_off_compound.connect(db_layer)
 
     insight = InsightNode.save_new(
         qualified_name="memory::test-prod-observation",
@@ -64,7 +64,7 @@ def populated_graph(neo4j_connection):
         content="ORM overhead significant for reporting dashboard.",
         tags=["as-built"], confidence=0.85, source="test",
     )
-    insight.insight_into.connect(db_layer)
+    insight.insight_into_compound.connect(db_layer)
 
     rationale = RationaleNode.save_new(
         qualified_name="memory::test-ci-portability",
@@ -72,7 +72,7 @@ def populated_graph(neo4j_connection):
         content="Database abstraction for CI portability with SQLite.",
         tags=["design", "as-built"], confidence=0.95, source="test",
     )
-    rationale.explains.connect(db_layer)
+    rationale.explains_compound.connect(db_layer)
 
     return {
         "db_layer": db_layer,

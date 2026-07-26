@@ -230,6 +230,11 @@ def setup_neomodel(test_neo4j_container):
     # Wipe the database once before the session
     db.cypher_query("MATCH (n) DETACH DELETE n")
 
+    # Initialize the multi-backend system with the Neo4j backend
+    from codegraph.backends import set_backend
+    from codegraph.backends.neo4j import Neo4jBackend
+    set_backend(Neo4jBackend())
+
     yield
 
 

@@ -29,6 +29,7 @@ class Language(StructuredNode, CodeGraphNode):
     """
 
     # --- Language-specific ---
+    kind = StringProperty(default="language")
     qualified_name = StringProperty(
         default="", index=True,
         help_text="Qualified name for display/serialization. Mirrors name.",
@@ -46,3 +47,4 @@ class Language(StructuredNode, CodeGraphNode):
 
     # --- Serialization contract ---
     _llm_fields: set[str] = {"name", "version", "tags"}
+    kind = StringProperty(default="language")

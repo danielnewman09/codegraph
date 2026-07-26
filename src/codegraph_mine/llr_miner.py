@@ -257,6 +257,7 @@ class LLRMiner(RequirementMiner):
         Returns:
             List of unique compound neomodel instances.
         """
+        from codegraph.persistence.repository import GraphRepository
         from codegraph.models.test import TestNode
         from codegraph.models.compound import ClassNode, InterfaceNode, EnumNode
 
@@ -264,7 +265,7 @@ class LLRMiner(RequirementMiner):
 
         # Collect all TestNodes
         if tag:
-            test_nodes = TestNode.fetch_by_tag(tag)
+            test_nodes = GraphRepository().find_by_tag(TestNode, tag)
         else:
             test_nodes = list(TestNode.nodes.all())
 
@@ -316,8 +317,7 @@ class LLRMiner(RequirementMiner):
             ``qualified_name``, ``name``, ``description``,
             ``type_signature``
         """
-        from codegraph.models.test import TestNode
-
+      
         compound_name = self.node_name(target)
         compound_desc = getattr(target, "description", "") or ""
 

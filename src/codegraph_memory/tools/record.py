@@ -14,6 +14,7 @@ from typing import Any, Literal
 
 from neomodel import db
 
+from codegraph.backends import get_backend
 from codegraph.models.tags import CodeGraphNode
 from codegraph_memory.models.base import MemoryNode
 from codegraph_memory.models.decision import DecisionNode
@@ -263,10 +264,10 @@ def record_memory(
             code_node = _find_code_node(qname)
             if code_node is not None:
                 try:
-                    _connect_memory_to_code(node, code_node, rel_type)
+                    get_backend().connect(node, rel_type, code_node)
                     linked_code.append(qname)
-                except Exception:
-                    pass  # best-effort linking
+                except ValueError:
+                    pass  # skip if no matching relationship declared
 
     # ── Memory-to-memory edges ────────────────────────────────────
     if supersedes:
@@ -340,28 +341,6 @@ def _find_code_node(qualified_name: str) -> CodeGraphNode | None:
     if results:
         return _inflate_code_node(results[0][0])
     return None
-
-
-def _connect_memory_to_code(
-    memory: MemoryNode,
-    code: CodeGraphNode,
-    rel_type: str,
-) -> None:
-    """Create a relationship from memory to code using raw Cypher.
-
-    Uses raw Cypher because neomodel's .connect() on RelationshipTo("CodeGraphNode", ...)
-    can be fragile with the abstract base class.
-    """
-    memory_label = type(memory).__label__
-    db.cypher_query(
-        f"MATCH (m:`{memory_label}`) WHERE elementId(m) = $mid "
-        f"MATCH (c) WHERE elementId(c) = $cid "
-        f"MERGE (m)-[:{rel_type}]->(c)",
-        {
-            "mid": db.parse_element_id(memory.element_id),
-            "cid": db.parse_element_id(code.element_id),
-        },
-    )
 
 
 def _link_supersedes(new_decision: MemoryNode, old_qname: str) -> None:

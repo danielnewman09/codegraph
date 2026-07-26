@@ -43,6 +43,7 @@ class Component(StructuredNode, CodeGraphNode):
     """
 
     # --- Description ---
+    kind = StringProperty(default="component")
     description = StringProperty(default="")
     qualified_name = StringProperty(
         default="", index=True,
@@ -92,6 +93,7 @@ class Component(StructuredNode, CodeGraphNode):
     _llm_fields: set[str] = {
         "qualified_name", "name", "description", "namespace", "tags",
     }
+    kind = StringProperty(default="component")
 
     _markdown_keyword = "Component"
 

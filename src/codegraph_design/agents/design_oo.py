@@ -29,7 +29,8 @@ from neomodel import db as neomodel_db
 from neomodel import RelationshipTo, RelationshipFrom
 
 from codegraph.models.tags import CodeGraphNode
-from codegraph.models.test import TestNode, AssertionNode, TestStepNode
+from codegraph.models.test import TestNode
+from codegraph.persistence.repository import GraphRepository
 from codegraph_requirements.models import HLR, LLR
 from codegraph_design.tools.dispatcher import (
     DesignToolDispatcher,
@@ -1041,7 +1042,7 @@ def _reconcile_design_with_scaffold(
     # and _create_design_namespaces — they were never scaffold nodes.
     flat = compounds + namespace_nodes
 
-    scaffold_nodes = CodeGraphNode.fetch_all_by_tag("scaffold")
+    scaffold_nodes = GraphRepository().find_all_by_tag("scaffold")
     scaffold_by_seg: dict[str, list] = {}
     for sn in scaffold_nodes:
         qn = getattr(sn, "qualified_name", "") or ""

@@ -23,7 +23,7 @@ def lifecycle_data(neo4j_connection):
         content="Use PostgreSQL for DesignOnly.",
         tags=["design"], source="test",
     )
-    decision.motivates.connect(design_cls)
+    decision.motivates_compound.connect(design_cls)
 
     # As-built code node (implemented, no design tag)
     built_cls = ClassNode.save_new(
@@ -39,7 +39,7 @@ def lifecycle_data(neo4j_connection):
         content="Assumes the cache is warm.",
         tags=["as-built"], source="test",
     )
-    insight.assumes.connect(built_cls)
+    insight.assumes_compound.connect(built_cls)
 
     return {"design_cls": design_cls, "built_cls": built_cls, "decision": decision, "insight": insight}
 

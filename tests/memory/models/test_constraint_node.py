@@ -36,7 +36,7 @@ class TestConstraintNode:
             content="p99 < 50ms",
             tags=["design"], source="test",
         )
-        constraint.constrains.connect(cls)
+        constraint.constrains_compound.connect(cls)
 
         from neomodel import db
         results, _ = db.cypher_query(

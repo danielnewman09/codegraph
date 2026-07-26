@@ -23,7 +23,7 @@ def drift_data(neo4j_connection):
         content="Use async processing.",
         tags=["design"], source="test",
     )
-    decision.motivates.connect(cls)
+    decision.motivates_compound.connect(cls)
 
     # Low-confidence assumption
     low_conf = AssumptionNode.save_new(
@@ -32,7 +32,7 @@ def drift_data(neo4j_connection):
         content="Assumes the queue is bounded.",
         tags=["design"], confidence=0.3, source="test",
     )
-    low_conf.assumes.connect(cls)
+    low_conf.assumes_compound.connect(cls)
 
     # Orphan decision (no code links)
     DecisionNode.save_new(

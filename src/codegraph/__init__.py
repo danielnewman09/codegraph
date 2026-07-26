@@ -9,6 +9,7 @@ schema DDL, language specializations).
 
 from codegraph.persistence.config import NEO4J_PASSWORD, NEO4J_URI, NEO4J_USER
 from codegraph.persistence.connection import cypher_query, get_session, verify_connectivity
+from codegraph.backends import get_backend
 from codegraph.constants import (
     COMPOUND_KINDS,
     CONSTRAINTS_AND_INDEXES,
@@ -110,6 +111,8 @@ __all__ = [
     "get_session",
     "cypher_query",
     "verify_connectivity",
+    # Backend
+    "get_backend",
     # Constants
     "PREDICATES",
     "COMPOUND_KINDS",

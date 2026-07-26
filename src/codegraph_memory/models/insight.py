@@ -12,6 +12,8 @@ from __future__ import annotations
 from neomodel import RelationshipTo
 
 from codegraph.models.tags import CodeGraphNode  # noqa: F401
+from codegraph.models.compound import CompoundNode
+from codegraph.models.member import MemberNode
 from codegraph_memory.models.base import MemoryNode
 
 
@@ -28,4 +30,5 @@ class InsightNode(MemoryNode):
     _identity_fields: tuple[str, ...] = ("qualified_name",)
 
     # ── Memory → Code ─────────────────────────────────────────────
-    insight_into = RelationshipTo("CodeGraphNode", "INSIGHT_INTO")
+    insight_into_compound = RelationshipTo(CompoundNode, "INSIGHT_INTO")
+    insight_into_member = RelationshipTo(MemberNode, "INSIGHT_INTO")

@@ -67,6 +67,7 @@ class ImplementationNode(StructuredNode, CodeGraphNode):
     # --- Embeddings ---
     impl_embedding = ArrayProperty(FloatProperty(), default=[],
         help_text="Vector embedding of the implementation source code.")
+    tags = ArrayProperty(StringProperty(), default=[])
 
     # --- Serialization contract ---
     _llm_fields: set[str] = {"qualified_name", "kind", "implementation"}

@@ -530,6 +530,9 @@ class TestStepNode(StructuredNode, CodeGraphNode):
     callee_class = RelationshipTo(
         "codegraph.models.compound.ClassNode", "CALLEE"
     )
+    callee_attribute = RelationshipTo(
+        "codegraph.models.member.AttributeNode", "CALLEE"
+    )
 
     # Caller — the entity performing the call
     caller_method = RelationshipTo(
@@ -540,6 +543,9 @@ class TestStepNode(StructuredNode, CodeGraphNode):
     )
     caller_class = RelationshipTo(
         "codegraph.models.compound.ClassNode", "CALLER"
+    )
+    caller_attribute = RelationshipTo(
+        "codegraph.models.member.AttributeNode", "CALLER"
     )
     caller_test = RelationshipTo(
         "codegraph.models.test.TestNode", "CALLER"

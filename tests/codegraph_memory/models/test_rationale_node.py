@@ -34,7 +34,7 @@ class TestRationaleNode:
             content="Caches because upstream is slow.",
             tags=["design"], source="test",
         )
-        rationale.explains.connect(method)
+        rationale.explains_compound.connect(method)
 
         from neomodel import db
         results, _ = db.cypher_query(

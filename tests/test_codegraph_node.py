@@ -13,6 +13,8 @@ from codegraph.models.file import FileNode
 from codegraph.models.member import MethodNode, AttributeNode, EnumValueNode
 from codegraph.models.namespace import NamespaceNode
 from codegraph.models.tags import CodeGraphNode
+from codegraph.persistence.repository import GraphRepository
+from codegraph.backends import get_backend
 from codegraph.uid import compute_uid
 import codegraph_requirements.models.requirement  # noqa: F401 — registers HLR/LLR
 from codegraph_requirements.models.requirement import HLR, LLR
@@ -159,7 +161,7 @@ class TestTagQueries:
         # codegraph:test-desc test_codegraph_node.TestTagQueries.test_fetch_by_tag_returns_empty_for_file_node::step_0
         # Calls fetch_by_tag on the FileNode with a specific tag, setting up the action
         # that should produce an empty result.
-        result = FileNode.fetch_by_tag("design")
+        result = GraphRepository().find_by_tag(FileNode, "design")
         # codegraph:test-desc test_codegraph_node.TestTagQueries.test_fetch_by_tag_returns_empty_for_file_node::post_0
         # Verifies that fetch_by_tag returns an empty list, confirming that nodes
         # without a 'tags' property return no results as expected.
@@ -171,7 +173,7 @@ class TestTagQueries:
         # Sets up the ParameterNode fixture and calls fetch_by_tag on it, advancing the
         # test to verify the method's behavior for parameter nodes.
         from codegraph.models.parameter import ParameterNode
-        result = ParameterNode.fetch_by_tag("design")
+        result = GraphRepository().find_by_tag(ParameterNode, "design")
         # codegraph:test-desc test_codegraph_node.TestTagQueries.test_fetch_by_tag_returns_empty_for_parameter_node::post_0
         # Asserts that fetch_by_tag returns an empty list for a ParameterNode,
         # confirming the method correctly handles node types without a 'tags' property.
@@ -185,7 +187,7 @@ class TestTagQueries:
         # assertions.
         cls = ClassNode(name="FetchTestClass", kind="class", qualified_name="ns::FetchTestClass", tags=["design"]).save()
         try:
-            result = ClassNode.fetch_by_tag("design")
+            result = GraphRepository().find_by_tag(ClassNode, "design")
             names = [n.name for n in result]
             # codegraph:test-desc test_codegraph_node.TestTagQueries.test_fetch_by_tag_returns_nodes_with_matching_tag::post_0
             # Verifies that the node named 'FetchTestClass' appears in the query result,
@@ -202,7 +204,7 @@ class TestTagQueries:
         # the 'as-built' tag, establishing the context for the subsequent assertion.
         cls = ClassNode(name="FetchDesignOnly", kind="class", qualified_name="ns::FetchDesignOnly", tags=["design"]).save()
         try:
-            result = ClassNode.fetch_by_tag("as-built")
+            result = GraphRepository().find_by_tag(ClassNode, "as-built")
             names = [n.name for n in result]
             # codegraph:test-desc test_codegraph_node.TestTagQueries.test_fetch_by_tag_excludes_non_matching_tags::post_0
             # Verifies that a node tagged only with 'design' is not included in the
@@ -220,8 +222,8 @@ class TestTagQueries:
         # the nodes needed to exercise the fetch_by_tag query.
         cls = ClassNode(name="MultiTagClass", kind="class", qualified_name="ns::MultiTagClass", tags=["design", "as-built"]).save()
         try:
-            design_result = ClassNode.fetch_by_tag("design")
-            asbuilt_result = ClassNode.fetch_by_tag("as-built")
+            design_result = GraphRepository().find_by_tag(ClassNode, "design")
+            asbuilt_result = GraphRepository().find_by_tag(ClassNode, "as-built")
             # codegraph:test-desc test_codegraph_node.TestTagQueries.test_fetch_by_tag_returns_nodes_with_multiple_tags::post_0
             # Verifies that the node named 'MultiTagClass' is present in the results
             # fetched using the design tag. This assertion ensures that fetch_by_tag
@@ -245,7 +247,7 @@ class TestTagQueries:
         cls = ClassNode(name="FetchAllClass", kind="class", qualified_name="ns::FetchAllClass2", tags=["design"]).save()
         meth = MethodNode(name="fetchAllMethod", kind="method", qualified_name="ns::FetchAllClass2::fetchAllMethod", tags=["design"]).save()
         try:
-            result = CodeGraphNode.fetch_all_by_tag("design")
+            result = GraphRepository().find_all_by_tag("design")
             names = [n.name for n in result]
             # codegraph:test-desc test_codegraph_node.TestTagQueries.test_fetch_all_by_tag_across_types::post_0
             # Verifies that the result contains at least one of the expected class-level
@@ -821,7 +823,7 @@ class TestWalkComposes:
         try:
             cls.methods.connect(meth)
             cls.attributes.connect(attr)
-            children = cls.walk_composes()
+            children = get_backend().get_composed_children(cls)
             child_names = {c.name for c in children}
             # codegraph:test-desc test_codegraph_node.TestWalkComposes.test_walk_composes_returns_methods_and_attributes::post_0
             # Verifies that the method named 'draw' appears in the list of composed
@@ -847,7 +849,7 @@ class TestWalkComposes:
         # preparing the object against which the walk_composes method will be called.
         meth = MethodNode(name="leaf", kind="method", qualified_name="ns::leaf").save()
         try:
-            children = meth.walk_composes()
+            children = get_backend().get_composed_children(meth)
             # codegraph:test-desc test_codegraph_node.TestWalkComposes.test_walk_composes_returns_empty_for_leaf_nodes::post_0
             # Verifies that walk_composes returns an empty list for a leaf MethodNode,
             # confirming that the method correctly identifies nodes with no child
@@ -865,7 +867,7 @@ class TestWalkComposes:
         cls = ClassNode(name="NSClass", kind="class", qualified_name="myns::NSClass").save()
         try:
             ns.classes.connect(cls)
-            children = ns.walk_composes()
+            children = get_backend().get_composed_children(ns)
             # codegraph:test-desc test_codegraph_node.TestWalkComposes.test_walk_composes_namespace_returns_classes::post_0
             # Verifies that exactly one child was returned by walk_composes(),
             # confirming the method correctly identifies and isolates the single
@@ -1386,7 +1388,7 @@ class TestSaveNew:
         try:
             enum.values.connect(red)
             enum.values.connect(blue)
-            children = enum.walk_composes()
+            children = get_backend().get_composed_children(enum)
             # codegraph:test-desc test_codegraph_node.TestSaveNew.test_create_enum_with_values::post_0
             # Verifies that exactly two child nodes are connected to the saved EnumNode,
             # confirming that both EnumValueNodes were properly linked and no extra

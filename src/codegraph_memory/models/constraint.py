@@ -11,6 +11,8 @@ from __future__ import annotations
 from neomodel import RelationshipTo
 
 from codegraph.models.tags import CodeGraphNode  # noqa: F401
+from codegraph.models.compound import CompoundNode
+from codegraph.models.member import MemberNode
 from codegraph_memory.models.base import MemoryNode
 
 
@@ -27,4 +29,5 @@ class ConstraintNode(MemoryNode):
     _identity_fields: tuple[str, ...] = ("qualified_name",)
 
     # ── Memory → Code ─────────────────────────────────────────────
-    constrains = RelationshipTo("CodeGraphNode", "CONSTRAINS")
+    constrains_compound = RelationshipTo(CompoundNode, "CONSTRAINS")
+    constrains_member = RelationshipTo(MemberNode, "CONSTRAINS")

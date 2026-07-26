@@ -81,7 +81,7 @@ class TestDecisionNode:
             content="This decision motivated the class.",
             tags=["design"], source="test",
         )
-        decision.motivates.connect(cls)
+        decision.motivates_compound.connect(cls)
 
         # Verify via raw Cypher
         from neomodel import db
@@ -151,7 +151,7 @@ class TestDecisionNode:
             content="Serialize me.",
             tags=["design"], source="test",
         )
-        node.motivates.connect(cls)
+        node.motivates_compound.connect(cls)
 
         data = node.serialize()
         assert data["type"] == "DecisionNode"

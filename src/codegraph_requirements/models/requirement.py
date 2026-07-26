@@ -101,6 +101,7 @@ class HLR(StructuredNode, CodeGraphNode):
     __test__ = False
 
     # --- Identity (deterministic uid from qualified_name) ------------
+    kind = StringProperty(default="hlr")
     _identity_fields: tuple[str, ...] = ("qualified_name",)
     uid = UniqueIdProperty()
 
@@ -196,6 +197,7 @@ class HLR(StructuredNode, CodeGraphNode):
 
     # --- Serialization contract ---
     _llm_fields: set[str] = {"qualified_name", "name", "description", "tags"}
+    kind = StringProperty(default="hlr")
 
     _markdown_keyword = "HLR"
 
@@ -273,6 +275,7 @@ class LLR(StructuredNode, CodeGraphNode):
     __test__ = False
 
     # --- Identity (deterministic uid from qualified_name) ------------
+    kind = StringProperty(default="llr")
     _identity_fields: tuple[str, ...] = ("qualified_name",)
     uid = UniqueIdProperty()
 
@@ -327,6 +330,7 @@ class LLR(StructuredNode, CodeGraphNode):
 
     # --- Serialization contract ---
     _llm_fields: set[str] = {"qualified_name", "name", "description", "tags"}
+    kind = StringProperty(default="llr")
 
     _markdown_keyword = "LLR"
 

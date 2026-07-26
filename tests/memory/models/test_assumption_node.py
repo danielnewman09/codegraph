@@ -35,7 +35,7 @@ class TestAssumptionNode:
             content="Auth is eventually consistent.",
             tags=["design"], source="test",
         )
-        assumption.assumes.connect(cls)
+        assumption.assumes_compound.connect(cls)
 
         from neomodel import db
         results, _ = db.cypher_query(

@@ -1,11 +1,15 @@
 """GraphRepository — data access layer for the codebase graph.
 
 Provides scope-based read methods that return LayerGraph objects, plus a
-single bulk write method.  Uses neomodel ORM for all queries.
+single bulk write method.  Uses the active backend for all queries.
 """
 
 from __future__ import annotations
 
+
+
+from codegraph.backends import get_backend
+from codegraph.backends.interface import Backend
 from codegraph.constants import Tag
 from codegraph.graph import LayerGraph, CompositeEntry
 from codegraph.models.compound import (
@@ -25,15 +29,25 @@ _NAMESPACE_TYPES = [NamespaceNode]
 class GraphRepository:
     """Data access layer for the codebase graph.
 
+    Accepts an optional ``Backend`` in the constructor.  When not
+    provided, uses the globally-configured backend via ``get_backend()``.
+
     All read methods return LayerGraph objects.  The single write method
-    delegates to LayerGraph.to_neo4j().
+    delegates to the backend's ``bulk_save()``.
     """
+
+    def __init__(self, backend: "Backend | None" = None):
+        if backend is None:
+            backend = get_backend()
+        self._backend = backend
 
     # ── Private helpers ────────────────────────────────────────────────
 
     @staticmethod
     def _get_node_by_qualified_name(qualified_name: str) -> CodeGraphNode | None:
         """Search compound and namespace types by qualified_name.
+
+        Uses the active backend for the lookup.
 
         Args:
             qualified_name: The fully-qualified name to search for.
@@ -42,7 +56,7 @@ class GraphRepository:
             First matching CodeGraphNode instance, or None if not found.
         """
         for node_cls in _COMPOUND_TYPES + _NAMESPACE_TYPES:
-            node = node_cls.nodes.get_or_none(qualified_name=qualified_name)
+            node = get_backend().get(node_cls, qualified_name=qualified_name)
             if node is not None:
                 return node
         return None
@@ -51,6 +65,8 @@ class GraphRepository:
     def _get_member_by_qualified_name(qualified_name: str) -> CodeGraphNode | None:
         """Search member types by qualified_name.
 
+        Uses the active backend for the lookup.
+
         Args:
             qualified_name: The fully-qualified name to search for.
 
@@ -58,7 +74,7 @@ class GraphRepository:
             First matching CodeGraphNode instance, or None if not found.
         """
         for node_cls in _MEMBER_TYPES:
-            node = node_cls.nodes.get_or_none(qualified_name=qualified_name)
+            node = get_backend().get(node_cls, qualified_name=qualified_name)
             if node is not None:
                 return node
         return None
@@ -86,7 +102,7 @@ class GraphRepository:
         """
         from codegraph_requirements.models import HLR
 
-        hlr = HLR.nodes.get_or_none(uid=uid)
+        hlr = get_backend().get(HLR, uid=uid)
         if hlr is None:
             return LayerGraph(tags=frozenset({"design"}))
 
@@ -103,7 +119,7 @@ class GraphRepository:
             seen_uids.add(uid)
             composes_reachable.append(node)
 
-            for child in node.walk_composes():
+            for child in get_backend().get_composed_children(node):
                 child_uid = child._uid_value()
                 if child_uid and child_uid not in seen_uids:
                     queue.append(child)
@@ -122,6 +138,8 @@ class GraphRepository:
     @staticmethod
     def _build_layer_graph(seeds: list[CodeGraphNode]) -> LayerGraph:
         """Build a LayerGraph from seed nodes plus 1-hop neighbors.
+
+        Uses the active backend for all data access.
 
         Args:
             seeds: List of seed CodeGraphNode instances to start from.
@@ -144,19 +162,18 @@ class GraphRepository:
 
         # Phase 2: expand 1-hop neighbors
         for node in list(seeds):
-            for edge_info in node.walk_edges():
-                # Skip lazy-loaded relationships — fetched on demand, not in graph expansion
-                if edge_info["relation_type"] == "HAS_IMPLEMENTATION":
+            for edge_info in get_backend().get_all_edges(node):
+                if edge_info.relation_type == "HAS_IMPLEMENTATION":
                     continue
-                target_uid = edge_info["target_uid"]
-                target_type = edge_info["target_type"]
+                target_uid = edge_info.target_uid
+                target_type = edge_info.target_type
                 if target_uid not in uid_to_key:
                     target_cls = CodeGraphNode._registry.get(target_type)
                     if target_cls:
                         uid_prop = target_cls._uid_prop()
                         if uid_prop:
-                            neighbor = target_cls.nodes.get_or_none(
-                                **{uid_prop: target_uid}
+                            neighbor = get_backend().get(
+                                target_cls, **{uid_prop: target_uid}
                             )
                             if neighbor:
                                 neighbor_key = LayerGraph._node_key(neighbor)
@@ -173,26 +190,25 @@ class GraphRepository:
         for key, node in nodes.items():
             entry = key_to_entry[key]
 
-            # COMPOSES: use walk_composes() for outgoing edges
-            for child in node.walk_composes():
+            # COMPOSES: use get_backend().get_composed_children(node)
+            for child in get_backend().get_composed_children(node):
                 child_key = LayerGraph._node_key(child)
                 if child_key not in key_to_entry:
-                    continue  # child not in our fetched set
+                    continue
                 child_entry = key_to_entry[child_key]
                 child_type = type(child).__name__
                 entry.children.setdefault(child_type, {})[child_key] = child_entry
                 child_keys.add(child_key)
 
-            # Non-COMPOSES references: use walk_edges()
-            for edge_info in node.walk_edges():
-                relation_type = edge_info["relation_type"]
-                # Skip COMPOSES (handled above) and lazy-loaded edges
+            # Non-COMPOSES references: use get_backend().get_all_edges(node)
+            for edge_info in get_backend().get_all_edges(node):
+                relation_type = edge_info.relation_type
                 if relation_type in ("COMPOSES", "HAS_IMPLEMENTATION"):
                     continue
-                target_key = uid_to_key.get(edge_info["target_uid"])
+                target_key = uid_to_key.get(edge_info.target_uid)
                 if target_key and target_key in key_to_entry:
                     entry.references.append(
-                        (relation_type, target_key, edge_info["target_type"])
+                        (relation_type, target_key, edge_info.target_type)
                     )
 
         # Phase 5: root entries = nodes not composed by another node
@@ -224,7 +240,7 @@ class GraphRepository:
         Returns:
             A LayerGraph containing all matching nodes and neighbors.
         """
-        seeds = CodeGraphNode.fetch_all_by_tag(tag)
+        seeds = get_backend().find_all_by_tag(tag)
         return self._build_layer_graph(seeds)
 
     def get_by_source(self, source: str) -> LayerGraph:
@@ -236,7 +252,7 @@ class GraphRepository:
         Returns:
             A LayerGraph containing all matching nodes and neighbors.
         """
-        seeds = CodeGraphNode.fetch_all_by_source(source)
+        seeds = get_backend().find_all_by_source(source)
         return self._build_layer_graph(seeds)
 
     def get_by_namespace(self, qualified_name: str) -> LayerGraph:
@@ -253,7 +269,7 @@ class GraphRepository:
             A LayerGraph containing the namespace and related nodes,
             or an empty LayerGraph if not found.
         """
-        ns = NamespaceNode.nodes.get_or_none(qualified_name=qualified_name)
+        ns = get_backend().get(NamespaceNode, qualified_name=qualified_name)
         if ns is None:
             return LayerGraph(tags=frozenset({"design"}))
         seeds = (
@@ -310,19 +326,53 @@ class GraphRepository:
         Returns:
             A LayerGraph containing all matching nodes and neighbors.
         """
-        seeds = CodeGraphNode.fetch_all_by_kind(kind, tag=tag)
+        seeds = get_backend().find_all_by_kind(kind, tag)
         return self._build_layer_graph(seeds)
+
+    # ── Public: flat query methods (no graph expansion) ──────────────
+    #
+    # These are thin wrappers around backend queries.  Use them instead
+    # of importing ``get_backend`` directly — they keep higher-level
+    # modules decoupled from the storage layer.
+
+    def find_by_tag(
+        self, node_type: type["CodeGraphNode"], tag: str
+    ) -> list["CodeGraphNode"]:
+        """Return all nodes of *node_type* whose tags contain *tag*.
+
+        Thin wrapper around ``backend.find_by_tag()``.
+        """
+        from codegraph.backends import get_backend
+        return get_backend().find_by_tag(node_type, tag)
+
+    def find_all_by_tag(self, tag: str) -> list["CodeGraphNode"]:
+        """Return all nodes across all types whose tags contain *tag*."""
+        from codegraph.backends import get_backend
+        return get_backend().find_all_by_tag(tag)
+
+    def find_all_by_source(self, source: str) -> list["CodeGraphNode"]:
+        """Return all nodes across all types matching *source*."""
+        from codegraph.backends import get_backend
+        return get_backend().find_all_by_source(source)
+
+    def find_all_by_kind(
+        self, kind: str, tag: str | None = None
+    ) -> list["CodeGraphNode"]:
+        """Return all nodes matching *kind* (and optionally *tag*)."""
+        from codegraph.backends import get_backend
+        return get_backend().find_all_by_kind(kind, tag)
 
     # ── Public: write method ──────────────────────────────────────────
 
     @staticmethod
     def save_layer_graph(graph: LayerGraph) -> None:
-        """Persist a LayerGraph to Neo4j. Delegates to LayerGraph.to_neo4j().
+        """Persist a LayerGraph.  Delegates to the active backend's
+        ``bulk_save()``.
 
         Args:
             graph: The LayerGraph to persist.
         """
-        graph.to_neo4j()
+        get_backend().bulk_save(graph)
 
 
 # ══════════════════════════════════════════════════════════════════════════

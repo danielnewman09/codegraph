@@ -22,7 +22,7 @@ def export_data(neo4j_connection):
         content="Use SQLAlchemy ORM over PostgreSQL for portability.",
         tags=["design", "as-built"], confidence=0.95, source="test",
     )
-    decision.motivates.connect(cls)
+    decision.motivates_compound.connect(cls)
 
     rationale = RationaleNode.save_new(
         qualified_name="memory::test-export-rationale",
@@ -38,7 +38,7 @@ def export_data(neo4j_connection):
         content="SQLAlchemy adds ~20ms per query vs raw psycopg2.",
         tags=["as-built"], confidence=0.9, source="test",
     )
-    tradeoff.trades_off.connect(cls)
+    tradeoff.trades_off_compound.connect(cls)
 
     return {"cls": cls, "decision": decision}
 

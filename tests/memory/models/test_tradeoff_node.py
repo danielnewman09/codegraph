@@ -35,7 +35,7 @@ class TestTradeoffNode:
             content="2x memory for 10x speed.",
             tags=["design"], source="test",
         )
-        tradeoff.trades_off.connect(cls)
+        tradeoff.trades_off_compound.connect(cls)
 
         from neomodel import db
         results, _ = db.cypher_query(

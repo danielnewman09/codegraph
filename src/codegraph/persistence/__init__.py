@@ -6,8 +6,8 @@ container management for the codebase graph.
 Modules
 -------
 - :mod:`config` — Neo4j connection configuration from environment.
-- :mod:`connection` — direct Cypher session access via neomodel.
-- :mod:`repository` — ORM-based read/write data access layer
+- :mod:`connection` — direct Cypher session access via the Neo4j backend.
+- :mod:`repository` — backend-agnostic read/write data access layer
   (:class:`GraphRepository`).
 - :mod:`docker` — project-local Neo4j Docker container management.
 - :mod:`db_cli` — CLI entry point for ``codegraph-db``.
@@ -21,6 +21,10 @@ from codegraph.persistence.connection import (
 )
 from codegraph.persistence.repository import GraphRepository
 
+# Backend access — re-export for convenience
+from codegraph.backends import get_backend, set_backend
+from codegraph.backends.neo4j import Neo4jBackend
+
 __all__ = [
     # Config
     "NEO4J_URI",
@@ -32,4 +36,8 @@ __all__ = [
     "verify_connectivity",
     # Repository
     "GraphRepository",
+    # Backend
+    "get_backend",
+    "set_backend",
+    "Neo4jBackend",
 ]

@@ -12,6 +12,8 @@ from __future__ import annotations
 from neomodel import RelationshipTo, RelationshipFrom
 
 from codegraph.models.tags import CodeGraphNode  # noqa: F401
+from codegraph.models.compound import CompoundNode
+from codegraph.models.member import MemberNode
 from codegraph_memory.models.base import MemoryNode
 
 
@@ -28,7 +30,8 @@ class AssumptionNode(MemoryNode):
     _identity_fields: tuple[str, ...] = ("qualified_name",)
 
     # ── Memory → Code ─────────────────────────────────────────────
-    assumes = RelationshipTo("CodeGraphNode", "ASSUMES")
+    assumes_compound = RelationshipTo(CompoundNode, "ASSUMES")
+    assumes_member = RelationshipTo(MemberNode, "ASSUMES")
 
     # ── Memory → Memory ────────────────────────────────────────────
     contradicts = RelationshipTo("AssumptionNode", "CONTRADICTS")

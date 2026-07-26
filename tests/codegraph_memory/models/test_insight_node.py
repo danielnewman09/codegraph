@@ -35,7 +35,7 @@ class TestInsightNode:
             content="Chunking caused OOM under load.",
             tags=["as-built"], source="test",
         )
-        insight.insight_into.connect(cls)
+        insight.insight_into_compound.connect(cls)
 
         from neomodel import db
         results, _ = db.cypher_query(

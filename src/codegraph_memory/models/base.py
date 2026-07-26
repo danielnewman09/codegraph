@@ -55,6 +55,11 @@ class MemoryNode(CodeGraphNode, StructuredNode):
                   "Tracks lifecycle: design intent → implementation reality → validation.",
     )
 
+    kind = StringProperty(
+        default="memory",
+        help_text="Node category for kind-based queries.",
+    )
+
     # ── Core content ──────────────────────────────────────────────
     content = StringProperty(
         required=True,
@@ -127,6 +132,8 @@ class MemoryNode(CodeGraphNode, StructuredNode):
         if not self.decided_at:
             self.decided_at = now
         self.updated_at = now
+        if not self.source or self.source == "unknown":
+            self.source = "memory"
         return CodeGraphNode._save(self)
 
     # ── Edge serialization ──────────────────────────────────────────

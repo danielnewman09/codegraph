@@ -37,6 +37,7 @@ class ProjectMeta(StructuredNode, CodeGraphNode):
     """
 
     # --- Project metadata ---
+    kind = StringProperty(default="project")
     qualified_name = StringProperty(
         default="", index=True,
         help_text="Qualified name for display/serialization. Mirrors name.",
@@ -59,6 +60,7 @@ class ProjectMeta(StructuredNode, CodeGraphNode):
     _llm_fields: set[str] = {
         "name", "description", "working_directory", "tags",
     }
+    kind = StringProperty(default="project")
 
     # ------------------------------------------------------------------
     # Singleton helpers

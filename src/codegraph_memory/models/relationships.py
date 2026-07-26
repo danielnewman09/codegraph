@@ -1,14 +1,4 @@
-"""Relationship helpers for memory-to-code edges.
-
-Memory nodes link to arbitrary CodeGraphNode subclasses via neomodel
-RelationshipTo("CodeGraphNode", ...).  This works for .connect() but
-not for .all(), because CodeGraphNode is not a StructuredNode and has
-no ``__label__`` attribute.
-
-This module provides helper functions that use raw Cypher to query
-memory-to-code relationships and inflate the results to the correct
-CodeGraphNode subclass based on Neo4j labels.
-"""
+"""Relationship helpers for querying memory→code edges."""
 
 from __future__ import annotations
 

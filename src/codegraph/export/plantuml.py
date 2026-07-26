@@ -508,7 +508,9 @@ class PlantUMLExporter:
 
     def _show_concepts(self) -> bool:
         """True when concept nodes should be included."""
-        return False  # concepts never shown in scoped view
+        if self.scope_class:
+            return False  # concepts never shown in scoped view
+        return self.view != GraphView.PUBLIC_API
 
     def _show_tests(self) -> bool:
         """True when test-tagged nodes should be included.

@@ -11,6 +11,8 @@ from __future__ import annotations
 from neomodel import RelationshipTo, RelationshipFrom
 
 from codegraph.models.tags import CodeGraphNode  # noqa: F401 — needed for neomodel class resolution
+from codegraph.models.compound import CompoundNode
+from codegraph.models.member import MemberNode
 from codegraph_memory.models.base import MemoryNode
 
 
@@ -27,11 +29,11 @@ class DecisionNode(MemoryNode):
     _identity_fields: tuple[str, ...] = ("qualified_name",)
 
     # ── Memory → Code ─────────────────────────────────────────────
-    # RelationshipTo("CodeGraphNode", ...) works for .connect() but
-    # .all() fails because CodeGraphNode has no __label__.  Use the
-    # helper methods from codegraph_memory.models.relationships for
-    # querying linked code nodes.
-    motivates = RelationshipTo("CodeGraphNode", "MOTIVATES")
+    # Separate descriptors for CompoundNode / MemberNode targets
+    # so that neomodel resolves the correct label (ClassNode,
+    # MethodNode, etc. are subclasses of these).
+    motivates_compound = RelationshipTo(CompoundNode, "MOTIVATES")
+    motivates_member = RelationshipTo(MemberNode, "MOTIVATES")
 
     # ── Memory → Memory ────────────────────────────────────────────
     supersedes = RelationshipTo("DecisionNode", "SUPERSEDES")

@@ -7,7 +7,10 @@
     "language": "cpp",
     "source": "calculator",
     "edges": [],
-    "uid": "a481de036d4aa4262b7fe0b0b22057ee870410da"
+    "uid": "a481de036d4aa4262b7fe0b0b22057ee870410da",
+    "tags": [
+      "design"
+    ]
   },
   {
     "type": "FileNode",
@@ -17,7 +20,10 @@
     "language": "cpp",
     "source": "calculator",
     "edges": [],
-    "uid": "d7b62cf39dd781ab587a2bf7d13d15a16d56f279"
+    "uid": "d7b62cf39dd781ab587a2bf7d13d15a16d56f279",
+    "tags": [
+      "design"
+    ]
   },
   {
     "type": "FileNode",
@@ -27,7 +33,10 @@
     "language": "cpp",
     "source": "calculator",
     "edges": [],
-    "uid": "cccbc1901c2f1c6a31a6e83bb25fa4eaed42f26c"
+    "uid": "cccbc1901c2f1c6a31a6e83bb25fa4eaed42f26c",
+    "tags": [
+      "design"
+    ]
   },
   {
     "type": "FileNode",
@@ -37,7 +46,10 @@
     "language": "cpp",
     "source": "calculator",
     "edges": [],
-    "uid": "7cf39e5586c26cace739ac9e68b9c12ff0afd302"
+    "uid": "7cf39e5586c26cace739ac9e68b9c12ff0afd302",
+    "tags": [
+      "design"
+    ]
   },
   {
     "type": "FileNode",
@@ -47,7 +59,10 @@
     "language": "cpp",
     "source": "calculator",
     "edges": [],
-    "uid": "ab1f119b125f35d51a2839cd7ea852a406f0bc70"
+    "uid": "ab1f119b125f35d51a2839cd7ea852a406f0bc70",
+    "tags": [
+      "design"
+    ]
   },
   {
     "type": "FileNode",
@@ -57,7 +72,10 @@
     "language": "cpp",
     "source": "calculator",
     "edges": [],
-    "uid": "ed5079afea47324c35d360d8ee9e8707ce8f7962"
+    "uid": "ed5079afea47324c35d360d8ee9e8707ce8f7962",
+    "tags": [
+      "design"
+    ]
   },
   {
     "type": "NamespaceNode",

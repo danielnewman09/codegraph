@@ -230,6 +230,9 @@ class AttributeNode(MemberNode):
     # Incoming composition
     parent_compound = RelationshipFrom('codegraph.models.compound.ClassNode', 'COMPOSES')
 
+    # Outgoing — nested attributes (e.g. struct-like nesting within a class)
+    composes_attribute = RelationshipTo('codegraph.models.member.AttributeNode', 'COMPOSES')
+
 
 class EnumValueNode(MemberNode):
     """Enum constant value — Neo4j label ``:EnumValue``.

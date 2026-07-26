@@ -42,6 +42,7 @@ class Dependency(StructuredNode, CodeGraphNode):
     """
 
     # --- Dependency metadata ---
+    kind = StringProperty(default="dependency")
     qualified_name = StringProperty(
         default="", index=True,
         help_text="Qualified name for display/serialization. Mirrors name.",
@@ -80,3 +81,4 @@ class Dependency(StructuredNode, CodeGraphNode):
     _llm_fields: set[str] = {
         "name", "version", "manager_name", "github_url", "is_dev", "tags",
     }
+    kind = StringProperty(default="dependency")

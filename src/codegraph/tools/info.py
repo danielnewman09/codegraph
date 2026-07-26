@@ -6,6 +6,8 @@ Each tool has a ``SCHEMA`` dict (JSON Schema for the LLM) and a
 
 import json
 
+from codegraph.persistence.repository import GraphRepository
+
 
 # ── graph_list_tags ────────────────────────────────────────────────────────
 
@@ -29,7 +31,7 @@ def handle_list_tags(ctx, tool_input: dict) -> str:
 
     counts: dict[str, int] = {}
     for tag in sorted(TAGS):
-        results = CodeGraphNode.fetch_all_by_tag(tag)
+        results = GraphRepository().find_all_by_tag(tag)
         counts[tag] = len(results)
 
     return json.dumps({

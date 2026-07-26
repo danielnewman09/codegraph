@@ -4,7 +4,13 @@ Parameters have no outgoing relationships of their own.
 They are identified by a composite of (position, member_refid) rather than
 a single unique property."""
 
-from neomodel import StructuredNode, StringProperty, IntegerProperty, UniqueIdProperty
+from neomodel import (
+    ArrayProperty,
+    IntegerProperty,
+    StringProperty,
+    StructuredNode,
+    UniqueIdProperty,
+)
 
 from codegraph.models.tags import CodeGraphNode
 
@@ -38,6 +44,8 @@ class ParameterNode(StructuredNode, CodeGraphNode):
     type = StringProperty(default="")
     default_value = StringProperty(default="")
     member_refid = StringProperty(default="")
+    tags = ArrayProperty(StringProperty(), default=[])
+    kind = StringProperty(default="parameter")
 
     # --- Serialization contract ---
     _llm_fields: set[str] = {"name", "type"}

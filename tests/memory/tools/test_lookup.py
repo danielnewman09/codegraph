@@ -21,7 +21,7 @@ def populated_data(neo4j_connection):
         content="Use HTTP/1.1",
         tags=["design"], source="test",
     )
-    old.motivates.connect(cls)
+    old.motivates_compound.connect(cls)
 
     new = DecisionNode.save_new(
         qualified_name="memory::test-new-dec",
@@ -29,7 +29,7 @@ def populated_data(neo4j_connection):
         content="Use HTTP/2 for multiplexing",
         tags=["design"], source="test",
     )
-    new.motivates.connect(cls)
+    new.motivates_compound.connect(cls)
     new.supersedes.connect(old)
 
     constraint = ConstraintNode.save_new(
@@ -38,7 +38,7 @@ def populated_data(neo4j_connection):
         content="Must support 10k req/sec",
         tags=["design"], source="test",
     )
-    constraint.constrains.connect(cls)
+    constraint.constrains_compound.connect(cls)
 
     insight = InsightNode.save_new(
         qualified_name="memory::test-insight",
@@ -46,7 +46,7 @@ def populated_data(neo4j_connection):
         content="HTTP/2 multiplexing reduced connection overhead by 40%",
         tags=["as-built"], source="test",
     )
-    insight.insight_into.connect(cls)
+    insight.insight_into_compound.connect(cls)
 
     return {"class": cls, "old_dec": old, "new_dec": new, "constraint": constraint, "insight": insight}
 

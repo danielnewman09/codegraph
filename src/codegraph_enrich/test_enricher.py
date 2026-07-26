@@ -237,11 +237,12 @@ of the code under test.
             tag: If provided, only return TestNodes whose ``tags``
                 array contains this value (e.g. ``"as-built"``).
         """
+        from codegraph.persistence.repository import GraphRepository
         from codegraph.models.test import TestNode
 
         tag = filters.get("tag")
         if tag:
-            return TestNode.fetch_by_tag(tag)
+            return GraphRepository().find_by_tag(TestNode, tag)
         return list(TestNode.nodes.all())
 
     # ------------------------------------------------------------------

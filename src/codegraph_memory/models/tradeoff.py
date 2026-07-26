@@ -11,6 +11,8 @@ from __future__ import annotations
 from neomodel import RelationshipTo
 
 from codegraph.models.tags import CodeGraphNode  # noqa: F401
+from codegraph.models.compound import CompoundNode
+from codegraph.models.member import MemberNode
 from codegraph_memory.models.base import MemoryNode
 
 
@@ -27,4 +29,5 @@ class TradeoffNode(MemoryNode):
     _identity_fields: tuple[str, ...] = ("qualified_name",)
 
     # ── Memory → Code ─────────────────────────────────────────────
-    trades_off = RelationshipTo("CodeGraphNode", "TRADES_OFF")
+    trades_off_compound = RelationshipTo(CompoundNode, "TRADES_OFF")
+    trades_off_member = RelationshipTo(MemberNode, "TRADES_OFF")

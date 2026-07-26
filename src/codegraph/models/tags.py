@@ -259,58 +259,7 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
             return False
         return tag in (self.tags or [])
 
-    @classmethod
-    def fetch_all_by_source(cls, source: str) -> list["CodeGraphNode"]:
-        """Fetch all nodes across all registered types matching *source*.
 
-        Iterates ``_registry``, calling ``.nodes.filter(source=source)`` on
-        each type that has a ``source`` property. Returns a flat list.
-
-        Args:
-            source: The source project name to filter by (e.g. "codegraph",
-                "llvm").
-
-        Returns:
-            A flat list of CodeGraphNode instances matching the given source.
-        """
-        result: list[CodeGraphNode] = []
-        # Snapshot the registry to avoid "dictionary changed size during
-        # iteration" when a neomodel query triggers a lazy model import
-        # that registers a new node type mid-iteration.
-        for node_cls in list(cls._registry.values()):
-            if "source" in node_cls.defined_properties():
-                result.extend(node_cls.nodes.filter(source=source))
-        return result
-
-    @classmethod
-    def fetch_all_by_kind(cls, kind: str, tag: str | None = None) -> list["CodeGraphNode"]:
-        """Fetch all nodes across all registered types matching *kind*.
-
-        Optionally filter by *tag* as well. Only types that have a ``kind``
-        property are queried. Returns a flat list.
-
-        Args:
-            kind: The node kind to filter by (e.g. "class", "method").
-            tag: Optional tag to additionally filter by. When provided,
-                only nodes with both matching kind and tag are returned.
-
-        Returns:
-            A flat list of CodeGraphNode instances matching the given kind
-            (and optionally tag).
-        """
-        result: list[CodeGraphNode] = []
-        for node_cls in list(cls._registry.values()):
-            props = node_cls.defined_properties()
-            if "kind" not in props:
-                continue
-            if tag is not None and "tags" not in props:
-                continue
-            filters: dict = {"kind": kind}
-            nodes = list(node_cls.nodes.filter(**filters))
-            if tag is not None and "tags" in props:
-                nodes = [n for n in nodes if tag in (n.tags or [])]
-            result.extend(nodes)
-        return result
 
     # ── Registry ──────────────────────────────────────────────────────────
     # Every concrete CodeGraphNode subclass registers itself here so that
@@ -611,6 +560,7 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         """
         from neomodel import RelationshipTo, RelationshipFrom
         from neomodel.sync_.node import StructuredNode
+        from codegraph.backends import get_backend
 
         if not hasattr(self, "element_id_property"):
             raise ValueError(
@@ -622,7 +572,7 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         # first) before deleting this node.  COMPOSES represents
         # ownership containment, so children should not outlive their
         # parent.
-        for child in self.walk_composes():
+        for child in get_backend().get_composed_children(self):
             if hasattr(child, "element_id_property") and not getattr(child, "deleted", False):
                 child.delete()
 
@@ -654,38 +604,6 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
 
     # ── Serialization ─────────────────────────────────────────────────────
 
-    def walk_composes(self) -> list["CodeGraphNode"]:
-        """Return all nodes that this node composes via outgoing COMPOSES edges.
-
-        Walks all ``RelationshipTo`` managers with
-        ``relation_type="COMPOSES"`` and returns the connected target
-        nodes.
-
-        Requires the node to be saved in Neo4j (the relationship managers
-        query the database).  Returns an empty list for unsaved nodes.
-
-        Returns:
-            A list of CodeGraphNode instances that this node composes.
-        """
-        from neomodel import RelationshipTo
-
-        # Unsaved nodes have no database relationships to walk
-        if not hasattr(self, "element_id_property"):
-            return []
-
-        children: list[CodeGraphNode] = []
-        seen: set[str] = set()
-        for klass in type(self).__mro__:
-            for name, val in vars(klass).items():
-                if not isinstance(val, RelationshipTo):
-                    continue
-                if val.definition["relation_type"] != "COMPOSES":
-                    continue
-                if name in seen:
-                    continue
-                seen.add(name)
-                children.extend(getattr(self, name).all())
-        return children
 
     def serialize(
         self,
@@ -745,7 +663,15 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
             result[uid_prop] = uid_value
 
         if hasattr(self, "element_id_property"):
-            all_edges = self.serialize_edges()
+            from codegraph.backends import get_backend
+            all_edges = [
+                {
+                    "relation_type": e.relation_type,
+                    "target_uid": e.target_uid,
+                    "target_type": e.target_type,
+                }
+                for e in get_backend().get_all_edges_outgoing(self)
+            ]
             if nested:
                 # Remove COMPOSES edges — they are represented by nesting
                 result["edges"] = [
@@ -790,7 +716,8 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
             A list of serialized child dicts, or an empty list if this
             node has no composed children.
         """
-        children = self.walk_composes()
+        from codegraph.backends import get_backend
+        children = get_backend().get_composed_children(self)
         composes: list[dict] = []
         for child in children:
             child_uid = child._uid_value()
@@ -936,52 +863,6 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
             return None
         return getattr(self, uid, None)
 
-    def serialize_edges(self) -> list[dict]:
-        """Return all *outgoing* edges from this node as a flat list of
-        relationship dicts.
-
-        Walks every ``RelationshipTo`` descriptor on this *instance*,
-        calls ``.all()`` on each manager, and emits one dict per
-        connected node with the relationship type and the connected
-        node's unique identifier.
-
-        ``RelationshipFrom`` descriptors are deliberately excluded —
-        they represent the inverse of edges already emitted by the
-        source node.  Including them would duplicate every edge in
-        exported graphs and visualisations.
-
-        Call :meth:`walk_edges` if you need the full directed-graph
-        picture including incoming edges.
-
-        Requires the node to be saved in Neo4j (the relationship
-        managers query the database).
-
-        Returns:
-            A list of dicts, each with keys: ``relation_type`` (Neo4j
-            relationship label), ``target_uid`` (the connected node's
-            unique id value), and ``target_type`` (the connected
-            node's class name).
-        """
-        from neomodel import RelationshipTo
-
-        edges: list[dict] = []
-        seen: set[str] = set()
-        for klass in type(self).__mro__:
-            for name, val in vars(klass).items():
-                if not isinstance(val, RelationshipTo):
-                    continue
-                if name in seen:
-                    continue
-                seen.add(name)
-                manager = getattr(self, name)
-                connected = manager.all()
-                for node in connected:
-                    edges.append({
-                        "relation_type": val.definition["relation_type"],
-                        "target_uid": node._uid_value(),
-                        "target_type": type(node).__name__,
-                    })
-        return edges
 
     def update(self, **kwargs) -> "CodeGraphNode":
         """Update one or more property fields and persist the changes to Neo4j.
@@ -1051,57 +932,6 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         self.save()
         return self
 
-    def walk_edges(self) -> list[dict]:
-        """Walk relationship descriptors, classifying each edge by direction.
-
-        Unlike :meth:`serialize_edges`, this method distinguishes outgoing
-        (``RelationshipTo``) from incoming (``RelationshipFrom``) edges so
-        that callers can handle COMPOSES nesting direction correctly.
-        Direction is derived from the descriptor type — no extra field is
-        added to :meth:`serialize_edges` output.
-
-        Requires the node to be saved in Neo4j (the relationship managers
-        query the database).
-
-        Returns:
-            A list of dicts, each with keys:
-
-            - ``relation_type`` — Neo4j relationship label
-            - ``target_uid`` — connected node's unique id value
-            - ``target_type`` — connected node's class name
-            - ``is_outgoing`` — ``True`` for ``RelationshipTo``,
-              ``False`` for ``RelationshipFrom``
-        """
-        from neomodel import RelationshipTo, RelationshipFrom
-
-        edges: list[dict] = []
-        seen: set[str] = set()
-        for klass in type(self).__mro__:
-            for name, val in vars(klass).items():
-                if not isinstance(val, (RelationshipTo, RelationshipFrom)):
-                    continue
-                if name in seen:
-                    continue
-                seen.add(name)
-
-                is_outgoing = isinstance(val, RelationshipTo)
-                manager = getattr(self, name)
-
-                try:
-                    targets = list(manager.all())
-                except Exception:
-                    # Skip nodes that can't be inflated (e.g. conflicting labels)
-                    continue
-
-                for target in targets:
-                    edges.append({
-                        "relation_type": val.definition["relation_type"],
-                        "target_uid": target._uid_value(),
-                        "target_type": type(target).__name__,
-                        "is_outgoing": is_outgoing,
-                    })
-
-        return edges
 
     # ── Markdown rendering ──────────────────────────────────────────────
 

@@ -78,11 +78,6 @@
             "target_type": "ClassNode"
           },
           {
-            "relation_type": "DEPENDS_ON",
-            "target_uid": "a7088a313f75ecdafea536ec62f8d93de39f2c33",
-            "target_type": "ClassNode"
-          },
-          {
             "relation_type": "REALIZES",
             "target_uid": "c91c124590ac1b9feace1652a940c88ddcf38f3c",
             "target_type": "InterfaceNode"
@@ -171,11 +166,6 @@
         "type": "ClassNode",
         "uid": "3beaa98236596366493cf23e0ab33dad2bec8398",
         "edges": [
-          {
-            "relation_type": "DEPENDS_ON",
-            "target_uid": "93aeaa5ee440aac253b156ccf2f15227aa11e0ac",
-            "target_type": "ClassNode"
-          },
           {
             "relation_type": "DEFINED_IN",
             "target_uid": "7cf39e5586c26cace739ac9e68b9c12ff0afd302",
@@ -363,11 +353,6 @@
         "type": "ClassNode",
         "uid": "be5ed6c102db4247732c36442e610248058b2cc8",
         "edges": [
-          {
-            "relation_type": "INHERITS_FROM",
-            "target_uid": "a7088a313f75ecdafea536ec62f8d93de39f2c33",
-            "target_type": "ClassNode"
-          },
           {
             "relation_type": "DEFINED_IN",
             "target_uid": "ab1f119b125f35d51a2839cd7ea852a406f0bc70",
