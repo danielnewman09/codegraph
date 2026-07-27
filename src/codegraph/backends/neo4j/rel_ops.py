@@ -315,21 +315,6 @@ class Neo4jRelOps:
             f"{type(source).__name__} to {target_cls.__name__}"
         )
 
-    # ── Relationship merge ─────────────────────────────────────────
-
-    def merge_relationship(
-        self, source_uid: str, rel_type: str, target_uid: str
-    ) -> int:
-        """MERGE a relationship between two nodes by uid."""
-        results, _ = db.cypher_query(
-            f"MATCH (s), (t) "
-            f"WHERE s.uid = $suid AND t.uid = $tuid "
-            f"MERGE (s)-[:{rel_type}]->(t) "
-            f"RETURN count(t) AS cnt",
-            {"suid": source_uid, "tuid": target_uid},
-        )
-        return results[0][0] if results else 0
-
     # ── Traversal ─────────────────────────────────────────────────
 
     def get_ancestors(

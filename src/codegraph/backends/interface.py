@@ -92,6 +92,100 @@ class Backend(ABC):
         ...
 
     # ═══════════════════════════════════════════════════════════════════
+    # Node CRUD (delegated to model layer)
+    # ═══════════════════════════════════════════════════════════════════
+
+    @abstractmethod
+    def save(self, node: "CodeGraphNode") -> "CodeGraphNode":
+        """Idempotent create-or-update by uid."""
+        ...
+
+    @abstractmethod
+    def delete(self, node: "CodeGraphNode") -> None:
+        """Delete the node after cascading to COMPOSES children."""
+        ...
+
+    @abstractmethod
+    def get(
+        self,
+        node_type: type["CodeGraphNode"],
+        **filters: Any,
+    ) -> "CodeGraphNode | None":
+        """Get a single node by field filters."""
+        ...
+
+    @abstractmethod
+    def inflate(
+        self,
+        raw: Any,
+        node_type: type["CodeGraphNode"],
+    ) -> "CodeGraphNode":
+        """Create a CodeGraphNode from a raw backend result row."""
+        ...
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Relationship operations (delegated to model layer)
+    # ═══════════════════════════════════════════════════════════════════
+
+    @abstractmethod
+    def connect(
+        self,
+        source: "CodeGraphNode",
+        rel_type: str,
+        target: "CodeGraphNode",
+    ) -> None:
+        """Create a relationship between two saved nodes."""
+        ...
+
+    @abstractmethod
+    def disconnect(
+        self,
+        source: "CodeGraphNode",
+        rel_type: str,
+        target: "CodeGraphNode",
+    ) -> None:
+        """Remove a single relationship between two nodes."""
+        ...
+
+    @abstractmethod
+    def get_composed_children(
+        self,
+        node: "CodeGraphNode",
+    ) -> list["CodeGraphNode"]:
+        """Return all nodes reachable via outgoing COMPOSES edges."""
+        ...
+
+    @abstractmethod
+    def get_all_edges(
+        self,
+        node: "CodeGraphNode",
+    ) -> list[EdgeDescriptor]:
+        """Return ALL edges (incoming + outgoing) from node."""
+        ...
+
+    @abstractmethod
+    def get_all_edges_outgoing(
+        self,
+        node: "CodeGraphNode",
+    ) -> list[EdgeDescriptor]:
+        """Return only outgoing edges from node."""
+        ...
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Bulk operations
+    # ═══════════════════════════════════════════════════════════════════
+
+    @abstractmethod
+    def bulk_save(self, layer_graph: "LayerGraph") -> None:
+        """Save all nodes and relationships in a LayerGraph."""
+        ...
+
+    @abstractmethod
+    def bulk_load_by_tag(self, tag: str) -> list["CodeGraphNode"]:
+        """Load all nodes with tag plus 1-hop neighbors."""
+        ...
+
+    # ═══════════════════════════════════════════════════════════════════
     # Raw query (escape hatch)
     # ═══════════════════════════════════════════════════════════════════
 

@@ -27,12 +27,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from codegraph.backends import get_backend
 from codegraph_mine.base import RequirementMiner, MineResult
 from codegraph_mine.schemas import MinedRequirements
 from codegraph_mine.persistence import persist_mined_requirements
 from codegraph.persistence.repository import GraphRepository
 
-_repo = GraphRepository()
+_repo = get_backend().graph
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -268,7 +269,7 @@ class LLRMiner(RequirementMiner):
 
         # Collect all TestNodes
         if tag:
-            test_nodes = GraphRepository().find_by_tag(TestNode, tag)
+            test_nodes = get_backend().graph.find_by_tag(TestNode, tag)
         else:
             test_nodes = _repo.find_all_by_kind("test")
 
@@ -352,6 +353,7 @@ class LLRMiner(RequirementMiner):
 
         # neomodel labels: TestNode for test nodes,
         # ClassNode/InterfaceNode/EnumNode for compounds
+        # TODO: remove raw cypher
         query = """
         MATCH (t:TestNode)-[:VERIFIES]->(c)
         WHERE elementId(c) = $compound_id

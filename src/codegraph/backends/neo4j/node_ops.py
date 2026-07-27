@@ -212,7 +212,7 @@ class Neo4jNodeOps:
         )
         if not results:
             return None
-        return CodeGraphNode.inflate(results[0][0])
+        return results[0][0]
 
     def get_labels(self, uid: str) -> set[str]:
         """Return Neo4j labels for a node by uid."""
@@ -404,9 +404,9 @@ class Neo4jNodeOps:
             cypher += "RETURN node, score ORDER BY score DESC LIMIT $limit"
             results, _ = db.cypher_query(cypher, params, resolve_objects=True)
             return [
-                {"node": CodeGraphNode.inflate(r[0]), "score": r[1]}
+                {"node": r[0], "score": r[1]}
                 for r in results
-                if CodeGraphNode.inflate(r[0]) is not None
+                if r[0] is not None
             ]
         except Exception:
             # Fallback: CONTAINS search
@@ -426,9 +426,9 @@ class Neo4jNodeOps:
             )
             results, _ = db.cypher_query(cypher, params, resolve_objects=True)
             return [
-                {"node": CodeGraphNode.inflate(r[0]), "score": 1.0}
+                {"node": r[0], "score": 1.0}
                 for r in results
-                if CodeGraphNode.inflate(r[0]) is not None
+                if r[0] is not None
             ]
 
     # ── Vector / semantic search ────────────────────────────────
@@ -460,9 +460,9 @@ class Neo4jNodeOps:
             cypher += "RETURN node, score ORDER BY score DESC"
             results, _ = db.cypher_query(cypher, params, resolve_objects=True)
             return [
-                {"node": CodeGraphNode.inflate(r[0]), "score": r[1]}
+                {"node": r[0], "score": r[1]}
                 for r in results
-                if CodeGraphNode.inflate(r[0]) is not None
+                if r[0] is not None
             ]
         except Exception:
             return []

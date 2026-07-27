@@ -14,7 +14,7 @@ from __future__ import annotations
 from neomodel import db
 
 from codegraph.backends.neo4j.connection import Neo4jConnection
-from codegraph.models.tags import CodeGraphNode
+from codegraph_memory.models.relationships import _inflate_code_node
 
 
 class Neo4jMemoryOps:
@@ -52,11 +52,10 @@ class Neo4jMemoryOps:
             "WHERE c.uid = $uid "
             "RETURN m, type(r) AS rel_type",
             {"uid": target_uid},
-            resolve_objects=True,
         )
         nodes: list[dict] = []
         for row in results:
-            node = CodeGraphNode.inflate(row[0])
+            node = _inflate_code_node(row[0])
             if node is not None:
                 nodes.append({"node": node, "rel_type": row[1]})
         return nodes
@@ -84,6 +83,113 @@ class Neo4jMemoryOps:
             f"MERGE (n)-[:{rel_type}]->(o)",
             {"suid": source_uid, "tuid": target_uid},
         )
+
+    # ── Memory nodes by tag ─────────────────────────────────────
+
+    MEMORY_LABELS = (
+        "DecisionNode|ConstraintNode|RationaleNode|"
+        "AssumptionNode|TradeoffNode|InsightNode"
+    )
+
+    def find_by_tag(self, tag: str) -> list:
+        """Return all memory nodes with *tag*."""
+        results, _ = db.cypher_query(
+            f"MATCH (m:{self.MEMORY_LABELS}) "
+            "WHERE $tag IN m.tags RETURN m",
+            {"tag": tag},
+        )
+        nodes: list = []
+        for row in results:
+            node = _inflate_code_node(row[0])
+            if node is not None:
+                nodes.append(node)
+        return nodes
+
+    # ── Composite traversal + memory queries ─────────────────────
+
+    MEMORY_REL_PATTERN = (
+        "MOTIVATES|CONSTRAINS|EXPLAINS|ASSUMES|TRADES_OFF|INSIGHT_INTO"
+    )
+
+    def find_linked_to_ancestors(
+        self,
+        uid: str,
+        *,
+        max_depth: int = 10,
+    ) -> list[dict]:
+        """Find memory nodes linked to ancestors of *uid* (COMPOSES↑)."""
+        results, _ = db.cypher_query(
+            f"MATCH (target)<-[:COMPOSES*1..{max_depth}]-(ancestor) "
+            "WHERE target.uid = $uid "
+            f"MATCH (m)-[r:{self.MEMORY_REL_PATTERN}]->(ancestor) "
+            "RETURN ancestor.uid AS source_uid, m, type(r) AS rel_type",
+            {"uid": uid},
+        )
+        nodes: list[dict] = []
+        for row in results:
+            memory = _inflate_code_node(row[1])
+            if memory is not None:
+                nodes.append({
+                    "memory": memory,
+                    "source_uid": row[0],
+                    "rel_type": row[2],
+                })
+        return nodes
+
+    def find_linked_to_descendants(
+        self,
+        uid: str,
+        *,
+        max_depth: int = 10,
+    ) -> list:
+        """Find memory nodes linked to descendants of *uid* (COMPOSES↓)."""
+        results, _ = db.cypher_query(
+            f"MATCH (parent)-[:COMPOSES*0..{max_depth}]->(target) "
+            "WHERE parent.uid = $uid "
+            f"MATCH (m)-[:{self.MEMORY_REL_PATTERN}]->(target) "
+            "RETURN DISTINCT m",
+            {"uid": uid},
+        )
+        nodes: list = []
+        for row in results:
+            node = _inflate_code_node(row[0])
+            if node is not None:
+                nodes.append(node)
+        return nodes
+
+    # ── Memory ↔ code node linking ───────────────────────────────
+
+    def link_to_code_node(
+        self,
+        memory_uid: str,
+        code_uid: str,
+        rel_type: str,
+    ) -> None:
+        """MERGE a relationship from memory node to code node."""
+        db.cypher_query(
+            f"MATCH (m) WHERE m.uid = $mid "
+            f"MATCH (c) WHERE c.uid = $cid "
+            f"MERGE (m)-[:{rel_type}]->(c)",
+            {"mid": memory_uid, "cid": code_uid},
+        )
+
+    def find_linked_code_node(
+        self,
+        memory_uid: str,
+    ) -> dict | None:
+        """Find the code node linked to a memory node (non-meta edge)."""
+        results, _ = db.cypher_query(
+            "MATCH (m)-[r]->(c) "
+            "WHERE m.uid = $mid "
+            "AND NOT type(r) IN ['SUPERSEDES', 'CONTRADICTS', 'REFINES'] "
+            "RETURN c.uid AS uid, c.qualified_name AS qn, type(r) AS rel_type "
+            "LIMIT 1",
+            {"mid": memory_uid},
+        )
+        if results:
+            r = results[0]
+            return {"uid": r[0], "qualified_name": r[1], "rel_type": r[2]}
+        return None
 
     # ── Alias with canonical ordering (rel_type before labels) ───
 

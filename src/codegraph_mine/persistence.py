@@ -189,7 +189,7 @@ def _upsert_llr(
 
     # Determine index for naming (brute-force: count existing LLRs + 1)
     from codegraph.persistence.repository import GraphRepository
-    existing_count = len(GraphRepository.composed_children(hlr, LLR))
+    existing_count = len(get_backend().graph.composed_children(hlr, LLR))
 
     name = _make_llr_name(compound_name, existing_count)
 

@@ -13,10 +13,10 @@ from typing import Any
 
 from codegraph_agents.config import AgentConfig
 from codegraph_agents.context import ContextProvider
-from codegraph.persistence.repository import GraphRepository
+from codegraph.backends import get_backend
 
 log = logging.getLogger("codegraph_agents.context.builtins")
-repo = GraphRepository()
+repo = get_backend().graph
 
 
 # ── Mandatory resolvers ────────────────────────────────────────

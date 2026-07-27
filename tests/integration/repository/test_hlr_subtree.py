@@ -8,7 +8,7 @@ Requires Neo4j (credentials loaded via conftest.py).
 import pytest
 
 from codegraph.graph import LayerGraph
-from codegraph.persistence.repository import GraphRepository
+from codegraph.backends import get_backend
 
 
 pytestmark = pytest.mark.usefixtures("setup_neomodel")
@@ -213,15 +213,7 @@ def _seed_hlr_subtree():
     # CALLEE to scaffold AttributeNode — use raw Cypher since
     # TestStepNode has RelationshipTo for MethodNode/FunctionNode/ClassNode
     # but not AttributeNode (scaffolds are resolved during design).
-    from neomodel import db
-    db.cypher_query(
-        "MATCH (s), (t) WHERE elementId(s) = $seid AND elementId(t) = $teid "
-        "MERGE (s)-[:CALLEE]->(t)",
-        {
-            "seid": db.parse_element_id(step1.element_id),
-            "teid": db.parse_element_id(compute_attr.element_id),
-        },
-    )
+    get_backend().connect(step1, "CALLEE", compute_attr)
 
     # Test 2: error path
     test2 = TestNode(
@@ -260,14 +252,14 @@ class TestGetHLRSubtree:
     def test_returns_layer_graph(self):
         """get_hlr_subtree should return a LayerGraph for a valid HLR refid."""
         refid = _seed_hlr_subtree()
-        repo = GraphRepository()
+        repo = get_backend().graph
 
         result = repo.get_hlr_subtree(refid)
         assert isinstance(result, LayerGraph)
 
     def test_missing_hlr_returns_empty(self):
         """get_hlr_subtree should return an empty LayerGraph for a missing refid."""
-        repo = GraphRepository()
+        repo = get_backend().graph
         result = repo.get_hlr_subtree("nonexistent-refid")
 
         assert isinstance(result, LayerGraph)
@@ -276,7 +268,7 @@ class TestGetHLRSubtree:
     def test_includes_hlr_node(self):
         """The subtree should contain the HLR node itself."""
         refid = _seed_hlr_subtree()
-        repo = GraphRepository()
+        repo = get_backend().graph
 
         result = repo.get_hlr_subtree(refid)
         hlr_nodes = list(_nodes_of_type(result, "HLR"))
@@ -288,7 +280,7 @@ class TestGetHLRSubtree:
     def test_includes_llr_nodes(self):
         """The subtree should contain all LLRs composed by the HLR."""
         refid = _seed_hlr_subtree()
-        repo = GraphRepository()
+        repo = get_backend().graph
 
         result = repo.get_hlr_subtree(refid)
         llr_nodes = list(_nodes_of_type(result, "LLR"))
@@ -298,7 +290,7 @@ class TestGetHLRSubtree:
     def test_includes_test_nodes(self):
         """The subtree should contain all TestNodes composed by LLRs."""
         refid = _seed_hlr_subtree()
-        repo = GraphRepository()
+        repo = get_backend().graph
 
         result = repo.get_hlr_subtree(refid)
         test_nodes = list(_nodes_of_type(result, "TestNode"))
@@ -310,7 +302,7 @@ class TestGetHLRSubtree:
     def test_includes_assertion_nodes(self):
         """The subtree should contain all AssertionNodes composed by TestNodes."""
         refid = _seed_hlr_subtree()
-        repo = GraphRepository()
+        repo = get_backend().graph
 
         result = repo.get_hlr_subtree(refid)
         assertion_nodes = list(_nodes_of_type(result, "AssertionNode"))
@@ -323,7 +315,7 @@ class TestGetHLRSubtree:
     def test_includes_test_step_nodes(self):
         """The subtree should contain all TestStepNodes composed by TestNodes."""
         refid = _seed_hlr_subtree()
-        repo = GraphRepository()
+        repo = get_backend().graph
 
         result = repo.get_hlr_subtree(refid)
         step_nodes = list(_nodes_of_type(result, "TestStepNode"))
@@ -334,7 +326,7 @@ class TestGetHLRSubtree:
         """The subtree should include scaffold nodes referenced by
         LEFT_OPERAND, RIGHT_OPERAND, and CALLEE edges."""
         refid = _seed_hlr_subtree()
-        repo = GraphRepository()
+        repo = get_backend().graph
 
         result = repo.get_hlr_subtree(refid)
 
@@ -366,7 +358,7 @@ class TestGetHLRSubtree:
     def test_composes_hierarchy(self):
         """The LayerGraph should nest nodes correctly: HLR → LLR → TestNode."""
         refid = _seed_hlr_subtree()
-        repo = GraphRepository()
+        repo = get_backend().graph
 
         result = repo.get_hlr_subtree(refid)
 
@@ -403,7 +395,7 @@ class TestGetHLRSubtree:
     def test_references_connect_scaffolds(self):
         """AssertionNode and TestStepNode references should point to scaffold nodes."""
         refid = _seed_hlr_subtree()
-        repo = GraphRepository()
+        repo = get_backend().graph
 
         result = repo.get_hlr_subtree(refid)
 
@@ -420,7 +412,7 @@ class TestGetHLRSubtree:
 
     def test_non_existent_hlr_uid_returns_empty(self):
         """Passing a valid-looking but non-existent refid should return empty."""
-        repo = GraphRepository()
+        repo = get_backend().graph
         result = repo.get_hlr_subtree("0123456789abcdef-not-real")
 
         assert isinstance(result, LayerGraph)
@@ -430,7 +422,7 @@ class TestGetHLRSubtree:
         """The subtree should contain all nodes in the HLR tree (HLR + LLR
         + tests + assertions + steps + scaffolds)."""
         refid = _seed_hlr_subtree()
-        repo = GraphRepository()
+        repo = get_backend().graph
 
         result = repo.get_hlr_subtree(refid)
 

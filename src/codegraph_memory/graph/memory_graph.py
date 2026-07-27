@@ -95,7 +95,7 @@ class MemoryGraph:
         entries: list[MemoryEntry] = []
         for r in results:
             entries.append(MemoryEntry(
-                memory=r["memory"],
+                memory=r["node"],
                 code_node_uid=code_uid,
                 code_node_qualified_name=qualified_name,
                 relation_type=r["rel_type"],
@@ -143,8 +143,8 @@ class MemoryGraph:
         """
         results = get_backend().memory.find_for_code_node(code_uid)
         return [
-            r["memory"] for r in results
-            if isinstance(r["memory"], node_class) and r.get("rel_type") == rel_type
+            r["node"] for r in results
+            if isinstance(r["node"], node_class) and r.get("rel_type") == rel_type
         ]
 
     @classmethod

@@ -12,7 +12,7 @@ from codegraph.graph import LayerGraph, CompositeEntry
 from codegraph.models.compound import ClassNode, InterfaceNode, EnumNode
 from codegraph.models.member import MethodNode, AttributeNode
 from codegraph.models.namespace import NamespaceNode
-from codegraph.persistence.repository import GraphRepository
+from codegraph.backends import get_backend
 from codegraph.uid import compute_uid, normalize_argsstring
 
 def _uid(qname: str, argsstring: str | None = None, source: str = "calculator") -> str:
@@ -63,7 +63,7 @@ def seeded_graph():
 
 @pytest.fixture
 def repo():
-    return GraphRepository()
+    return get_backend().graph
 
 # ── get_by_tag ──────────────────────────────────────────────────────────────
 

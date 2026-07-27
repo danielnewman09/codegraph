@@ -1025,7 +1025,7 @@ def _load_existing_requirements_tree(hlr) -> dict:
     """
     from codegraph.persistence.repository import GraphRepository
 
-    repo = GraphRepository()
+    repo = get_backend().graph
     hlr_uid = hlr.uid or ""
 
     try:
@@ -1426,7 +1426,7 @@ def _count_hlr_scaffolds(hlr) -> int:
     from codegraph.persistence.repository import GraphRepository
 
     try:
-        repo = GraphRepository()
+        repo = get_backend().graph
         graph = repo.get_hlr_subtree(hlr.uid or "", tag="scaffold")
         # Count entries whose node carries the "scaffold" tag
         count = 0
@@ -1856,7 +1856,7 @@ def serialize_hlr_subtree_to_markdown(
     if not output_dir:
         output_dir = f"codegraph/requirements/{slug}"
 
-    repo = GraphRepository()
+    repo = get_backend().graph
     graph = repo.get_hlr_subtree(hlr_uid)
 
     if not graph.entries:

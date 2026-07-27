@@ -17,6 +17,43 @@ from codegraph.backends.neo4j.config import Neo4jConfig
 log = logging.getLogger(__name__)
 
 
+class Row:
+    """A query result row that supports both dict and positional access.
+
+    Wraps a Neo4j Record so callers can use ``row[0]``, ``row["col"]``,
+    and ``row.get("col")`` interchangeably.
+    """
+
+    __slots__ = ("_keys", "_values", "_index")
+
+    def __init__(self, keys: list[str], values: tuple):
+        self._keys = keys
+        self._values = values
+        self._index = {k: i for i, k in enumerate(keys)}
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return self._values[key]
+        return self._values[self._index[key]]
+
+    def __contains__(self, key: str) -> bool:
+        return key in self._index
+
+    def get(self, key: str, default: Any = None) -> Any:
+        idx = self._index.get(key)
+        if idx is None:
+            return default
+        return self._values[idx]
+
+    def keys(self) -> list[str]:
+        return list(self._keys)
+
+    def __repr__(self) -> str:
+        return "Row(" + ", ".join(
+            f"{k}={self._values[i]!r}" for i, k in enumerate(self._keys)
+        ) + ")"
+
+
 class Neo4jUnavailableError(RuntimeError):
     """Raised when Neo4j is not reachable."""
 
@@ -78,22 +115,23 @@ class Neo4jConnection:
         self,
         query: str,
         params: dict | None = None,
-    ) -> tuple[list[dict], list[str]]:
-        """Run a Cypher query and return rows as dicts keyed by column name.
+    ) -> tuple[list[Row], list[str]]:
+        """Run a Cypher query and return rows supporting both
+        positional (``row[0]``) and key-based (``row["col"]``) access.
 
         Args:
             query: Cypher query string.
             params: Optional dict of query parameters.
 
         Returns:
-            A ``(rows, columns)`` tuple — *rows* is a list of dicts,
-            *columns* the ordered column names.
+            A ``(rows, columns)`` tuple — *rows* is a list of
+            :class:`Row` objects, *columns* the ordered column names.
         """
         self.ensure_driver()
         with self.get_session() as session:
             result = session.run(query, params or {})
             keys = list(result.keys())
-            rows = [dict(zip(keys, record.values())) for record in result]
+            rows = [Row(keys, record.values()) for record in result]
             return rows, keys
 
     def health_check(self) -> bool:

@@ -161,7 +161,7 @@ class TestTagQueries:
         # codegraph:test-desc test_codegraph_node.TestTagQueries.test_fetch_by_tag_returns_empty_for_file_node::step_0
         # Calls fetch_by_tag on the FileNode with a specific tag, setting up the action
         # that should produce an empty result.
-        result = GraphRepository().find_by_tag(FileNode, "design")
+        result = get_backend().graph.find_by_tag(FileNode, "design")
         # codegraph:test-desc test_codegraph_node.TestTagQueries.test_fetch_by_tag_returns_empty_for_file_node::post_0
         # Verifies that fetch_by_tag returns an empty list, confirming that nodes
         # without a 'tags' property return no results as expected.
@@ -173,7 +173,7 @@ class TestTagQueries:
         # Sets up the ParameterNode fixture and calls fetch_by_tag on it, advancing the
         # test to verify the method's behavior for parameter nodes.
         from codegraph.models.parameter import ParameterNode
-        result = GraphRepository().find_by_tag(ParameterNode, "design")
+        result = get_backend().graph.find_by_tag(ParameterNode, "design")
         # codegraph:test-desc test_codegraph_node.TestTagQueries.test_fetch_by_tag_returns_empty_for_parameter_node::post_0
         # Asserts that fetch_by_tag returns an empty list for a ParameterNode,
         # confirming the method correctly handles node types without a 'tags' property.
@@ -187,7 +187,7 @@ class TestTagQueries:
         # assertions.
         cls = ClassNode(source="test", name="FetchTestClass", kind="class", qualified_name="ns::FetchTestClass", tags=["design"]).save()
         try:
-            result = GraphRepository().find_by_tag(ClassNode, "design")
+            result = get_backend().graph.find_by_tag(ClassNode, "design")
             names = [n.name for n in result]
             # codegraph:test-desc test_codegraph_node.TestTagQueries.test_fetch_by_tag_returns_nodes_with_matching_tag::post_0
             # Verifies that the node named 'FetchTestClass' appears in the query result,
@@ -204,7 +204,7 @@ class TestTagQueries:
         # the 'as-built' tag, establishing the context for the subsequent assertion.
         cls = ClassNode(source="test", name="FetchDesignOnly", kind="class", qualified_name="ns::FetchDesignOnly", tags=["design"]).save()
         try:
-            result = GraphRepository().find_by_tag(ClassNode, "as-built")
+            result = get_backend().graph.find_by_tag(ClassNode, "as-built")
             names = [n.name for n in result]
             # codegraph:test-desc test_codegraph_node.TestTagQueries.test_fetch_by_tag_excludes_non_matching_tags::post_0
             # Verifies that a node tagged only with 'design' is not included in the
@@ -222,8 +222,8 @@ class TestTagQueries:
         # the nodes needed to exercise the fetch_by_tag query.
         cls = ClassNode(source="test", name="MultiTagClass", kind="class", qualified_name="ns::MultiTagClass", tags=["design", "as-built"]).save()
         try:
-            design_result = GraphRepository().find_by_tag(ClassNode, "design")
-            asbuilt_result = GraphRepository().find_by_tag(ClassNode, "as-built")
+            design_result = get_backend().graph.find_by_tag(ClassNode, "design")
+            asbuilt_result = get_backend().graph.find_by_tag(ClassNode, "as-built")
             # codegraph:test-desc test_codegraph_node.TestTagQueries.test_fetch_by_tag_returns_nodes_with_multiple_tags::post_0
             # Verifies that the node named 'MultiTagClass' is present in the results
             # fetched using the design tag. This assertion ensures that fetch_by_tag
@@ -247,7 +247,7 @@ class TestTagQueries:
         cls = ClassNode(source="test", name="FetchAllClass", kind="class", qualified_name="ns::FetchAllClass2", tags=["design"]).save()
         meth = MethodNode(source="test", name="fetchAllMethod", kind="method", qualified_name="ns::FetchAllClass2::fetchAllMethod", tags=["design"]).save()
         try:
-            result = GraphRepository().find_all_by_tag("design")
+            result = get_backend().graph.find_all_by_tag("design")
             names = [n.name for n in result]
             # codegraph:test-desc test_codegraph_node.TestTagQueries.test_fetch_all_by_tag_across_types::post_0
             # Verifies that the result contains at least one of the expected class-level

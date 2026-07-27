@@ -107,8 +107,8 @@ def _create_edge(source, target, edge_type: str) -> bool:
         get_backend().execute_raw(
             query,
             {
-                "source_id": db.parse_element_id(source.element_id),
-                "target_id": db.parse_element_id(target.element_id),
+                "source_id": source.element_id,
+                "target_id": target.element_id,
             },
         )
         return True
@@ -194,7 +194,7 @@ def persist_decomposition(
         raise ValueError(f"HLR '{hlr_uid}' not found")
 
     # --- Delete existing LLRs (and their verification subtrees) ---
-    for old_llr in GraphRepository.composed_children(hlr, LLR):
+    for old_llr in get_backend().graph.composed_children(hlr, LLR):
         _delete_llr_subtree(old_llr)
 
     # --- Deserialize into a LayerGraph with auto-scaffold creation ---
@@ -290,18 +290,18 @@ def persist_decomposition(
         if type(entry.node) is LLR:
             _create_edge(hlr, entry.node, "COMPOSES")
             result.llrs_created += 1
-            for test_node in GraphRepository.composed_children(
+            for test_node in get_backend().graph.composed_children(
                 entry.node, TestNode
             ):
                 result.tests_created += 1
                 result.assertions_created += len(
-                    GraphRepository.composed_children(test_node, AssertionNode)
+                    get_backend().graph.composed_children(test_node, AssertionNode)
                 )
                 result.steps_created += len(
-                    GraphRepository.composed_children(test_node, TestStepNode)
+                    get_backend().graph.composed_children(test_node, TestStepNode)
                 )
                 result.fixtures_created += len(
-                    GraphRepository.composed_children(test_node, TestFixtureNode)
+                    get_backend().graph.composed_children(test_node, TestFixtureNode)
                 )
 
     log.info(
@@ -551,16 +551,16 @@ def _delete_llr_subtree(llr: LLR) -> None:
     Deletes all TestNode, AssertionNode, TestStepNode, and TestFixtureNode
     children, then the LLR itself.
     """
-    for test_node in GraphRepository.composed_children(llr, TestNode):
-        for assertion in GraphRepository.composed_children(
+    for test_node in get_backend().graph.composed_children(llr, TestNode):
+        for assertion in get_backend().graph.composed_children(
             test_node, AssertionNode
         ):
             assertion.delete()
-        for step in GraphRepository.composed_children(
+        for step in get_backend().graph.composed_children(
             test_node, TestStepNode
         ):
             step.delete()
-        for fixture in GraphRepository.composed_children(
+        for fixture in get_backend().graph.composed_children(
             test_node, TestFixtureNode
         ):
             fixture.delete()

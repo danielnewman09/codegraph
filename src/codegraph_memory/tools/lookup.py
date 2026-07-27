@@ -1,7 +1,7 @@
 """Memory lookup tools — targeted queries for specific memory types.
 
-Implements: constraints_for, decision_chain, insights_for, rationales_for,
-assumptions_for, tradeoffs_for, affected_decisions.
+Implements: memory_of, constraints_for, decision_chain, insights_for,
+rationales_for, assumptions_for, tradeoffs_for, affected_decisions.
 """
 
 from __future__ import annotations
@@ -9,6 +9,21 @@ from __future__ import annotations
 from typing import Any
 
 from codegraph.backends import get_backend
+
+
+def memory_of(qualified_name: str) -> list[dict[str, Any]]:
+    """Return all memory nodes linked to a code node."""
+    node = get_backend().graph.find_by_qualified_name(qualified_name)
+    if node is None:
+        return []
+    uid = node._uid_value()
+    if not uid:
+        return []
+    results = get_backend().memory.find_for_code_node(uid)
+    return [
+        r["node"].serialize() | {"relation": r["rel_type"]}
+        for r in results
+    ]
 
 
 def constraints_for(qualified_name: str) -> list[dict[str, Any]]:
@@ -21,9 +36,9 @@ def constraints_for(qualified_name: str) -> list[dict[str, Any]]:
         return []
     results = get_backend().memory.find_for_code_node(uid)
     return [
-        r["memory"].serialize() | {"relation": r["rel_type"]}
+        r["node"].serialize() | {"relation": r["rel_type"]}
         for r in results
-        if type(r["memory"]).__name__ == "ConstraintNode"
+        if type(r["node"]).__name__ == "ConstraintNode"
     ]
 
 
@@ -37,9 +52,9 @@ def decisions_for(qualified_name: str) -> list[dict[str, Any]]:
         return []
     results = get_backend().memory.find_for_code_node(uid)
     return [
-        r["memory"].serialize() | {"relation": r["rel_type"]}
+        r["node"].serialize() | {"relation": r["rel_type"]}
         for r in results
-        if type(r["memory"]).__name__ == "DecisionNode"
+        if type(r["node"]).__name__ == "DecisionNode"
     ]
 
 
@@ -75,9 +90,9 @@ def insights_for(qualified_name: str) -> list[dict[str, Any]]:
         return []
     results = get_backend().memory.find_for_code_node(uid)
     return [
-        r["memory"].serialize() | {"relation": r["rel_type"]}
+        r["node"].serialize() | {"relation": r["rel_type"]}
         for r in results
-        if type(r["memory"]).__name__ == "InsightNode"
+        if type(r["node"]).__name__ == "InsightNode"
     ]
 
 
@@ -91,9 +106,9 @@ def rationales_for(qualified_name: str) -> list[dict[str, Any]]:
         return []
     results = get_backend().memory.find_for_code_node(uid)
     return [
-        r["memory"].serialize() | {"relation": r["rel_type"]}
+        r["node"].serialize() | {"relation": r["rel_type"]}
         for r in results
-        if type(r["memory"]).__name__ == "RationaleNode"
+        if type(r["node"]).__name__ == "RationaleNode"
     ]
 
 
@@ -107,9 +122,9 @@ def assumptions_for(qualified_name: str) -> list[dict[str, Any]]:
         return []
     results = get_backend().memory.find_for_code_node(uid)
     return [
-        r["memory"].serialize() | {"relation": r["rel_type"]}
+        r["node"].serialize() | {"relation": r["rel_type"]}
         for r in results
-        if type(r["memory"]).__name__ == "AssumptionNode"
+        if type(r["node"]).__name__ == "AssumptionNode"
     ]
 
 
@@ -123,9 +138,9 @@ def tradeoffs_for(qualified_name: str) -> list[dict[str, Any]]:
         return []
     results = get_backend().memory.find_for_code_node(uid)
     return [
-        r["memory"].serialize() | {"relation": r["rel_type"]}
+        r["node"].serialize() | {"relation": r["rel_type"]}
         for r in results
-        if type(r["memory"]).__name__ == "TradeoffNode"
+        if type(r["node"]).__name__ == "TradeoffNode"
     ]
 
 

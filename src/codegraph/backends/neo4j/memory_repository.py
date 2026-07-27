@@ -1,15 +1,14 @@
 """Neo4jMemoryRepository — Neo4j implementation of the MemoryRepository
 abstract interface.
 
-Composes ``Neo4jMemoryOps`` + the graph repository (for uid resolution).
-Composite queries use ``execute_raw()`` as an escape hatch.
+All Cypher is sealed inside ``Neo4jMemoryOps`` + delegated graph ops.
+No raw query strings in this module.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, override
 
-from codegraph.backends import get_backend
 from codegraph.backends.neo4j.connection import Neo4jConnection
 from codegraph.backends.neo4j.memory_ops import Neo4jMemoryOps
 from codegraph.persistence.memory_repository import MemoryRepository
@@ -22,14 +21,6 @@ if TYPE_CHECKING:
 class Neo4jMemoryRepository(MemoryRepository):
     """Neo4j implementation of the MemoryRepository interface."""
 
-    MEMORY_LABELS = (
-        "DecisionNode|ConstraintNode|RationaleNode|"
-        "AssumptionNode|TradeoffNode|InsightNode"
-    )
-    MEMORY_REL_PATTERN = (
-        "MOTIVATES|CONSTRAINS|EXPLAINS|ASSUMES|TRADES_OFF|INSIGHT_INTO"
-    )
-
     def __init__(
         self,
         conn: Neo4jConnection,
@@ -39,19 +30,15 @@ class Neo4jMemoryRepository(MemoryRepository):
         self._graph = graph_repo
         self._memory_ops = Neo4jMemoryOps(conn)
 
-    # ── Memory → code node queries ──────────────────────────────────
+    # ── Memory → code node queries (delegate to memory_ops) ───────
 
     @override
     def find_for_code_node(self, uid: str) -> list[dict]:
-        results = self._memory_ops.find_related_nodes(
+        return self._memory_ops.find_related_nodes(
             uid,
-            self.MEMORY_REL_PATTERN,
-            source_labels=self.MEMORY_LABELS,
+            Neo4jMemoryOps.MEMORY_REL_PATTERN,
+            source_labels=Neo4jMemoryOps.MEMORY_LABELS,
         )
-        return [
-            {"memory": r["node"], "rel_type": r["rel_type"]}
-            for r in results
-        ]
 
     @override
     def find_for_code_node_by_qname(
@@ -62,24 +49,13 @@ class Neo4jMemoryRepository(MemoryRepository):
             return []
         return self.find_for_code_node(uid)
 
-    # ── Memory nodes by tag ────────────────────────────────────────
+    # ── Memory nodes by tag (delegate to memory_ops) ─────────────
 
     @override
     def find_by_tag(self, tag: str) -> list["CodeGraphNode"]:
-        rows, _ = self._conn.execute_raw(
-            f"MATCH (m:{self.MEMORY_LABELS}) "
-            "WHERE $tag IN m.tags RETURN m",
-            {"tag": tag},
-        )
-        from codegraph_memory.models.relationships import _inflate_code_node
-        nodes: list["CodeGraphNode"] = []
-        for row in rows:
-            node = _inflate_code_node(row["m"])
-            if node is not None:
-                nodes.append(node)
-        return nodes
+        return self._memory_ops.find_by_tag(tag)
 
-    # ── Memory-to-memory edges ─────────────────────────────────────
+    # ── Memory-to-memory edges (delegate to memory_ops via graph) ─
 
     @override
     def merge_edge(
@@ -91,12 +67,12 @@ class Neo4jMemoryRepository(MemoryRepository):
         source_label: str,
         target_label: str,
     ) -> None:
-        self._graph.merge_labeled_relationship(
+        self._memory_ops.merge_labeled_relationship(
             source_uid, source_label, rel_type,
             target_uid, target_label,
         )
 
-    # ── Composite traversal + memory queries ───────────────────────
+    # ── Composite traversal + memory queries (delegate to memory_ops)
 
     @override
     def find_linked_to_ancestors(
@@ -105,24 +81,9 @@ class Neo4jMemoryRepository(MemoryRepository):
         *,
         max_depth: int = 10,
     ) -> list[dict]:
-        rows, _ = self._conn.execute_raw(
-            f"MATCH (target)<-[:COMPOSES*1..{max_depth}]-(ancestor) "
-            "WHERE target.uid = $uid "
-            f"MATCH (m)-[r:{self.MEMORY_REL_PATTERN}]->(ancestor) "
-            "RETURN ancestor.uid AS source_uid, m, type(r) AS rel_type",
-            {"uid": uid},
+        return self._memory_ops.find_linked_to_ancestors(
+            uid, max_depth=max_depth,
         )
-        from codegraph_memory.models.relationships import _inflate_code_node
-        results: list[dict] = []
-        for row in rows:
-            memory = _inflate_code_node(row["m"])
-            if memory is not None:
-                results.append({
-                    "memory": memory,
-                    "source_uid": row["source_uid"],
-                    "rel_type": row["rel_type"],
-                })
-        return results
 
     @override
     def find_linked_to_descendants(
@@ -131,22 +92,11 @@ class Neo4jMemoryRepository(MemoryRepository):
         *,
         max_depth: int = 10,
     ) -> list["CodeGraphNode"]:
-        rows, _ = self._conn.execute_raw(
-            f"MATCH (parent)-[:COMPOSES*0..{max_depth}]->(target) "
-            "WHERE parent.uid = $uid "
-            f"MATCH (m)-[:{self.MEMORY_REL_PATTERN}]->(target) "
-            "RETURN DISTINCT m",
-            {"uid": uid},
+        return self._memory_ops.find_linked_to_descendants(
+            uid, max_depth=max_depth,
         )
-        from codegraph_memory.models.relationships import _inflate_code_node
-        nodes: list["CodeGraphNode"] = []
-        for row in rows:
-            node = _inflate_code_node(row["m"])
-            if node is not None:
-                nodes.append(node)
-        return nodes
 
-    # ── Full-text search ───────────────────────────────────────────
+    # ── Full-text search (delegate to graph ops) ──────────────────
 
     @override
     def search_content(
@@ -158,11 +108,10 @@ class Neo4jMemoryRepository(MemoryRepository):
         results = self._graph.search_fulltext(
             query,
             index_name="memory_search",
-            labels=self.MEMORY_LABELS,
+            labels=Neo4jMemoryOps.MEMORY_LABELS,
             tag=tag,
             limit=limit,
         )
-        from codegraph_memory.models.relationships import _inflate_code_node
         output: list[dict] = []
         for r in results:
             node = r["node"]
@@ -172,7 +121,7 @@ class Neo4jMemoryRepository(MemoryRepository):
                 output.append(data)
         return output
 
-    # ── Memory ↔ code node linking ───────────────────────────────
+    # ── Memory ↔ code node linking (delegate to memory_ops) ──────
 
     @override
     def link_to_code_node(
@@ -181,11 +130,8 @@ class Neo4jMemoryRepository(MemoryRepository):
         code_uid: str,
         rel_type: str,
     ) -> None:
-        self._conn.execute_raw(
-            f"MATCH (m) WHERE m.uid = $mid "
-            f"MATCH (c) WHERE c.uid = $cid "
-            f"MERGE (m)-[:{rel_type}]->(c)",
-            {"mid": memory_uid, "cid": code_uid},
+        self._memory_ops.link_to_code_node(
+            memory_uid, code_uid, rel_type,
         )
 
     @override
@@ -193,20 +139,9 @@ class Neo4jMemoryRepository(MemoryRepository):
         self,
         memory_uid: str,
     ) -> dict | None:
-        rows, _ = self._conn.execute_raw(
-            "MATCH (m)-[r]->(c) "
-            "WHERE m.uid = $mid "
-            "AND NOT type(r) IN ['SUPERSEDES', 'CONTRADICTS', 'REFINES'] "
-            "RETURN c.uid AS uid, c.qualified_name AS qualified_name, "
-            "type(r) AS rel_type "
-            "LIMIT 1",
-            {"mid": memory_uid},
-        )
-        if rows:
-            return rows[0]
-        return None
+        return self._memory_ops.find_linked_code_node(memory_uid)
 
-    # ── Vector search ──────────────────────────────────────────────
+    # ── Vector search (delegate to graph ops) ─────────────────────
 
     @override
     def search_semantic(
@@ -220,11 +155,10 @@ class Neo4jMemoryRepository(MemoryRepository):
         results = self._graph.search_vector(
             embedding,
             index_name="memory_embedding",
-            labels=self.MEMORY_LABELS,
+            labels=Neo4jMemoryOps.MEMORY_LABELS,
             tag=tag,
             limit=limit,
         )
-        from codegraph_memory.models.relationships import _inflate_code_node
         output: list[dict] = []
         for r in results:
             node = r["node"]

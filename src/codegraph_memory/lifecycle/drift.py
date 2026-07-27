@@ -12,17 +12,7 @@ from codegraph_memory.models.relationships import _inflate_code_node
 
 
 def detect_drift(source: str | None = None) -> list[dict[str, Any]]:
-    """Detect stale memories after a codegraph re-index.
-
-    Checks for:
-    1. **Tag divergence**: memory is design-tagged but target code lost
-       its design tag.
-    2. **Orphan decisions**: design-tagged decisions with no linked code.
-    3. **Confidence staleness**: low-confidence memories that may need review.
-
-    Returns:
-        A list of drift findings, each with ``memory``, ``status``, ``detail``.
-    """
+    """Detect stale memories after a codegraph re-index."""
     backend = get_backend()
     params: dict[str, Any] = {}
     source_filter = "AND m.source = $source" if source else ""
@@ -104,11 +94,7 @@ def detect_drift(source: str | None = None) -> list[dict[str, Any]]:
 
 
 def confidence_decay(code_node_uid: str, decay_factor: float = 0.9) -> int:
-    """Reduce confidence on memories linked to a code node that changed.
-
-    Multiplies the confidence of all memories linked to the specified
-    code node by the decay factor.
-    """
+    """Reduce confidence on memories linked to a code node that changed."""
     backend = get_backend()
     rows, _ = backend.execute_raw(
         "MATCH (m)-[:MOTIVATES|CONSTRAINS|EXPLAINS|ASSUMES|TRADES_OFF|INSIGHT_INTO]->(c) "

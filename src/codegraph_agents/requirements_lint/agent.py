@@ -25,12 +25,13 @@ from typing import Any, ClassVar
 
 from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage
 
+from codegraph.backends import get_backend
 from codegraph_agents.base import BaseAgent
 from codegraph_agents.config import AgentConfig
 from codegraph_agents.state import AgentState
 from codegraph.persistence.repository import GraphRepository
 
-_repo = GraphRepository()
+_repo = get_backend().graph
 
 log = logging.getLogger("codegraph_agents.requirements_lint")
 

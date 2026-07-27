@@ -28,6 +28,8 @@ def export_adr(
     Returns:
         A markdown string representing the ADR.
     """
+    backend = get_backend()
+
     # Fetch the decision
     results, _ = backend.execute_raw(
         "MATCH (d:DecisionNode {qualified_name: $qname}) RETURN d",

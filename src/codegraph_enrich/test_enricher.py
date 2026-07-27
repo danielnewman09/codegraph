@@ -25,6 +25,7 @@ from __future__ import annotations
 import re
 from typing import Any, TYPE_CHECKING
 
+from codegraph.backends import get_backend
 from codegraph_enrich.base import GraphEnricher
 
 if TYPE_CHECKING:
@@ -242,7 +243,7 @@ of the code under test.
 
         tag = filters.get("tag")
         if tag:
-            return GraphRepository().find_by_tag(TestNode, tag)
+            return get_backend().graph.find_by_tag(TestNode, tag)
         return list(TestNode.nodes.all())
 
     # ------------------------------------------------------------------

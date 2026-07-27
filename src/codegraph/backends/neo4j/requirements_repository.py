@@ -1,8 +1,8 @@
 """Neo4jRequirementsRepository — Neo4j implementation of the
 RequirementsRepository interface.
 
-Consolidates HLR/LLR/test tree traversal, scaffold lifecycle, and
-verification edge management Cypher into a single module.
+All Cypher is sealed inside ``Neo4jRequirementsOps``.  The repository
+does pure-Python grouping/transformation of op results.
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from codegraph.backends.neo4j.connection import Neo4jConnection
+from codegraph.backends.neo4j.requirements_ops import Neo4jRequirementsOps
 from codegraph.persistence.requirements_repository import RequirementsRepository
 
 if TYPE_CHECKING:
@@ -26,29 +27,18 @@ class Neo4jRequirementsRepository(RequirementsRepository):
     ):
         self._conn = conn
         self._graph = graph_repo
+        self._req_ops = Neo4jRequirementsOps(conn)
 
-    def _raw(self, query: str, params: dict | None = None):
-        """Shorthand for connection-level execute_raw."""
-        rows, _ = self._conn.execute_raw(query, params)
-        return rows
-
-    # ── HLR/LLR/Test tree traversal ────────────────────────────────
+    # ── HLR/LLR/Test tree traversal ───────────────────────────────
 
     def get_hlr_tree(self, hlr_uid: str) -> dict:
-        """Return full HLR→LLRs→TestNodes tree with resolved targets."""
-        rows = self._raw(
-            "MATCH (hlr:HLR)-[:COMPOSES]->(llr:LLR) "
-            "WHERE hlr.uid = $uid "
-            "OPTIONAL MATCH (llr)-[:COMPOSES]->(test:TestNode) "
-            "OPTIONAL MATCH (test)-[:VERIFIES]->(verifies_target) "
-            "OPTIONAL MATCH (test)-[:COMPOSES]->(step:TestStepNode) "
-            "OPTIONAL MATCH (step)-[:CALLEE]->(step_target) "
-            "RETURN hlr, llr, test, verifies_target, step, step_target "
-            "ORDER BY llr.name, test.test_name, step.order",
-            {"uid": hlr_uid},
-        )
+        """Return full HLR→LLRs→TestNodes tree with resolved targets.
 
-        # Group by LLR → test
+        Delegates Cypher to ``Neo4jRequirementsOps``; does grouping in
+        pure Python.
+        """
+        rows = self._req_ops.get_hlr_tree(hlr_uid)
+
         llr_map: dict[str, dict] = {}
         hlr = None
         for r in rows:
@@ -129,60 +119,25 @@ class Neo4jRequirementsRepository(RequirementsRepository):
         directly_referenced: bool = False,
     ) -> list[str]:
         """Find scaffold node uids matching criteria."""
-        conditions: list[str] = []
-
-        if with_edges:
-            edge_list = ", ".join(f"'{e}'" for e in with_edges)
-            conditions.append(
-                f"AND EXISTS {{ MATCH ()-[r]->(n) "
-                f"WHERE type(r) IN [{edge_list}] }}"
-            )
-
-        if without_edges:
-            conditions.append("AND NOT EXISTS { MATCH (n)-[r]-() }")
-
         if parent_is_not_scaffold:
-            # This query operates on (parent)-[:COMPOSES]->(child)
-            rows = self._raw(
-                "MATCH (parent)-[:COMPOSES]->(child) "
-                "WHERE 'scaffold' IN coalesce(child.tags, []) "
-                "AND NOT 'scaffold' IN coalesce(parent.tags, []) "
-                "RETURN child.uid AS uid",
-            )
-            return [r["uid"] for r in rows]
+            return self._req_ops.find_scaffold_with_non_scaffold_parents()
 
         if directly_referenced:
-            rows = self._raw(
-                "MATCH (ca)-[r]->(s) "
-                "WHERE (ca:AssertionNode OR ca:TestStepNode) "
-                "AND (r:LEFT_OPERAND OR r:RIGHT_OPERAND OR r:CALLEE) "
-                "AND 'scaffold' IN s.tags "
-                "RETURN DISTINCT s.uid AS uid",
-            )
-            return [r["uid"] for r in rows]
+            return self._req_ops.find_scaffold_directly_referenced_by_assertions()
 
-        query = (
-            "MATCH (n) WHERE 'scaffold' IN coalesce(n.tags, []) "
-            + " ".join(conditions)
-            + " RETURN n.uid AS uid"
-        )
-        rows = self._raw(query)
-        return [r["uid"] for r in rows]
+        if with_edges:
+            return self._req_ops.find_scaffold_with_references()
+
+        if without_edges:
+            return self._req_ops.find_scaffold_without_relationships()
+
+        return self._req_ops.find_scaffold_uids()
 
     def find_scaffold_parents_of_referenced(
         self, referenced_uids: list[str]
     ) -> list[str]:
         """Return uids of scaffold ClassNode parents with referenced children."""
-        if not referenced_uids:
-            return []
-        rows = self._raw(
-            "MATCH (parent:ClassNode)-[:COMPOSES]->(child) "
-            "WHERE 'scaffold' IN parent.tags "
-            "AND child.uid IN $uids "
-            "RETURN DISTINCT parent.uid AS uid",
-            {"uids": referenced_uids},
-        )
-        return [r["uid"] for r in rows]
+        return self._req_ops.find_scaffold_parents_of_referenced(referenced_uids)
 
     def retag_scaffold_to_design(self, uid: str) -> None:
         """Change scaffold tags to ['design']."""
@@ -198,26 +153,21 @@ class Neo4jRequirementsRepository(RequirementsRepository):
         self, test_qname: str, target_qname: str
     ) -> None:
         """MERGE VERIFIES edge."""
-        self._graph.merge_relationship(
-            test_qname, "VERIFIES", target_qname,
-        )
+        test_uid = self._graph.resolve_uid(test_qname)
+        target_uid = self._graph.resolve_uid(target_qname)
+        if test_uid and target_uid:
+            self._graph.merge_relationship(test_uid, "VERIFIES", target_uid)
 
     def replace_callee(
         self, step_qname: str, new_target_qname: str
     ) -> None:
         """Delete old CALLEE edges and MERGE new one."""
-        # Delete old
         step_uid = self._graph.resolve_uid(step_qname)
         if step_uid:
-            self._raw(
-                "MATCH (step:TestStepNode {uid: $uid})-[r:CALLEE]->() "
-                "DELETE r",
-                {"uid": step_uid},
-            )
-        # Create new
-        self._graph.merge_relationship(
-            step_qname, "CALLEE", new_target_qname,
-        )
+            self._req_ops.delete_callee_edges(step_uid)
+        target_uid = self._graph.resolve_uid(new_target_qname)
+        if step_uid and target_uid:
+            self._graph.merge_relationship(step_uid, "CALLEE", target_uid)
 
     # ── HLR dependencies ──────────────────────────────────────────
 
@@ -229,22 +179,9 @@ class Neo4jRequirementsRepository(RequirementsRepository):
         description: str = "",
     ) -> dict | None:
         """MERGE DEPENDS_ON between HLRs with description."""
-        rows = self._raw(
-            "MATCH (source:HLR {uid: $suid}) "
-            "MATCH (target:HLR {name: $tname}) "
-            "MERGE (source)-[r:DEPENDS_ON]->(target) "
-            "SET r.description = $desc "
-            "RETURN source.name, type(r), target.name",
-            {"suid": source_uid, "tname": target_name, "desc": description},
+        return self._req_ops.merge_depends_on_hlr(
+            source_uid, target_name, description=description,
         )
-        if rows:
-            r = rows[0]
-            return {
-                "source": r[0],
-                "relation": r[1],
-                "target": r[2],
-            }
-        return None
 
     # ── Unresolved verification queries ────────────────────────────
 
@@ -252,15 +189,7 @@ class Neo4jRequirementsRepository(RequirementsRepository):
         self, hlr_uid: str
     ) -> list[dict]:
         """Return TestNodes whose VERIFIES targets are still scaffold."""
-        rows = self._raw(
-            "MATCH (hlr:HLR)-[:COMPOSES]->(llr:LLR) "
-            "WHERE hlr.uid = $uid "
-            "OPTIONAL MATCH (llr)-[:COMPOSES]->(test:TestNode) "
-            "OPTIONAL MATCH (test)-[:VERIFIES]->(verifies_target) "
-            "WHERE 'scaffold' IN coalesce(verifies_target.tags, []) "
-            "RETURN test, verifies_target, llr.name AS llr_name",
-            {"uid": hlr_uid},
-        )
+        rows = self._req_ops.find_unresolved_verifications(hlr_uid)
         results: list[dict] = []
         for r in rows:
             test = r[0]
@@ -279,16 +208,7 @@ class Neo4jRequirementsRepository(RequirementsRepository):
         self, hlr_uid: str
     ) -> list[dict]:
         """Return TestStepNodes whose CALLEE targets are still scaffold."""
-        rows = self._raw(
-            "MATCH (hlr:HLR)-[:COMPOSES]->(llr:LLR) "
-            "WHERE hlr.uid = $uid "
-            "OPTIONAL MATCH (llr)-[:COMPOSES]->(test:TestNode) "
-            "OPTIONAL MATCH (test)-[:COMPOSES]->(step:TestStepNode) "
-            "OPTIONAL MATCH (step)-[:CALLEE]->(callee_target) "
-            "WHERE 'scaffold' IN coalesce(callee_target.tags, []) "
-            "RETURN step, callee_target",
-            {"uid": hlr_uid},
-        )
+        rows = self._req_ops.find_unresolved_callee_steps(hlr_uid)
         results: list[dict] = []
         for r in rows:
             step = r[0]

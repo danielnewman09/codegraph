@@ -57,7 +57,7 @@ def get_linked_memory_nodes(
         return []
     results = get_backend().memory.find_for_code_node(uid)
     return [
-        r["memory"] for r in results
+        r["node"] for r in results
         if r["rel_type"] == relation_type
     ]
 
@@ -70,5 +70,5 @@ def get_all_memory_for_code_node(
     if not uid:
         return []
     return [
-        r["memory"] for r in get_backend().memory.find_for_code_node(uid)
+        r["node"] for r in get_backend().memory.find_for_code_node(uid)
     ]

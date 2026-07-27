@@ -11,6 +11,7 @@ import json
 from collections.abc import Callable
 from contextlib import contextmanager
 
+from codegraph.backends import get_backend
 from codegraph.persistence.repository import GraphRepository
 from codegraph.export.format import export_graph, import_graph as format_import_graph
 from codegraph.graph import LayerGraph
@@ -63,7 +64,7 @@ class CodeGraphDispatcher(ToolDispatcher):
 
     def __init__(self, repo: GraphRepository | None = None):
         super().__init__()
-        self.repo = repo or GraphRepository()
+        self.repo = repo or get_backend().graph
         self.current_graph: LayerGraph | None = None
 
         self._register_all()

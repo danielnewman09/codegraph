@@ -122,7 +122,7 @@ def _memories_for_node(qualified_name: str) -> list[dict[str, Any]]:
     results = backend.memory.find_for_code_node_by_qname(qualified_name)
     memories: list[dict[str, Any]] = []
     for r in results:
-        node = r["memory"]
+        node = r["node"]
         entry = node.serialize()
         entry["relation"] = r["rel_type"]
         memories.append(entry)
@@ -146,7 +146,7 @@ def _inherited_memories(
     by_ancestor: dict[str, dict[str, Any]] = {}
     for r in results:
         source_uid = r["source_uid"]
-        memory_node = r["memory"]
+        memory_node = r["node"]
         rel_type = r["rel_type"]
 
         if memory_node is None:

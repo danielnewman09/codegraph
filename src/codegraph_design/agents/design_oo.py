@@ -789,10 +789,13 @@ def _link_design_composes(flat_design: list[dict]) -> int:
         if not parent_qn or parent_qn not in qnames:
             continue
         try:
-            get_backend().graph.merge_relationship(
-                parent_qn, "COMPOSES", qn,
-            )
-            edges += 1
+            suid = get_backend().graph.resolve_uid(parent_qn)
+            tuid = get_backend().graph.resolve_uid(qn)
+            if suid and tuid:
+                get_backend().graph.merge_relationship(
+                    suid, "COMPOSES", tuid,
+                )
+                edges += 1
         except Exception as exc:
             log.warning("Failed to COMPOSES %s → %s: %s", parent_qn, qn, exc)
     return edges
@@ -874,9 +877,13 @@ def _link_design_dependencies(flat_design: list[dict]) -> int:
                 continue
             seen.add(edge_key)
             try:
-                cnt = get_backend().graph.merge_relationship(
-                    source_qn, "DEPENDS_ON", target_qn,
-                )
+                suid = get_backend().graph.resolve_uid(source_qn)
+                tuid = get_backend().graph.resolve_uid(target_qn)
+                cnt = 0
+                if suid and tuid:
+                    cnt = get_backend().graph.merge_relationship(
+                        suid, "DEPENDS_ON", tuid,
+                    )
                 if cnt:
                     edges += 1
                     log.info("DEPENDS_ON: %s → %s", source_qn, target_qn)
@@ -994,7 +1001,7 @@ def _reconcile_design_with_scaffold(
     # and _create_design_namespaces — they were never scaffold nodes.
     flat = compounds + namespace_nodes
 
-    scaffold_nodes = GraphRepository().find_all_by_tag("scaffold")
+    scaffold_nodes = get_backend().graph.find_all_by_tag("scaffold")
     scaffold_by_seg: dict[str, list] = {}
     for sn in scaffold_nodes:
         qn = getattr(sn, "qualified_name", "") or ""
@@ -1119,10 +1126,15 @@ def _persist_verifications(
 
             for qn in sorted(target_methods):
                 try:
-                    get_backend().graph.merge_relationship(
-                        test_node.qualified_name, "VERIFIES", qn,
+                    test_uid = get_backend().graph.resolve_uid(
+                        test_node.qualified_name
                     )
-                    verifies_created += 1
+                    tuid = get_backend().graph.resolve_uid(qn)
+                    if test_uid and tuid:
+                        get_backend().graph.merge_relationship(
+                            test_uid, "VERIFIES", tuid,
+                        )
+                        verifies_created += 1
                     log.debug(
                         "VERIFIES: %s → %s",
                         test_node.qualified_name, qn,
@@ -1155,10 +1167,13 @@ def _persist_verifications(
                         "DELETE r",
                         {"sqn": step.qualified_name},
                     )
-                    get_backend().graph.merge_relationship(
-                        step.qualified_name, "CALLEE", callee_qn,
-                    )
-                    callee_updated += 1
+                    step_uid = get_backend().graph.resolve_uid(step.qualified_name)
+                    callee_uid = get_backend().graph.resolve_uid(callee_qn)
+                    if step_uid and callee_uid:
+                        get_backend().graph.merge_relationship(
+                            step_uid, "CALLEE", callee_uid,
+                        )
+                        callee_updated += 1
                     log.debug(
                         "CALLEE updated: step %s → %s",
                         step.qualified_name, callee_qn,
@@ -1257,10 +1272,13 @@ def _create_design_namespaces(flat_design: list[dict]) -> tuple[int, int, int]:
             if "::" in remainder:
                 continue
             try:
-                get_backend().graph.merge_relationship(
-                    ns_qn, "COMPOSES", dqn,
-                )
-                edges += 1
+                suid = get_backend().graph.resolve_uid(ns_qn)
+                tuid = get_backend().graph.resolve_uid(dqn)
+                if suid and tuid:
+                    get_backend().graph.merge_relationship(
+                        suid, "COMPOSES", tuid,
+                    )
+                    edges += 1
             except Exception as exc:
                 log.warning(
                     "Failed to COMPOSES %s → %s: %s", ns_qn, dqn, exc,
@@ -1435,7 +1453,7 @@ def _generate_design_artifacts(hlr: HLR, design_nodes: list[dict]) -> dict:
     # ── Export Requirements Markdown (HLRs + LLRs only, no code) ─────
     try:
         from codegraph.persistence.repository import GraphRepository, _filter_graph_by_types
-        repo = GraphRepository()
+        repo = get_backend().graph
         req_graph = repo.get_hlr_subtree(hlr.uid)
         if req_graph.entries:
             # Strip design code (classes, attributes, etc.) — keep
