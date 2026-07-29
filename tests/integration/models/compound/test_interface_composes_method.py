@@ -1,3 +1,4 @@
+from codegraph.backends import get_backend
 """Unit test: InterfaceNode COMPOSES MethodNode relationship roundtrip.
 
 Requires Neo4j (credentials loaded from .env via conftest.py).
@@ -92,7 +93,7 @@ def test_interface_composes_method():
     # Performs the final action by extracting the composition edges and connected nodes
     # from the roundtripped object. This prepares the data needed for verifying the
     # composition relationship.
-    connected = GraphRepository.composed_children(interface_node, MethodNode)
+    connected = get_backend().graph.composed_children(interface_node, MethodNode)
     # codegraph:test-desc compound.test_interface_composes_method.test_interface_composes_method::post_5
     # Verifies that there is exactly one connected node in the roundtripped object. This
     # confirms the composition relationship was correctly reconstructed during

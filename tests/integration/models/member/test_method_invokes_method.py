@@ -1,3 +1,4 @@
+from codegraph.backends import get_backend
 """Unit test: MethodNode INVOKES MethodNode relationship roundtrip.
 
 Requires Neo4j (credentials loaded from .env via conftest.py).
@@ -86,7 +87,7 @@ def test_method_invokes_method():
     # codegraph:test-desc member.test_method_invokes_method.test_method_invokes_method::step_3
     # Retrieves connected nodes from the roundtripped MethodNode, advancing the test to
     # verify the connected structure after deserialization.
-    connected = GraphRepository.outgoing_by_relation(caller, "INVOKES")
+    connected = get_backend().graph.outgoing_by_relation(caller, "INVOKES")
     # codegraph:test-desc member.test_method_invokes_method.test_method_invokes_method::post_5
     # Verifies that exactly one connected node exists, ensuring the relationships are
     # correctly and uniquely stored after deserialization.

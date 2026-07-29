@@ -1,3 +1,4 @@
+from codegraph.backends import get_backend
 """Unit test: ClassNode DEPENDS_ON ClassNode relationship roundtrip.
 
 Requires Neo4j (credentials loaded from .env via conftest.py).
@@ -83,7 +84,7 @@ def test_class_depends_on():
     # codegraph:test-desc compound.test_class_depends_on.test_class_depends_on::step_3
     # Retrieves the dependency edges from the round-tripped ClassNode to extract the
     # connected nodes for subsequent verification.
-    connected = GraphRepository.outgoing_by_relation(dependent, "DEPENDS_ON")
+    connected = get_backend().graph.outgoing_by_relation(dependent, "DEPENDS_ON")
     # codegraph:test-desc compound.test_class_depends_on.test_class_depends_on::post_5
     # Asserts that exactly one connected node is retrieved from the round-tripped node,
     # confirming that the dependency graph structure is preserved.

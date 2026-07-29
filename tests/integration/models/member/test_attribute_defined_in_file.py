@@ -1,3 +1,4 @@
+from codegraph.backends import get_backend
 """Unit test: AttributeNode with DEFINED_IN → FileNode relationship roundtrip.
 
 Creates an AttributeNode, saves it, connects it to a FileNode via DEFINED_IN,
@@ -113,7 +114,7 @@ def test_attribute_defined_in_file():
     # codegraph:test-desc member.test_attribute_defined_in_file.test_attribute_defined_in_file::step_4
     # Filters the deserialized node's edges to isolate those of type 'defined_in',
     # preparing them for detailed verification of the defined-in relationship.
-    connected = GraphRepository.outgoing_by_relation(attr_node, "DEFINED_IN")
+    connected = get_backend().graph.outgoing_by_relation(attr_node, "DEFINED_IN")
     # codegraph:test-desc member.test_attribute_defined_in_file.test_attribute_defined_in_file::post_8
     # Verifies that exactly one edge connects the attr_node to the file_node, ensuring
     # the defined-in relationship is correctly established.

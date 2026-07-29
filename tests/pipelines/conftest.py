@@ -68,14 +68,19 @@ def setup_neomodel():
     _setup_logging()
 
     try:
-        from neomodel import config, db
+        from codegraph.backends import get_backend, set_backend
+        from codegraph.backends.neo4j import Neo4jBackend, Neo4jConfig
 
-        config.DATABASE_URL = "bolt://neo4j:codegraph@localhost:7687"
-        db.set_connection(config.DATABASE_URL)
+        config = Neo4jConfig(
+            uri="bolt://localhost:7687",
+            user="neo4j",
+            password="codegraph",
+        )
+        set_backend(Neo4jBackend(config))
 
         # Smoke test — do NOT wipe the database
-        results, _ = db.cypher_query("RETURN 1")
-        assert results[0][0] == 1
+        if not get_backend().health_check():
+            pytest.skip("Neo4j not available")
     except Exception as exc:
         pytest.skip(f"Neo4j not available: {exc}")
 
@@ -98,10 +103,8 @@ def test_neo4j_container():
 def _has_neomodel_connection():
     """Check if Neo4j is reachable."""
     try:
-        from neomodel import db
-        db.set_connection("bolt://neo4j:codegraph@localhost:7687")
-        db.cypher_query("RETURN 1")
-        return True
+        from codegraph.backends import get_backend
+        return get_backend().health_check()
     except Exception:
         return False
 
@@ -114,13 +117,11 @@ def _cleanup_design_and_scaffold() -> None:
     """
     if not _has_neomodel_connection():
         return
-    from neomodel import db as neodb
-    neodb.cypher_query(
-        "MATCH (n) WHERE 'design' IN n.tags "
-        "OR 'scaffold' IN n.tags "
-        "OR 'requirements' IN n.tags "
-        "DETACH DELETE n"
-    )
+    from codegraph.backends import get_backend
+    g = get_backend().graph
+    for tag in ("design", "scaffold", "requirements"):
+        for uid in g.find_uids_by_tag(tag):
+            g.delete_by_uid(uid)
 
 
 def _ingest_requirements_text(

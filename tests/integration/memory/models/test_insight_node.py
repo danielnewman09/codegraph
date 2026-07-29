@@ -2,6 +2,8 @@
 
 import pytest
 
+from codegraph.backends import get_backend
+
 
 class TestInsightNode:
     """Test InsightNode creation and INSIGHT_INTO relationship."""
@@ -37,13 +39,9 @@ class TestInsightNode:
         )
         insight.insight_into_compound.connect(cls)
 
-        from neomodel import db
-        results, _ = db.cypher_query(
-            "MATCH (i:InsightNode)-[:INSIGHT_INTO]->(c) "
-            "WHERE i.qualified_name = $qname RETURN c",
-            {"qname": "memory::test-insight-into"},
-        )
-        assert len(results) == 1
+        linked = get_backend().memory.find_linked_code_node(insight.uid)
+        assert linked is not None
+        assert linked["rel_type"] == "INSIGHT_INTO"
 
     def test_insight_registered(self, neo4j_connection):
         from codegraph.models.tags import CodeGraphNode

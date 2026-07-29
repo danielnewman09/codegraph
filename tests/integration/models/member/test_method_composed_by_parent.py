@@ -12,6 +12,7 @@ from pathlib import Path
 from codegraph.models.compound import ClassNode, InterfaceNode
 from codegraph.models.member import MethodNode
 from codegraph.models.tags import CodeGraphNode
+from codegraph.backends import get_backend
 from codegraph.persistence.repository import GraphRepository
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "unit_test_data"
@@ -44,7 +45,7 @@ def test_method_composed_by_class():
     class_node.methods.connect(method_node)
 
     # Verify incoming COMPOSES from child side
-    parents = GraphRepository.incoming_composers(method_node, ClassNode)
+    parents = get_backend().graph.incoming_composers(method_node, ClassNode)
     # codegraph:test-desc member.test_method_composed_by_parent.test_method_composed_by_class::post_0
     # Asserts that the method_node has exactly one parent; this confirms that the method
     # is correctly linked to its composing class without extraneous relationships.
@@ -84,7 +85,7 @@ def test_method_composed_by_interface():
     interface_node.methods.connect(method_node)
 
     # Verify incoming COMPOSES from child side
-    parents = GraphRepository.incoming_composers(method_node, InterfaceNode)
+    parents = get_backend().graph.incoming_composers(method_node, InterfaceNode)
     # codegraph:test-desc member.test_method_composed_by_parent.test_method_composed_by_interface::post_0
     # Verifies that the method has exactly one parent, confirming that the parent-child
     # composition relationship is correctly established by the model.

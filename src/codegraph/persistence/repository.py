@@ -16,7 +16,7 @@ Usage::
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from codegraph.constants import Tag
@@ -62,6 +62,17 @@ class GraphRepository(ABC):
         """Convenience: resolve qname → uid, then find_by_uid."""
         ...
 
+    @abstractmethod
+    def find_all_by_qualified_name(
+        self, qualified_name: str
+    ) -> list["CodeGraphNode"]:
+        """Return all nodes matching *qualified_name*.
+
+        Unlike :meth:`find_by_qualified_name`, this returns every node
+        with the given qualified_name — useful for detecting duplicates.
+        """
+        ...
+
     # ── Node label operations ─────────────────────────────────────
 
     @abstractmethod
@@ -77,6 +88,31 @@ class GraphRepository(ABC):
     @abstractmethod
     def remove_labels(self, uid: str, labels: list[str]) -> None:
         """Remove specific labels from a node."""
+        ...
+
+    # ── Bulk queries ─────────────────────────────────────────────
+
+    @abstractmethod
+    def get_all_node_labels(self) -> list["dict[str, Any]"]:
+        """Return qualified_name and labels for every node in the graph.
+
+        Returns ``[{"qualified_name": str, "labels": list[str], "uid": str}]``.
+        """
+        ...
+
+    @abstractmethod
+    def find_nodes_with_labels(
+        self, labels: list[str]
+    ) -> list["dict[str, Any]"]:
+        """Find nodes that carry ALL of the specified labels.
+
+        Returns ``[{"qualified_name": str, "labels": list[str], "uid": str}]``.
+        """
+        ...
+
+    @abstractmethod
+    def count_all_nodes(self) -> int:
+        """Return the total number of nodes in the graph."""
         ...
 
     # ── Node mutation ─────────────────────────────────────────────
@@ -313,4 +349,38 @@ class GraphRepository(ABC):
     @abstractmethod
     def save_layer_graph(self, graph: "LayerGraph") -> None:
         """Persist a LayerGraph."""
+        ...
+
+    # ── Aggregation ──────────────────────────────────────────────
+
+    @abstractmethod
+    def count_all_nodes(self, tag: str | None = None) -> int:
+        """Count all nodes in the graph, optionally filtered by *tag*."""
+        ...
+
+    @abstractmethod
+    def find_nodes_with_labels(
+        self, labels: list[str]
+    ) -> list[dict]:
+        """Find all nodes that carry ALL of the given Neo4j labels.
+
+        Returns a list of dicts with keys ``uid``, ``qualified_name``,
+        and ``labels`` (sorted).
+        """
+        ...
+
+    @abstractmethod
+    def count_relationships(
+        self,
+        rel_types: list[str],
+        *,
+        source_labels: list[str] | None = None,
+        target_labels: list[str] | None = None,
+        target_tag: str | None = None,
+    ) -> int:
+        """Count relationships whose type is in *rel_types*.
+
+        Optional filters narrow the match to specific source node
+        labels, target node labels, or a target node tag value.
+        """
         ...

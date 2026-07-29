@@ -1,3 +1,4 @@
+from codegraph.backends import get_backend
 """Integration test: ClassNode COMPOSES MethodNode relationship roundtrip.
 
 Backend-agnostic — queries through GraphRepository instead of
@@ -55,8 +56,8 @@ def test_class_composes_method():
     assert composes_edges[0]["target_type"] == "MethodNode"
     assert composes_edges[0]["target_uid"] == method_node._uid_value()
 
-    # Backend-agnostic: use GraphRepository.composed_children() instead of .methods.all()
-    connected = GraphRepository.composed_children(class_node, MethodNode)
+    # Backend-agnostic: use get_backend().graph.composed_children() instead of .methods.all()
+    connected = get_backend().graph.composed_children(class_node, MethodNode)
     assert len(connected) == 1
     assert connected[0]._uid_value() == method_node._uid_value()
 

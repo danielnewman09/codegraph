@@ -1,3 +1,4 @@
+from codegraph.backends import get_backend
 """Unit test: ClassNode REALIZES InterfaceNode relationship roundtrip.
 
 Requires Neo4j (credentials loaded from .env via conftest.py).
@@ -85,7 +86,7 @@ def test_class_realizes_interface():
     # codegraph:test-desc compound.test_class_realizes_interface.test_class_realizes_interface::step_3
     # Fetches the 'connected' nodes from the 'realizes' edges to validate the target of
     # the relationship; this step prepares data to verify the edge target details.
-    connected = GraphRepository.outgoing_by_relation(class_node, "REALIZES")
+    connected = get_backend().graph.outgoing_by_relation(class_node, "REALIZES")
     # codegraph:test-desc compound.test_class_realizes_interface.test_class_realizes_interface::post_5
     # Checks that the 'connected' list has exactly one element; this ensures the edge
     # resolution yields a single, correct target.

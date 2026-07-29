@@ -8,6 +8,7 @@ Requires Neo4j (credentials loaded from .env via conftest.py).
 
 from codegraph.models.compound import EnumNode
 from codegraph.models.member import EnumValueNode
+from codegraph.backends import get_backend
 from codegraph.persistence.repository import GraphRepository
 
 
@@ -36,7 +37,7 @@ def test_enum_value_composed_by_enum():
     enum_node.values.connect(value_node)
 
     # Verify incoming COMPOSES from child side
-    parents = GraphRepository.incoming_composers(value_node, EnumNode)
+    parents = get_backend().graph.incoming_composers(value_node, EnumNode)
     # codegraph:test-desc member.test_enum_value_composed_by_enum.test_enum_value_composed_by_enum::post_0
     # Confirms that the value node has exactly one parent, ensuring the enum value is
     # correctly associated with its parent enum class.

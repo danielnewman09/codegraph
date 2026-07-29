@@ -2,6 +2,8 @@
 
 import pytest
 
+from codegraph.backends import get_backend
+
 
 class TestConstraintNode:
     """Test ConstraintNode creation and CONSTRAINS relationship."""
@@ -38,13 +40,9 @@ class TestConstraintNode:
         )
         constraint.constrains_compound.connect(cls)
 
-        from neomodel import db
-        results, _ = db.cypher_query(
-            "MATCH (c:ConstraintNode)-[:CONSTRAINS]->(t) "
-            "WHERE c.qualified_name = $qname RETURN t",
-            {"qname": "memory::test-constrains"},
-        )
-        assert len(results) == 1
+        linked = get_backend().memory.find_linked_code_node(constraint.uid)
+        assert linked is not None
+        assert linked["rel_type"] == "CONSTRAINS"
 
     def test_constraint_registered(self, neo4j_connection):
         from codegraph.models.tags import CodeGraphNode

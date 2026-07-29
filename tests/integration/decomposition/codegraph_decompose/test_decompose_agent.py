@@ -741,15 +741,12 @@ class TestScaffoldConnectivity:
         """Create the target HLR in the test Neo4j so persist_decomposition
         can find it."""
         from codegraph_requirements.models.requirement import HLR
-        from neomodel import db
+        from codegraph.backends import get_backend
 
         # Delete existing if re-running
         existing = HLR.nodes.get_or_none(uid=self.HLR_UID)
         if existing:
-            db.cypher_query(
-                "MATCH (h:HLR {uid: $uid}) DETACH DELETE h",
-                {"uid": self.HLR_UID},
-            )
+            get_backend().graph.delete_by_uid(self.HLR_UID)
 
         hlr = HLR(
             uid=self.HLR_UID,
@@ -786,10 +783,10 @@ class TestScaffoldConnectivity:
         """All node types (LLR, TestNode, AssertionNode, TestStepNode,
         and scaffold ClassNode/AttributeNode/LiteralNode) are persisted
         to Neo4j."""
-        from neomodel import db
+        from codegraph.backends import get_backend
+        g = get_backend().graph
 
-        results, _ = db.cypher_query("MATCH (n) RETURN count(n) AS c")
-        total = results[0][0] if results else 0
+        total = g.count_all_nodes()
         assert total > 0, f"Expected >0 nodes in Neo4j, got {total}"
 
         required_labels = [
@@ -798,10 +795,7 @@ class TestScaffoldConnectivity:
             ("AttributeNode", None), ("LiteralNode", None),
         ]
         for label, min_expected in required_labels:
-            results, _ = db.cypher_query(
-                f"MATCH (n:{label}) RETURN count(n) AS c"
-            )
-            count = results[0][0] if results else 0
+            count = len(g.find_nodes_with_labels([label]))
             if min_expected is not None:
                 assert count >= min_expected, (
                     f"Expected >= {min_expected} {label}, got {count}"
@@ -814,14 +808,15 @@ class TestScaffoldConnectivity:
 
     def test_left_operand_edges_exist(self, persisted_decomposition):
         """LEFT_OPERAND edges exist from AssertionNodes to scaffold nodes."""
-        from neomodel import db
+        from codegraph.backends import get_backend
+        g = get_backend().graph
 
-        results, _ = db.cypher_query(
-            "MATCH (a:AssertionNode)-[r:LEFT_OPERAND]->(s) "
-            "WHERE 'scaffold' IN s.tags "
-            "RETURN count(r) AS c"
-        )
-        count = results[0][0] if results else 0
+        count = 0
+        for node in g.find_all_by_kind("assertion"):
+            for target in g.outgoing_by_relation(node, "LEFT_OPERAND"):
+                tags = getattr(target, "tags", None) or []
+                if "scaffold" in tags:
+                    count += 1
         assert count > 0, (
             "No LEFT_OPERAND edges from AssertionNode to scaffold nodes. "
             f"persist reported {persisted_decomposition.operand_edges} operand edges total."
@@ -829,28 +824,30 @@ class TestScaffoldConnectivity:
 
     def test_right_operand_edges_exist(self, persisted_decomposition):
         """RIGHT_OPERAND edges exist from AssertionNodes to scaffold nodes."""
-        from neomodel import db
+        from codegraph.backends import get_backend
+        g = get_backend().graph
 
-        results, _ = db.cypher_query(
-            "MATCH (a:AssertionNode)-[r:RIGHT_OPERAND]->(s) "
-            "WHERE 'scaffold' IN s.tags "
-            "RETURN count(r) AS c"
-        )
-        count = results[0][0] if results else 0
+        count = 0
+        for node in g.find_all_by_kind("assertion"):
+            for target in g.outgoing_by_relation(node, "RIGHT_OPERAND"):
+                tags = getattr(target, "tags", None) or []
+                if "scaffold" in tags:
+                    count += 1
         assert count > 0, (
             "No RIGHT_OPERAND edges from AssertionNode to scaffold nodes"
         )
 
     def test_callee_edges_exist(self, persisted_decomposition):
         """CALLEE edges exist from TestStepNodes to scaffold nodes."""
-        from neomodel import db
+        from codegraph.backends import get_backend
+        g = get_backend().graph
 
-        results, _ = db.cypher_query(
-            "MATCH (ts:TestStepNode)-[r:CALLEE]->(s) "
-            "WHERE 'scaffold' IN s.tags "
-            "RETURN count(r) AS c"
-        )
-        count = results[0][0] if results else 0
+        count = 0
+        for node in g.find_all_by_kind("test_step"):
+            for target in g.outgoing_by_relation(node, "CALLEE"):
+                tags = getattr(target, "tags", None) or []
+                if "scaffold" in tags:
+                    count += 1
         assert count > 0, (
             "No CALLEE edges from TestStepNode to scaffold nodes"
         )
@@ -860,42 +857,49 @@ class TestScaffoldConnectivity:
         reachable from an AssertionNode or TestStepNode via
         LEFT_OPERAND / RIGHT_OPERAND / CALLEE (or be a parent ClassNode
         of a reachable child)."""
-        from neomodel import db
+        from codegraph.backends import get_backend
+        from codegraph.models.tags import CodeGraphNode
+        g = get_backend().graph
 
-        # Directly referenced scaffolds
-        direct, _ = db.cypher_query(
-            "MATCH (ca)-[r]->(s) "
-            "WHERE (ca:AssertionNode OR ca:TestStepNode) "
-            "  AND (r:LEFT_OPERAND OR r:RIGHT_OPERAND OR r:CALLEE) "
-            "  AND 'scaffold' IN s.tags "
-            "RETURN DISTINCT elementId(s) AS eid"
-        )
-        directly_referenced = {row[0] for row in direct}
+        # Directly referenced scaffolds: find targets of LEFT/RIGHT_OPERAND
+        # and CALLEE edges from assertions and test steps
+        directly_referenced: set[str] = set()
+        for kind, rel_types in [
+            ("assertion", ["LEFT_OPERAND", "RIGHT_OPERAND"]),
+            ("test_step", ["CALLEE"]),
+        ]:
+            for node in g.find_all_by_kind(kind):
+                for rel in rel_types:
+                    for target in g.outgoing_by_relation(node, rel):
+                        tags = getattr(target, "tags", None) or []
+                        if "scaffold" in tags:
+                            target_uid = target._uid_value()
+                            if target_uid:
+                                directly_referenced.add(target_uid)
 
         # Parent ClassNodes with reachable children
-        if directly_referenced:
-            parent, _ = db.cypher_query(
-                "MATCH (parent:ClassNode)-[:COMPOSES]->(child) "
-                "WHERE 'scaffold' IN parent.tags "
-                "  AND elementId(child) IN $refs "
-                "RETURN DISTINCT elementId(parent) AS eid",
-                {"refs": list(directly_referenced)},
-            )
-            reachable = directly_referenced | {row[0] for row in parent}
-        else:
-            reachable = directly_referenced
+        reachable = set(directly_referenced)
+        for node in g.find_all_by_kind("class"):
+            tags = getattr(node, "tags", None) or []
+            if "scaffold" not in tags:
+                continue
+            for child in g.composed_children(node, CodeGraphNode):
+                child_uid = child._uid_value()
+                if child_uid and child_uid in directly_referenced:
+                    node_uid = node._uid_value()
+                    if node_uid:
+                        reachable.add(node_uid)
 
         # Find all scaffold nodes and check for orphans
-        all_scaffolds, _ = db.cypher_query(
-            "MATCH (s) WHERE 'scaffold' IN s.tags "
-            "RETURN elementId(s) AS eid, s.qualified_name AS qn, labels(s) AS lbls"
-        )
+        all_scaffolds = g.find_all_by_tag("scaffold")
 
         orphaned = []
-        for row in all_scaffolds:
-            eid, qn, lbls = row[0], row[1], row[2]
-            if eid not in reachable:
-                orphaned.append(f"{qn or '?'} ({lbls})")
+        for s in all_scaffolds:
+            eid = s._uid_value()
+            if eid and eid not in reachable:
+                qn = getattr(s, "qualified_name", "") or "?"
+                labels = sorted(g.get_labels(eid)) if eid else []
+                orphaned.append(f"{qn} ({labels})")
 
         if orphaned:
             raise AssertionError(
@@ -906,14 +910,11 @@ class TestScaffoldConnectivity:
     def test_operand_edge_count_matches(self, persisted_decomposition):
         """The number of LEFT+RIGHT_OPERAND+CALLEE edges in Neo4j should
         match the persist_decomposition result."""
-        from neomodel import db
+        from codegraph.backends import get_backend
 
-        results, _ = db.cypher_query(
-            "MATCH ()-[r]->() "
-            "WHERE r:LEFT_OPERAND OR r:RIGHT_OPERAND OR r:CALLEE "
-            "RETURN count(r) AS c"
+        neo4j_count = get_backend().graph.count_relationships(
+            ["LEFT_OPERAND", "RIGHT_OPERAND", "CALLEE"]
         )
-        neo4j_count = results[0][0] if results else 0
 
         assert neo4j_count > 0, (
             "No operand/callee edges exist in Neo4j"

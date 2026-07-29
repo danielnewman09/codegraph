@@ -23,12 +23,15 @@ from __future__ import annotations
 import logging
 import os
 
+from dotenv import load_dotenv
+
 from codegraph.backends.interface import Backend
 
 log = logging.getLogger(__name__)
 
 _current_backend: Backend | None = None
 _force_configured: bool = False
+_load_dotenv_called: bool = False
 
 
 def set_backend(backend: Backend) -> None:
@@ -47,14 +50,25 @@ def set_backend(backend: Backend) -> None:
 def get_backend() -> Backend:
     """Return the active backend, auto-configuring on first call.
 
-    On the first call, reads the ``CODEGRAPH_BACKEND`` environment
+    Loads ``.env`` before reading the ``CODEGRAPH_BACKEND`` environment
     variable (default ``"neo4j"``) and creates the corresponding
     backend.  Subsequent calls return the same instance.
 
     Raises:
         ValueError: If ``CODEGRAPH_BACKEND`` names an unknown backend.
     """
-    global _current_backend, _force_configured
+    global _current_backend, _force_configured, _load_dotenv_called
+
+    if not _load_dotenv_called:
+        # Only load .env if the relevant variables are not already set
+        # in the environment (e.g. from a test fixture or CI config).
+        _needs_dotenv = any(
+            os.environ.get(k) is None
+            for k in ("NEO4J_URI", "NEO4J_USER", "NEO4J_PASSWORD")
+        )
+        if _needs_dotenv:
+            load_dotenv()
+        _load_dotenv_called = True
 
     if _current_backend is not None:
         return _current_backend

@@ -305,10 +305,15 @@ def _find_existing(
     if uid:
         return get_backend().graph.find_by_uid(uid)
 
-    # Search by qualified_name
-    return get_backend().graph.find_by_qualified_name(
+    # Search by qualified_name — detect duplicate matches
+    matches = get_backend().graph.find_all_by_qualified_name(
         qualified_name,
     )
+    if len(matches) == 0:
+        return None
+    if len(matches) > 1:
+        return matches
+    return matches[0]
 
 
 def _find_code_node(qualified_name: str) -> CodeGraphNode | None:

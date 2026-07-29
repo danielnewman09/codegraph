@@ -146,7 +146,7 @@ def _inherited_memories(
     by_ancestor: dict[str, dict[str, Any]] = {}
     for r in results:
         source_uid = r["source_uid"]
-        memory_node = r["node"]
+        memory_node = r["memory"]
         rel_type = r["rel_type"]
 
         if memory_node is None:
@@ -206,6 +206,7 @@ def _build_summary(
             qname = m.get("qualified_name", "")
             if qname:
                 backend = get_backend()
+                #TODO: remove raw cypher
                 rows, _ = backend.execute_raw(
                     "MATCH (newer:DecisionNode)-[:SUPERSEDES]->"
                     "(older:DecisionNode) "

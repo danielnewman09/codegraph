@@ -64,6 +64,16 @@ class Neo4jBackend(Backend):
     def health_check(self) -> bool:
         return self._conn.health_check()
 
+    @override
+    def close(self) -> None:
+        """Close the Neo4j driver and release resources."""
+        self._conn.close()
+
+    @override
+    def reconnect(self) -> None:
+        """Re-establish the Neo4j connection with fresh env config."""
+        self._conn.reconnect()
+
     # ── Repositories ────────────────────────────────────────────────
 
     @property
@@ -138,6 +148,12 @@ class Neo4jBackend(Backend):
         return self._bulk_ops.bulk_load_by_tag(tag)
 
     # ── Raw query ───────────────────────────────────────────────────
+
+    @override
+    def wipe(self) -> None:
+        """Delete every node and relationship from Neo4j via DETACH DELETE."""
+        self._conn.require_connection()
+        self._conn.execute_raw("MATCH (n) DETACH DELETE n")
 
     @override
     def execute_raw(

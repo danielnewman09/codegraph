@@ -8,6 +8,7 @@ Requires Neo4j (credentials loaded from .env via conftest.py).
 
 from codegraph.models.compound import InterfaceNode
 from codegraph.models.namespace import NamespaceNode
+from codegraph.backends import get_backend
 from codegraph.persistence.repository import GraphRepository
 
 
@@ -36,7 +37,7 @@ def test_interface_composed_by_namespace():
     ns_node.interfaces.connect(iface_node)
 
     # Verify incoming COMPOSES from child side
-    parents = GraphRepository.incoming_composers(iface_node, NamespaceNode)
+    parents = get_backend().graph.incoming_composers(iface_node, NamespaceNode)
     # codegraph:test-desc compound.test_interface_composed_by_namespace.test_interface_composed_by_namespace::post_0
     # Verifies that the InterfaceNode has exactly one parent node, ensuring the
     # composition establishes the expected hierarchical relationship.

@@ -26,6 +26,7 @@ import re
 from pathlib import Path
 
 from codegraph.graph import LayerGraph, CompositeEntry
+from codegraph.models.tags import CodeGraphNode
 from codegraph.export.markdown import export_markdown, import_markdown
 
 
@@ -214,28 +215,24 @@ class TestRequirementsRoundTripNeo4j:
         restored = import_markdown(md)
         restored.to_neo4j()
 
-        # Verify edges exist in Neo4j via raw Cypher
-        from neomodel import db
-        results, _ = db.cypher_query(
-            "MATCH (a:AssertionNode)-[:LEFT_OPERAND]->(t) "
-            "WHERE a.qualified_name = 'cond::rt::pre::ready' "
-            "RETURN t.qualified_name"
-        )
-        assert results and results[0][0] == "Gen::is_ready"
+        # Verify edges exist in Neo4j
+        from codegraph.backends import get_backend
+        g = get_backend().graph
+        assertion = g.find_by_qualified_name("cond::rt::pre::ready")
+        assert assertion is not None
+        left_targets = g.outgoing_by_relation(assertion, "LEFT_OPERAND")
+        assert len(left_targets) == 1
+        assert getattr(left_targets[0], "qualified_name", "") == "Gen::is_ready"
 
-        results, _ = db.cypher_query(
-            "MATCH (a:AssertionNode)-[:RIGHT_OPERAND]->(t) "
-            "WHERE a.qualified_name = 'cond::rt::pre::ready' "
-            "RETURN t.qualified_name"
-        )
-        assert results and results[0][0] == "literal::true"
+        right_targets = g.outgoing_by_relation(assertion, "RIGHT_OPERAND")
+        assert len(right_targets) == 1
+        assert getattr(right_targets[0], "qualified_name", "") == "literal::true"
 
-        results, _ = db.cypher_query(
-            "MATCH (s:TestStepNode)-[:CALLEE]->(t) "
-            "WHERE s.qualified_name = 'step::rt::invoke' "
-            "RETURN t.qualified_name"
-        )
-        assert results and results[0][0] == "Gen::generate"
+        step = g.find_by_qualified_name("step::rt::invoke")
+        assert step is not None
+        callees = g.outgoing_by_relation(step, "CALLEE")
+        assert len(callees) == 1
+        assert getattr(callees[0], "qualified_name", "") == "Gen::generate"
 
     def test_round_trip_preserves_composes_hierarchy(self):
         """The HLR → LLR → TestNode → AssertionNode COMPOSES hierarchy
@@ -245,22 +242,23 @@ class TestRequirementsRoundTripNeo4j:
         restored = import_markdown(md)
         restored.to_neo4j()
 
-        from neomodel import db
+        from codegraph.backends import get_backend
+        from codegraph_requirements.models.requirement import LLR
+        g = get_backend().graph
         # HLR → LLR
-        results, _ = db.cypher_query(
-            "MATCH (h:HLR)-[:COMPOSES]->(l:LLR) "
-            "WHERE h.name = 'Round-Trip Feature' "
-            "RETURN l.name"
-        )
-        assert results and results[0][0] == "RT-LLR-001"
+        hlr = g.find_by_qualified_name("Round-Trip Feature")
+        assert hlr is not None
+        llrs = g.composed_children(hlr, LLR)
+        llr_names = [getattr(l, "name", "") for l in llrs]
+        assert "RT-LLR-001" in llr_names
 
         # LLR → TestNode
-        results, _ = db.cypher_query(
-            "MATCH (l:LLR)-[:COMPOSES]->(t:TestNode) "
-            "WHERE l.name = 'RT-LLR-001' "
-            "RETURN t.test_name"
-        )
-        assert results and results[0][0] == "test_generate_returns_valid"
+        from codegraph.models.test import TestNode
+        llr = g.find_by_qualified_name("RT-LLR-001")
+        assert llr is not None
+        tests = g.composed_children(llr, TestNode)
+        test_names = [getattr(t, "test_name", "") for t in tests]
+        assert "test_generate_returns_valid" in test_names
 
 # ── Re-ingestion idempotency ───────────────────────────────────────────
 
@@ -516,49 +514,44 @@ class TestFullComposesHierarchy:
         )
         graph.to_neo4j()
 
-        from neomodel import db
+        from codegraph.backends import get_backend
+        from codegraph_requirements.models.requirement import LLR
+        g = get_backend().graph
 
         # HLR → LLR: every LLR must have an incoming COMPOSES from the HLR
-        results, _ = db.cypher_query(
-            "MATCH (h:HLR)-[:COMPOSES]->(l:LLR) "
-            "WHERE h.qualified_name = 'Diagram Generator' "
-            "RETURN l.qualified_name ORDER BY l.qualified_name"
-        )
-        llr_qnames = [r[0] for r in results]
+        hlr = g.find_by_qualified_name("Diagram Generator")
+        assert hlr is not None
+        llrs = g.composed_children(hlr, LLR)
+        llr_qnames = [getattr(llr, "qualified_name", "") for llr in llrs]
         assert len(llr_qnames) == 3, \
             f"Expected 3 LLRs under HLR, got {len(llr_qnames)}: {llr_qnames}"
         assert "DG-LLR-001" in llr_qnames
         assert "DG-LLR-002" in llr_qnames
         assert "DG-LLR-003" in llr_qnames
 
-        # LLR → TestNode: every Test must have an incoming COMPOSES from its LLR
-        results, _ = db.cypher_query(
-            "MATCH (l:LLR)-[:COMPOSES]->(t:TestNode) "
-            "WHERE l.qualified_name = 'DG-LLR-001' "
-            "RETURN t.qualified_name ORDER BY t.qualified_name"
-        )
-        test_qnames = [r[0] for r in results]
+        # LLR → TestNode
+        from codegraph.models.test import TestNode
+        llr001 = g.find_by_qualified_name("DG-LLR-001")
+        assert llr001 is not None
+        tests = g.composed_children(llr001, TestNode)
+        test_qnames = [getattr(t, "qualified_name", "") for t in tests]
         assert len(test_qnames) >= 1, \
             f"Expected at least 1 Test under DG-LLR-001, got {test_qnames}"
         assert "vm::generate::test_valid" in test_qnames
 
         # TestNode → AssertionNode
-        results, _ = db.cypher_query(
-            "MATCH (t:TestNode)-[:COMPOSES]->(a:AssertionNode) "
-            "WHERE t.qualified_name = 'vm::generate::test_valid' "
-            "RETURN a.qualified_name ORDER BY a.qualified_name"
-        )
-        assertion_qnames = [r[0] for r in results]
+        from codegraph.models.test import AssertionNode
+        test = g.find_by_qualified_name("vm::generate::test_valid")
+        assert test is not None
+        assertions = g.composed_children(test, AssertionNode)
+        assertion_qnames = [getattr(a, "qualified_name", "") for a in assertions]
         assert len(assertion_qnames) >= 2, \
             f"Expected at least 2 Assertions under test_valid, got: {assertion_qnames}"
 
         # TestNode → TestStepNode
-        results, _ = db.cypher_query(
-            "MATCH (t:TestNode)-[:COMPOSES]->(s:TestStepNode) "
-            "WHERE t.qualified_name = 'vm::generate::test_valid' "
-            "RETURN s.qualified_name ORDER BY s.qualified_name"
-        )
-        step_qnames = [r[0] for r in results]
+        from codegraph.models.test import TestStepNode
+        steps = g.composed_children(test, TestStepNode)
+        step_qnames = [getattr(s, "qualified_name", "") for s in steps]
         assert len(step_qnames) >= 1, \
             f"Expected at least 1 TestStep under test_valid, got: {step_qnames}"
 
@@ -572,41 +565,68 @@ class TestFullComposesHierarchy:
         )
         graph.to_neo4j()
 
-        from neomodel import db
+        from codegraph.backends import get_backend
+        g = get_backend().graph
 
-        # Orphaned LLRs: LLRs with no incoming COMPOSES from any HLR
-        results, _ = db.cypher_query(
-            "MATCH (l:LLR) WHERE NOT (l)<-[:COMPOSES]-(:HLR) "
-            "RETURN l.qualified_name"
-        )
-        orphaned_llrs = [r[0] for r in results]
+        # Collect all nodes that have a parent via COMPOSES traversal
+        # (walk HLR → LLR → Test → Assertion/Step chain).
+        parented_llrs: set[str] = set()
+        parented_tests: set[str] = set()
+        parented_assertions: set[str] = set()
+        parented_steps: set[str] = set()
+
+        from codegraph_requirements.models.requirement import LLR
+        from codegraph.models.test import TestNode
+
+        for hlr_node in g.find_all_by_kind("hlr"):
+            for llr in g.composed_children(hlr_node, CodeGraphNode):
+                llr_uid = llr._uid_value()
+                if llr_uid:
+                    parented_llrs.add(llr_uid)
+                for test in g.composed_children(llr, CodeGraphNode):
+                    test_uid = test._uid_value()
+                    if test_uid:
+                        parented_tests.add(test_uid)
+                    for child in g.composed_children(test, CodeGraphNode):
+                        child_uid = child._uid_value()
+                        if child_uid and "AssertionNode" in g.get_labels(child_uid):
+                            parented_assertions.add(child_uid)
+                        if child_uid and "TestStepNode" in g.get_labels(child_uid):
+                            parented_steps.add(child_uid)
+
+        # Orphaned LLRs: LLRs not reached from any HLR
+        orphaned_llrs = [
+            getattr(n, "qualified_name", "")
+            for n in g.find_all_by_kind("llr")
+            if n._uid_value() and n._uid_value() not in parented_llrs
+        ]
         assert len(orphaned_llrs) == 0, \
             f"Orphaned LLRs (no parent HLR): {orphaned_llrs}"
 
-        # Orphaned TestNodes: Tests with no incoming COMPOSES from any LLR
-        results, _ = db.cypher_query(
-            "MATCH (t:TestNode) WHERE NOT (t)<-[:COMPOSES]-(:LLR) "
-            "RETURN t.qualified_name"
-        )
-        orphaned_tests = [r[0] for r in results]
+        # Orphaned TestNodes: Tests not reached from any LLR
+        orphaned_tests = [
+            getattr(n, "qualified_name", "")
+            for n in g.find_all_by_kind("test")
+            if n._uid_value() and n._uid_value() not in parented_tests
+        ]
         assert len(orphaned_tests) == 0, \
             f"Orphaned TestNodes (no parent LLR): {orphaned_tests}"
 
         # Orphaned AssertionNodes
-        results, _ = db.cypher_query(
-            "MATCH (a:AssertionNode) WHERE NOT (a)<-[:COMPOSES]-(:TestNode) "
-            "RETURN a.qualified_name"
-        )
-        orphaned_assertions = [r[0] for r in results]
+        orphaned_assertions = [
+            getattr(n, "qualified_name", "")
+            for n in g.find_all_by_kind("assertion")
+            if n._uid_value() and n._uid_value() not in parented_assertions
+        ]
         assert len(orphaned_assertions) == 0, \
             f"Orphaned AssertionNodes (no parent Test): {orphaned_assertions}"
 
         # Orphaned TestStepNodes
-        results, _ = db.cypher_query(
-            "MATCH (s:TestStepNode) WHERE NOT (s)<-[:COMPOSES]-(:TestNode) "
-            "RETURN s.qualified_name"
-        )
-        orphaned_steps = [r[0] for r in results]
+        orphaned_steps = [
+            getattr(n, "qualified_name", "")
+            for n in g.find_all_by_kind("test_step")
+            if n._uid_value() and n._uid_value() not in parented_steps
+        ]
         assert len(orphaned_steps) == 0, \
             f"Orphaned TestStepNodes (no parent Test): {orphaned_steps}"
 
@@ -757,13 +777,12 @@ class TestDecomposeOutputFormat:
         graph = import_markdown(text, tags=frozenset({"design"}))
         graph.to_neo4j()
 
-        from neomodel import db
+        from codegraph.backends import get_backend
+        g = get_backend().graph
 
-        # Count HLR→LLR COMPOSES edges
-        results, _ = db.cypher_query(
-            "MATCH (h:HLR)-[:COMPOSES]->(l:LLR) RETURN count(*)"
-        )
-        hlr_to_llr_count = results[0][0]
+        # Count HLR→LLR COMPOSES edges: count all LLR nodes
+        # (every LLR should have a parent HLR in this fixture)
+        hlr_to_llr_count = len(g.find_all_by_kind("llr"))
 
         # Count total LLRs
         llr_count_in_file = sum(
@@ -776,11 +795,17 @@ class TestDecomposeOutputFormat:
              f"COMPOSES edges — LLRs are likely at the wrong heading depth.")
 
         # Verify no orphaned LLRs
-        results, _ = db.cypher_query(
-            "MATCH (l:LLR) WHERE NOT (l)<-[:COMPOSES]-(:HLR) "
-            "RETURN l.qualified_name"
-        )
-        orphaned = [r[0] for r in results]
+        parented_llrs: set[str] = set()
+        for hlr_node in g.find_all_by_kind("hlr"):
+            for llr in g.composed_children(hlr_node, CodeGraphNode):
+                llr_uid = llr._uid_value()
+                if llr_uid:
+                    parented_llrs.add(llr_uid)
+        orphaned = [
+            getattr(n, "qualified_name", "")
+            for n in g.find_all_by_kind("llr")
+            if n._uid_value() and n._uid_value() not in parented_llrs
+        ]
         assert len(orphaned) == 0, \
             f"Orphaned LLRs (no parent HLR via COMPOSES): {orphaned}"
 

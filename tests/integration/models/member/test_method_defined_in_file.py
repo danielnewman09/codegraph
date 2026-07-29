@@ -1,3 +1,4 @@
+from codegraph.backends import get_backend
 """Unit test: MethodNode with DEFINED_IN → FileNode relationship roundtrip.
 
 Creates a MethodNode, saves it, connects it to a FileNode via DEFINED_IN,
@@ -118,7 +119,7 @@ def test_method_defined_in_file():
     # codegraph:test-desc member.test_method_defined_in_file.test_method_defined_in_file::step_4
     # Extracts the 'defined_in' edges from the roundtripped node's serialized data and
     # filters them for verification.
-    connected = GraphRepository.outgoing_by_relation(method_node, "DEFINED_IN")
+    connected = get_backend().graph.outgoing_by_relation(method_node, "DEFINED_IN")
     # codegraph:test-desc member.test_method_defined_in_file.test_method_defined_in_file::post_8
     # Verifies that the filtered 'connected' nodes list contains exactly one item,
     # ensuring that the method node has the expected single relationship to its defining

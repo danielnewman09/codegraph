@@ -12,6 +12,7 @@ from pathlib import Path
 from codegraph.models.compound import ClassNode
 from codegraph.models.member import AttributeNode
 from codegraph.models.tags import CodeGraphNode
+from codegraph.backends import get_backend
 from codegraph.persistence.repository import GraphRepository
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "unit_test_data"
@@ -45,7 +46,7 @@ def test_attribute_composed_by_class():
     class_node.attributes.connect(attr_node)
 
     # Verify incoming COMPOSES from child side
-    parents = GraphRepository.incoming_composers(attr_node, ClassNode)
+    parents = get_backend().graph.incoming_composers(attr_node, ClassNode)
     # codegraph:test-desc member.test_attribute_composed_by_class.test_attribute_composed_by_class::post_0
     # Checks that the attr_node has exactly one parent, confirming that each attribute
     # belongs to a single class without extra or missing parent references.

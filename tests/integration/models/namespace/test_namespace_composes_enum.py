@@ -1,3 +1,4 @@
+from codegraph.backends import get_backend
 """Unit test: NamespaceNode COMPOSES EnumNode relationship roundtrip.
 
 Requires Neo4j (credentials loaded from .env via conftest.py).
@@ -84,7 +85,7 @@ def test_namespace_composes_enum():
     # codegraph:test-desc namespace.test_namespace_composes_enum.test_namespace_composes_enum::step_3
     # Extracts the 'composes' edges from the deserialized node and queries connected
     # nodes, setting up data for assertions on the round-tripped structure.
-    connected = GraphRepository.composed_children(namespace_node, EnumNode)
+    connected = get_backend().graph.composed_children(namespace_node, EnumNode)
     # codegraph:test-desc namespace.test_namespace_composes_enum.test_namespace_composes_enum::post_5
     # Checks that exactly one node is connected to the deserialized namespace via
     # 'composes' edges, confirming the cardinality of the composition relationship.

@@ -59,24 +59,51 @@ def decisions_for(qualified_name: str) -> list[dict[str, Any]]:
 
 
 def decision_chain(qualified_name: str) -> list[dict[str, Any]]:
-    """Return the SUPERSEDES chain for a decision.
+    """Return decisions linked to a code node, with SUPERSEDES chains.
 
-    Walks SUPERSEDES edges from the decision matching *qualified_name*
-    to find all older decisions it supersedes.
+    Finds all DecisionNodes linked to the code node matching
+    *qualified_name*, then walks each decision's SUPERSEDES chain
+    and returns the decisions with a ``supersession_chain`` field.
     """
-    backend = get_backend()
-    rows, _ = backend.execute_raw(
-        "MATCH (d:DecisionNode)-[:SUPERSEDES*0..10]->(older) "
-        "WHERE d.qualified_name = $qname "
-        "RETURN older",
-        {"qname": qualified_name},
-    )
-    from codegraph_memory.models.relationships import _inflate_code_node
+    code_node = get_backend().graph.find_by_qualified_name(qualified_name)
+    if code_node is None:
+        return []
+
+    uid = code_node._uid_value()
+    if not uid:
+        return []
+
+    results = get_backend().memory.find_for_code_node(uid)
+    decisions = [
+        r["node"] for r in results
+        if type(r["node"]).__name__ == "DecisionNode"
+    ]
+
     chain: list[dict[str, Any]] = []
-    for row in rows:
-        node = _inflate_code_node(row[0])
-        if node is not None:
-            chain.append(node.serialize())
+    for dec in decisions:
+        entry = dec.serialize()
+        supersession_chain = _walk_supersedes(dec)
+        entry["supersession_chain"] = supersession_chain
+        chain.append(entry)
+
+    return chain
+
+
+def _walk_supersedes(decision) -> list[dict[str, Any]]:
+    """Walk the SUPERSEDES chain from *decision* and serialize each."""
+    chain: list[dict[str, Any]] = []
+    visited: set[str] = set()
+    current = decision
+    while current is not None:
+        for older in current.supersedes.all():
+            if older.uid in visited:
+                continue
+            visited.add(older.uid)
+            chain.append(older.serialize())
+            current = older
+            break  # follow one level per iteration
+        else:
+            break  # no more superseded decisions
     return chain
 
 

@@ -1,3 +1,4 @@
+from codegraph.backends import get_backend
 """Unit test: ClassNode INHERITS_FROM ClassNode relationship roundtrip.
 
 Requires Neo4j (credentials loaded from .env via conftest.py).
@@ -88,7 +89,7 @@ def test_class_inherits():
     # codegraph:test-desc compound.test_class_inherits.test_class_inherits::step_3
     # Extracts the deserialized roundtripped node from the LayerGraph, preparing it for
     # detailed assertions about its type, fields, and inheritance edges.
-    connected = GraphRepository.outgoing_by_relation(derived_class, "INHERITS_FROM")
+    connected = get_backend().graph.outgoing_by_relation(derived_class, "INHERITS_FROM")
     # codegraph:test-desc compound.test_class_inherits.test_class_inherits::post_5
     # Verifies that the target node (base_class) has exactly one connected node (the
     # derived class), ensuring the bidirectional inheritance link is correctly

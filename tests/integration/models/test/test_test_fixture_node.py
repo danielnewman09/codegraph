@@ -548,22 +548,8 @@ class TestTestFixtureNodeNeo4j:
 
         fixture.of_type_class.connect(type_def)
 
-        # Verify via raw Cypher
-        from neomodel import db
-        results, _ = db.cypher_query(
-            "MATCH (f:TestFixtureNode)-[:OF_TYPE]->(t:ClassNode) "
-            "WHERE elementId(f) = $fid "
-            "RETURN t.qualified_name",
-            {"fid": db.parse_element_id(fixture.element_id)},
-        )
-        # codegraph:test-desc test.test_test_fixture_node.TestTestFixtureNodeNeo4j.test_of_type_connects_to_class_node::post_0
-        # Asserts that exactly one result is returned, confirming that the connection
-        # from the test fixture node to its class node is unique and correctly formed.
-        assert len(results) == 1
-        # codegraph:test-desc test.test_test_fixture_node.TestTestFixtureNodeNeo4j.test_of_type_connects_to_class_node::post_1
-        # Asserts that the first result's first element equals 'myapp::Foo', verifying
-        # that the query correctly returns the expected class node name.
-        assert results[0][0] == "myapp::Foo"
+        # Verify via neomodel relationship manager
+        assert type_def in fixture.of_type_class.all()
 
     def test_defined_in_connects_to_test_step(self):
         """DEFINED_IN links fixture to the step where it is defined."""
@@ -592,23 +578,7 @@ class TestTestFixtureNodeNeo4j:
 
         fixture.defined_in.connect(step)
 
-        from neomodel import db
-        results, _ = db.cypher_query(
-            "MATCH (f:TestFixtureNode)-[:DEFINED_IN]->(s:TestStepNode) "
-            "WHERE elementId(f) = $fid "
-            "RETURN s.qualified_name",
-            {"fid": db.parse_element_id(fixture.element_id)},
-        )
-        # codegraph:test-desc test.test_test_fixture_node.TestTestFixtureNodeNeo4j.test_defined_in_connects_to_test_step::post_0
-        # Verifies that exactly one result is returned, ensuring that the query for
-        # DEFINED_IN links between fixtures and steps is correctly filtering to a single
-        # relationship.
-        assert len(results) == 1
-        # codegraph:test-desc test.test_test_fixture_node.TestTestFixtureNodeNeo4j.test_defined_in_connects_to_test_step::post_1
-        # Checks that the returned result contains the expected step identifier,
-        # confirming that the DEFINED_IN relationship actually links the correct fixture
-        # to the step where it is defined.
-        assert "test_foo::test_create::step_0" in results[0][0]
+        assert step in fixture.defined_in.all()
 
     def test_checked_by_connects_to_assertion(self):
         """CHECKED_BY links fixture to the assertion that checks it."""
@@ -639,22 +609,7 @@ class TestTestFixtureNodeNeo4j:
 
         fixture.checked_by.connect(assertion)
 
-        from neomodel import db
-        results, _ = db.cypher_query(
-            "MATCH (f:TestFixtureNode)-[:CHECKED_BY]->(a:AssertionNode) "
-            "WHERE elementId(f) = $fid "
-            "RETURN a.qualified_name",
-            {"fid": db.parse_element_id(fixture.element_id)},
-        )
-        # codegraph:test-desc test.test_test_fixture_node.TestTestFixtureNodeNeo4j.test_checked_by_connects_to_assertion::post_0
-        # Verifies that exactly one result was returned from the query, ensuring the
-        # CHECKED_BY relationship exists uniquely as expected.
-        assert len(results) == 1
-        # codegraph:test-desc test.test_test_fixture_node.TestTestFixtureNodeNeo4j.test_checked_by_connects_to_assertion::post_1
-        # Confirms that the specific assertion identifier is present in the first
-        # result, validating that the correct assertion is linked to the fixture via
-        # CHECKED_BY.
-        assert "test_foo::test_create::post_0" in results[0][0]
+        assert assertion in fixture.checked_by.all()
 
     def test_composes_from_test_node(self):
         """TestNode composes TestFixtureNode alongside other children."""
@@ -685,22 +640,7 @@ class TestTestFixtureNodeNeo4j:
 
         test.fixtures.connect(fixture)
 
-        from neomodel import db
-        results, _ = db.cypher_query(
-            "MATCH (t:TestNode)-[:COMPOSES]->(f:TestFixtureNode) "
-            "WHERE elementId(t) = $tid "
-            "RETURN f.qualified_name",
-            {"tid": db.parse_element_id(test.element_id)},
-        )
-        # codegraph:test-desc test.test_test_fixture_node.TestTestFixtureNodeNeo4j.test_composes_from_test_node::post_0
-        # Verifies that exactly one result is returned from the query, confirming the
-        # composition logic produces a single, unique output.
-        assert len(results) == 1
-        # codegraph:test-desc test.test_test_fixture_node.TestTestFixtureNodeNeo4j.test_composes_from_test_node::post_1
-        # Checks that the first element of the first result matches the expected fully
-        # qualified test name, ensuring the composition correctly identifies the test
-        # node.
-        assert results[0][0] == "tests::test_foo::test_create::foo"
+        assert fixture in test.fixtures.all()
 
     def test_primitive_type_no_of_type_edge(self):
         """For primitive types (dict, str, list), only type_signature is set."""
@@ -733,18 +673,7 @@ class TestTestFixtureNodeNeo4j:
         # Executes the primary action being tested, likely constructing or saving a node
         # with primitive type fields and verifying that the type_signature property is
         # set without creating a separate type edge.
-        from neomodel import db
-        results, _ = db.cypher_query(
-            "MATCH (f:TestFixtureNode)-[:OF_TYPE]->(t) "
-            "WHERE elementId(f) = $fid "
-            "RETURN t",
-            {"fid": db.parse_element_id(fixture.element_id)},
-        )
-        # codegraph:test-desc test.test_test_fixture_node.TestTestFixtureNodeNeo4j.test_primitive_type_no_of_type_edge::post_1
-        # Asserts that no results are returned from the database query, confirming that
-        # the primitive type node was correctly stored without any unintended type
-        # relationships.
-        assert len(results) == 0
+        assert len(fixture.of_type_class.all()) == 0
 
 class TestLayerGraphTestFixtureNode:
     """LayerGraph integration tests for TestFixtureNode."""
@@ -861,18 +790,13 @@ class TestLayerGraphTestFixtureNode:
         graph = LayerGraph.deserialize(data)
         graph.to_neo4j()
 
-        from neomodel import db
-        results, _ = db.cypher_query(
-            "MATCH (f:TestFixtureNode {qualified_name: 'tests::test_w::widget'})"
-            "-[:OF_TYPE]->(t:ClassNode) "
-            "RETURN t.qualified_name"
-        )
-        # codegraph:test-desc test.test_test_fixture_node.TestLayerGraphTestFixtureNode.test_layer_graph_test_fixture_with_edges::post_0
-        # Verifies that the first element in the deserialized query result is the
-        # expected node identifier 'myapp::Widget', confirming that the LayerGraph
-        # correctly preserves defined nodes when converting to and from the Neo4j
-        # representation.
-        assert results[0][0] == "myapp::Widget"
+        from codegraph.backends import get_backend
+        g = get_backend().graph
+        fixture = g.find_by_qualified_name("tests::test_w::widget")
+        assert fixture is not None
+        targets = g.outgoing_by_relation(fixture, "OF_TYPE")
+        assert len(targets) == 1
+        assert getattr(targets[0], "qualified_name", "") == "myapp::Widget"
 
     def test_layer_graph_nested_test_fixture(self):
         """LayerGraph handles TestFixtureNode nested under TestNode via composes."""
@@ -922,20 +846,12 @@ class TestLayerGraphTestFixtureNode:
         # Converts the deserialized LayerGraph to a Neo4j-compatible structure,
         # advancing the test toward verifying that the nested TestFixtureNode is
         # correctly represented in the output.
-        from neomodel import db
+        from codegraph.backends import get_backend
         graph.to_neo4j()
 
-        results, _ = db.cypher_query(
-            "MATCH (t:TestNode)-[:COMPOSES]->(f:TestFixtureNode) "
-            "WHERE t.qualified_name = 'tests::test_w::test_create' "
-            "RETURN f.qualified_name"
-        )
-        # codegraph:test-desc test.test_test_fixture_node.TestLayerGraphTestFixtureNode.test_layer_graph_nested_test_fixture::post_1
-        # Ensures the results list contains exactly one item, confirming that the entire
-        # nested structure under the TestNode is captured as a single cohesive element.
-        assert len(results) == 1
-        # codegraph:test-desc test.test_test_fixture_node.TestLayerGraphTestFixtureNode.test_layer_graph_nested_test_fixture::post_2
-        # Verifies that the first result entry matches the expected fully qualified name
-        # of the nested test widget, confirming that the graph correctly associates the
-        # sub-test with the fixture.
-        assert results[0][0] == "tests::test_w::test_create::widget"
+        g = get_backend().graph
+        test_node = g.find_by_qualified_name("tests::test_w::test_create")
+        assert test_node is not None
+        fixtures = g.composed_children(test_node, TestFixtureNode)
+        assert len(fixtures) == 1
+        assert getattr(fixtures[0], "qualified_name", "") == "tests::test_w::test_create::widget"

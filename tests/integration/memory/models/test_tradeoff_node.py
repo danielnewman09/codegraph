@@ -2,6 +2,8 @@
 
 import pytest
 
+from codegraph.backends import get_backend
+
 
 class TestTradeoffNode:
     """Test TradeoffNode creation and TRADES_OFF relationship."""
@@ -37,13 +39,9 @@ class TestTradeoffNode:
         )
         tradeoff.trades_off_compound.connect(cls)
 
-        from neomodel import db
-        results, _ = db.cypher_query(
-            "MATCH (t:TradeoffNode)-[:TRADES_OFF]->(c) "
-            "WHERE t.qualified_name = $qname RETURN c",
-            {"qname": "memory::test-trades-off"},
-        )
-        assert len(results) == 1
+        linked = get_backend().memory.find_linked_code_node(tradeoff.uid)
+        assert linked is not None
+        assert linked["rel_type"] == "TRADES_OFF"
 
     def test_tradeoff_registered(self, neo4j_connection):
         from codegraph.models.tags import CodeGraphNode

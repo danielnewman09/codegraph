@@ -294,6 +294,12 @@ class InMemoryBackend(Backend):
 
     # ── Raw query ────────────────────────────────────────────────────
 
+    def wipe(self) -> None:
+        """Clear all stored nodes and edges from memory."""
+        self._nodes.clear()
+        self._edges_out.clear()
+        self._edges_in.clear()
+
     def execute_raw(
         self,
         query: str,

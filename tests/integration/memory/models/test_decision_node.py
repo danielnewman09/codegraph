@@ -2,6 +2,8 @@
 
 import pytest
 
+from codegraph.backends import get_backend
+
 
 class TestDecisionNode:
     """Test DecisionNode creation, tag management, and MOTIVATES relationship."""
@@ -83,14 +85,10 @@ class TestDecisionNode:
         )
         decision.motivates_compound.connect(cls)
 
-        # Verify via raw Cypher
-        from neomodel import db
-        results, _ = db.cypher_query(
-            "MATCH (d:DecisionNode)-[:MOTIVATES]->(c:ClassNode) "
-            "WHERE d.qualified_name = $qname RETURN c",
-            {"qname": "memory::test-motivates"},
-        )
-        assert len(results) == 1
+        # Verify via repository
+        linked = get_backend().memory.find_linked_code_node(decision.uid)
+        assert linked is not None
+        assert linked["rel_type"] == "MOTIVATES"
 
     def test_decision_supersedes(self, neo4j_connection):
         """DecisionNode can supersede an older decision."""

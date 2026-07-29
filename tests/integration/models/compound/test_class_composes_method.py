@@ -1,3 +1,4 @@
+from codegraph.backends import get_backend
 """Unit test: ClassNode COMPOSES MethodNode relationship roundtrip.
 
 Requires Neo4j (credentials loaded from .env via conftest.py).
@@ -85,7 +86,7 @@ def test_class_composes_method():
     # codegraph:test-desc compound.test_class_composes_method.test_class_composes_method::step_3
     # Checks that the deserialized node is connected to exactly one other node,
     # confirming the final structure of the reconstructed graph.
-    connected = GraphRepository.composed_children(class_node, MethodNode)
+    connected = get_backend().graph.composed_children(class_node, MethodNode)
     # codegraph:test-desc compound.test_class_composes_method.test_class_composes_method::post_5
     # Verifies that the connected nodes list has exactly one entry, confirming that the
     # MethodNode is linked in the deserialized graph.

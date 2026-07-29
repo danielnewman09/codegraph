@@ -272,6 +272,8 @@ class TestDisambiguation:
         """
         from neomodel import db
         from codegraph_memory.models.decision import DecisionNode
+        from neomodel import db
+        from codegraph.backends import get_backend
 
         # Create first node normally
         d1 = DecisionNode(
@@ -281,7 +283,11 @@ class TestDisambiguation:
         )
         d1.save()
 
-        # Create second node via raw Cypher with a different uid
+        # Create second node via raw Cypher with a different uid.
+        # Using neomodel's save() would recompute the uid, so raw
+        # Cypher is the only way to create a node that bypasses the
+        # normal uid computation — this test exists to verify the
+        # system handles such externally-created nodes.
         db.cypher_query(
             "CREATE (n:DecisionNode:MemoryNode) SET n.uid = 'manual-uid-99999', "
             "n.qualified_name = 'memory::test-ambiguous-raw', "
@@ -300,9 +306,7 @@ class TestDisambiguation:
 
         # Cleanup
         d1.delete()
-        db.cypher_query(
-            "MATCH (n:DecisionNode {uid: 'manual-uid-99999'}) DELETE n"
-        )
+        get_backend().graph.delete_by_uid("manual-uid-99999")
 
     def test_uid_disambiguates(self):
         from codegraph_memory.models.decision import DecisionNode
@@ -461,18 +465,7 @@ class TestSupersedes:
         new_node = DecisionNode.nodes.get(uid=new["uid"])
         old_node = DecisionNode.nodes.get(uid=old_uid)
 
-        # Check via Cypher
-        from neomodel import db
-        results, _ = db.cypher_query(
-            "MATCH (n:DecisionNode)-[:SUPERSEDES]->(o:DecisionNode) "
-            "WHERE elementId(n) = $nid AND elementId(o) = $oid "
-            "RETURN count(*) AS c",
-            {
-                "nid": db.parse_element_id(new_node.element_id),
-                "oid": db.parse_element_id(old_node.element_id),
-            },
-        )
-        assert results[0][0] == 1
+        assert old_node in new_node.supersedes.all()
 
         new_node.delete()
         old_node.delete()
@@ -543,23 +536,13 @@ class TestRefines:
         assert rat["action"] == "created"
 
         # Verify REFINES edge
-        from neomodel import db
         from codegraph_memory.models.rationale import RationaleNode
         from codegraph_memory.models.decision import DecisionNode
 
         rat_node = RationaleNode.nodes.get(uid=rat["uid"])
         dec_node = DecisionNode.nodes.get(uid=dec_uid)
 
-        results, _ = db.cypher_query(
-            "MATCH (r:RationaleNode)-[:REFINES]->(d:DecisionNode) "
-            "WHERE elementId(r) = $rid AND elementId(d) = $did "
-            "RETURN count(*) AS c",
-            {
-                "rid": db.parse_element_id(rat_node.element_id),
-                "did": db.parse_element_id(dec_node.element_id),
-            },
-        )
-        assert results[0][0] == 1
+        assert dec_node in rat_node.refines.all()
 
         rat_node.delete()
         dec_node.delete()
@@ -597,22 +580,12 @@ class TestContradicts:
         assert a2["action"] == "created"
 
         # Verify CONTRADICTS edge
-        from neomodel import db
         from codegraph_memory.models.assumption import AssumptionNode
 
         a2_node = AssumptionNode.nodes.get(uid=a2["uid"])
         a1_node = AssumptionNode.nodes.get(uid=a1_uid)
 
-        results, _ = db.cypher_query(
-            "MATCH (a:AssumptionNode)-[:CONTRADICTS]->(o:AssumptionNode) "
-            "WHERE elementId(a) = $aid AND elementId(o) = $oid "
-            "RETURN count(*) AS c",
-            {
-                "aid": db.parse_element_id(a2_node.element_id),
-                "oid": db.parse_element_id(a1_node.element_id),
-            },
-        )
-        assert results[0][0] == 1
+        assert a1_node in a2_node.contradicts.all()
 
         a2_node.delete()
         a1_node.delete()

@@ -71,6 +71,13 @@ class Neo4jGraphRepository(GraphRepository):
             return None
         return self.find_by_uid(uid)
 
+    @override
+    def find_all_by_qualified_name(
+        self, qualified_name: str
+    ) -> list["CodeGraphNode"]:
+        """Return all nodes matching *qualified_name*."""
+        return self._node_ops.find_all_by_qualified_name(qualified_name)
+
     # ── Node label operations ─────────────────────────────────────
 
     @override
@@ -84,6 +91,20 @@ class Neo4jGraphRepository(GraphRepository):
     @override
     def remove_labels(self, uid: str, labels: list[str]) -> None:
         self._node_ops.remove_labels(uid, labels)
+
+    # ── Bulk queries ─────────────────────────────────────────────
+
+    @override
+    def get_all_node_labels(self) -> list[dict]:
+        return self._node_ops.get_all_node_labels()
+
+    @override
+    def find_nodes_with_labels(self, labels: list[str]) -> list[dict]:
+        return self._node_ops.find_nodes_with_labels(labels)
+
+    @override
+    def count_all_nodes(self) -> int:
+        return self._node_ops.count_all_nodes()
 
     # ── Node mutation ─────────────────────────────────────────────
 
@@ -371,6 +392,67 @@ class Neo4jGraphRepository(GraphRepository):
         from codegraph.backends.neo4j.bulk_ops import Neo4jBulkOps
         bulk = Neo4jBulkOps(self._conn, self._node_ops, self._rel_ops)
         bulk.bulk_save(graph)
+
+    # ── Aggregation ──────────────────────────────────────────────
+
+    @override
+    def count_all_nodes(self, tag: str | None = None) -> int:
+        """Count all nodes, optionally filtered by *tag*."""
+        if tag:
+            return len(self._node_ops.find_uids_by_tag(tag))
+        rows, _ = self._conn.execute_raw("MATCH (n) RETURN count(n) AS c")
+        return rows[0]["c"]
+
+    @override
+    def find_nodes_with_labels(
+        self, labels: list[str]
+    ) -> list[dict]:
+        """Find nodes that carry ALL of the given Neo4j labels."""
+        if not labels:
+            return []
+        label_clause = "".join(f":{lbl}" for lbl in labels)
+        rows, _ = self._conn.execute_raw(
+            f"MATCH (n{label_clause}) "
+            "RETURN n.uid AS uid, "
+            "coalesce(n.qualified_name, '(none)') AS qualified_name, "
+            "labels(n) AS labels"
+        )
+        return [
+            {"uid": r["uid"], "qualified_name": r["qualified_name"],
+             "labels": sorted(r["labels"])}
+            for r in rows
+        ]
+
+    @override
+    def count_relationships(
+        self,
+        rel_types: list[str],
+        *,
+        source_labels: list[str] | None = None,
+        target_labels: list[str] | None = None,
+        target_tag: str | None = None,
+    ) -> int:
+        """Count relationships whose type is in *rel_types*."""
+        if not rel_types:
+            return 0
+        # Build the MATCH clause
+        src_clause = "(s"
+        if source_labels:
+            src_clause += ":" + ":".join(source_labels)
+        src_clause += ")"
+        tgt_clause = "(t"
+        if target_labels:
+            tgt_clause += ":" + ":".join(target_labels)
+        tgt_clause += ")"
+        type_conds = " OR ".join(f"r:{rt}" for rt in rel_types)
+        where_parts = [type_conds]
+        if target_tag:
+            where_parts.append(f"'{target_tag}' IN t.tags")
+        where_clause = " AND ".join(where_parts)
+        rows, _ = self._conn.execute_raw(
+            f"MATCH {src_clause}-[r]->{tgt_clause} WHERE {where_clause} RETURN count(r) AS c"
+        )
+        return rows[0]["c"]
 
     # ── Private helpers ───────────────────────────────────────────
 

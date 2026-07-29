@@ -8,6 +8,7 @@ Requires Neo4j (credentials loaded from .env via conftest.py).
 
 from codegraph.models.compound import EnumNode
 from codegraph.models.namespace import NamespaceNode
+from codegraph.backends import get_backend
 from codegraph.persistence.repository import GraphRepository
 
 
@@ -36,7 +37,7 @@ def test_enum_composed_by_namespace():
     ns_node.enums.connect(enum_node)
 
     # Verify incoming COMPOSES from child side
-    parents = GraphRepository.incoming_composers(enum_node, NamespaceNode)
+    parents = get_backend().graph.incoming_composers(enum_node, NamespaceNode)
     # codegraph:test-desc compound.test_enum_composed_by_namespace.test_enum_composed_by_namespace::post_0
     # Asserts that the number of parent nodes of the enum is exactly 1, verifying that
     # the enum is exclusively composed within the namespace without unintended

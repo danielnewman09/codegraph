@@ -74,7 +74,7 @@ def export_adr(
         lines.append("")
 
     # ── Rationale ──────────────────────────────────────────────────
-    backend = get_backend()
+    #TODO: remove raw cypher from this place
     results, _ = backend.execute_raw(
         "MATCH (r:RationaleNode)-[:REFINES]->(d:DecisionNode) "
         "WHERE d.qualified_name = $qname RETURN r",

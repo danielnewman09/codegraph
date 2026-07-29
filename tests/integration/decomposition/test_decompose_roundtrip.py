@@ -36,6 +36,7 @@ from pathlib import Path
 import pytest
 
 from codegraph.export.markdown import export_markdown, import_markdown
+from codegraph.models.tags import CodeGraphNode
 
 def _neo4j_available() -> bool:
     """Check if Neo4j is reachable on the test port."""
@@ -261,14 +262,13 @@ class TestNeo4jPersistence:
         graph = import_markdown(text, tags=frozenset({"design"}))
         graph.to_neo4j()
 
-        from neomodel import db
-        results, _ = db.cypher_query(
-            "MATCH (h:HLR)-[:COMPOSES]->(l:LLR) "
-            "WHERE h.qualified_name = 'Architecture Diagram Generator' "
-            "RETURN l.qualified_name as qname "
-            "ORDER BY qname"
-        )
-        llr_names = [r[0] for r in results]
+        from codegraph.backends import get_backend
+        from codegraph_requirements.models.requirement import LLR
+        g = get_backend().graph
+        hlr = g.find_by_qualified_name("Architecture Diagram Generator")
+        assert hlr is not None
+        llrs = g.composed_children(hlr, LLR)
+        llr_names = [getattr(llr, "qualified_name", "") for llr in llrs]
         assert len(llr_names) == 5, (
             f"Expected 5 LLRs in Neo4j, got {len(llr_names)}: {llr_names}"
         )
@@ -281,14 +281,13 @@ class TestNeo4jPersistence:
         graph = import_markdown(text, tags=frozenset({"design"}))
         graph.to_neo4j()
 
-        from neomodel import db
-        results, _ = db.cypher_query(
-            "MATCH (l:LLR)-[:COMPOSES]->(t:TestNode) "
-            "WHERE l.qualified_name = 'Diagram Generation Operation' "
-            "RETURN t.qualified_name as qname "
-            "ORDER BY qname"
-        )
-        test_names = [r[0] for r in results]
+        from codegraph.backends import get_backend
+        from codegraph.models.test import TestNode
+        g = get_backend().graph
+        llr = g.find_by_qualified_name("Diagram Generation Operation")
+        assert llr is not None
+        tests = g.composed_children(llr, TestNode)
+        test_names = [getattr(t, "qualified_name", "") for t in tests]
         assert len(test_names) == 2
         assert "vm::generate::test_valid_config" in test_names
 
@@ -298,14 +297,18 @@ class TestNeo4jPersistence:
         graph = import_markdown(text, tags=frozenset({"design"}))
         graph.to_neo4j()
 
-        from neomodel import db
-        results, _ = db.cypher_query(
-            "MATCH (t:TestNode)-[:COMPOSES]->(a:AssertionNode) "
-            "WHERE t.qualified_name = 'vm::generate::test_valid_config' "
-            "RETURN a.qualified_name as qname "
-            "ORDER BY qname"
-        )
-        assertion_names = [r[0] for r in results]
+        from codegraph.backends import get_backend
+        g = get_backend().graph
+        test = g.find_by_qualified_name("vm::generate::test_valid_config")
+        assert test is not None
+        # Filter by Neo4j label, not isinstance (nodes may carry
+        # residual labels from the scaffold→design migration).
+        all_children = g.composed_children(test, CodeGraphNode)
+        assertion_names = [
+            getattr(a, "qualified_name", "")
+            for a in all_children
+            if a._uid_value() and "AssertionNode" in g.get_labels(a._uid_value())
+        ]
         assert len(assertion_names) == 3
         assert "cond::pre::valid_config_provided" in assertion_names
         assert "cond::post::success_true" in assertion_names
@@ -316,22 +319,19 @@ class TestNeo4jPersistence:
         graph = import_markdown(text, tags=frozenset({"design"}))
         graph.to_neo4j()
 
-        from neomodel import db
+        from codegraph.backends import get_backend
+        g = get_backend().graph
         # LEFT_OPERAND: cond::pre::valid_config_provided → DiagramConfig::is_valid
-        results, _ = db.cypher_query(
-            "MATCH (a:AssertionNode)-[:LEFT_OPERAND]->(t) "
-            "WHERE a.qualified_name = 'cond::pre::valid_config_provided' "
-            "RETURN t.qualified_name as qname"
-        )
-        assert results and results[0][0] == "DiagramConfig::is_valid"
+        assertion = g.find_by_qualified_name("cond::pre::valid_config_provided")
+        assert assertion is not None
+        left_targets = g.outgoing_by_relation(assertion, "LEFT_OPERAND")
+        assert len(left_targets) == 1
+        assert getattr(left_targets[0], "qualified_name", "") == "DiagramConfig::is_valid"
 
         # RIGHT_OPERAND: cond::pre::valid_config_provided → literal::true
-        results, _ = db.cypher_query(
-            "MATCH (a:AssertionNode)-[:RIGHT_OPERAND]->(t) "
-            "WHERE a.qualified_name = 'cond::pre::valid_config_provided' "
-            "RETURN t.qualified_name as qname"
-        )
-        assert results and results[0][0] == "literal::true"
+        right_targets = g.outgoing_by_relation(assertion, "RIGHT_OPERAND")
+        assert len(right_targets) == 1
+        assert getattr(right_targets[0], "qualified_name", "") == "literal::true"
 
     def test_persist_creates_callee_edges(self):
         """CALLEE edges from TestStepNode to scaffold attributes should
@@ -340,13 +340,13 @@ class TestNeo4jPersistence:
         graph = import_markdown(text, tags=frozenset({"design"}))
         graph.to_neo4j()
 
-        from neomodel import db
-        results, _ = db.cypher_query(
-            "MATCH (s:TestStepNode)-[:CALLEE]->(t) "
-            "WHERE s.qualified_name = 'step::invoke_generate_valid' "
-            "RETURN t.qualified_name as qname"
-        )
-        assert results and results[0][0] == "ArchDiagramGenerator::generate_diagram"
+        from codegraph.backends import get_backend
+        g = get_backend().graph
+        step = g.find_by_qualified_name("step::invoke_generate_valid")
+        assert step is not None
+        callees = g.outgoing_by_relation(step, "CALLEE")
+        assert len(callees) == 1
+        assert getattr(callees[0], "qualified_name", "") == "ArchDiagramGenerator::generate_diagram"
 
     def test_persist_idempotent(self):
         """Re-ingesting the same markdown should not create duplicate nodes."""
@@ -354,20 +354,17 @@ class TestNeo4jPersistence:
         graph1 = import_markdown(text, tags=frozenset({"design"}))
         graph1.to_neo4j()
 
-        from neomodel import db
-        count_before, _ = db.cypher_query(
-            "MATCH (n) WHERE 'design' IN n.tags RETURN count(n)"
-        )
-        assert count_before[0][0] > 0
+        from codegraph.backends import get_backend
+        g = get_backend().graph
+        count_before = g.count_all_nodes(tag="design")
+        assert count_before > 0
 
         # Re-ingest
         graph2 = import_markdown(text, tags=frozenset({"design"}))
         graph2.to_neo4j()
 
-        count_after, _ = db.cypher_query(
-            "MATCH (n) WHERE 'design' IN n.tags RETURN count(n)"
-        )
-        assert count_before[0][0] == count_after[0][0], (
-            f"Node count changed: {count_before[0][0]} → {count_after[0][0]}"
+        count_after = g.count_all_nodes(tag="design")
+        assert count_before == count_after, (
+            f"Node count changed: {count_before} → {count_after}"
         )
 

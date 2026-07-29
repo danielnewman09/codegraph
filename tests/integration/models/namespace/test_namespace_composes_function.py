@@ -1,3 +1,4 @@
+from codegraph.backends import get_backend
 """Unit test: NamespaceNode COMPOSES FunctionNode relationship roundtrip.
 
 Requires Neo4j (credentials loaded from .env via conftest.py).
@@ -86,7 +87,7 @@ def test_namespace_composes_function():
     # Deserializes the `CompositeEntry` back into a `CodeGraphNode` and extracts its
     # `composes_edges`, completing the round-trip action so that the extracted edges can
     # be verified against the original composition.
-    connected = GraphRepository.composed_children(namespace_node, FunctionNode)
+    connected = get_backend().graph.composed_children(namespace_node, FunctionNode)
     # codegraph:test-desc namespace.test_namespace_composes_function.test_namespace_composes_function::post_5
     # Asserts that the `connected` list (derived from the round-tripped node) contains
     # exactly one element, confirming that the node retains its single connection.

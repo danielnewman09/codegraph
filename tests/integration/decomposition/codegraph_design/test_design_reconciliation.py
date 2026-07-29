@@ -32,6 +32,17 @@ from pathlib import Path
 
 import pytest
 
+from codegraph.backends import get_backend
+from codegraph.constants import NODE_KIND_KEYS
+from codegraph.models.compound import ClassNode
+from codegraph_design.agents.design_oo import (
+    _link_design_dependencies,
+    _reconcile_design_with_scaffold,
+)
+from codegraph_requirements.models.requirement import HLR
+from codegraph_requirements.persistence import persist_decomposition
+from codegraph_requirements.schemas import DecomposedRequirementSchema
+
 DATA_DIR = Path(__file__).resolve().parent / "data"
 DECOMPOSE_RESPONSE = DATA_DIR / "decompose_response.json"
 DESIGN_RESPONSE = DATA_DIR / "design_response.json"
@@ -113,18 +124,35 @@ def _node_labels_valid(labels: list[str]) -> tuple[bool, str]:
 
 
 def _find_conflicting_nodes():
-    """Query Neo4j for all nodes with non-lookup labels and return
-    (qualified_name, labels, reason) for every invalid node."""
-    from neomodel import db
+    """Query for all nodes and return (qualified_name, labels, reason)
+    for every invalid node.
 
-    results, _ = db.cypher_query(
-        "MATCH (n) "
-        "RETURN coalesce(n.qualified_name, '(none)') AS qn, labels(n) AS lbls "
-        "ORDER BY qn"
-    )
+    Uses the GraphRepository API — no raw Cypher.
+    """
+    graph = get_backend().graph
+
+    # Collect all nodes via known kinds (covers as-built code nodes)
+    # plus requirement kinds (HLR, LLR).
+    _REQUIREMENT_KINDS = {"hlr", "llr"}
+    all_kinds = sorted(NODE_KIND_KEYS | _REQUIREMENT_KINDS)
+
+    seen: set[str] = set()
+    all_nodes: list[tuple[str, list[str]]] = []
+
+    for kind in all_kinds:
+        for node in graph.find_all_by_kind(kind):
+            uid = node._uid_value()
+            if not uid or uid in seen:
+                continue
+            seen.add(uid)
+            labels = graph.get_labels(uid)
+            qn = getattr(node, "qualified_name", "") or "(none)"
+            all_nodes.append((qn, sorted(labels)))
+
+    all_nodes.sort(key=lambda x: x[0])
+
     conflicts = []
-    for row in results:
-        qn, lbls = row[0], row[1]
+    for qn, lbls in all_nodes:
         if not lbls:
             continue
         is_valid, reason = _node_labels_valid(lbls)
@@ -138,17 +166,11 @@ def _find_conflicting_nodes():
 
 @pytest.fixture()
 def ensure_hlr_exists():
-    """Create the target HLR in the test Neo4j so persist_decomposition
+    """Create the target HLR in Neo4j so persist_decomposition
     can find it."""
-    from codegraph_requirements.models.requirement import HLR
-    from neomodel import db
-
     existing = HLR.nodes.get_or_none(uid=HLR_UID)
     if existing:
-        db.cypher_query(
-            "MATCH (h:HLR {uid: $uid}) DETACH DELETE h",
-            {"uid": HLR_UID},
-        )
+        get_backend().graph.delete_by_uid(HLR_UID)
 
     hlr = HLR(
         uid=HLR_UID,
@@ -168,9 +190,6 @@ def ensure_hlr_exists():
 @pytest.fixture()
 def persisted_decomposition(ensure_hlr_exists):
     """Persist the decompose response to Neo4j (creates scaffold nodes)."""
-    from codegraph_requirements.schemas import DecomposedRequirementSchema
-    from codegraph_requirements.persistence import persist_decomposition
-
     with open(DECOMPOSE_RESPONSE) as f:
         data = json.load(f)
 
@@ -220,10 +239,6 @@ class TestDesignLabelMigration:
         nodes end up with both ``AttributeNode`` and ``MethodNode``
         labels, which breaks graph resolution.
         """
-        from codegraph_design.agents.design_oo import (
-            _reconcile_design_with_scaffold,
-        )
-
         design_nodes = design_data["design"]
         recon = _reconcile_design_with_scaffold(HLR_UID, design_nodes)
 
@@ -251,20 +266,13 @@ class TestDesignLabelMigration:
     ):
         """Specifically verify that MethodNodes do NOT also have
         the AttributeNode label — the known regression."""
-        from codegraph_design.agents.design_oo import (
-            _reconcile_design_with_scaffold,
-        )
-        from neomodel import db
-
         design_nodes = design_data["design"]
         _reconcile_design_with_scaffold(HLR_UID, design_nodes)
 
         # Find all nodes that have both MethodNode and AttributeNode labels
-        results, _ = db.cypher_query(
-            "MATCH (n:MethodNode:AttributeNode) "
-            "RETURN n.qualified_name AS qn, labels(n) AS lbls"
-        )
-        bad = [(row[0], row[1]) for row in results]
+        graph = get_backend().graph
+        results = graph.find_nodes_with_labels(["MethodNode", "AttributeNode"])
+        bad = [(r["qualified_name"], r["labels"]) for r in results]
         assert bad == [], (
             f"Found {len(bad)} MethodNode(s) that also have AttributeNode label "
             f"after reconciliation:\n"
@@ -276,24 +284,17 @@ class TestDesignLabelMigration:
     ):
         """Verify no compound node has labels from two different
         compound types (e.g. ClassNode + InterfaceNode)."""
-        from codegraph_design.agents.design_oo import (
-            _reconcile_design_with_scaffold,
-        )
-        from neomodel import db
-
         design_nodes = design_data["design"]
         _reconcile_design_with_scaffold(HLR_UID, design_nodes)
 
+        graph = get_backend().graph
         compound_types = ["ClassNode", "InterfaceNode", "EnumNode",
                           "UnionNode", "ModuleNode"]
 
         for i, t1 in enumerate(compound_types):
             for t2 in compound_types[i + 1:]:
-                results, _ = db.cypher_query(
-                    f"MATCH (n:{t1}:{t2}) "
-                    "RETURN n.qualified_name AS qn, labels(n) AS lbls"
-                )
-                bad = [(row[0], row[1]) for row in results]
+                results = graph.find_nodes_with_labels([t1, t2])
+                bad = [(r["qualified_name"], r["labels"]) for r in results]
                 assert bad == [], (
                     f"Found {len(bad)} node(s) with both {t1} and {t2} labels:\n"
                     + "\n".join(f"  {qn}: {lbls}" for qn, lbls in bad)
@@ -305,24 +306,17 @@ class TestDesignLabelMigration:
         """Verify no member node has labels from two different
         member types (e.g. MethodNode + AttributeNode, or
         MethodNode + FunctionNode)."""
-        from codegraph_design.agents.design_oo import (
-            _reconcile_design_with_scaffold,
-        )
-        from neomodel import db
-
         design_nodes = design_data["design"]
         _reconcile_design_with_scaffold(HLR_UID, design_nodes)
 
+        graph = get_backend().graph
         member_types = ["MethodNode", "AttributeNode", "EnumValueNode",
                         "FunctionNode", "DefineNode"]
 
         for i, t1 in enumerate(member_types):
             for t2 in member_types[i + 1:]:
-                results, _ = db.cypher_query(
-                    f"MATCH (n:{t1}:{t2}) "
-                    "RETURN n.qualified_name AS qn, labels(n) AS lbls"
-                )
-                bad = [(row[0], row[1]) for row in results]
+                results = graph.find_nodes_with_labels([t1, t2])
+                bad = [(r["qualified_name"], r["labels"]) for r in results]
                 assert bad == [], (
                     f"Found {len(bad)} node(s) with both {t1} and {t2} labels:\n"
                     + "\n".join(f"  {qn}: {lbls}" for qn, lbls in bad)
@@ -341,11 +335,6 @@ class TestDesignReconciliationCounts:
         self, persisted_decomposition, design_data
     ):
         """After reconciliation, key design classes should exist."""
-        from codegraph_design.agents.design_oo import (
-            _reconcile_design_with_scaffold,
-        )
-        from neomodel import db
-
         design_nodes = design_data["design"]
         _reconcile_design_with_scaffold(HLR_UID, design_nodes)
 
@@ -359,14 +348,11 @@ class TestDesignReconciliationCounts:
             "diagram_gen::FileSystem",
             "diagram_gen::Dependency",
         ]
+        graph = get_backend().graph
         for qn in expected_classes:
-            results, _ = db.cypher_query(
-                "MATCH (n {qualified_name: $qn}) "
-                "RETURN labels(n) AS lbls",
-                {"qn": qn},
-            )
-            assert len(results) == 1, (
-                f"Expected 1 node for '{qn}', got {len(results)}"
+            node = graph.find_by_qualified_name(qn)
+            assert node is not None, (
+                f"Expected node for '{qn}', but not found"
             )
 
     def test_scaffold_tag_replaced_with_design(
@@ -374,11 +360,6 @@ class TestDesignReconciliationCounts:
     ):
         """After reconciliation, nodes that were matched to design
         should have tags=["design"], not ["scaffold"]."""
-        from codegraph_design.agents.design_oo import (
-            _reconcile_design_with_scaffold,
-        )
-        from neomodel import db
-
         design_nodes = design_data["design"]
         recon = _reconcile_design_with_scaffold(HLR_UID, design_nodes)
 
@@ -386,32 +367,25 @@ class TestDesignReconciliationCounts:
         # should be retagged from scaffold → design
         assert recon["scaffold_retaged"] >= 1
 
-        # Check that architecture diagram generator is tagged design
-        results, _ = db.cypher_query(
-            "MATCH (n {qualified_name: 'diagram_gen::ArchitectureDiagramGenerator'}) "
-            "RETURN n.tags AS tags"
+        graph = get_backend().graph
+        node = graph.find_by_qualified_name(
+            "diagram_gen::ArchitectureDiagramGenerator"
         )
-        assert len(results) >= 1
-        tags = results[0][0] or []
+        assert node is not None
+        tags = list(node.tags) if node.tags else []
         assert "design" in tags
         assert "scaffold" not in tags
 
     def test_node_count_grows_after_design(self, persisted_decomposition, design_data):
         """Design reconciliation should add new nodes (unmatched design
         compounds) — total node count should increase."""
-        from codegraph_design.agents.design_oo import (
-            _reconcile_design_with_scaffold,
-        )
-        from neomodel import db
-
-        results_before, _ = db.cypher_query("MATCH (n) RETURN count(n) AS c")
-        count_before = results_before[0][0]
+        graph = get_backend().graph
+        count_before = graph.count_all_nodes()
 
         design_nodes = design_data["design"]
         _reconcile_design_with_scaffold(HLR_UID, design_nodes)
 
-        results_after, _ = db.cypher_query("MATCH (n) RETURN count(n) AS c")
-        count_after = results_after[0][0]
+        count_after = graph.count_all_nodes()
 
         assert count_after > count_before, (
             f"Expected node count to increase after design reconciliation, "
@@ -437,8 +411,6 @@ class TestDesignDependencyEdges:
         This tests the fix where _link_design_dependencies was only
         scanning type_signature/argsstring text fields and ignoring
         the edges array that the agent explicitly declares."""
-        from codegraph_design.agents.design_oo import _link_design_dependencies
-        from neomodel import db
 
         # Create source and target nodes.  The as-built target simulates
         # an existing entity (like cpp_sqlite::Database) that the design
@@ -448,11 +420,11 @@ class TestDesignDependencyEdges:
             ("test::MigrationResult", "test", ["design"]),
             ("test::Database", "test", ["as-built"]),
         ]:
-            db.cypher_query(
-                "MERGE (n:ClassNode:CodeGraphNode {qualified_name: $qn})"
-                " SET n.name = $name, n.source = $source, n.tags = $tags",
-                {"qn": qn, "name": qn.split("::")[-1],
-                 "source": source, "tags": tags},
+            ClassNode.save_new(
+                qualified_name=qn,
+                name=qn.split("::")[-1],
+                source=source,
+                tags=tags,
             )
 
         # Flat design — the agent explicitly declares edges to both
@@ -484,15 +456,16 @@ class TestDesignDependencyEdges:
             f"got {edges_created}"
         )
 
-        # Verify edges exist in Neo4j.
-        results, _ = db.cypher_query(
-            "MATCH (s {qualified_name: 'test::MigrationManager'})"
-            "-[r:DEPENDS_ON]->(t)"
-            " RETURN t.qualified_name ORDER BY t.qualified_name"
+        # Verify edges exist.
+        graph = get_backend().graph
+        source = graph.find_by_qualified_name("test::MigrationManager")
+        assert source is not None
+        targets = graph.outgoing_by_relation(source, "DEPENDS_ON")
+        target_qns = sorted(
+            getattr(t, "qualified_name", "") for t in targets
         )
-        targets = [row[0] for row in results]
-        assert targets == ["test::Database", "test::MigrationResult"], (
-            f"Unexpected DEPENDS_ON targets: {targets}"
+        assert target_qns == ["test::Database", "test::MigrationResult"], (
+            f"Unexpected DEPENDS_ON targets: {target_qns}"
         )
 
     def test_type_signature_scanning_creates_depends_on_relations(
@@ -500,19 +473,17 @@ class TestDesignDependencyEdges:
     ):
         """Type-signature scanning (the legacy path) also produces
         DEPENDS_ON edges — ensures the scanning path still works."""
-        from codegraph_design.agents.design_oo import _link_design_dependencies
-        from neomodel import db
 
-        # Create nodes: a design compound and an existing entity it references.
+        # Create nodes.
         for qn, source, tags in [
             ("test::MigrationManager", "test", ["design"]),
             ("test::Database", "test", ["as-built"]),
         ]:
-            db.cypher_query(
-                "MERGE (n:ClassNode:CodeGraphNode {qualified_name: $qn})"
-                " SET n.name = $name, n.source = $source, n.tags = $tags",
-                {"qn": qn, "name": qn.split("::")[-1],
-                 "source": source, "tags": tags},
+            ClassNode.save_new(
+                qualified_name=qn,
+                name=qn.split("::")[-1],
+                source=source,
+                tags=tags,
             )
 
         # Flat design — no explicit edges array, but member type_signature
@@ -549,11 +520,11 @@ class TestDesignDependencyEdges:
             f"got {edges_created}"
         )
 
-        results, _ = db.cypher_query(
-            "MATCH (s {qualified_name: 'test::MigrationManager'})"
-            "-[r:DEPENDS_ON]->(t {qualified_name: 'test::Database'})"
-            " RETURN count(r) AS c"
-        )
-        assert results[0][0] == 1, (
+        graph = get_backend().graph
+        source = graph.find_by_qualified_name("test::MigrationManager")
+        assert source is not None
+        targets = graph.outgoing_by_relation(source, "DEPENDS_ON")
+        target_qns = [getattr(t, "qualified_name", "") for t in targets]
+        assert "test::Database" in target_qns, (
             "DEPENDS_ON edge from type-signature scan was not created"
         )

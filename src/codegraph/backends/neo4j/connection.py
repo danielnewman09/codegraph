@@ -148,6 +148,32 @@ class Neo4jConnection:
             log.warning("Neo4j connectivity check failed", exc_info=True)
             return False
 
+    def close(self) -> None:
+        """Close the Neo4j driver and release all connection resources.
+
+        After calling this, the connection is in a dormant state.
+        Call :meth:`reconnect` to re-establish connectivity.
+        """
+        if db.driver is not None:
+            try:
+                db.driver.close()
+            except Exception:
+                log.warning("Error closing Neo4j driver", exc_info=True)
+            db.driver = None
+        self._driver_ensured = False
+
+    def reconnect(self) -> None:
+        """Re-establish the Neo4j connection with fresh configuration.
+
+        Closes any existing driver, re-reads :class:`Neo4jConfig` from
+        the environment, and opens a new driver.  Use this in tests
+        when environment variables have changed since the last
+        ``close()``.
+        """
+        self.close()
+        self._config = Neo4jConfig.from_env()
+        self.ensure_driver()
+
     def require_connection(self) -> None:
         """Verify Neo4j is reachable; raise if not.
 

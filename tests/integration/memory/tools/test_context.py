@@ -6,6 +6,7 @@ import pytest
 
 from codegraph.models.compound import ClassNode
 from codegraph.models.namespace import NamespaceNode
+from codegraph.backends import get_backend
 from codegraph_memory.tools.context import memory_context
 from codegraph_memory.tools.record import record_memory
 
@@ -22,13 +23,7 @@ def hierarchy():
     cls.save()
 
     # Link class into namespace via COMPOSES
-    from neomodel import db
-    db.cypher_query(
-        "MATCH (ns:NamespaceNode) WHERE elementId(ns) = $nsid "
-        "MATCH (c:ClassNode) WHERE elementId(c) = $cid "
-        "MERGE (ns)-[:COMPOSES]->(c)",
-        {"nsid": db.parse_element_id(ns.element_id), "cid": db.parse_element_id(cls.element_id)},
-    )
+    get_backend().graph.merge_relationship(ns.uid, "COMPOSES", cls.uid)
 
     # Create memories at each level
     # Namespace-level constraint
@@ -214,13 +209,7 @@ class TestEdgeCases:
         cls = ClassNode(qualified_name="emptyapp::EmptyClass", source="test")
         cls.save()
 
-        from neomodel import db
-        db.cypher_query(
-            "MATCH (ns:NamespaceNode) WHERE elementId(ns) = $nsid "
-            "MATCH (c:ClassNode) WHERE elementId(c) = $cid "
-            "MERGE (ns)-[:COMPOSES]->(c)",
-            {"nsid": db.parse_element_id(ns.element_id), "cid": db.parse_element_id(cls.element_id)},
-        )
+        get_backend().graph.merge_relationship(ns.uid, "COMPOSES", cls.uid)
 
         result = memory_context("emptyapp::EmptyClass")
         assert result["error"] is None

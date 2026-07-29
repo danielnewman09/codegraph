@@ -6,6 +6,7 @@ correctly returns the parent NamespaceNode when connected via COMPOSES.
 Requires Neo4j (credentials loaded from .env via conftest.py).
 """
 
+from codegraph.backends import get_backend
 from codegraph.models.compound import ModuleNode
 from codegraph.models.namespace import NamespaceNode
 from codegraph.persistence.repository import GraphRepository
@@ -36,7 +37,7 @@ def test_module_composed_by_namespace():
     ns_node.modules.connect(module_node)
 
     # Verify incoming COMPOSES from child side
-    parents = GraphRepository.incoming_composers(module_node, NamespaceNode)
+    parents = get_backend().graph.incoming_composers(module_node, NamespaceNode)
     # codegraph:test-desc compound.test_module_composed_by_namespace.test_module_composed_by_namespace::post_0
     # Verifies that the module has exactly one parent, confirming the module is
     # correctly attached to a single namespace as intended.

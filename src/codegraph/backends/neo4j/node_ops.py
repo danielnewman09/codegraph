@@ -326,6 +326,17 @@ class Neo4jNodeOps:
         )
         return results[0][0] if results else None
 
+    def find_all_by_qualified_name(
+        self, qualified_name: str
+    ) -> list["CodeGraphNode"]:
+        """Return all nodes matching *qualified_name*."""
+        results, _ = db.cypher_query(
+            "MATCH (n) WHERE n.qualified_name = $qn RETURN n",
+            {"qn": qualified_name},
+            resolve_objects=True,
+        )
+        return [row[0] for row in results]
+
     def find_qualified_name_by_uid(self, uid: str) -> str | None:
         """Look up qualified_name for a node by uid."""
         results, _ = db.cypher_query(
@@ -430,6 +441,42 @@ class Neo4jNodeOps:
                 for r in results
                 if r[0] is not None
             ]
+
+    # ── Bulk label queries ───────────────────────────────────
+
+    def get_all_node_labels(self) -> list[dict]:
+        """Return qualified_name, labels, and uid for every node."""
+        results, _ = db.cypher_query(
+            "MATCH (n) "
+            "RETURN coalesce(n.qualified_name, '(none)') AS qualified_name, "
+            "labels(n) AS labels, n.uid AS uid "
+            "ORDER BY qualified_name",
+        )
+        return [
+            {"qualified_name": r[0], "labels": r[1], "uid": r[2]}
+            for r in results
+        ]
+
+    def find_nodes_with_labels(self, labels: list[str]) -> list[dict]:
+        """Find nodes that carry ALL of the specified labels.
+
+        Returns ``[{"qualified_name": str, "labels": list[str], "uid": str}]``.
+        """
+        label_pattern = ":".join(f"`{l}`" for l in labels)
+        results, _ = db.cypher_query(
+            f"MATCH (n:{label_pattern}) "
+            "RETURN coalesce(n.qualified_name, '(none)') AS qualified_name, "
+            "labels(n) AS labels, n.uid AS uid",
+        )
+        return [
+            {"qualified_name": r[0], "labels": r[1], "uid": r[2]}
+            for r in results
+        ]
+
+    def count_all_nodes(self) -> int:
+        """Return the total number of nodes in the graph."""
+        results, _ = db.cypher_query("MATCH (n) RETURN count(n) AS c")
+        return results[0][0] if results else 0
 
     # ── Vector / semantic search ────────────────────────────────
 

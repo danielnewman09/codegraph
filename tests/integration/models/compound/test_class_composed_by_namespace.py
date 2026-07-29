@@ -8,6 +8,7 @@ Requires Neo4j (credentials loaded from .env via conftest.py).
 
 from codegraph.models.compound import ClassNode
 from codegraph.models.namespace import NamespaceNode
+from codegraph.backends import get_backend
 from codegraph.persistence.repository import GraphRepository
 
 
@@ -37,7 +38,7 @@ def test_class_composed_by_namespace():
     ns_node.classes.connect(class_node)
 
     # Verify incoming COMPOSES from child side
-    parents = GraphRepository.incoming_composers(class_node, NamespaceNode)
+    parents = get_backend().graph.incoming_composers(class_node, NamespaceNode)
     # codegraph:test-desc compound.test_class_composed_by_namespace.test_class_composed_by_namespace::post_0
     # Verifies that the ClassNode has exactly one parent after composition, confirming
     # that the namespace is correctly set as the sole parent, which is essential for

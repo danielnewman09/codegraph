@@ -2,6 +2,8 @@
 
 import pytest
 
+from codegraph.backends import get_backend
+
 
 class TestRationaleNode:
     """Test RationaleNode creation and EXPLAINS/REFINES relationships."""
@@ -36,13 +38,9 @@ class TestRationaleNode:
         )
         rationale.explains_compound.connect(method)
 
-        from neomodel import db
-        results, _ = db.cypher_query(
-            "MATCH (r:RationaleNode)-[:EXPLAINS]->(t) "
-            "WHERE r.qualified_name = $qname RETURN t",
-            {"qname": "memory::test-explains"},
-        )
-        assert len(results) == 1
+        linked = get_backend().memory.find_linked_code_node(rationale.uid)
+        assert linked is not None
+        assert linked["rel_type"] == "EXPLAINS"
 
     def test_rationale_refines_decision(self, neo4j_connection):
         from codegraph_memory import RationaleNode, DecisionNode

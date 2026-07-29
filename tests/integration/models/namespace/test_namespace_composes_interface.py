@@ -1,3 +1,4 @@
+from codegraph.backends import get_backend
 """Unit test: NamespaceNode COMPOSES InterfaceNode relationship roundtrip.
 
 Requires Neo4j (credentials loaded from .env via conftest.py).
@@ -84,7 +85,7 @@ def test_namespace_composes_interface():
     # codegraph:test-desc namespace.test_namespace_composes_interface.test_namespace_composes_interface::step_3
     # Queries the connected nodes from the composes edges to obtain the list of target
     # nodes, completing the data extraction for the final assertions.
-    connected = GraphRepository.composed_children(namespace_node, InterfaceNode)
+    connected = get_backend().graph.composed_children(namespace_node, InterfaceNode)
     # codegraph:test-desc namespace.test_namespace_composes_interface.test_namespace_composes_interface::post_5
     # Asserts that exactly one connected node is found from the composes edge, verifying
     # that the composition relationship points to a single target.

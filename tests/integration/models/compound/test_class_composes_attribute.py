@@ -1,3 +1,4 @@
+from codegraph.backends import get_backend
 """Unit test: ClassNode COMPOSES AttributeNode relationship roundtrip.
 
 Requires Neo4j (credentials loaded from .env via conftest.py).
@@ -84,7 +85,7 @@ def test_class_composes_attribute():
     # codegraph:test-desc compound.test_class_composes_attribute.test_class_composes_attribute::step_3
     # Deserializes the serialized ClassNode back into a new object, completing the
     # round-trip cycle.
-    connected = GraphRepository.composed_children(class_node, AttributeNode)
+    connected = get_backend().graph.composed_children(class_node, AttributeNode)
     # codegraph:test-desc compound.test_class_composes_attribute.test_class_composes_attribute::post_5
     # Checks that exactly one node is connected in the graph, confirming that the
     # composition relationship is properly represented as a graph connection.

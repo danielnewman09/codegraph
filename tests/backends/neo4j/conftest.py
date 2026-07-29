@@ -170,7 +170,6 @@ def setup_neomodel(test_neo4j_container):
         pass
 
     db.install_all_labels()
-    db.cypher_query("MATCH (n) DETACH DELETE n")
 
     from codegraph.backends import set_backend
     from codegraph.backends.neo4j import Neo4jBackend, Neo4jConfig
@@ -182,6 +181,10 @@ def setup_neomodel(test_neo4j_container):
     )
     set_backend(Neo4jBackend(backend_config))
 
+    # Wipe through the backend API (not raw Cypher)
+    from codegraph.backends import get_backend
+    get_backend().wipe()
+
     yield
 
 
@@ -190,7 +193,7 @@ def clear_db():
     """Clear the Neo4j database before each test."""
     yield
     try:
-        from neomodel import db
-        db.cypher_query("MATCH (n) DETACH DELETE n")
+        from codegraph.backends import get_backend
+        get_backend().wipe()
     except Exception:
         pass

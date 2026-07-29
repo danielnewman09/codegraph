@@ -69,6 +69,27 @@ class Backend(ABC):
         """Return True if the storage layer is reachable and operational."""
         ...
 
+    @abstractmethod
+    def close(self) -> None:
+        """Tear down the connection (close driver, release resources).
+
+        The backend instance remains usable — call :meth:`reconnect` to
+        re-establish the connection.  The default implementation is a
+        no-op; backends with persistent connections (e.g. Neo4j)
+        override this.
+        """
+        pass
+
+    @abstractmethod
+    def reconnect(self) -> None:
+        """Re-establish the connection, re-reading configuration from
+        the environment.
+
+        Useful in tests when environment variables change between
+        ``disconnect()`` and ``reconnect()``.  The default
+        implementation is a no-op.
+        """
+        pass
     # ═══════════════════════════════════════════════════════════════════
     # Repositories
     # ═══════════════════════════════════════════════════════════════════
@@ -89,6 +110,18 @@ class Backend(ABC):
     @abstractmethod
     def requirements(self) -> "RequirementsRepository":
         """The requirements (HLR/LLR/test) repository."""
+        ...
+
+    @abstractmethod
+    def wipe(self) -> None:
+        """Delete ALL nodes and relationships from the backend.
+
+        Destroys every CodeGraphNode, every relationship, every index,
+        and every constraint managed by codegraph.  The backend itself
+        remains operational — only the data is cleared.
+
+        This is the nuclear option.  There is no undo.
+        """
         ...
 
     # ═══════════════════════════════════════════════════════════════════

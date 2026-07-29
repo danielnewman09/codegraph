@@ -2,6 +2,8 @@
 
 import pytest
 
+from codegraph.backends import get_backend
+
 
 class TestAssumptionNode:
     """Test AssumptionNode creation and ASSUMES/CONTRADICTS relationships."""
@@ -37,13 +39,9 @@ class TestAssumptionNode:
         )
         assumption.assumes_compound.connect(cls)
 
-        from neomodel import db
-        results, _ = db.cypher_query(
-            "MATCH (a:AssumptionNode)-[:ASSUMES]->(t) "
-            "WHERE a.qualified_name = $qname RETURN t",
-            {"qname": "memory::test-assumes"},
-        )
-        assert len(results) == 1
+        linked = get_backend().memory.find_linked_code_node(assumption.uid)
+        assert linked is not None
+        assert linked["rel_type"] == "ASSUMES"
 
     def test_assumption_contradicts(self, neo4j_connection):
         from codegraph_memory import AssumptionNode

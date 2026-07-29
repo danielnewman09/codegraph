@@ -8,6 +8,7 @@ Requires Neo4j (credentials loaded from .env via conftest.py).
 """
 
 from codegraph.models.namespace import NamespaceNode
+from codegraph.backends import get_backend
 from codegraph.persistence.repository import GraphRepository
 
 
@@ -37,7 +38,7 @@ def test_namespace_composed_by_parent_namespace():
     outer_ns.namespaces.connect(inner_ns)
 
     # Verify incoming COMPOSES from child side
-    parents = GraphRepository.incoming_composers(inner_ns, NamespaceNode)
+    parents = get_backend().graph.incoming_composers(inner_ns, NamespaceNode)
     # codegraph:test-desc namespace.test_namespace_composed_by_namespace_incoming.test_namespace_composed_by_parent_namespace::post_0
     # Verifies that outer_ns has exactly one parent namespace. This confirms that the
     # namespace composition correctly identifies that outer_ns is contained within

@@ -8,6 +8,7 @@ Requires Neo4j (credentials loaded from .env via conftest.py).
 
 from codegraph.models.member import FunctionNode
 from codegraph.models.namespace import NamespaceNode
+from codegraph.backends import get_backend
 from codegraph.persistence.repository import GraphRepository
 
 
@@ -40,7 +41,7 @@ def test_function_composed_by_namespace():
     ns_node.functions.connect(func_node)
 
     # Verify incoming COMPOSES from child side
-    parents = GraphRepository.incoming_composers(func_node, NamespaceNode)
+    parents = get_backend().graph.incoming_composers(func_node, NamespaceNode)
     # codegraph:test-desc member.test_function_composed_by_namespace.test_function_composed_by_namespace::post_0
     # Ensures that the function node has exactly one parent, validating that the
     # composition link between namespace and function is correctly established without

@@ -1,3 +1,4 @@
+from codegraph.backends import get_backend
 """Unit test: EnumNode COMPOSES EnumValueNode relationship roundtrip.
 
 Requires Neo4j (credentials loaded from .env via conftest.py).
@@ -89,7 +90,7 @@ def test_enum_composes_value():
     # Deserializes the previously serialized dictionary back into a CodeGraphNode using
     # codegraph.graph.LayerGraph.deserialize, creating the roundtripped node to compare
     # with the original.
-    connected = GraphRepository.composed_children(enum_node, EnumValueNode)
+    connected = get_backend().graph.composed_children(enum_node, EnumValueNode)
     # codegraph:test-desc compound.test_enum_composes_value.test_enum_composes_value::post_5
     # Asserts that the roundtripped node has exactly one 'connected' element, confirming
     # the composition relationship is correctly restored from the serialized data.
