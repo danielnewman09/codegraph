@@ -313,8 +313,12 @@ class TestPropertyRegistry:
         props = PropertyRegistry.properties_of(_OverrideNode)
         assert props["source"].default == "override_default"
 
-    def test_neomodel_compat_detects_neomodel_properties(self):
-        """PropertyRegistry detects neomodel property types (transition compat)."""
+    def test_neomodel_properties_not_detected(self):
+        """PropertyRegistry only collects our Property descriptors.
+
+        neomodel property types (StringProperty etc.) are not collected —
+        the model layer no longer supports neomodel classes.
+        """
         from neomodel import StructuredNode, StringProperty, UniqueIdProperty
 
         class NeoNode(StructuredNode):
@@ -322,20 +326,19 @@ class TestPropertyRegistry:
             name = StringProperty(default="")
 
         props, _ = PropertyRegistry.of(NeoNode)
-        assert "uid" in props
-        assert "name" in props
+        assert "uid" not in props
+        assert "name" not in props
 
-    def test_neomodel_compat_detects_neomodel_relationships(self):
-        """PropertyRegistry detects neomodel relationship types (transition compat)."""
+    def test_neomodel_relationships_not_detected(self):
+        """PropertyRegistry does not collect neomodel relationship types."""
         from neomodel import StructuredNode, RelationshipTo
 
         class NeoRelNode(StructuredNode):
             owns = RelationshipTo("SomeTarget", "OWNS")
 
         _, rels = PropertyRegistry.of(NeoRelNode)
-        # Should detect the neomodel RelationshipTo
-        # (may be empty if RelationshipTo doesn't show up as class var)
-        # The key test is that it doesn't crash.
+        assert rels == {}
+        # The key test is that it doesn't crash on neomodel classes.
         assert isinstance(rels, dict)
 
 
@@ -379,16 +382,19 @@ class TestFindRelationshipDescriptor:
         )
         assert result is None
 
-    def test_neomodel_compat_finds_neomodel_relationships(self):
-        """Works with neomodel RelationshipTo/From during transition."""
+    def test_neomodel_relationships_not_found(self):
+        """find_relationship_descriptor ignores neomodel descriptors.
+
+        The model layer is pure-Python now — neomodel relationship
+        descriptors are not resolved.
+        """
         from neomodel import StructuredNode, RelationshipTo
 
         class NeoFindRelNode(StructuredNode):
             owns = RelationshipTo("SomeTarget", "OWNS")
 
-        # find_relationship_descriptor should handle neomodel descriptors
         result = find_relationship_descriptor(NeoFindRelNode, "OWNS", "SomeTarget")
-        assert result is not None
+        assert result is None
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -407,11 +413,11 @@ class TestUidPropName:
         """Returns None for classes without UniqueId."""
         assert uid_prop_name(_ReadonlyNode) is None
 
-    def test_returns_uid_for_neomodel_classes(self):
-        """Returns 'uid' for neomodel classes using UniqueIdProperty."""
+    def test_returns_none_for_neomodel_classes(self):
+        """Returns None for neomodel classes (no longer supported)."""
         from neomodel import StructuredNode, UniqueIdProperty
 
         class NeoUidNode(StructuredNode):
             uid = UniqueIdProperty()
 
-        assert uid_prop_name(NeoUidNode) == "uid"
+        assert uid_prop_name(NeoUidNode) is None

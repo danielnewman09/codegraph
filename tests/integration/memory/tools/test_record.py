@@ -270,7 +270,6 @@ class TestDisambiguation:
         matches for the agent to disambiguate.
         """
         from codegraph_memory.models.decision import DecisionNode
-        from neomodel import db
         from codegraph.backends import get_backend
 
         # Create first node normally
@@ -282,11 +281,11 @@ class TestDisambiguation:
         d1.save()
 
         # Create second node via raw Cypher with a different uid.
-        # Using neomodel's save() would recompute the uid, so raw
+        # Using the backend's save() would recompute the uid, so raw
         # Cypher is the only way to create a node that bypasses the
         # normal uid computation — this test exists to verify the
         # system handles such externally-created nodes.
-        db.cypher_query(
+        get_backend().execute_raw(
             "CREATE (n:DecisionNode:MemoryNode) SET n.uid = 'manual-uid-99999', "
             "n.qualified_name = 'memory::test-ambiguous-raw', "
             "n.content = 'Second version.', n.source = 'test', n.tags = [], "

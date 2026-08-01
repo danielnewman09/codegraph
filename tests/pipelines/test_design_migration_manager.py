@@ -245,7 +245,7 @@ class TestDesignMigrationManager:
         # ── Required edges (from expected_design.json) ──
         edge_assertions = expected.get("must_have_edges", [])
         if edge_assertions:
-            from neomodel import db as neodb
+            from codegraph.backends import get_backend
             missing = []
             for edge_spec in edge_assertions:
                 from_name = edge_spec["from_class"]
@@ -260,11 +260,11 @@ class TestDesignMigrationManager:
                       AND b.qualified_name CONTAINS $to_name
                     RETURN count(r) > 0 as exists
                 """
-                rows, _ = neodb.cypher_query(
+                rows, _ = get_backend().execute_raw(
                     query,
                     {"from_name": from_name, "rel": rel, "to_name": to_name},
                 )
-                exists = rows[0][0] if rows else False
+                exists = rows[0]["exists"] if rows else False
                 if not exists:
                     entry = f"{from_name} -[{rel}]-> {to_name}"
                     if desc:
