@@ -1,4 +1,4 @@
-"""CodeGraphNode — base class for all codegraph neomodel nodes.
+"""CodeGraphNode — base class for all codegraph node types.
 
 Provides shared fields (``source``), serialization (``serialize()``,
 ``deserialize()``), relationship introspection, and a registry for
@@ -6,18 +6,25 @@ type-dispatched deserialization.
 
 Uses a combined metaclass (ABCMeta + NodeMeta) so that subclasses can
 inherit from both StructuredNode and CodeGraphNode without metaclass
-conflicts.
+conflicts.  During the transition away from neomodel, the metaclass
+still accommodates ``StructuredNode`` subclasses; once all model
+classes are migrated, ``NodeMeta`` will be removed.
 """
 
 from __future__ import annotations
 
 import logging
 from abc import ABCMeta
+from typing import Any
 
-from neomodel import StringProperty
 from neomodel.sync_.node import NodeMeta
 
 from codegraph.backends import get_backend
+from codegraph.models.descriptors import (
+    Property,
+    PropertyRegistry,
+    Relationship as CGRelationship,
+)
 
 
 class _CodeGraphNodeMeta(NodeMeta, ABCMeta):
@@ -91,24 +98,85 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
 
     _llm_fields: set[str] = set()
 
+    class DoesNotExist(Exception):
+        """Raised when a node query matches no nodes.
+
+        Pure-Python subclasses (no ``StructuredNode``) inherit this;
+        neomodel subclasses use neomodel's own ``DoesNotExist``.
+        """
+
+    @property
+    def element_id(self) -> Any | None:
+        """Backend element id of the persisted node, or None if unsaved.
+
+        Mirrors neomodel's ``StructuredNode.element_id`` so that
+        pure-Python classes expose the same attribute.  neomodel
+        classes keep neomodel's implementation (defined earlier in
+        the MRO).
+        """
+        return getattr(self, "element_id_property", None)
+
+    def __eq__(self, other: Any) -> bool:
+        """Compare by backend element id when both nodes are saved.
+
+        Mirrors neomodel's ``StructuredNode.__eq__`` so pure-Python
+        classes get the same identity semantics.  neomodel classes
+        keep neomodel's implementation (earlier in the MRO).
+        """
+        if not isinstance(other, CodeGraphNode):
+            return NotImplemented
+        self_eid = getattr(self, "element_id_property", None)
+        other_eid = getattr(other, "element_id_property", None)
+        if self_eid is not None and other_eid is not None:
+            return self_eid == other_eid
+        return self is other
+
+    def __ne__(self, other: Any) -> bool:
+        result = self.__eq__(other)
+        if result is NotImplemented:
+            return result
+        return not result
+
+    def __hash__(self) -> int:
+        eid = getattr(self, "element_id_property", None)
+        if eid is not None:
+            return hash(eid)
+        return hash(id(self))
+
     # Fields whose values are hashed (in order) to produce ``uid``.
     # Subclasses override this.  For functions/methods it includes
     # ``argsstring`` so that overloads get distinct uids.
     _identity_fields: tuple[str, ...] = ()
 
+    def __init__(self, **kwargs: Any) -> None:
+        """Initialise a node with the given property values.
+
+        For pure-Python subclasses (no ``StructuredNode`` in the MRO),
+        sets each keyword argument via ``setattr``, which invokes our
+        ``Property.__set__`` and lazily creates ``_props``.
+
+        When ``StructuredNode`` is in the MRO, this init is never
+        reached — neomodel's init chain handles everything first.
+        """
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
     # ── Identity ────────────────────────────────────────────────────────────
-    name = StringProperty(
+    name = Property(
+        str,
         default="",
         help_text="Short name of the node (e.g. 'Widget', 'draw', 'widget.h').",
     )
-    refid = StringProperty(
+    refid = Property(
+        str,
         default="",
         help_text="External reference ID from the source system "
-        "(e.g. Doxygen refid). FileNode overrides this as UniqueIdProperty.",
+        "(e.g. Doxygen refid). FileNode overrides this as UniqueId.",
     )
 
     # ── Provenance ──────────────────────────────────────────────────────────
-    source = StringProperty(
+    source = Property(
+        str,
         default="",
         help_text="Name of the project this node belongs to (e.g. 'codegraph', 'llvm').",
     )
@@ -117,45 +185,40 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
 
     @classmethod
     def find_relationship_manager(cls, source, relation_type: str, target):
-        """Find the relationship manager on *source* matching both
+        """Find the relationship descriptor on *source* matching both
         *relation_type* and the class of *target*.
 
         Needed because some relation types (e.g. COMPOSES) have multiple
         managers on the same source class pointing at different target types.
 
         Args:
-            source: The neomodel node instance to search on.
+            source: The node instance to search on.
             relation_type: Neo4j relationship label (e.g. "COMPOSES",
                 "DEFINED_IN").
             target: The target node instance whose class determines which
                 manager to return.
 
         Returns:
-            The relationship manager attribute (e.g. ``source.methods``).
+            The matching relationship descriptor (``Relationship`` or
+            neomodel ``RelationshipTo`` / ``RelationshipFrom``).
 
         Raises:
             ValueError: If no matching manager is found.
         """
-        from neomodel import RelationshipTo, RelationshipFrom
+        from codegraph.models.descriptors import find_relationship_descriptor
 
         target_cls = type(target)
-        for klass in type(source).__mro__:
-            for name, val in vars(klass).items():
-                if isinstance(val, (RelationshipTo, RelationshipFrom)):
-                    if val.definition["relation_type"] != relation_type:
-                        continue
-                    rel_target = val.definition.get("model") or val._raw_class
-                    if rel_target == target_cls:
-                        return getattr(source, name)
-                    if isinstance(rel_target, str) and (
-                        rel_target == target_cls.__name__
-                        or rel_target.endswith(f".{target_cls.__name__}")
-                    ):
-                        return getattr(source, name)
-        raise ValueError(
-            f"No '{relation_type}' relationship from "
-            f"{type(source).__name__} to {target_cls.__name__}"
+        source_type = type(source)
+
+        descriptor = find_relationship_descriptor(
+            source_type, relation_type, target_cls
         )
+        if descriptor is None:
+            raise ValueError(
+                f"No '{relation_type}' relationship from "
+                f"{source_type.__name__} to {target_cls.__name__}"
+            )
+        return descriptor
 
     # ── Tag-aware queries ───────────────────────────────────────────────
 
@@ -174,13 +237,13 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         Returns:
             A list of CodeGraphNode instances matching the given tag.
         """
-        if "tags" not in cls.defined_properties():
+        if not PropertyRegistry.has_property(cls, "tags"):
             return []
         from codegraph.backends import get_backend
-        label = cls.__label__
+        label = _class_label(cls)
         query = f"MATCH (n:`{label}`) WHERE $tag IN n.tags RETURN n"
         results, _ = get_backend().execute_raw(query, {"tag": tag})
-        return [cls.inflate(row[0]) for row in results]
+        return [get_backend().inflate(row[0], cls) for row in results]
 
     @classmethod
     def fetch_all_by_tag(cls, tag: str) -> list["CodeGraphNode"]:
@@ -216,7 +279,7 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         Returns:
             This node instance (after saving), for chaining.
         """
-        if "tags" not in type(self).defined_properties():
+        if not PropertyRegistry.has_property(type(self), "tags"):
             return self
         current = list(self.tags) if self.tags else []
         if tag not in current:
@@ -237,7 +300,7 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         Returns:
             This node instance (after saving), for chaining.
         """
-        if "tags" not in type(self).defined_properties():
+        if not PropertyRegistry.has_property(type(self), "tags"):
             return self
         current = list(self.tags) if self.tags else []
         if tag in current:
@@ -257,7 +320,7 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         Returns:
             True if the tag is present, False otherwise.
         """
-        if "tags" not in type(self).defined_properties():
+        if not PropertyRegistry.has_property(type(self), "tags"):
             return False
         return tag in (self.tags or [])
 
@@ -322,6 +385,25 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
                     return classmethod(save_new)
                 cls.save_new = _make_save_new(cls)
 
+            # Inject a ``.nodes`` query shim for pure-Python subclasses
+            # (those without ``StructuredNode`` in the MRO).  neomodel
+            # subclasses already get ``.nodes`` from ``NodeMeta``'s
+            # metaclass property — the shim must not shadow it.
+            # The shim delegates to the active backend; no storage
+            # logic lives in the model layer.
+            from neomodel import StructuredNode
+
+            if not issubclass(cls, StructuredNode):
+                if "nodes" not in cls.__dict__:
+                    cls.nodes = _BackendNodeSet(cls)
+            else:
+                # neomodel subclass: inject inflate() that hydrates
+                # migrated descriptors (name/refid/source are now our
+                # Property descriptors, so neomodel's own inflate skips
+                # them and loaded nodes would lose those values).
+                if "inflate" not in cls.__dict__:
+                    cls.inflate = _make_inflate(cls)
+
     # ── Create / Delete ──────────────────────────────────────────────────
 
     @staticmethod
@@ -347,13 +429,13 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         Raises:
             ValueError: If any key is not a declared property on ``cls``.
         """
-        props = cls.defined_properties()
-        invalid = set(kwargs) - set(props)
+        valid = PropertyRegistry.properties_of(cls)
+        invalid = set(kwargs) - set(valid)
         if invalid:
             raise ValueError(
                 f"Unknown property(ies) on {cls.__name__}: "
                 f"{sorted(invalid)}. "
-                f"Valid properties: {sorted(props)}"
+                f"Valid properties: {sorted(valid)}"
             )
         node = cls(**kwargs)
         return node.save()
@@ -505,11 +587,11 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
             A dict with ``type``, property fields, ``edges``, and
             optionally ``composes`` keys.
         """
-        props = dict(self.__properties__)
+        all_props = PropertyRegistry.values_of(self)
         if fields == "all":
-            result = dict(sorted(props.items()))
+            result = dict(sorted(all_props.items()))
         else:
-            result = {k: props[k] for k in sorted(self._llm_fields) if k in props}
+            result = {k: all_props[k] for k in sorted(self._llm_fields) if k in all_props}
         result["type"] = type(self).__name__
 
         # Always include the uid property (e.g. ``uid``) so that
@@ -632,8 +714,9 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         compat_data = dict(data)
         if "layer" in compat_data and "tags" not in compat_data:
             compat_data["tags"] = [compat_data.pop("layer")]
+        declared = PropertyRegistry.properties_of(target_cls)
         filtered = {k: v for k, v in compat_data.items()
-                    if k not in skip and k in target_cls.defined_properties()}
+                    if k not in skip and k in declared}
         node = target_cls(**filtered)
 
         # Compute deterministic uid from identity fields when not
@@ -661,7 +744,8 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
     def serialize_relationships(cls) -> list[dict]:
         """Return relationship descriptors for this node type.
 
-        Inspects ``RelationshipTo`` / ``RelationshipFrom`` descriptors
+        Inspects ``Relationship`` descriptors (new system) and
+        neomodel ``RelationshipTo`` / ``RelationshipFrom`` descriptors
         statically — no database call needed.
 
         Returns:
@@ -670,43 +754,50 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
             ("OUTGOING" or "INCOMING"), and ``target`` (dotted class path of
             the target node).
         """
-        from neomodel import RelationshipTo, RelationshipFrom
-
+        _, declared = PropertyRegistry.of(cls)
         rels: list[dict] = []
-        for klass in cls.__mro__:
-            for name, val in vars(klass).items():
-                if isinstance(val, RelationshipTo):
-                    d = val.definition
-                    rels.append({
-                        "attr": name,
-                        "relation_type": d["relation_type"],
-                        "direction": d["direction"].name,
-                        "target": d.get("model") or val._raw_class,
-                    })
-                elif isinstance(val, RelationshipFrom):
-                    d = val.definition
-                    rels.append({
-                        "attr": name,
-                        "relation_type": d["relation_type"],
-                        "direction": "INCOMING",
-                        "target": d.get("model") or val._raw_class,
-                    })
+        for name, val in declared.items():
+            if isinstance(val, CGRelationship):
+                target = (
+                    val.target_class
+                    if isinstance(val.target_class, str)
+                    else val.target_class.__name__
+                )
+                rels.append({
+                    "attr": name,
+                    "relation_type": val.relation_type,
+                    "direction": val.direction,
+                    "target": target,
+                })
+            else:
+                # Neomodel RelationshipTo / RelationshipFrom
+                d = val.definition
+                direction = d.get("direction")
+                dir_name = (
+                    direction.name
+                    if direction is not None and hasattr(direction, "name")
+                    else "OUTGOING"
+                )
+                rels.append({
+                    "attr": name,
+                    "relation_type": d["relation_type"],
+                    "direction": dir_name,
+                    "target": d.get("model") or val._raw_class,
+                })
         return rels
 
     @classmethod
     def _uid_prop(cls) -> str | None:
-        """Return the name of this node type's UniqueIdProperty, or None.
+        """Return the name of this node type's unique identifier property, or None.
+
+        Uses ``PropertyRegistry.unique_id_name()`` which works with both
+        neomodel ``UniqueIdProperty`` and the new ``UniqueId`` descriptor.
 
         Returns:
-            The property name string if a UniqueIdProperty exists, otherwise
+            The property name string if a unique identifier exists, otherwise
             None.
         """
-        from neomodel import UniqueIdProperty
-
-        for name, prop in cls.defined_properties().items():
-            if isinstance(prop, UniqueIdProperty):
-                return name
-        return None
+        return PropertyRegistry.unique_id_name(cls)
 
     def _uid_value(self) -> str | None:
         """Return the value of this instance's unique identifier, or None.
@@ -756,13 +847,13 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
                 "Save the node first before calling update()."
             )
 
-        props = type(self).defined_properties()
-        invalid = set(kwargs) - set(props)
+        valid = PropertyRegistry.properties_of(type(self))
+        invalid = set(kwargs) - set(valid)
         if invalid:
             raise ValueError(
                 f"Unknown property(ies) on {type(self).__name__}: "
                 f"{sorted(invalid)}. "
-                f"Valid properties: {sorted(props)}"
+                f"Valid properties: {sorted(valid)}"
             )
 
         # Reject updates to identity fields (source, uid, and
@@ -861,6 +952,109 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
             lines.append(desc)
 
         return lines
+
+
+def _class_label(cls: type) -> str:
+    """Return the primary Neo4j label for a node type.
+
+    Uses neomodel's ``__label__`` when available; falls back to the
+    class name for pure-Python classes (no ``StructuredNode``).
+    """
+    label = getattr(cls, "__label__", None)
+    if label:
+        return label
+    return cls.__name__
+
+
+def _make_inflate(klass: type):
+    """Build an ``inflate`` classmethod for a neomodel subclass.
+
+    Wraps neomodel's ``StructuredNode.inflate`` and then hydrates our
+    migrated ``Property`` descriptors (e.g. ``name``/``refid``/``source``
+    on ``CodeGraphNode``) from the raw node, since neomodel's own
+    inflate only populates neomodel-declared properties.
+    """
+    from neomodel import StructuredNode
+
+    @classmethod
+    def inflate(cls, raw):
+        node = StructuredNode.inflate.__func__(cls, raw)
+        _hydrate_migrated_props(node, raw)
+        return node
+
+    return inflate
+
+
+def _hydrate_migrated_props(node, raw) -> None:
+    """Copy raw values for migrated descriptors onto a neomodel instance.
+
+    After neomodel inflate, properties that we migrated to our
+    ``Property`` descriptors are missing from ``__properties__``.  Read
+    them from the raw node and write them through our descriptors
+    (which mirror into ``_props`` and ``__properties__``).
+    """
+    if not hasattr(raw, "items"):
+        return  # lazy-load path (raw is an element id string)
+    from codegraph.models.descriptors import (
+        DateTimeProperty as CGDateTimeProperty,
+        Property as CGProperty,
+    )
+
+    for pname, prop in PropertyRegistry.properties_of(type(node)).items():
+        if not isinstance(prop, CGProperty):
+            continue  # neomodel property — already handled by neomodel
+        if pname not in raw:
+            continue
+        val = raw[pname]
+        if isinstance(prop, CGDateTimeProperty) and isinstance(val, (int, float)) and not isinstance(val, bool):
+            try:
+                import datetime as _dt
+                val = _dt.datetime.fromtimestamp(val)
+            except (OverflowError, OSError, ValueError):
+                pass
+        setattr(node, pname, val)
+
+
+class _BackendNodeSet:
+    """Backend-delegating ``.nodes`` shim for pure-Python node types.
+
+    Injected as ``cls.nodes`` on ``CodeGraphNode`` subclasses that do
+    NOT inherit ``StructuredNode`` (which provides neomodel's real
+    ``NodeSet`` via a metaclass property).  Provides the same
+    query surface used across the codebase — ``get``, ``get_or_none``,
+    ``filter``, ``all`` — delegating to the active backend.  No
+    storage-specific logic lives here.
+    """
+
+    def __init__(self, node_cls: type):
+        self._cls = node_cls
+
+    def get(self, **filters) -> "CodeGraphNode":
+        """Get exactly one node matching *filters*.
+
+        Raises ``self._cls.DoesNotExist`` if no node matches.
+        """
+        node = get_backend().get(self._cls, **filters)
+        if node is None:
+            raise self._cls.DoesNotExist(
+                f"{self._cls.__name__} matching {filters} does not exist"
+            )
+        return node
+
+    def get_or_none(self, **filters) -> "CodeGraphNode | None":
+        """Get one node matching *filters*, or None."""
+        return get_backend().get(self._cls, **filters)
+
+    def filter(self, **filters) -> list["CodeGraphNode"]:
+        """Return all nodes of this type matching *filters*."""
+        return get_backend().find_all(self._cls, **filters)
+
+    def all(self) -> list["CodeGraphNode"]:
+        """Return all nodes of this type."""
+        return get_backend().find_all(self._cls)
+
+    def __repr__(self) -> str:
+        return f"<_BackendNodeSet for {self._cls.__name__}>"
 
 
 def _default_markdown_keyword(node_type_name: str) -> str:

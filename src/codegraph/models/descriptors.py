@@ -507,6 +507,53 @@ class PropertyRegistry:
 # ══════════════════════════════════════════════════════════════════════════
 
 
+def _relationship_matches(
+    rel: Any,
+    relation_type: str,
+    target_type: type | str,
+) -> bool:
+    """Check whether a relationship descriptor matches type + target.
+
+    Handles both the new ``Relationship`` descriptors and neomodel
+    ``RelationshipTo`` / ``RelationshipFrom`` (transition bridge).
+    Class targets match by equality or subclass — e.g. a descriptor
+    targeting ``CompoundNode`` matches a ``ClassNode`` target.
+    """
+    target_name = (
+        target_type if isinstance(target_type, str) else target_type.__name__
+    )
+
+    # New Relationship descriptor
+    if isinstance(rel, Relationship):
+        if rel.relation_type != relation_type:
+            return False
+        if isinstance(rel.target_class, str):
+            tc = rel.target_class
+            return tc == target_name or tc.endswith(f".{target_name}")
+        if isinstance(rel.target_class, type) and isinstance(target_type, type):
+            return (
+                rel.target_class is target_type
+                or issubclass(target_type, rel.target_class)
+            )
+        return rel.target_class is target_type
+
+    # Neomodel RelationshipTo / RelationshipFrom
+    defn = getattr(rel, "definition", {})
+    if defn.get("relation_type") != relation_type:
+        return False
+    rel_target = defn.get("model") or getattr(rel, "_raw_class", None)
+    if rel_target == target_type:
+        return True
+    if isinstance(rel_target, type) and isinstance(target_type, type):
+        if issubclass(target_type, rel_target):
+            return True
+    if isinstance(rel_target, str) and (
+        rel_target == target_name or rel_target.endswith(f".{target_name}")
+    ):
+        return True
+    return False
+
+
 def find_relationship_descriptor(
     source_type: type,
     relation_type: str,
@@ -516,7 +563,8 @@ def find_relationship_descriptor(
 
     Searches the source type's MRO for a descriptor with the given
     ``relation_type`` whose ``target_class`` matches the given target
-    type (by class equality or name resolution).
+    type (by class equality, name resolution, or subclass — e.g. a
+    descriptor targeting ``CompoundNode`` matches a ``ClassNode``).
 
     Works with both the new ``Relationship`` descriptors and neomodel
     ``RelationshipTo`` / ``RelationshipFrom`` descriptors.
@@ -529,38 +577,28 @@ def find_relationship_descriptor(
     Returns:
         The matching descriptor, or ``None`` if no match is found.
     """
-    target_name = (
-        target_type if isinstance(target_type, str) else target_type.__name__
-    )
     _, rels = PropertyRegistry.of(source_type)
     for rel in rels.values():
-        # New Relationship descriptor
-        if isinstance(rel, Relationship):
-            if rel.relation_type != relation_type:
-                continue
-            if isinstance(rel.target_class, str):
-                tc = rel.target_class
-                if tc == target_name or tc.endswith(f".{target_name}"):
-                    return rel
-            elif rel.target_class is target_type or (
-                isinstance(target_type, type)
-                and isinstance(rel.target_class, type)
-                and issubclass(target_type, rel.target_class)
-            ):
-                return rel
-        # Neomodel RelationshipTo / RelationshipFrom
-        else:
-            defn = getattr(rel, "definition", {})
-            if defn.get("relation_type") != relation_type:
-                continue
-            rel_target = defn.get("model") or getattr(rel, "_raw_class", None)
-            if rel_target == target_type:
-                return rel
-            if isinstance(rel_target, str) and (
-                rel_target == target_name
-                or rel_target.endswith(f".{target_name}")
-            ):
-                return rel
+        if _relationship_matches(rel, relation_type, target_type):
+            return rel
+    return None
+
+
+def find_relationship_attr(
+    source_type: type,
+    relation_type: str,
+    target_type: type | str,
+) -> str | None:
+    """Return the attribute name of the matching relationship descriptor.
+
+    Like :func:`find_relationship_descriptor` but returns the attribute
+    name (e.g. ``"methods"``) instead of the descriptor instance.
+    Returns ``None`` if no descriptor matches.
+    """
+    _, rels = PropertyRegistry.of(source_type)
+    for name, rel in rels.items():
+        if _relationship_matches(rel, relation_type, target_type):
+            return name
     return None
 
 
