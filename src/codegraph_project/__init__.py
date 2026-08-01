@@ -1,8 +1,9 @@
 """Project-management models for codegraph.
 
-Provides Component, ProjectMeta, Language, and Dependency neomodel
-node models — project-level concepts that live alongside codegraph's
-code-level nodes (ClassNode, NamespaceNode, etc.) in Neo4j.
+Provides Component, ProjectMeta, Language, and Dependency node models —
+project-level concepts that live alongside codegraph's code-level nodes
+(ClassNode, NamespaceNode, etc.) in Neo4j.  All four are pure-Python
+(no neomodel dependency).
 
 Migrated from the ticketing system's ``backend_migrated.models`` package.
 

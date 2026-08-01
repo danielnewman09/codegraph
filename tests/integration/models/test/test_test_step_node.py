@@ -412,17 +412,17 @@ class TestTestStepNodeImplementation:
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeImplementation.test_has_implementation_ref_relationship::step_0
         # Initializes the test environment by setting up a TestStepNode instance,
         # enabling subsequent verification of its implementation reference.
-        from neomodel import RelationshipTo
+        from codegraph.models.descriptors import Relationship as CGRelationship
 
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeImplementation.test_has_implementation_ref_relationship::post_0
         # Confirms that the TestStepNode has an 'implementation_ref' attribute, ensuring
         # the node is structured to hold a reference to its related implementation.
         assert hasattr(TestStepNode, "implementation_ref")
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeImplementation.test_has_implementation_ref_relationship::post_1
-        # Verifies that the 'implementation_ref' attribute is an instance of
-        # RelationshipTo, confirming it is a properly typed relationship object for
-        # linking to ImplementationNode.
-        assert isinstance(TestStepNode.implementation_ref, RelationshipTo)
+        # Verifies that the 'implementation_ref' attribute is a relationship descriptor
+        # (``Relationship``) linking to
+        # ImplementationNode.
+        assert isinstance(TestStepNode.implementation_ref, CGRelationship)
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeImplementation.test_has_implementation_ref_relationship::post_2
         # Checks that the relationship type is exactly 'HAS_IMPLEMENTATION', ensuring
         # the semantic meaning of the link between TestStepNode and its implementation

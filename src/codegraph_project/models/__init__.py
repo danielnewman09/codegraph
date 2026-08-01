@@ -1,6 +1,7 @@
-"""Neomodel node models for project-management — Component, ProjectMeta, Language, Dependency.
+"""Project-management node models — Component, ProjectMeta, Language, Dependency.
 
-Migrated from the ticketing system's ``backend_migrated.models`` package.
+Pure-Python models (no neomodel).  Migrated from the ticketing system's
+``backend_migrated.models`` package.
 """
 
 from codegraph_project.models.component import Component

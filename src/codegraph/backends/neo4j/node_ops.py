@@ -42,6 +42,29 @@ def _node_labels(node_type: type) -> list[str]:
     return [node_type.__name__]
 
 
+def best_class_for_labels(labels: set[str]) -> type | None:
+    """Pick the most specific registered class matching a raw node's labels.
+
+    A class matches when its label chain intersects the raw labels.
+    Among matches, prefer classes whose own leaf name is present in the
+    raw labels (i.e. the exact stored type — e.g. a raw ``AttributeNode``
+    carries ``{AttributeNode, MemberNode}``, so ``AttributeNode`` wins
+    over its ``MemberNode``-labelled siblings), then the deepest MRO.
+
+    Returns ``None`` when no registered class matches.
+    """
+    candidates = [
+        cls
+        for cls in CodeGraphNode._registry.values()
+        if labels & set(_node_labels(cls))
+    ]
+    if not candidates:
+        return None
+    leaf_matches = [cls for cls in candidates if cls.__name__ in labels]
+    pool = leaf_matches or candidates
+    return max(pool, key=lambda c: len(c.__mro__))
+
+
 def _deflate_value(prop: Any, value: Any) -> Any:
     """Deflate a property value for Neo4j storage.
 
@@ -322,13 +345,7 @@ class Neo4jNodeOps:
         # Pure-Python: find the most-derived registered class whose
         # labels overlap the raw node's labels.
         labels = set(raw.labels) if hasattr(raw, "labels") else set()
-        candidates: list[tuple[int, type]] = []
-        for cls in CodeGraphNode._registry.values():
-            if labels & set(_node_labels(cls)):
-                candidates.append((len(cls.__mro__), cls))
-        target_type = node_type
-        if candidates:
-            target_type = max(candidates, key=lambda t: t[0])[1]
+        target_type = best_class_for_labels(labels) or node_type
 
         raw_props = dict(raw.items()) if hasattr(raw, "items") else {}
         props = _inflate_props(target_type, raw_props)
@@ -553,13 +570,9 @@ class Neo4jNodeOps:
         and pure-Python classes (constructed from properties).
         """
         labels = set(raw.labels) if hasattr(raw, "labels") else set()
-        candidates: list[tuple[int, type]] = []
-        for cls in CodeGraphNode._registry.values():
-            if labels & set(_node_labels(cls)):
-                candidates.append((len(cls.__mro__), cls))
-        if not candidates:
+        target_type = best_class_for_labels(labels)
+        if target_type is None:
             return None
-        target_type = max(candidates, key=lambda t: t[0])[1]
         if issubclass(target_type, StructuredNode):
             return target_type.inflate(raw)
         raw_props = dict(raw.items()) if hasattr(raw, "items") else {}

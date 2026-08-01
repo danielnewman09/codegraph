@@ -5,6 +5,7 @@ from pathlib import Path
 
 from codegraph.models.test import AssertionNode
 from codegraph.models.tags import CodeGraphNode
+from codegraph.models.descriptors import PropertyRegistry
 from codegraph.uid import compute_uid
 
 class TestAssertionNodeModel:
@@ -40,18 +41,17 @@ class TestAssertionNodeModel:
 
     def test_phase_required(self):
         """phase is a required field — constructing without it uses default."""
-        # neomodel StringProperty(required=True) is enforced at save time,
-        # not construction time.  We test the field is declared required.
+        # Property(required=True) is enforced at save time, not construction
+        # time.  We test the field is declared required.
         # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_phase_required::step_0
         # Sets up the test by instantiating an AssertionNode without a phase value, so
         # the default phase assignment can be observed and verified.
-        props = AssertionNode.defined_properties()
+        props = PropertyRegistry.properties_of(AssertionNode)
         # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_phase_required::post_0
         # Verifies that the 'phase' property is marked as required in the model's
         # metadata, ensuring the system properly enforces mandatory fields for data
         # integrity.
         assert props["phase"].required is True
-
     # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_order_defaults_to_zero
     # This test verifies that a newly created AssertionNode instance has its order
     # attribute set to zero by default, ensuring consistent initialization behavior and

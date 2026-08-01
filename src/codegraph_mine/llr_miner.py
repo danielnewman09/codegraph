@@ -368,7 +368,7 @@ class LLRMiner(RequirementMiner):
 
         tests: list = []
         for row in results:
-            node = TestNode.inflate(row[0])
+            node = get_backend().inflate(row[0], TestNode)
             tests.append(node)
         return tests
 

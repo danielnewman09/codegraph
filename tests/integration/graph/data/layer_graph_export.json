@@ -73,6 +73,11 @@
         "uid": "93aeaa5ee440aac253b156ccf2f15227aa11e0ac",
         "edges": [
           {
+            "relation_type": "DEFINED_IN",
+            "target_uid": "a481de036d4aa4262b7fe0b0b22057ee870410da",
+            "target_type": "FileNode"
+          },
+          {
             "relation_type": "DEPENDS_ON",
             "target_uid": "3beaa98236596366493cf23e0ab33dad2bec8398",
             "target_type": "ClassNode"
@@ -81,11 +86,6 @@
             "relation_type": "REALIZES",
             "target_uid": "c91c124590ac1b9feace1652a940c88ddcf38f3c",
             "target_type": "InterfaceNode"
-          },
-          {
-            "relation_type": "DEFINED_IN",
-            "target_uid": "a481de036d4aa4262b7fe0b0b22057ee870410da",
-            "target_type": "FileNode"
           }
         ],
         "composes": [
@@ -397,9 +397,9 @@
         "uid": "a7088a313f75ecdafea536ec62f8d93de39f2c33",
         "edges": [
           {
-            "relation_type": "INHERITS_FROM",
-            "target_uid": "be5ed6c102db4247732c36442e610248058b2cc8",
-            "target_type": "ClassNode"
+            "relation_type": "DEFINED_IN",
+            "target_uid": "ed5079afea47324c35d360d8ee9e8707ce8f7962",
+            "target_type": "FileNode"
           },
           {
             "relation_type": "DEPENDS_ON",
@@ -407,9 +407,9 @@
             "target_type": "ClassNode"
           },
           {
-            "relation_type": "DEFINED_IN",
-            "target_uid": "ed5079afea47324c35d360d8ee9e8707ce8f7962",
-            "target_type": "FileNode"
+            "relation_type": "INHERITS_FROM",
+            "target_uid": "be5ed6c102db4247732c36442e610248058b2cc8",
+            "target_type": "ClassNode"
           }
         ],
         "composes": [

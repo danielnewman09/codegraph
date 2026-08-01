@@ -40,7 +40,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any, ClassVar
+from typing import Any
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -51,8 +51,7 @@ from typing import Any, ClassVar
 class Property:
     """Backend-agnostic property descriptor.
 
-    Stores values in the instance's ``_props`` dict, similar to how
-    neomodel stores properties on ``StructuredNode`` instances.  No I/O
+    Stores values in the instance's ``_props`` dict.  No I/O
     is performed — read/write/delete is pure Python.
 
     Attributes:
@@ -95,29 +94,15 @@ class Property:
         props = obj.__dict__.setdefault("_props", {})
         if self.name in props:
             return props[self.name]
-        # Transition bridge: neomodel-inflated instances store property
-        # values in ``__properties__``.  When a neomodel subclass reads a
-        # property that we migrated to our descriptor (e.g. ``source``),
-        # fall back to neomodel's store so loaded values are not lost.
-        legacy = getattr(obj, "__properties__", None)
-        if legacy and self.name in legacy:
-            return legacy[self.name]
         return self.default() if callable(self.default) else self.default
 
     def __set__(self, obj: Any, value: Any) -> None:
         obj.__dict__.setdefault("_props", {})[self.name] = value
-        # Keep neomodel's store in sync for legacy neomodel subclasses.
-        legacy = getattr(obj, "__properties__", None)
-        if legacy is not None:
-            legacy[self.name] = value
 
     def __delete__(self, obj: Any) -> None:
         props = obj.__dict__.get("_props")
         if props is not None:
             props.pop(self.name, None)
-        legacy = getattr(obj, "__properties__", None)
-        if legacy is not None:
-            legacy.pop(self.name, None)
 
     def __repr__(self) -> str:
         return (
@@ -156,11 +141,6 @@ class UniqueId(Property):
             return self
         props = obj.__dict__.setdefault("_props", {})
         val = props.get(self.name)
-        if val is None:
-            legacy = getattr(obj, "__properties__", None)
-            if legacy and self.name in legacy:
-                val = legacy[self.name]
-                props[self.name] = val
         if val is None:
             val = self._lazy_default()
             props[self.name] = val
@@ -233,6 +213,25 @@ class Relationship:
 
     def __set_name__(self, owner: type, name: str) -> None:
         self.name = name
+
+    @property
+    def definition(self) -> dict:
+        """Neomodel-compatible ``definition`` dict.
+
+        Legacy callers read ``descriptor.definition["relation_type"]``.
+        Returns the same keys so those call sites (and tests) keep
+        working unchanged.
+        """
+        return {
+            "node_class": None,
+            "relation_type": self.relation_type,
+            "direction": self.direction,
+            "model": (
+                self.target_class
+                if isinstance(self.target_class, str)
+                else self.target_class.__name__
+            ),
+        }
 
     def __get__(self, obj: Any, objtype: type | None = None) -> Any:
         if obj is None:
@@ -356,11 +355,6 @@ class PropertyRegistry:
     ``self.__properties__`` with a pure-Python implementation that walks
     the class hierarchy and collects descriptors.
 
-    During the transition away from neomodel, this registry also detects
-    neomodel properties and relationships so that ``CodeGraphNode`` can
-    use ``PropertyRegistry`` regardless of whether a model class has been
-    migrated yet.
-
     Usage::
 
         props = PropertyRegistry.properties_of(MyNode)      # → dict[str, Property]
@@ -371,28 +365,6 @@ class PropertyRegistry:
         values = PropertyRegistry.values_of(node)           # → dict[str, Any]
     """
 
-    # Lazily-imported neomodel types for transition compatibility.
-    _NEOMODEL_PROPERTY_TYPES: ClassVar[tuple] = ()
-    _NEOMODEL_REL_TYPES: ClassVar[tuple] = ()
-    _INITIALIZED: ClassVar[bool] = False
-
-    @classmethod
-    def _ensure_init(cls) -> None:
-        """Lazily import neomodel types on first use."""
-        if cls._INITIALIZED:
-            return
-        try:
-            from neomodel.properties import Property as NeoProperty
-            from neomodel.sync_.relationship_manager import (
-                RelationshipDefinition,
-            )
-
-            cls._NEOMODEL_PROPERTY_TYPES = (NeoProperty,)
-            cls._NEOMODEL_REL_TYPES = (RelationshipDefinition,)
-        except ImportError:
-            pass
-        cls._INITIALIZED = True
-
     @staticmethod
     def of(
         klass: type,
@@ -402,28 +374,17 @@ class PropertyRegistry:
         Walks the MRO in reverse (base classes first), collecting
         Property and Relationship descriptors.  The most-derived
         class's descriptor wins for a given name.
-
-        During the transition, also collects neomodel ``Property``
-        and ``RelationshipTo`` / ``RelationshipFrom`` descriptors
-        so that subclasses that haven't been migrated yet still work.
         """
-        PropertyRegistry._ensure_init()
         props: dict[str, Any] = {}
         rels: dict[str, Any] = {}
 
         for base in reversed(klass.__mro__):
             for attr_name, value in vars(base).items():
                 if isinstance(value, Property):
-                    # Our new Property / UniqueId / DateTimeProperty
+                    # Our Property / UniqueId / DateTimeProperty
                     props[attr_name] = value
                 elif isinstance(value, Relationship):
-                    # Our new Relationship
-                    rels[attr_name] = value
-                elif isinstance(value, PropertyRegistry._NEOMODEL_PROPERTY_TYPES):
-                    # Neomodel property (StringProperty, IntegerProperty, etc.)
-                    props[attr_name] = value
-                elif isinstance(value, PropertyRegistry._NEOMODEL_REL_TYPES):
-                    # Neomodel RelationshipTo / RelationshipFrom
+                    # Our Relationship
                     rels[attr_name] = value
 
         return props, rels
@@ -459,20 +420,10 @@ class PropertyRegistry:
 
     @classmethod
     def is_required_string(cls, prop: Any) -> bool:
-        """Check whether *prop* is a required string-typed property.
-
-        Works for both our ``Property`` descriptors and neomodel's
-        ``StringProperty`` (transition bridge — removed once all model
-        classes are migrated).
-        """
-        if isinstance(prop, Property):
-            return prop.python_type is str and bool(prop.required)
-        cls._ensure_init()
-        if isinstance(prop, cls._NEOMODEL_PROPERTY_TYPES):
-            return prop.__class__.__name__ == "StringProperty" and bool(
-                getattr(prop, "required", False)
-            )
-        return False
+        """Check whether *prop* is a required string-typed property."""
+        return isinstance(prop, Property) and prop.python_type is str and bool(
+            prop.required
+        )
 
     @classmethod
     def has_property(cls, klass: type, name: str) -> bool:
@@ -481,24 +432,10 @@ class PropertyRegistry:
 
     @classmethod
     def unique_id_name(cls, klass: type) -> str | None:
-        """Return the name of the UniqueId property, or None.
-
-        Works with both our ``UniqueId`` descriptor and neomodel's
-        ``UniqueIdProperty``.
-        """
+        """Return the name of the UniqueId property, or None."""
         for name, prop in cls.properties_of(klass).items():
             if isinstance(prop, UniqueId):
                 return name
-        # Fallback: check neomodel UniqueIdProperty
-        PropertyRegistry._ensure_init()
-        try:
-            from neomodel import UniqueIdProperty as NeoUniqueId
-
-            for name, prop in cls.properties_of(klass).items():
-                if isinstance(prop, NeoUniqueId):
-                    return name
-        except ImportError:
-            pass
         return None
 
 
@@ -514,8 +451,6 @@ def _relationship_matches(
 ) -> bool:
     """Check whether a relationship descriptor matches type + target.
 
-    Handles both the new ``Relationship`` descriptors and neomodel
-    ``RelationshipTo`` / ``RelationshipFrom`` (transition bridge).
     Class targets match by equality or subclass — e.g. a descriptor
     targeting ``CompoundNode`` matches a ``ClassNode`` target.
     """
@@ -523,35 +458,30 @@ def _relationship_matches(
         target_type if isinstance(target_type, str) else target_type.__name__
     )
 
-    # New Relationship descriptor
-    if isinstance(rel, Relationship):
-        if rel.relation_type != relation_type:
-            return False
-        if isinstance(rel.target_class, str):
-            tc = rel.target_class
-            return tc == target_name or tc.endswith(f".{target_name}")
-        if isinstance(rel.target_class, type) and isinstance(target_type, type):
-            return (
-                rel.target_class is target_type
-                or issubclass(target_type, rel.target_class)
-            )
-        return rel.target_class is target_type
-
-    # Neomodel RelationshipTo / RelationshipFrom
-    defn = getattr(rel, "definition", {})
-    if defn.get("relation_type") != relation_type:
+    if not isinstance(rel, Relationship):
         return False
-    rel_target = defn.get("model") or getattr(rel, "_raw_class", None)
-    if rel_target == target_type:
-        return True
-    if isinstance(rel_target, type) and isinstance(target_type, type):
-        if issubclass(target_type, rel_target):
+
+    if rel.relation_type != relation_type:
+        return False
+    tc = rel.target_class
+    if isinstance(tc, str):
+        if tc == target_name or tc.endswith(f".{target_name}"):
             return True
-    if isinstance(rel_target, str) and (
-        rel_target == target_name or rel_target.endswith(f".{target_name}")
-    ):
-        return True
-    return False
+        # String class targets also match by subclass — e.g. a
+        # descriptor targeting ``"CompoundNode"`` matches a
+        # ``ClassNode`` target (ClassNode subclasses CompoundNode).
+        # Match on the simple name against the target's MRO so no
+        # import is needed to resolve the dotted string.
+        if isinstance(target_type, type):
+            short = tc.split(".")[-1]
+            return any(base.__name__ == short for base in target_type.__mro__)
+        return False
+    if isinstance(tc, type) and isinstance(target_type, type):
+        return (
+            tc is target_type
+            or issubclass(target_type, tc)
+        )
+    return tc is target_type
 
 
 def find_relationship_descriptor(
@@ -566,8 +496,7 @@ def find_relationship_descriptor(
     type (by class equality, name resolution, or subclass — e.g. a
     descriptor targeting ``CompoundNode`` matches a ``ClassNode``).
 
-    Works with both the new ``Relationship`` descriptors and neomodel
-    ``RelationshipTo`` / ``RelationshipFrom`` descriptors.
+    Works with the new ``Relationship`` descriptors.
 
     Args:
         source_type: The node type that owns the relationship.
@@ -603,25 +532,10 @@ def find_relationship_attr(
 
 
 # ══════════════════════════════════════════════════════════════════════════
-# Backward-compat shim for neomodel's UniqueIdProperty
+# UniqueId property name helper
 # ══════════════════════════════════════════════════════════════════════════
 
 
 def uid_prop_name(klass: type) -> str | None:
-    """Return the name of the ``UniqueId`` property on *klass*.
-
-    Compatible with both neomodel ``UniqueIdProperty`` and the new
-    ``UniqueId`` descriptor.
-    """
-    # Try new descriptor system first
-    name = PropertyRegistry.unique_id_name(klass)
-    if name is not None:
-        return name
-    # Fallback: neomodel UniqueIdProperty
-    from neomodel import UniqueIdProperty as NeoUniqueIdProperty
-
-    for base in klass.__mro__:
-        for attr_name, value in vars(base).items():
-            if isinstance(value, NeoUniqueIdProperty):
-                return attr_name
-    return None
+    """Return the name of the ``UniqueId`` property on *klass*."""
+    return PropertyRegistry.unique_id_name(klass)

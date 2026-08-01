@@ -344,13 +344,11 @@ class Neo4jRelOps:
             # Determine the most specific registered class from labels
             target_type = "CodeGraphNode"
             labels = set(tlbls or set())
-            candidates = [
-                (len(cls.__mro__), cls.__name__)
-                for cls in CodeGraphNode._registry.values()
-                if labels & set(_labels_for(cls))
-            ]
-            if candidates:
-                target_type = max(candidates, key=lambda t: t[0])[1]
+            from codegraph.backends.neo4j.node_ops import best_class_for_labels
+
+            best = best_class_for_labels(labels)
+            if best is not None:
+                target_type = best.__name__
             edges.append(EdgeDescriptor(
                 relation_type=rel_type,
                 target_uid=tuid,

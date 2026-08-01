@@ -7,12 +7,11 @@ used by components in the project. Extends CodeGraphNode to share
 serialization, registry, and relationship introspection infrastructure.
 """
 
-from neomodel import StructuredNode, StringProperty, ArrayProperty, RelationshipFrom
-
+from codegraph.models.descriptors import Property, Relationship
 from codegraph.models.tags import CodeGraphNode
 
 
-class Language(StructuredNode, CodeGraphNode):
+class Language(CodeGraphNode):
     """Programming language node — :Language label in Neo4j.
 
     Represents a programming language (e.g., C++ 20, Python 3.12)
@@ -29,22 +28,21 @@ class Language(StructuredNode, CodeGraphNode):
     """
 
     # --- Language-specific ---
-    kind = StringProperty(default="language")
-    qualified_name = StringProperty(
-        default="", index=True,
+    kind = Property(str, default="language")
+    qualified_name = Property(
+        str, default="", index=True,
         help_text="Qualified name for display/serialization. Mirrors name.",
     )
-    version = StringProperty(default="",
+    version = Property(str, default="",
         help_text="Language version (e.g. '20', '3.12'). Empty if unspecified.")
 
     # --- Workflow tags ---
-    tags = ArrayProperty(StringProperty(), default=list,
+    tags = Property(list, default=list,
         help_text="Workflow tags: 'detected', 'configured'.")
 
     # --- Reverse relationships -------------------------------------------------
-    components = RelationshipFrom(
-        'codegraph_project.models.component.Component', 'WRITTEN_IN')
+    components = Relationship('WRITTEN_IN', direction='INCOMING',
+                              target_class='codegraph_project.models.component.Component')
 
     # --- Serialization contract ---
     _llm_fields: set[str] = {"name", "version", "tags"}
-    kind = StringProperty(default="language")

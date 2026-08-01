@@ -6,8 +6,6 @@ and serialize(fields=...) behaviour.
 """
 
 import pytest
-from neomodel import RelationshipTo
-
 from codegraph.models.compound import ClassNode, InterfaceNode, EnumNode
 from codegraph.models.file import FileNode
 from codegraph.models.member import MethodNode, AttributeNode, EnumValueNode

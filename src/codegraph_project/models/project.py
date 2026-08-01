@@ -9,12 +9,11 @@ registry, and relationship introspection infrastructure.
 The singleton is identified by ``refid = "project"``.
 """
 
-from neomodel import StringProperty, ArrayProperty, RelationshipTo, StructuredNode
-
+from codegraph.models.descriptors import Property, Relationship
 from codegraph.models.tags import CodeGraphNode
 
 
-class ProjectMeta(StructuredNode, CodeGraphNode):
+class ProjectMeta(CodeGraphNode):
     """Project-level metadata node — :ProjectMeta label in Neo4j.
 
     Singleton node that stores project-wide settings.  The singleton
@@ -37,30 +36,29 @@ class ProjectMeta(StructuredNode, CodeGraphNode):
     """
 
     # --- Project metadata ---
-    kind = StringProperty(default="project")
-    qualified_name = StringProperty(
-        default="", index=True,
+    kind = Property(str, default="project")
+    qualified_name = Property(
+        str, default="", index=True,
         help_text="Qualified name for display/serialization. Mirrors name.",
     )
-    description = StringProperty(default="",
+    description = Property(str, default="",
         help_text="Human-readable project description.")
-    working_directory = StringProperty(default="",
+    working_directory = Property(str, default="",
         help_text="Filesystem path where the project lives "
                   "(e.g. '/home/user/dev/calculator-engine').")
 
     # --- Workflow tags ---
-    tags = ArrayProperty(StringProperty(), default=list,
+    tags = Property(list, default=list,
         help_text="Workflow tags: 'scaffolded', 'passing', 'failing'.")
 
     # --- Relationships ----------------------------------------------------
-    components = RelationshipTo(
-        'codegraph_project.models.component.Component', 'COMPOSES')
+    components = Relationship('COMPOSES', direction='OUTGOING',
+                              target_class='codegraph_project.models.component.Component')
 
     # --- Serialization contract ---
     _llm_fields: set[str] = {
         "name", "description", "working_directory", "tags",
     }
-    kind = StringProperty(default="project")
 
     # ------------------------------------------------------------------
     # Singleton helpers

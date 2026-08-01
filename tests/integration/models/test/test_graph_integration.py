@@ -324,17 +324,17 @@ class TestTestNodeRelationships:
         # Performs initial setup to prepare the test environment, ensuring that the
         # TestNode class is available for subsequent assertions about its 'assertions'
         # relationship.
-        from neomodel import RelationshipTo
+        from codegraph.models.descriptors import Relationship as CGRelationship
 
         # codegraph:test-desc test.test_graph_integration.TestTestNodeRelationships.test_test_node_has_assertions_relationship::post_0
         # Verifies that the TestNode class has an attribute named 'assertions', which is
         # required for the relationship to exist and be validated.
         assert hasattr(TestNode, "assertions")
         # codegraph:test-desc test.test_graph_integration.TestTestNodeRelationships.test_test_node_has_assertions_relationship::post_1
-        # Checks that the 'assertions' attribute on TestNode is an instance of
-        # RelationshipTo, confirming it is a properly defined relationship to another
-        # node.
-        assert isinstance(TestNode.assertions, RelationshipTo)
+        # Checks that the 'assertions' attribute on TestNode is a relationship
+        # descriptor (``Relationship``), confirming
+        # it is a properly defined relationship to another node.
+        assert isinstance(TestNode.assertions, CGRelationship)
         # codegraph:test-desc test.test_graph_integration.TestTestNodeRelationships.test_test_node_has_assertions_relationship::post_2
         # Verifies that the relationship type of TestNode.assertions is 'COMPOSES',
         # ensuring the semantic meaning of the relationship is correctly defined.
@@ -346,16 +346,16 @@ class TestTestNodeRelationships:
         # Initializes the test environment and sets up the TestNode and TestStepNode
         # objects necessary to verify the relationship between test nodes and their
         # steps.
-        from neomodel import RelationshipTo
+        from codegraph.models.descriptors import Relationship as CGRelationship
 
         # codegraph:test-desc test.test_graph_integration.TestTestNodeRelationships.test_test_node_has_steps_relationship::post_0
         # Verifies that the TestNode class defines a 'steps' attribute, ensuring the
         # relationship property is present for further checks.
         assert hasattr(TestNode, "steps")
         # codegraph:test-desc test.test_graph_integration.TestTestNodeRelationships.test_test_node_has_steps_relationship::post_1
-        # Confirms that the 'steps' attribute is an instance of RelationshipTo,
-        # validating the expected object type for graph relationships.
-        assert isinstance(TestNode.steps, RelationshipTo)
+        # Confirms that the 'steps' attribute is a relationship descriptor (new
+        # ``Relationship``).
+        assert isinstance(TestNode.steps, CGRelationship)
         # codegraph:test-desc test.test_graph_integration.TestTestNodeRelationships.test_test_node_has_steps_relationship::post_2
         # Checks that the relationship type of 'steps' is 'COMPOSES', confirming a
         # compositional link from a test node to its steps.
@@ -366,17 +366,16 @@ class TestTestNodeRelationships:
         # codegraph:test-desc test.test_graph_integration.TestTestNodeRelationships.test_test_node_has_verifies_methods_relationship::step_0
         # Sets up the test environment and initializes any necessary objects or
         # conditions before verifying the 'verifies_methods' relationship.
-        from neomodel import RelationshipTo
+        from codegraph.models.descriptors import Relationship as CGRelationship
 
         # codegraph:test-desc test.test_graph_integration.TestTestNodeRelationships.test_test_node_has_verifies_methods_relationship::post_0
         # Asserts that the 'TestNode' class has an attribute named 'verifies_methods',
         # confirming that the relationship property exists on the node.
         assert hasattr(TestNode, "verifies_methods")
         # codegraph:test-desc test.test_graph_integration.TestTestNodeRelationships.test_test_node_has_verifies_methods_relationship::post_1
-        # Confirms that 'TestNode.verifies_methods' is an instance of the
-        # 'RelationshipTo' class, ensuring the attribute is properly typed as a
-        # relationship.
-        assert isinstance(TestNode.verifies_methods, RelationshipTo)
+        # Confirms that 'TestNode.verifies_methods' is a relationship descriptor (new
+        # ``Relationship``).
+        assert isinstance(TestNode.verifies_methods, CGRelationship)
         # codegraph:test-desc test.test_graph_integration.TestTestNodeRelationships.test_test_node_has_verifies_methods_relationship::post_2
         # Verifies that the 'relation_type' field inside the definition dictionary of
         # 'verifies_methods' is exactly 'VERIFIES', confirming that the relationship
@@ -389,8 +388,6 @@ class TestTestNodeRelationships:
         # Retrieves all LEFT_OPERAND relationships from the serialized relationships of
         # the AssertionNode, preparing the set of relationship descriptors for
         # subsequent verification.
-        from neomodel import RelationshipTo
-
         rels = AssertionNode.serialize_relationships()
         left_operand_rels = [r for r in rels if r["relation_type"] == "LEFT_OPERAND"]
         # codegraph:test-desc test.test_graph_integration.TestTestNodeRelationships.test_assertion_has_left_operand_relationships::post_0
@@ -471,14 +468,14 @@ class TestTestNodeRelationships:
         # codegraph:test-desc test.test_graph_integration.TestTestNodeRelationships.test_namespace_has_tests_relationship::step_0
         # Set up the test environment by initializing the namespace and test nodes,
         # preparing them for relationship verification.
-        from neomodel import RelationshipTo
+        from codegraph.models.descriptors import Relationship as CGRelationship
 
         # codegraph:test-desc test.test_graph_integration.TestTestNodeRelationships.test_namespace_has_tests_relationship::post_0
         # Verify that the NamespaceNode class has a 'tests' attribute, ensuring the
         # relationship field is defined on the node model.
         assert hasattr(NamespaceNode, "tests")
         # codegraph:test-desc test.test_graph_integration.TestTestNodeRelationships.test_namespace_has_tests_relationship::post_1
-        # Check that the 'tests' attribute is an instance of RelationshipTo, confirming
-        # it is correctly typed as a relationship to other nodes.
-        assert isinstance(NamespaceNode.tests, RelationshipTo)
+        # Check that the 'tests' attribute is a relationship descriptor (new
+        # ``Relationship``).
+        assert isinstance(NamespaceNode.tests, CGRelationship)
         assert NamespaceNode.tests.definition["relation_type"] == "COMPOSES"

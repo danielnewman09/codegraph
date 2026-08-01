@@ -9,15 +9,11 @@ which project component. Extends CodeGraphNode to share serialization,
 registry, and relationship introspection infrastructure.
 """
 
-from neomodel import (
-    StructuredNode, StringProperty, ArrayProperty,
-    RelationshipTo, RelationshipFrom,
-)
-
+from codegraph.models.descriptors import Property, Relationship
 from codegraph.models.tags import CodeGraphNode
 
 
-class Component(StructuredNode, CodeGraphNode):
+class Component(CodeGraphNode):
     """Project-management grouping node — :Component label in Neo4j.
 
     Represents a logical subsystem or module of a project (e.g.,
@@ -43,18 +39,18 @@ class Component(StructuredNode, CodeGraphNode):
     """
 
     # --- Description ---
-    kind = StringProperty(default="component")
-    description = StringProperty(default="")
-    qualified_name = StringProperty(
-        default="", index=True,
+    kind = Property(str, default="component")
+    description = Property(str, default="")
+    qualified_name = Property(
+        str, default="", index=True,
         help_text="Qualified name for display/serialization. Mirrors name for components.",
     )
-    namespace = StringProperty(default="",
+    namespace = Property(str, default="",
         help_text="Code-level namespace this component maps to "
                   "(e.g. 'calculation_engine::').")
 
     # --- Workflow tags ---
-    tags = ArrayProperty(StringProperty(), default=list,
+    tags = Property(list, default=list,
         help_text="Workflow tags: 'declared', 'scaffolded', 'passing', 'failing'.")
 
     # --------------------------------------------------------------------
@@ -62,38 +58,37 @@ class Component(StructuredNode, CodeGraphNode):
     # --------------------------------------------------------------------
 
     # Self-referential hierarchy
-    children = RelationshipTo(
-        'codegraph_project.models.component.Component', 'COMPOSES')
-    parent = RelationshipFrom(
-        'codegraph_project.models.component.Component', 'COMPOSES')
+    children = Relationship('COMPOSES', direction='OUTGOING',
+                            target_class='codegraph_project.models.component.Component')
+    parent = Relationship('COMPOSES', direction='INCOMING',
+                          target_class='codegraph_project.models.component.Component')
 
     # Language
-    language = RelationshipTo(
-        'codegraph_project.models.language.Language', 'WRITTEN_IN')
+    language = Relationship('WRITTEN_IN', direction='OUTGOING',
+                            target_class='codegraph_project.models.language.Language')
 
     # Dependencies
-    dependencies = RelationshipTo(
-        'codegraph_project.models.dependency.Dependency', 'DEPENDS_ON')
+    dependencies = Relationship('DEPENDS_ON', direction='OUTGOING',
+                                target_class='codegraph_project.models.dependency.Dependency')
 
     # Code-level connections
-    namespaces = RelationshipTo(
-        'codegraph.models.namespace.NamespaceNode', 'GROUPS')
-    classes = RelationshipTo(
-        'codegraph.models.compound.ClassNode', 'GROUPS')
+    namespaces = Relationship('GROUPS', direction='OUTGOING',
+                              target_class='codegraph.models.namespace.NamespaceNode')
+    classes = Relationship('GROUPS', direction='OUTGOING',
+                           target_class='codegraph.models.compound.ClassNode')
 
     # Requirements
-    requirements = RelationshipTo(
-        'codegraph_requirements.models.requirement.HLR', 'COMPOSES')
+    requirements = Relationship('COMPOSES', direction='OUTGOING',
+                                target_class='codegraph_requirements.models.requirement.HLR')
 
     # Project membership
-    project = RelationshipFrom(
-        'codegraph_project.models.project.ProjectMeta', 'COMPOSES')
+    project = Relationship('COMPOSES', direction='INCOMING',
+                           target_class='codegraph_project.models.project.ProjectMeta')
 
     # --- Serialization contract ---
     _llm_fields: set[str] = {
         "qualified_name", "name", "description", "namespace", "tags",
     }
-    kind = StringProperty(default="component")
 
     _markdown_keyword = "Component"
 

@@ -7,15 +7,16 @@ FileNode is the target of ``DEFINED_IN`` relationships from compounds
     (any compound|member)-[:DEFINED_IN]->(FileNode)
 """
 
-from neomodel import (
-    StructuredNode, StringProperty, UniqueIdProperty,
-    ArrayProperty, RelationshipTo,
+from codegraph.models.descriptors import (
+    Property,
+    Relationship,
+    UniqueId,
 )
 
 from codegraph.models.tags import CodeGraphNode
 
 
-class FileNode(StructuredNode, CodeGraphNode):
+class FileNode(CodeGraphNode):
     """A source file in the codebase.
 
     Attributes:
@@ -33,9 +34,9 @@ class FileNode(StructuredNode, CodeGraphNode):
     """
 
     # --- Identity ---
-    uid = UniqueIdProperty()
-    refid = StringProperty(
-        default="", index=True,
+    uid = UniqueId()
+    refid = Property(
+        str, default="", index=True,
         help_text="External reference ID from the source system (e.g. Doxygen).",
     )
 
@@ -43,21 +44,22 @@ class FileNode(StructuredNode, CodeGraphNode):
     _identity_fields: tuple[str, ...] = ("path",)
 
     # --- File metadata ---
-    qualified_name = StringProperty(
-        default="", index=True,
+    qualified_name = Property(
+        str, default="", index=True,
         help_text="Qualified name for display/serialization. Mirrors path for files.",
     )
-    path = StringProperty(default="")
-    language = StringProperty(default="")
-    tags = ArrayProperty(StringProperty(), default=[])
-    kind = StringProperty(default="file")
+    path = Property(str, default="")
+    language = Property(str, default="")
+    tags = Property(list, default=[])
+    kind = Property(str, default="file")
 
     # --- Serialization contract ---
     _llm_fields: set[str] = {"name", "path", "source"}
 
     # --- Relationships ---
     #  • INCLUDES — this file → other FileNode (#include)
-    includes = RelationshipTo('codegraph.models.file.FileNode', 'INCLUDES')
+    includes = Relationship('INCLUDES', direction='OUTGOING',
+                            target_class='codegraph.models.file.FileNode')
 
     def markdown_is_heading(self) -> bool:
         """FileNode renders as a note — no heading."""

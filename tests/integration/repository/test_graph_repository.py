@@ -12,6 +12,7 @@ from codegraph.graph import LayerGraph, CompositeEntry
 from codegraph.models.compound import ClassNode, InterfaceNode, EnumNode
 from codegraph.models.member import MethodNode, AttributeNode
 from codegraph.models.namespace import NamespaceNode
+from codegraph.models.descriptors import PropertyRegistry
 from codegraph.backends import get_backend
 from codegraph.uid import compute_uid, normalize_argsstring
 
@@ -555,7 +556,7 @@ class TestGetByKind:
         assert isinstance(result, LayerGraph)
         # All returned nodes with a tags property should include "design"
         for node in _all_nodes(result):
-            if "tags" in type(node).defined_properties():
+            if "tags" in PropertyRegistry.properties_of(type(node)):
                 # codegraph:test-desc repository.test_graph_repository.TestGetByKind.test_with_tag_filter::post_1
                 # Checks that every returned node contains the 'design' tag, confirming
                 # that the tag filtering logic correctly includes only nodes with the

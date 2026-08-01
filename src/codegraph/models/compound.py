@@ -1,21 +1,21 @@
 """Compound node models — ClassNode, InterfaceNode, EnumNode, UnionNode, ModuleNode.
 
-Each compound kind gets its own neomodel class, Neo4j label, and
-kind-specific fields. Common fields are shared via ``CompoundNode``.
+Each compound kind gets its own node class and Neo4j label.
+Kind-specific fields are shared via ``CompoundNode``.
 """
 
 from __future__ import annotations
 
-from neomodel import (
-    StructuredNode, StringProperty, IntegerProperty, BooleanProperty,
-    ArrayProperty, FloatProperty, UniqueIdProperty, RelationshipTo, RelationshipFrom,
+from codegraph.models.descriptors import (
+    Property,
+    Relationship,
+    UniqueId,
 )
-
 
 from codegraph.models.tags import CodeGraphNode
 
 
-class CompoundNode(StructuredNode, CodeGraphNode):
+class CompoundNode(CodeGraphNode):
     """Common fields and serialization for all compound node types.
 
     Attributes:
@@ -40,40 +40,40 @@ class CompoundNode(StructuredNode, CodeGraphNode):
     """
 
     # --- Identity ---
-    uid = UniqueIdProperty()
-    qualified_name = StringProperty(
-        default="", index=True,
+    uid = UniqueId()
+    qualified_name = Property(
+        str, default="", index=True,
         help_text="Human-readable fully-qualified name. Indexed for lookup; "
                   "the unique key is `uid`.",
     )
-    kind = StringProperty(required=True)
+    kind = Property(str, required=True)
 
     # --- Identity fields for uid computation ---
     _identity_fields: tuple[str, ...] = ("qualified_name",)
 
     # --- Tags & provenance ---
-    tags = ArrayProperty(StringProperty(), default=list,
+    tags = Property(list, default=list,
         help_text="Provenance tags: 'design', 'as-built', 'dependency'. "
                   "Multiple tags allowed — a node can belong to several views.")
-    component_id = IntegerProperty()
-    source_type = StringProperty(default="")
+    component_id = Property(int)
+    source_type = Property(str, default="")
 
     # --- Visibility ---
-    visibility = StringProperty(default="")
+    visibility = Property(str, default="")
 
     # --- Documentation ---
-    brief_description = StringProperty(default="")
-    detailed_description = StringProperty(default="")
+    brief_description = Property(str, default="")
+    detailed_description = Property(str, default="")
 
     # --- Location ---
-    file_path = StringProperty(default="")
-    line_number = IntegerProperty()
+    file_path = Property(str, default="")
+    line_number = Property(int)
 
     # --- Definition ---
-    definition = StringProperty(default="")
+    definition = Property(str, default="")
 
     # --- Vector embeddings ---
-    doc_embedding = ArrayProperty(FloatProperty(), default=[],
+    doc_embedding = Property(list, default=[],
         help_text="Vector embedding of brief_description + detailed_description.")
 
     # --- Lazy-loaded implementation ----------------------------------------
@@ -88,7 +88,8 @@ class CompoundNode(StructuredNode, CodeGraphNode):
     #    ``node.implementation_ref.all()`` when source code is needed.
     # --------------------------------------------------------------------------
 
-    implementation_ref = RelationshipTo('codegraph.models.implementation.ImplementationNode', 'HAS_IMPLEMENTATION')
+    implementation_ref = Relationship('HAS_IMPLEMENTATION', direction='OUTGOING',
+                                      target_class='codegraph.models.implementation.ImplementationNode')
 
     # --- Relationships -------------------------------------------------------
     #
@@ -114,16 +115,19 @@ class CompoundNode(StructuredNode, CodeGraphNode):
     # --------------------------------------------------------------------------
 
     # File location
-    defined_in = RelationshipTo('codegraph.models.file.FileNode', 'DEFINED_IN')
+    defined_in = Relationship('DEFINED_IN', direction='OUTGOING',
+                              target_class='codegraph.models.file.FileNode')
 
     # Template machinery (shared by ClassNode, InterfaceNode, ConceptNode, etc.)
-    template_params = RelationshipTo('ClassNode', 'TEMPLATE_PARAM')
-    specializes = RelationshipTo('ClassNode', 'SPECIALIZES')
-    enforces_concept = RelationshipTo('ConceptNode', 'ENFORCES_CONCEPT')
-    constrained_by = RelationshipFrom('codegraph.models.compound.ConceptNode', 'CONSTRAINS')
+    template_params = Relationship('TEMPLATE_PARAM', direction='OUTGOING', target_class='ClassNode')
+    specializes = Relationship('SPECIALIZES', direction='OUTGOING', target_class='ClassNode')
+    enforces_concept = Relationship('ENFORCES_CONCEPT', direction='OUTGOING', target_class='ConceptNode')
+    constrained_by = Relationship('CONSTRAINS', direction='INCOMING',
+                                  target_class='codegraph.models.compound.ConceptNode')
     # Any compound can be the *source* of a CONSTRAINS edge (e.g.
     # BaseTransferObject → CONSTRAINS → TransferObject).
-    constrains = RelationshipTo('codegraph.models.compound.CompoundNode', 'CONSTRAINS')
+    constrains = Relationship('CONSTRAINS', direction='OUTGOING',
+                              target_class='codegraph.models.compound.CompoundNode')
 
     # --- Serialization contract ---
     _llm_fields: set[str] = {"qualified_name", "name", "kind", "tags", "brief_description", "visibility"}
@@ -140,11 +144,11 @@ class ClassNode(CompoundNode):
         is_abstract: Whether the class is abstract.
     """
 
-    kind = StringProperty(default="class")
-    module = StringProperty(default="")
-    base_classes = ArrayProperty(StringProperty(), default=[])
-    is_final = BooleanProperty(default=False)
-    is_abstract = BooleanProperty(default=False)
+    kind = Property(str, default="class")
+    module = Property(str, default="")
+    base_classes = Property(list, default=[])
+    is_final = Property(bool, default=False)
+    is_abstract = Property(bool, default=False)
 
     _llm_fields = {"qualified_name", "name", "kind", "tags", "brief_description", "base_classes", "visibility"}
 
@@ -183,26 +187,29 @@ class ClassNode(CompoundNode):
     # --------------------------------------------------------------------------
 
     # Composition (outgoing)
-    methods = RelationshipTo('codegraph.models.member.MethodNode', 'COMPOSES')
-    attributes = RelationshipTo('codegraph.models.member.AttributeNode', 'COMPOSES')
+    methods = Relationship('COMPOSES', direction='OUTGOING',
+                           target_class='codegraph.models.member.MethodNode')
+    attributes = Relationship('COMPOSES', direction='OUTGOING',
+                              target_class='codegraph.models.member.AttributeNode')
 
     # Inheritance (outgoing + incoming)
-    base = RelationshipTo('ClassNode', 'INHERITS_FROM')
-    derived = RelationshipFrom('ClassNode', 'INHERITS_FROM')
+    base = Relationship('INHERITS_FROM', direction='OUTGOING', target_class='ClassNode')
+    derived = Relationship('INHERITS_FROM', direction='INCOMING', target_class='ClassNode')
 
     # Dependency (outgoing + incoming)
-    depends_on = RelationshipTo('ClassNode', 'DEPENDS_ON')
-    depended_on_by = RelationshipFrom('ClassNode', 'DEPENDS_ON')
+    depends_on = Relationship('DEPENDS_ON', direction='OUTGOING', target_class='ClassNode')
+    depended_on_by = Relationship('DEPENDS_ON', direction='INCOMING', target_class='ClassNode')
 
     # Reference (outgoing + incoming)
-    references = RelationshipTo('ClassNode', 'REFERENCES')
-    referred_by = RelationshipFrom('ClassNode', 'REFERENCES')
+    references = Relationship('REFERENCES', direction='OUTGOING', target_class='ClassNode')
+    referred_by = Relationship('REFERENCES', direction='INCOMING', target_class='ClassNode')
 
     # Interface realization (outgoing)
-    realizes = RelationshipTo('InterfaceNode', 'REALIZES')
+    realizes = Relationship('REALIZES', direction='OUTGOING', target_class='InterfaceNode')
 
     # Incoming composition (parent namespace)
-    parent_namespace = RelationshipFrom('codegraph.models.namespace.NamespaceNode', 'COMPOSES')
+    parent_namespace = Relationship('COMPOSES', direction='INCOMING',
+                                    target_class='codegraph.models.namespace.NamespaceNode')
 
 
 # --- Stubs for Tasks 3-5 (will be fleshed out with their own fields) ---
@@ -216,9 +223,9 @@ class InterfaceNode(CompoundNode):
         is_abstract: Whether the interface is abstract (defaults to True).
     """
 
-    kind = StringProperty(default="interface")
-    module = StringProperty(default="")
-    is_abstract = BooleanProperty(default=True)
+    kind = Property(str, default="interface")
+    module = Property(str, default="")
+    is_abstract = Property(bool, default=True)
 
     _llm_fields = {"qualified_name", "name", "kind", "tags", "brief_description", "visibility"}
 
@@ -235,12 +242,14 @@ class InterfaceNode(CompoundNode):
     #    The interface depends on a concrete class (rare; usually the reverse).
     # --------------------------------------------------------------------------
 
-    methods = RelationshipTo('codegraph.models.member.MethodNode', 'COMPOSES')
-    inherits_from = RelationshipTo('InterfaceNode', 'INHERITS_FROM')
-    dependencies = RelationshipTo('ClassNode', 'DEPENDS_ON')
+    methods = Relationship('COMPOSES', direction='OUTGOING',
+                           target_class='codegraph.models.member.MethodNode')
+    inherits_from = Relationship('INHERITS_FROM', direction='OUTGOING', target_class='InterfaceNode')
+    dependencies = Relationship('DEPENDS_ON', direction='OUTGOING', target_class='ClassNode')
 
     # Incoming composition (parent namespace)
-    parent_namespace = RelationshipFrom('codegraph.models.namespace.NamespaceNode', 'COMPOSES')
+    parent_namespace = Relationship('COMPOSES', direction='INCOMING',
+                                    target_class='codegraph.models.namespace.NamespaceNode')
 
 
 class EnumNode(CompoundNode):
@@ -251,8 +260,8 @@ class EnumNode(CompoundNode):
         module: Module/namespace the enum belongs to.
     """
 
-    kind = StringProperty(default="enum")
-    module = StringProperty(default="")
+    kind = Property(str, default="enum")
+    module = Property(str, default="")
 
     _llm_fields = {"qualified_name", "name", "kind", "tags", "brief_description", "visibility"}
 
@@ -267,10 +276,12 @@ class EnumNode(CompoundNode):
     #    or inheritance.
     # --------------------------------------------------------------------------
 
-    values = RelationshipTo('codegraph.models.member.EnumValueNode', 'COMPOSES')
+    values = Relationship('COMPOSES', direction='OUTGOING',
+                          target_class='codegraph.models.member.EnumValueNode')
 
     # Incoming composition (parent namespace)
-    parent_namespace = RelationshipFrom('codegraph.models.namespace.NamespaceNode', 'COMPOSES')
+    parent_namespace = Relationship('COMPOSES', direction='INCOMING',
+                                    target_class='codegraph.models.namespace.NamespaceNode')
 
 
 class UnionNode(CompoundNode):
@@ -281,13 +292,14 @@ class UnionNode(CompoundNode):
         module: Module/namespace the union belongs to.
     """
 
-    kind = StringProperty(default="union")
-    module = StringProperty(default="")
+    kind = Property(str, default="union")
+    module = Property(str, default="")
 
     _llm_fields = {"qualified_name", "name", "kind", "tags", "brief_description", "visibility"}
 
     # Incoming composition (parent namespace)
-    parent_namespace = RelationshipFrom('codegraph.models.namespace.NamespaceNode', 'COMPOSES')
+    parent_namespace = Relationship('COMPOSES', direction='INCOMING',
+                                    target_class='codegraph.models.namespace.NamespaceNode')
 
 
 class ConceptNode(CompoundNode):
@@ -303,21 +315,23 @@ class ConceptNode(CompoundNode):
             ``template<typename T>\nconcept ValidTransferObject = TransferObject<T>``).
     """
 
-    kind = StringProperty(default="concept")
-    module = StringProperty(default="")
-    initializer = StringProperty(
-        default="",
+    kind = Property(str, default="concept")
+    module = Property(str, default="")
+    initializer = Property(
+        str, default="",
         help_text="The full concept definition expression as written in source.",
     )
 
     _llm_fields = {"qualified_name", "name", "kind", "tags", "brief_description", "visibility"}
 
     # Incoming composition (parent namespace)
-    parent_namespace = RelationshipFrom('codegraph.models.namespace.NamespaceNode', 'COMPOSES')
+    parent_namespace = Relationship('COMPOSES', direction='INCOMING',
+                                    target_class='codegraph.models.namespace.NamespaceNode')
 
     # CONSTRAINS — this concept constrains a type/concept
     # (e.g. TransferObject CONSTRAINS BaseTransferObject)
-    constrains = RelationshipTo('codegraph.models.compound.CompoundNode', 'CONSTRAINS')
+    constrains = Relationship('CONSTRAINS', direction='OUTGOING',
+                              target_class='codegraph.models.compound.CompoundNode')
 
 
 class ModuleNode(CompoundNode):
@@ -330,10 +344,11 @@ class ModuleNode(CompoundNode):
         kind: Defaults to "module".
     """
 
-    kind = StringProperty(default="module")
+    kind = Property(str, default="module")
 
     _llm_fields = {"qualified_name", "name", "kind", "tags", "brief_description", "visibility"}
 
     # Incoming composition (parent namespace)
-    parent_namespace = RelationshipFrom('codegraph.models.namespace.NamespaceNode', 'COMPOSES')
+    parent_namespace = Relationship('COMPOSES', direction='INCOMING',
+                                    target_class='codegraph.models.namespace.NamespaceNode')
 

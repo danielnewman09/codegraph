@@ -10,15 +10,15 @@ DefineNode, and CompoundNode types.
 
 from __future__ import annotations
 
-from neomodel import (
-    StructuredNode, StringProperty, ArrayProperty, FloatProperty,
-    UniqueIdProperty,
+from codegraph.models.descriptors import (
+    Property,
+    UniqueId,
 )
 
 from codegraph.models.tags import CodeGraphNode
 
 
-class ImplementationNode(StructuredNode, CodeGraphNode):
+class ImplementationNode(CodeGraphNode):
     """Source code implementation body and its embedding — Neo4j label ``:Implementation``.
 
     Connected from MethodNode, FunctionNode, DefineNode, or any CompoundNode
@@ -47,27 +47,27 @@ class ImplementationNode(StructuredNode, CodeGraphNode):
     """
 
     # --- Identity ---
-    uid = UniqueIdProperty()
-    qualified_name = StringProperty(
-        default="", index=True,
+    uid = UniqueId()
+    qualified_name = Property(
+        str, default="", index=True,
         help_text="Human-readable identifier matching the parent node's "
                   "qualified_name.",
     )
-    kind = StringProperty(default="implementation")
+    kind = Property(str, default="implementation")
 
     # --- Identity fields for uid computation ---
     _identity_fields: tuple[str, ...] = ("qualified_name",)
 
     # --- Source code ---
-    implementation = StringProperty(
-        default="",
+    implementation = Property(
+        str, default="",
         help_text="Full source code body of the method/function.",
     )
 
     # --- Embeddings ---
-    impl_embedding = ArrayProperty(FloatProperty(), default=[],
+    impl_embedding = Property(list, default=[],
         help_text="Vector embedding of the implementation source code.")
-    tags = ArrayProperty(StringProperty(), default=[])
+    tags = Property(list, default=[])
 
     # --- Serialization contract ---
     _llm_fields: set[str] = {"qualified_name", "kind", "implementation"}

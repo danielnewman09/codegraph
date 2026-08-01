@@ -1,21 +1,21 @@
 """Member node models — MethodNode, AttributeNode, EnumValueNode, FunctionNode, DefineNode.
 
-Each member kind gets its own neomodel class and Neo4j label. Common fields
+Each member kind gets its own node class and Neo4j label. Common fields
 are shared via a ``MemberNode`` abstract base.
 """
 
 from __future__ import annotations
 
-from neomodel import (
-    StructuredNode, StringProperty, IntegerProperty, BooleanProperty,
-    ArrayProperty, FloatProperty, UniqueIdProperty, RelationshipTo, RelationshipFrom,
+from codegraph.models.descriptors import (
+    Property,
+    Relationship,
+    UniqueId,
 )
-
 
 from codegraph.models.tags import CodeGraphNode
 
 
-class MemberNode(StructuredNode, CodeGraphNode):
+class MemberNode(CodeGraphNode):
     """Common fields and serialization for all member node types.
 
     Attributes:
@@ -41,13 +41,13 @@ class MemberNode(StructuredNode, CodeGraphNode):
     """
 
     # --- Identity ---
-    uid = UniqueIdProperty()
-    qualified_name = StringProperty(
-        default="", index=True,
+    uid = UniqueId()
+    qualified_name = Property(
+        str, default="", index=True,
         help_text="Human-readable fully-qualified name. Indexed for lookup; "
                   "the unique key is `uid`.",
     )
-    kind = StringProperty(required=True)
+    kind = Property(str, required=True)
 
     # --- Identity fields for uid computation ---
     # Subclasses that have signatures (MethodNode, FunctionNode) override
@@ -55,52 +55,57 @@ class MemberNode(StructuredNode, CodeGraphNode):
     _identity_fields: tuple[str, ...] = ("qualified_name",)
 
     # --- Tags & provenance ---
-    tags = ArrayProperty(StringProperty(), default=list,
+    tags = Property(list, default=list,
         help_text="Provenance tags: 'design', 'as-built', 'dependency'. "
                   "Multiple tags allowed — a node can belong to several views.")
 
     # ── File provenance ──────────────────────────────────────────
-    defined_in = RelationshipTo('codegraph.models.file.FileNode', 'DEFINED_IN')
-    component_id = IntegerProperty()
-    compound_refid = StringProperty(default="")
+    defined_in = Relationship('DEFINED_IN', direction='OUTGOING',
+                              target_class='codegraph.models.file.FileNode')
+    component_id = Property(int)
+    compound_refid = Property(str, default="")
 
     # --- Visibility ---
-    visibility = StringProperty(default="")
+    visibility = Property(str, default="")
 
     # --- Documentation ---
-    brief_description = StringProperty(default="")
-    detailed_description = StringProperty(default="")
+    brief_description = Property(str, default="")
+    detailed_description = Property(str, default="")
 
     # --- Location ---
-    file_path = StringProperty(default="")
-    line_number = IntegerProperty()
-    body_start = IntegerProperty(
-        default=0,
+    file_path = Property(str, default="")
+    line_number = Property(int)
+    body_start = Property(
+        int, default=0,
         help_text="Start line of the implementation body (from Doxygen bodystart). "
                   "0 or negative means no implementation body available.",
     )
-    body_end = IntegerProperty(
-        default=0,
+    body_end = Property(
+        int, default=0,
         help_text="End line of the implementation body (from Doxygen bodyend). "
                   "0 or negative means no implementation body available.",
     )
 
     # --- Definition ---
-    definition = StringProperty(default="")
+    definition = Property(str, default="")
 
     # --- Vector embeddings ---
-    doc_embedding = ArrayProperty(FloatProperty(), default=[],
+    doc_embedding = Property(list, default=[],
         help_text="Vector embedding of brief_description + detailed_description.")
 
     # --- Lazy-loaded implementation ----------------------------------------
-    implementation_ref = RelationshipTo('codegraph.models.implementation.ImplementationNode', 'HAS_IMPLEMENTATION')
+    implementation_ref = Relationship('HAS_IMPLEMENTATION', direction='OUTGOING',
+                                      target_class='codegraph.models.implementation.ImplementationNode')
 
     # --- File provenance ───────────────────────────────────────────────────
-    defined_in = RelationshipTo('codegraph.models.file.FileNode', 'DEFINED_IN')
+    defined_in = Relationship('DEFINED_IN', direction='OUTGOING',
+                              target_class='codegraph.models.file.FileNode')
 
     # --- Type dependencies ─────────────────────────────────────────────────
-    depends_on_compound = RelationshipTo('codegraph.models.compound.ClassNode', 'DEPENDS_ON')
-    depends_on_member = RelationshipTo('codegraph.models.member.AttributeNode', 'DEPENDS_ON')
+    depends_on_compound = Relationship('DEPENDS_ON', direction='OUTGOING',
+                                       target_class='codegraph.models.compound.ClassNode')
+    depends_on_member = Relationship('DEPENDS_ON', direction='OUTGOING',
+                                     target_class='codegraph.models.member.AttributeNode')
 
     # --- Serialization contract ---
     _llm_fields: set[str] = {
@@ -124,15 +129,15 @@ class MethodNode(MemberNode):
         is_explicit: Whether the method is explicit.
     """
 
-    kind = StringProperty(default="method")
-    type_signature = StringProperty(default="")
-    argsstring = StringProperty(default="")
-    is_static = BooleanProperty(default=False)
-    is_const = BooleanProperty(default=False)
-    is_constexpr = BooleanProperty(default=False)
-    is_virtual = BooleanProperty(default=False)
-    is_inline = BooleanProperty(default=False)
-    is_explicit = BooleanProperty(default=False)
+    kind = Property(str, default="method")
+    type_signature = Property(str, default="")
+    argsstring = Property(str, default="")
+    is_static = Property(bool, default=False)
+    is_const = Property(bool, default=False)
+    is_constexpr = Property(bool, default=False)
+    is_virtual = Property(bool, default=False)
+    is_inline = Property(bool, default=False)
+    is_explicit = Property(bool, default=False)
 
     # Include argsstring in uid so overloads get distinct identities
     _identity_fields = ("qualified_name", "argsstring")
@@ -143,17 +148,21 @@ class MethodNode(MemberNode):
     }
 
     # Incoming composition
-    parent_compound = RelationshipFrom('codegraph.models.compound.ClassNode', 'COMPOSES')
-    parent_interface = RelationshipFrom('codegraph.models.compound.InterfaceNode', 'COMPOSES')
+    parent_compound = Relationship('COMPOSES', direction='INCOMING',
+                                   target_class='codegraph.models.compound.ClassNode')
+    parent_interface = Relationship('COMPOSES', direction='INCOMING',
+                                    target_class='codegraph.models.compound.InterfaceNode')
 
     # ── Call-callee ──────────────────────────────────────────────
-    invokes = RelationshipTo('MethodNode', 'INVOKES')
-    invokes_function = RelationshipTo('FunctionNode', 'INVOKES')
-    invoked_by_function = RelationshipFrom('FunctionNode', 'INVOKES')
+    invokes = Relationship('INVOKES', direction='OUTGOING', target_class='MethodNode')
+    invokes_function = Relationship('INVOKES', direction='OUTGOING', target_class='FunctionNode')
+    invoked_by_function = Relationship('INVOKES', direction='INCOMING', target_class='FunctionNode')
 
     # ── Type relationships ───────────────────────────────────────
-    has_argument = RelationshipTo('codegraph.models.compound.ClassNode', 'HAS_ARGUMENT')
-    returns = RelationshipTo('codegraph.models.compound.ClassNode', 'RETURNS')
+    has_argument = Relationship('HAS_ARGUMENT', direction='OUTGOING',
+                                target_class='codegraph.models.compound.ClassNode')
+    returns = Relationship('RETURNS', direction='OUTGOING',
+                           target_class='codegraph.models.compound.ClassNode')
 
 
 class AttributeNode(MemberNode):
@@ -168,10 +177,10 @@ class AttributeNode(MemberNode):
 
     _markdown_keyword = "Attribute"
 
-    kind = StringProperty(default="attribute")
-    type_signature = StringProperty(default="")
-    is_static = BooleanProperty(default=False)
-    is_const = BooleanProperty(default=False)
+    kind = Property(str, default="attribute")
+    type_signature = Property(str, default="")
+    is_static = Property(bool, default=False)
+    is_const = Property(bool, default=False)
 
     _llm_fields = {
         "qualified_name", "name", "kind", "tags", "brief_description",
@@ -179,8 +188,10 @@ class AttributeNode(MemberNode):
     }
 
     # Incoming composition
-    parent_compound = RelationshipFrom('codegraph.models.compound.ClassNode', 'COMPOSES')
-    composes_attribute = RelationshipFrom('codegraph.models.member.AttributeNode', 'COMPOSES')
+    parent_compound = Relationship('COMPOSES', direction='INCOMING',
+                                   target_class='codegraph.models.compound.ClassNode')
+    composes_attribute = Relationship('COMPOSES', direction='INCOMING',
+                                      target_class='codegraph.models.member.AttributeNode')
 
 
 class EnumValueNode(MemberNode):
@@ -190,12 +201,13 @@ class EnumValueNode(MemberNode):
         kind: Defaults to "enumvalue".
     """
 
-    kind = StringProperty(default="enumvalue")
+    kind = Property(str, default="enumvalue")
 
     _llm_fields = {"qualified_name", "name", "kind", "tags", "brief_description", "visibility"}
 
     # Incoming composition
-    parent_enum = RelationshipFrom('codegraph.models.compound.EnumNode', 'COMPOSES')
+    parent_enum = Relationship('COMPOSES', direction='INCOMING',
+                               target_class='codegraph.models.compound.EnumNode')
 
 
 class FunctionNode(MemberNode):
@@ -207,9 +219,9 @@ class FunctionNode(MemberNode):
         argsstring: Full argument signature string.
     """
 
-    kind = StringProperty(default="function")
-    type_signature = StringProperty(default="")
-    argsstring = StringProperty(default="")
+    kind = Property(str, default="function")
+    type_signature = Property(str, default="")
+    argsstring = Property(str, default="")
 
     # Include argsstring in uid so overloads get distinct identities
     _identity_fields = ("qualified_name", "argsstring")
@@ -220,13 +232,14 @@ class FunctionNode(MemberNode):
     }
 
     # Incoming composition
-    parent_namespace = RelationshipFrom('codegraph.models.namespace.NamespaceNode', 'COMPOSES')
+    parent_namespace = Relationship('COMPOSES', direction='INCOMING',
+                                    target_class='codegraph.models.namespace.NamespaceNode')
 
     # ── Call-callee ──────────────────────────────────────────────
-    invokes_method = RelationshipTo('MethodNode', 'INVOKES')
-    invokes_function = RelationshipTo('FunctionNode', 'INVOKES')
-    invoked_by_method = RelationshipFrom('MethodNode', 'INVOKES')
-    invoked_by_function = RelationshipFrom('FunctionNode', 'INVOKES')
+    invokes_method = Relationship('INVOKES', direction='OUTGOING', target_class='MethodNode')
+    invokes_function = Relationship('INVOKES', direction='OUTGOING', target_class='FunctionNode')
+    invoked_by_method = Relationship('INVOKES', direction='INCOMING', target_class='MethodNode')
+    invoked_by_function = Relationship('INVOKES', direction='INCOMING', target_class='FunctionNode')
 
 
 class DefineNode(MemberNode):
@@ -236,7 +249,7 @@ class DefineNode(MemberNode):
         kind: Defaults to "define".
     """
 
-    kind = StringProperty(default="define")
+    kind = Property(str, default="define")
 
     _llm_fields = {"qualified_name", "name", "kind", "tags", "brief_description", "visibility"}
 

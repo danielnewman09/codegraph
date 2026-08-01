@@ -44,15 +44,10 @@ class, and ``serialize_edges()`` / ``walk_edges()`` walk all of them.
 
 from __future__ import annotations
 
-from neomodel import (
-    StructuredNode,
-    StringProperty,
-    IntegerProperty,
-    ArrayProperty,
-    FloatProperty,
-    UniqueIdProperty,
-    RelationshipTo,
-    RelationshipFrom,
+from codegraph.models.descriptors import (
+    Property,
+    Relationship,
+    UniqueId,
 )
 
 from codegraph.models.tags import CodeGraphNode
@@ -63,7 +58,7 @@ from codegraph.models.tags import CodeGraphNode
 # ══════════════════════════════════════════════════════════════════════════
 
 
-class TestNode(StructuredNode, CodeGraphNode):
+class TestNode(CodeGraphNode):
     """A test definition — Neo4j label ``:Test``.
 
     Represents a single test case (e.g. a pytest ``test_*`` function or
@@ -95,50 +90,48 @@ class TestNode(StructuredNode, CodeGraphNode):
     __test__ = False
 
     # --- Identity ---
-    uid = UniqueIdProperty()
-    qualified_name = StringProperty(
-        default="", index=True,
+    uid = UniqueId()
+    qualified_name = Property(
+        str, default="", index=True,
         help_text="Fully-qualified test identifier "
                   "(e.g. 'tests::test_member::TestUpdate::test_single_field').",
     )
-    kind = StringProperty(default="test")
+    kind = Property(str, default="test")
 
     # --- Identity fields for uid computation ---
     _identity_fields: tuple[str, ...] = ("qualified_name",)
 
     # --- Test metadata ---
-    test_name = StringProperty(
-        default="",
+    test_name = Property(
+        str, default="",
         help_text="The test function name (e.g. 'test_single_field').",
     )
-    test_module = StringProperty(
-        default="",
+    test_module = Property(
+        str, default="",
         help_text="Dotted module path (e.g. 'tests.test_member').",
     )
-    method = StringProperty(
-        default="automated",
+    method = Property(
+        str, default="automated",
         help_text="Verification method type — 'automated', 'review', 'inspection'.",
     )
-    description = StringProperty(
-        default="",
+    description = Property(
+        str, default="",
         help_text="Human-readable description of what this test verifies.",
     )
 
     # --- Tags & provenance ---
-    tags = ArrayProperty(
-        StringProperty(),
-        default=list,
+    tags = Property(
+        list, default=list,
         help_text="Provenance tags: 'design', 'as-built', 'dependency', 'scaffold'.",
     )
 
     # --- Location ---
-    file_path = StringProperty(default="")
-    line_number = IntegerProperty()
+    file_path = Property(str, default="")
+    line_number = Property(int)
 
     # --- Vector embeddings ---
-    doc_embedding = ArrayProperty(
-        FloatProperty(),
-        default=[],
+    doc_embedding = Property(
+        list, default=[],
         help_text="Vector embedding of the test's docstring + description.",
     )
 
@@ -168,47 +161,59 @@ class TestNode(StructuredNode, CodeGraphNode):
     # --------------------------------------------------------------------------
 
     # Incoming composition
-    parent_namespace = RelationshipFrom(
-        "codegraph.models.namespace.NamespaceNode", "COMPOSES"
+    parent_namespace = Relationship(
+        "COMPOSES", direction="INCOMING",
+        target_class="codegraph.models.namespace.NamespaceNode"
     )
 
     # Outgoing composition
-    assertions = RelationshipTo(
-        "codegraph.models.test.AssertionNode", "COMPOSES"
+    assertions = Relationship(
+        "COMPOSES", direction="OUTGOING",
+        target_class="codegraph.models.test.AssertionNode"
     )
-    steps = RelationshipTo(
-        "codegraph.models.test.TestStepNode", "COMPOSES"
+    steps = Relationship(
+        "COMPOSES", direction="OUTGOING",
+        target_class="codegraph.models.test.TestStepNode"
     )
-    fixtures = RelationshipTo(
-        "codegraph.models.test.TestFixtureNode", "COMPOSES"
+    fixtures = Relationship(
+        "COMPOSES", direction="OUTGOING",
+        target_class="codegraph.models.test.TestFixtureNode"
     )
 
     # Verification — separate descriptors per target type
-    verifies_methods = RelationshipTo(
-        "codegraph.models.member.MethodNode", "VERIFIES"
+    verifies_methods = Relationship(
+        "VERIFIES", direction="OUTGOING",
+        target_class="codegraph.models.member.MethodNode"
     )
-    verifies_functions = RelationshipTo(
-        "codegraph.models.member.FunctionNode", "VERIFIES"
+    verifies_functions = Relationship(
+        "VERIFIES", direction="OUTGOING",
+        target_class="codegraph.models.member.FunctionNode"
     )
-    verifies_classes = RelationshipTo(
-        "codegraph.models.compound.ClassNode", "VERIFIES"
+    verifies_classes = Relationship(
+        "VERIFIES", direction="OUTGOING",
+        target_class="codegraph.models.compound.ClassNode"
     )
-    verifies_interfaces = RelationshipTo(
-        "codegraph.models.compound.InterfaceNode", "VERIFIES"
+    verifies_interfaces = Relationship(
+        "VERIFIES", direction="OUTGOING",
+        target_class="codegraph.models.compound.InterfaceNode"
     )
-    verifies_enums = RelationshipTo(
-        "codegraph.models.compound.EnumNode", "VERIFIES"
+    verifies_enums = Relationship(
+        "VERIFIES", direction="OUTGOING",
+        target_class="codegraph.models.compound.EnumNode"
     )
-    verifies_unions = RelationshipTo(
-        "codegraph.models.compound.UnionNode", "VERIFIES"
+    verifies_unions = Relationship(
+        "VERIFIES", direction="OUTGOING",
+        target_class="codegraph.models.compound.UnionNode"
     )
-    verifies_modules = RelationshipTo(
-        "codegraph.models.compound.ModuleNode", "VERIFIES"
+    verifies_modules = Relationship(
+        "VERIFIES", direction="OUTGOING",
+        target_class="codegraph.models.compound.ModuleNode"
     )
 
     # File location
-    defined_in = RelationshipTo(
-        "codegraph.models.file.FileNode", "DEFINED_IN"
+    defined_in = Relationship(
+        "DEFINED_IN", direction="OUTGOING",
+        target_class="codegraph.models.file.FileNode"
     )
 
     # --- Serialization contract ---
@@ -237,7 +242,7 @@ class TestNode(StructuredNode, CodeGraphNode):
 # ══════════════════════════════════════════════════════════════════════════
 
 
-class AssertionNode(StructuredNode, CodeGraphNode):
+class AssertionNode(CodeGraphNode):
     """A test assertion / pre/post-condition — Neo4j label ``:Assertion``.
 
     An AssertionNode captures a single condition checked during a test:
@@ -273,38 +278,37 @@ class AssertionNode(StructuredNode, CodeGraphNode):
     """
 
     # --- Identity ---
-    uid = UniqueIdProperty()
-    qualified_name = StringProperty(
-        default="", index=True,
+    uid = UniqueId()
+    qualified_name = Property(
+        str, default="", index=True,
         help_text="Human-readable identifier for this assertion.",
     )
-    kind = StringProperty(default="assertion")
+    kind = Property(str, default="assertion")
 
     # --- Identity fields for uid computation ---
     _identity_fields: tuple[str, ...] = ("qualified_name",)
 
     # --- Assertion fields ---
-    phase = StringProperty(
-        required=True,
+    phase = Property(
+        str, required=True,
         help_text="Condition phase — 'pre' or 'post'.",
     )
-    order = IntegerProperty(
-        default=0,
+    order = Property(
+        int, default=0,
         help_text="Sort order within the phase (0-based).",
     )
-    operator = StringProperty(
-        default="==",
+    operator = Property(
+        str, default="==",
         help_text="Comparison operator (e.g. '==', '>', '<', '!=').",
     )
-    description = StringProperty(
-        default="",
+    description = Property(
+        str, default="",
         help_text="Human-readable description of the condition.",
     )
 
     # --- Tags & provenance ---
-    tags = ArrayProperty(
-        StringProperty(),
-        default=list,
+    tags = Property(
+        list, default=list,
         help_text="Provenance tags: 'design', 'as-built', 'dependency', 'scaffold'.",
     )
 
@@ -327,50 +331,63 @@ class AssertionNode(StructuredNode, CodeGraphNode):
     # --------------------------------------------------------------------------
 
     # Incoming composition
-    test = RelationshipFrom("codegraph.models.test.TestNode", "COMPOSES")
+    test = Relationship("COMPOSES", direction="INCOMING",
+                        target_class="codegraph.models.test.TestNode")
 
     # Incoming — TestFixtureNodes defined within this step
-    defined_fixtures = RelationshipFrom(
-        "codegraph.models.test.TestFixtureNode", "DEFINED_IN"
+    defined_fixtures = Relationship(
+        "DEFINED_IN", direction="INCOMING",
+        target_class="codegraph.models.test.TestFixtureNode"
     )
 
     # Incoming — a TestFixtureNode that is checked by this assertion
-    checked_by_fixtures = RelationshipFrom(
-        "codegraph.models.test.TestFixtureNode", "CHECKED_BY"
+    checked_by_fixtures = Relationship(
+        "CHECKED_BY", direction="INCOMING",
+        target_class="codegraph.models.test.TestFixtureNode"
     )
 
     # Left operand — subject of the comparison
-    left_operand_compound = RelationshipTo(
-        "codegraph.models.compound.CompoundNode", "LEFT_OPERAND"
+    left_operand_compound = Relationship(
+        "LEFT_OPERAND", direction="OUTGOING",
+        target_class="codegraph.models.compound.CompoundNode"
     )
-    left_operand_attribute = RelationshipTo(
-        "codegraph.models.member.AttributeNode", "LEFT_OPERAND"
+    left_operand_attribute = Relationship(
+        "LEFT_OPERAND", direction="OUTGOING",
+        target_class="codegraph.models.member.AttributeNode"
     )
-    left_operand_method = RelationshipTo(
-        "codegraph.models.member.MethodNode", "LEFT_OPERAND"
+    left_operand_method = Relationship(
+        "LEFT_OPERAND", direction="OUTGOING",
+        target_class="codegraph.models.member.MethodNode"
     )
-    left_operand_function = RelationshipTo(
-        "codegraph.models.member.FunctionNode", "LEFT_OPERAND"
+    left_operand_function = Relationship(
+        "LEFT_OPERAND", direction="OUTGOING",
+        target_class="codegraph.models.member.FunctionNode"
     )
-    left_operand_literal = RelationshipTo(
-        "codegraph.models.literal.LiteralNode", "LEFT_OPERAND"
+    left_operand_literal = Relationship(
+        "LEFT_OPERAND", direction="OUTGOING",
+        target_class="codegraph.models.literal.LiteralNode"
     )
 
     # Right operand — expected value
-    right_operand_compound = RelationshipTo(
-        "codegraph.models.compound.CompoundNode", "RIGHT_OPERAND"
+    right_operand_compound = Relationship(
+        "RIGHT_OPERAND", direction="OUTGOING",
+        target_class="codegraph.models.compound.CompoundNode"
     )
-    right_operand_attribute = RelationshipTo(
-        "codegraph.models.member.AttributeNode", "RIGHT_OPERAND"
+    right_operand_attribute = Relationship(
+        "RIGHT_OPERAND", direction="OUTGOING",
+        target_class="codegraph.models.member.AttributeNode"
     )
-    right_operand_method = RelationshipTo(
-        "codegraph.models.member.MethodNode", "RIGHT_OPERAND"
+    right_operand_method = Relationship(
+        "RIGHT_OPERAND", direction="OUTGOING",
+        target_class="codegraph.models.member.MethodNode"
     )
-    right_operand_function = RelationshipTo(
-        "codegraph.models.member.FunctionNode", "RIGHT_OPERAND"
+    right_operand_function = Relationship(
+        "RIGHT_OPERAND", direction="OUTGOING",
+        target_class="codegraph.models.member.FunctionNode"
     )
-    right_operand_literal = RelationshipTo(
-        "codegraph.models.literal.LiteralNode", "RIGHT_OPERAND"
+    right_operand_literal = Relationship(
+        "RIGHT_OPERAND", direction="OUTGOING",
+        target_class="codegraph.models.literal.LiteralNode"
     )
 
     # --- Serialization contract ---
@@ -391,7 +408,7 @@ class AssertionNode(StructuredNode, CodeGraphNode):
 # ══════════════════════════════════════════════════════════════════════════
 
 
-class TestStepNode(StructuredNode, CodeGraphNode):
+class TestStepNode(CodeGraphNode):
     """A test action / stimulus step — Neo4j label ``:TestStep``.
 
     A TestStepNode captures a **block** of test code — not necessarily a
@@ -441,40 +458,39 @@ class TestStepNode(StructuredNode, CodeGraphNode):
     __test__ = False
 
     # --- Identity ---
-    uid = UniqueIdProperty()
-    qualified_name = StringProperty(
-        default="", index=True,
+    uid = UniqueId()
+    qualified_name = Property(
+        str, default="", index=True,
         help_text="Human-readable identifier for this test step.",
     )
-    kind = StringProperty(default="test_step")
+    kind = Property(str, default="test_step")
 
     # --- Identity fields for uid computation ---
     _identity_fields: tuple[str, ...] = ("qualified_name",)
 
     # --- Step fields ---
-    order = IntegerProperty(
-        default=0,
+    order = Property(
+        int, default=0,
         help_text="Sort order within the test (0-based).",
     )
-    description = StringProperty(
-        default="",
+    description = Property(
+        str, default="",
         help_text="Human-readable description of the action step.",
     )
-    body_start = IntegerProperty(
-        default=0,
+    body_start = Property(
+        int, default=0,
         help_text="Start line of the source block within the test file "
                   "(1-based). 0 means no source block is available.",
     )
-    body_end = IntegerProperty(
-        default=0,
+    body_end = Property(
+        int, default=0,
         help_text="End line of the source block within the test file "
                   "(1-based). 0 means no source block is available.",
     )
 
     # --- Tags & provenance ---
-    tags = ArrayProperty(
-        StringProperty(),
-        default=list,
+    tags = Property(
+        list, default=list,
         help_text="Provenance tags: 'design', 'as-built', 'dependency', 'scaffold'.",
     )
 
@@ -491,8 +507,9 @@ class TestStepNode(StructuredNode, CodeGraphNode):
     #    This is the same pattern used by MethodNode and CompoundNode.
     # --------------------------------------------------------------------------
 
-    implementation_ref = RelationshipTo(
-        "codegraph.models.implementation.ImplementationNode", "HAS_IMPLEMENTATION"
+    implementation_ref = Relationship(
+        "HAS_IMPLEMENTATION", direction="OUTGOING",
+        target_class="codegraph.models.implementation.ImplementationNode"
     )
 
     # --- Relationships -------------------------------------------------------
@@ -513,42 +530,53 @@ class TestStepNode(StructuredNode, CodeGraphNode):
     # --------------------------------------------------------------------------
 
     # Incoming composition
-    test = RelationshipFrom("codegraph.models.test.TestNode", "COMPOSES")
+    test = Relationship("COMPOSES", direction="INCOMING",
+                        target_class="codegraph.models.test.TestNode")
 
     # Incoming — TestFixtureNodes defined within this step
-    defined_fixtures = RelationshipFrom(
-        "codegraph.models.test.TestFixtureNode", "DEFINED_IN"
+    defined_fixtures = Relationship(
+        "DEFINED_IN", direction="INCOMING",
+        target_class="codegraph.models.test.TestFixtureNode"
     )
 
     # Callee — the function/method being called
-    callee_method = RelationshipTo(
-        "codegraph.models.member.MethodNode", "CALLEE"
+    callee_method = Relationship(
+        "CALLEE", direction="OUTGOING",
+        target_class="codegraph.models.member.MethodNode"
     )
-    callee_function = RelationshipTo(
-        "codegraph.models.member.FunctionNode", "CALLEE"
+    callee_function = Relationship(
+        "CALLEE", direction="OUTGOING",
+        target_class="codegraph.models.member.FunctionNode"
     )
-    callee_class = RelationshipTo(
-        "codegraph.models.compound.ClassNode", "CALLEE"
+    callee_class = Relationship(
+        "CALLEE", direction="OUTGOING",
+        target_class="codegraph.models.compound.ClassNode"
     )
-    callee_attribute = RelationshipTo(
-        "codegraph.models.member.AttributeNode", "CALLEE"
+    callee_attribute = Relationship(
+        "CALLEE", direction="OUTGOING",
+        target_class="codegraph.models.member.AttributeNode"
     )
 
     # Caller — the entity performing the call
-    caller_method = RelationshipTo(
-        "codegraph.models.member.MethodNode", "CALLER"
+    caller_method = Relationship(
+        "CALLER", direction="OUTGOING",
+        target_class="codegraph.models.member.MethodNode"
     )
-    caller_function = RelationshipTo(
-        "codegraph.models.member.FunctionNode", "CALLER"
+    caller_function = Relationship(
+        "CALLER", direction="OUTGOING",
+        target_class="codegraph.models.member.FunctionNode"
     )
-    caller_class = RelationshipTo(
-        "codegraph.models.compound.ClassNode", "CALLER"
+    caller_class = Relationship(
+        "CALLER", direction="OUTGOING",
+        target_class="codegraph.models.compound.ClassNode"
     )
-    caller_attribute = RelationshipTo(
-        "codegraph.models.member.AttributeNode", "CALLER"
+    caller_attribute = Relationship(
+        "CALLER", direction="OUTGOING",
+        target_class="codegraph.models.member.AttributeNode"
     )
-    caller_test = RelationshipTo(
-        "codegraph.models.test.TestNode", "CALLER"
+    caller_test = Relationship(
+        "CALLER", direction="OUTGOING",
+        target_class="codegraph.models.test.TestNode"
     )
 
     # --- Serialization contract ---
@@ -568,7 +596,7 @@ class TestStepNode(StructuredNode, CodeGraphNode):
 # ══════════════════════════════════════════════════════════════════════════
 
 
-class TestFixtureNode(StructuredNode, CodeGraphNode):
+class TestFixtureNode(CodeGraphNode):
     """A test-local variable — Neo4j label ``:TestFixture``.
 
     A TestFixtureNode tracks a variable that is defined within a test
@@ -612,45 +640,43 @@ class TestFixtureNode(StructuredNode, CodeGraphNode):
     __test__ = False
 
     # --- Identity ---
-    uid = UniqueIdProperty()
-    qualified_name = StringProperty(
-        default="", index=True,
+    uid = UniqueId()
+    qualified_name = Property(
+        str, default="", index=True,
         help_text="Fully-qualified fixture identifier "
                   "(e.g. 'tests::test_enum::ns_node').",
     )
-    kind = StringProperty(default="test_fixture")
+    kind = Property(str, default="test_fixture")
 
     # --- Identity fields for uid computation ---
     _identity_fields: tuple[str, ...] = ("qualified_name",)
 
     # --- Fixture fields ---
-    name = StringProperty(
-        required=True,
+    name = Property(
+        str, required=True,
         help_text="The variable name as written in the test "
                   "(e.g. 'ns_node', 'parents', 'foo').",
     )
-    description = StringProperty(
-        default="",
+    description = Property(
+        str, default="",
         help_text="Why this variable is used and why it is necessary.",
     )
-    type_signature = StringProperty(
-        default="",
+    type_signature = Property(
+        str, default="",
         help_text="The type as a string.  Covers both graph types "
                   "(e.g. 'Foo', 'NamespaceNode') and primitives "
                   "(e.g. 'dict', 'str', 'list[NamespaceNode]').",
     )
 
     # --- Tags & provenance ---
-    tags = ArrayProperty(
-        StringProperty(),
-        default=list,
+    tags = Property(
+        list, default=list,
         help_text="Provenance tags: 'design', 'as-built', 'dependency', 'scaffold'.",
     )
 
     # --- Vector embeddings ---
-    doc_embedding = ArrayProperty(
-        FloatProperty(),
-        default=[],
+    doc_embedding = Property(
+        list, default=[],
         help_text="Vector embedding of the fixture's description.",
     )
 
@@ -684,33 +710,41 @@ class TestFixtureNode(StructuredNode, CodeGraphNode):
     # --------------------------------------------------------------------------
 
     # Incoming composition
-    test = RelationshipFrom("codegraph.models.test.TestNode", "COMPOSES")
+    test = Relationship("COMPOSES", direction="INCOMING",
+                        target_class="codegraph.models.test.TestNode")
 
     # OF_TYPE - separate descriptors per target type
-    of_type_class = RelationshipTo(
-        "codegraph.models.compound.ClassNode", "OF_TYPE"
+    of_type_class = Relationship(
+        "OF_TYPE", direction="OUTGOING",
+        target_class="codegraph.models.compound.ClassNode"
     )
-    of_type_enum = RelationshipTo(
-        "codegraph.models.compound.EnumNode", "OF_TYPE"
+    of_type_enum = Relationship(
+        "OF_TYPE", direction="OUTGOING",
+        target_class="codegraph.models.compound.EnumNode"
     )
-    of_type_interface = RelationshipTo(
-        "codegraph.models.compound.InterfaceNode", "OF_TYPE"
+    of_type_interface = Relationship(
+        "OF_TYPE", direction="OUTGOING",
+        target_class="codegraph.models.compound.InterfaceNode"
     )
-    of_type_union = RelationshipTo(
-        "codegraph.models.compound.UnionNode", "OF_TYPE"
+    of_type_union = Relationship(
+        "OF_TYPE", direction="OUTGOING",
+        target_class="codegraph.models.compound.UnionNode"
     )
-    of_type_namespace = RelationshipTo(
-        "codegraph.models.namespace.NamespaceNode", "OF_TYPE"
+    of_type_namespace = Relationship(
+        "OF_TYPE", direction="OUTGOING",
+        target_class="codegraph.models.namespace.NamespaceNode"
     )
 
     # Assertion link
-    checked_by = RelationshipTo(
-        "codegraph.models.test.AssertionNode", "CHECKED_BY"
+    checked_by = Relationship(
+        "CHECKED_BY", direction="OUTGOING",
+        target_class="codegraph.models.test.AssertionNode"
     )
 
     # Step link
-    defined_in = RelationshipTo(
-        "codegraph.models.test.TestStepNode", "DEFINED_IN"
+    defined_in = Relationship(
+        "DEFINED_IN", direction="OUTGOING",
+        target_class="codegraph.models.test.TestStepNode"
     )
 
     # --- Serialization contract ---

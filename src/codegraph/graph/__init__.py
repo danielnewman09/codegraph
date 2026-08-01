@@ -983,10 +983,9 @@ class LayerGraph:
         the graph is assembled.
 
         Note: uses ``type(node).__name__ == 'NamespaceNode'`` rather
-        than ``isinstance(node, NamespaceNode)`` because the combined
-        ``_CodeGraphNodeMeta`` metaclass (neomodel NodeMeta + ABCMeta)
-        causes ``isinstance`` to spuriously return True across all
-        neomodel StructuredNode subclasses.
+        than ``isinstance(node, NamespaceNode)`` to stay consistent
+        with label-based type checks used elsewhere (pure-Python
+        model classes share the same label chain).
         """
         flat = self._flat_index()
 

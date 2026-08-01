@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 
 from codegraph.backends import get_backend
 from codegraph.graph import LayerGraph
+from codegraph.models.descriptors import PropertyRegistry
 
 if TYPE_CHECKING:
     from codegraph_design.tools.dispatcher import DesignToolDispatcher
@@ -65,7 +66,33 @@ def _build_layer_graph_schema() -> dict:
         "ArrayProperty":      {"type": "array", "items": {"type": "string"}},
         "FloatProperty":      {"type": "number"},
         "JSONProperty":       {},
+        # New descriptor system (codegraph.models.descriptors)
+        "Property":           {"type": "string"},
+        "UniqueId":           {"type": "string"},
+        "DateTimeProperty":   {"type": "string"},
     }
+
+    def _json_type_for(prop) -> dict:
+        """Map a property descriptor to a JSON schema fragment.
+
+        For the new descriptor system the JSON type derives from
+        ``python_type``; for neomodel properties it comes from the
+        class-name map above.
+        """
+        py_type = getattr(prop, "python_type", None)
+        if py_type is not None:
+            if py_type is str:
+                return {"type": "string"}
+            if py_type is int:
+                return {"type": "integer"}
+            if py_type is bool:
+                return {"type": "boolean"}
+            if py_type is float:
+                return {"type": "number"}
+            if py_type is list:
+                return {"type": "array", "items": {"type": "string"}}
+            return {}
+        return _PROP_TYPE_MAP.get(type(prop).__name__, {})
 
     node_schemas: list[dict] = []
 
@@ -73,18 +100,18 @@ def _build_layer_graph_schema() -> dict:
         props: dict[str, dict] = {}
         required: list[str] = []
 
+        declared = PropertyRegistry.properties_of(node_cls)
+
         for field_name in sorted(node_cls._llm_fields):
-            prop_def = None
-            for pname, pdef in node_cls.__all_properties__:
-                if pname == field_name:
-                    prop_def = pdef
-                    break
+            prop_def = declared.get(field_name)
 
             if prop_def is not None:
-                prop_type_name = type(prop_def).__name__
-                json_type = _PROP_TYPE_MAP.get(prop_type_name, {})
+                json_type = _json_type_for(prop_def)
                 if json_type:
-                    desc = getattr(prop_def, "description", "") or ""
+                    desc = (
+                        getattr(prop_def, "help_text", "")
+                        or getattr(prop_def, "description", "")
+                    )
                     field_schema: dict = dict(json_type)
                     if desc:
                         field_schema["description"] = desc

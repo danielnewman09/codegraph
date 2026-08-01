@@ -22,17 +22,15 @@ proper typed constants or leave them as-is.
 
 from __future__ import annotations
 
-from neomodel import (
-    StructuredNode,
-    StringProperty,
-    ArrayProperty,
-    UniqueIdProperty,
+from codegraph.models.descriptors import (
+    Property,
+    UniqueId,
 )
 
 from codegraph.models.tags import CodeGraphNode
 
 
-class LiteralNode(StructuredNode, CodeGraphNode):
+class LiteralNode(CodeGraphNode):
     """A primitive/builtin literal value — Neo4j label ``:Literal``.
 
     Attributes:
@@ -52,36 +50,35 @@ class LiteralNode(StructuredNode, CodeGraphNode):
     _markdown_keyword = "Literal"
 
     # --- Identity ---
-    uid = UniqueIdProperty()
-    qualified_name = StringProperty(
-        default="", index=True,
+    uid = UniqueId()
+    qualified_name = Property(
+        str, default="", index=True,
         help_text="Human-readable identifier, typically 'literal::<value>'.",
     )
-    kind = StringProperty(default="literal")
+    kind = Property(str, default="literal")
 
     # --- Identity fields for uid computation ---
     _identity_fields: tuple[str, ...] = ("qualified_name",)
 
     # --- Literal value ---
-    value = StringProperty(
-        required=True,
+    value = Property(
+        str, required=True,
         help_text="The raw literal value as a string (e.g. '30', 'true', '0.0').",
     )
-    value_type = StringProperty(
-        required=True,
+    value_type = Property(
+        str, required=True,
         help_text="Primitive type: 'int', 'float', 'string', or 'boolean'.",
     )
 
     # --- Tags & provenance ---
-    tags = ArrayProperty(
-        StringProperty(),
-        default=list,
+    tags = Property(
+        list, default=list,
         help_text="Provenance tags: 'design', 'as-built', 'dependency', 'scaffold'.",
     )
 
     # --- Documentation ---
-    brief_description = StringProperty(default="")
-    detailed_description = StringProperty(default="")
+    brief_description = Property(str, default="")
+    detailed_description = Property(str, default="")
 
     # --- Serialization contract ---
     _llm_fields: set[str] = {

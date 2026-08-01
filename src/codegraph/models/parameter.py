@@ -4,18 +4,15 @@ Parameters have no outgoing relationships of their own.
 They are identified by a composite of (position, member_refid) rather than
 a single unique property."""
 
-from neomodel import (
-    ArrayProperty,
-    IntegerProperty,
-    StringProperty,
-    StructuredNode,
-    UniqueIdProperty,
+from codegraph.models.descriptors import (
+    Property,
+    UniqueId,
 )
 
 from codegraph.models.tags import CodeGraphNode
 
 
-class ParameterNode(StructuredNode, CodeGraphNode):
+class ParameterNode(CodeGraphNode):
     """A function/method parameter.
 
     Parameters have no outgoing relationships of their own.
@@ -31,21 +28,21 @@ class ParameterNode(StructuredNode, CodeGraphNode):
     """
 
     # --- Identity ---
-    uid = UniqueIdProperty()
+    uid = UniqueId()
 
     # --- Identity fields for uid computation ---
     _identity_fields: tuple[str, ...] = ("member_refid", "position")
 
-    qualified_name = StringProperty(
-        default="", index=True,
+    qualified_name = Property(
+        str, default="", index=True,
         help_text="Qualified name for display/serialization.",
     )
-    position = IntegerProperty(required=True)
-    type = StringProperty(default="")
-    default_value = StringProperty(default="")
-    member_refid = StringProperty(default="")
-    tags = ArrayProperty(StringProperty(), default=[])
-    kind = StringProperty(default="parameter")
+    position = Property(int, required=True)
+    type = Property(str, default="")
+    default_value = Property(str, default="")
+    member_refid = Property(str, default="")
+    tags = Property(list, default=[])
+    kind = Property(str, default="parameter")
 
     # --- Serialization contract ---
     _llm_fields: set[str] = {"name", "type"}

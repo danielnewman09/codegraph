@@ -4,11 +4,8 @@ Provides shared fields (``source``), serialization (``serialize()``,
 ``deserialize()``), relationship introspection, and a registry for
 type-dispatched deserialization.
 
-Uses a combined metaclass (ABCMeta + NodeMeta) so that subclasses can
-inherit from both StructuredNode and CodeGraphNode without metaclass
-conflicts.  During the transition away from neomodel, the metaclass
-still accommodates ``StructuredNode`` subclasses; once all model
-classes are migrated, ``NodeMeta`` will be removed.
+Pure-Python node model: no neomodel dependency.  All storage I/O is
+delegated to the active backend via ``get_backend()``.
 """
 
 from __future__ import annotations
@@ -16,8 +13,6 @@ from __future__ import annotations
 import logging
 from abc import ABCMeta
 from typing import Any
-
-from neomodel.sync_.node import NodeMeta
 
 from codegraph.backends import get_backend
 from codegraph.models.descriptors import (
@@ -27,52 +22,14 @@ from codegraph.models.descriptors import (
 )
 
 
-class _CodeGraphNodeMeta(NodeMeta, ABCMeta):
-    """Combined metaclass: NodeMeta for neomodel properties, ABCMeta for
-    any abstract methods that may be added.
-
-    NodeMeta.__new__ is only invoked for subclasses that inherit from
-    ``StructuredNode``. For plain ABC subclasses (including CodeGraphNode
-    itself), the pure ABCMeta path is used.
-    """
-
-    def __new__(mcs, name, bases, namespace, **kwargs):
-        from neomodel import StructuredNode
-
-        is_neomodel = any(
-            issubclass(b, StructuredNode)
-            for b in bases
-            if isinstance(b, type) and b is not object
-        )
-        if not is_neomodel:
-            # Pure ABC path — skip NodeMeta initialization
-            return ABCMeta.__new__(mcs, name, bases, namespace, **kwargs)
-
-        # NodeMeta.__new__ calls type.__new__ directly, bypassing ABCMeta.
-        # Re-compute __abstractmethods__ so @abstractmethod works if added.
-        cls = super().__new__(mcs, name, bases, namespace, **kwargs)
-        abstracts: set[str] = set()
-        for base in bases:
-            for attr in getattr(base, "__abstractmethods__", ()):
-                value = namespace.get(attr, getattr(base, attr, None))
-                if getattr(value, "__isabstractmethod__", False):
-                    abstracts.add(attr)
-        for attr, value in namespace.items():
-            if getattr(value, "__isabstractmethod__", False):
-                abstracts.add(attr)
-        if abstracts:
-            cls.__abstractmethods__ = frozenset(abstracts)
-        return cls
-
-
-class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
-    """Base class for all codegraph neomodel nodes.
+class CodeGraphNode(metaclass=ABCMeta):
+    """Base class for all codegraph node types.
 
     Provides shared fields, serialization, relationship introspection,
     and a registry for type-dispatched deserialization.
 
     Identity model:
-        Every node has a ``uid`` ``UniqueIdProperty`` that serves as the
+        Every node has a ``uid`` ``UniqueId`` descriptor that serves as the
         cross-codebase-stable primary key.  ``uid`` is computed
         *automatically* in the :meth:`save` hook from the node's
         ``_identity_fields`` (e.g. ``qualified_name`` + ``argsstring``
@@ -99,29 +56,56 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
     _llm_fields: set[str] = set()
 
     class DoesNotExist(Exception):
-        """Raised when a node query matches no nodes.
-
-        Pure-Python subclasses (no ``StructuredNode``) inherit this;
-        neomodel subclasses use neomodel's own ``DoesNotExist``.
-        """
+        """Raised when a node query matches no nodes."""
 
     @property
     def element_id(self) -> Any | None:
         """Backend element id of the persisted node, or None if unsaved.
 
-        Mirrors neomodel's ``StructuredNode.element_id`` so that
-        pure-Python classes expose the same attribute.  neomodel
-        classes keep neomodel's implementation (defined earlier in
-        the MRO).
+        Mirrors neomodel's ``StructuredNode.element_id`` so that the
+        model layer exposes the same attribute regardless of backend.
         """
         return getattr(self, "element_id_property", None)
+
+    @property
+    def __properties__(self) -> dict[str, Any]:
+        """Read-only dict view of declared property values.
+
+        Legacy consumers (e.g. the doxygen-index batch writer) read
+        ``node.__properties__.items()``; the view is computed on demand
+        from the ``_props`` store.  Mutation through this view is not
+        supported — writes go through the ``Property`` descriptors.
+        """
+        props, _ = PropertyRegistry.of(type(self))
+        store = self.__dict__.setdefault("_props", {})
+        return {name: store[name] for name in props if name in store}
+
+    @classmethod
+    def inherited_labels(cls) -> list[str]:
+        """Return the Neo4j label chain for this node type.
+
+        Mirrors neomodel's ``StructuredNode.inherited_labels()`` for
+        pure-Python classes: the class's own name plus every
+        intermediate ``CodeGraphNode`` subclass (e.g.
+        ``ClassNode`` → ``["ClassNode", "CompoundNode"]``).  Keeping
+        the intermediate labels matches what neomodel wrote before
+        migration, so raw Cypher queries matching ``:CompoundNode`` /
+        ``:MemberNode`` continue to work.
+        """
+        labels: list[str] = []
+        for base in cls.__mro__:
+            if base is CodeGraphNode:
+                break
+            if base is not cls and not issubclass(base, CodeGraphNode):
+                continue
+            if base.__name__ not in labels:
+                labels.append(base.__name__)
+        return labels
 
     def __eq__(self, other: Any) -> bool:
         """Compare by backend element id when both nodes are saved.
 
-        Mirrors neomodel's ``StructuredNode.__eq__`` so pure-Python
-        classes get the same identity semantics.  neomodel classes
-        keep neomodel's implementation (earlier in the MRO).
+        Mirrors neomodel's ``StructuredNode.__eq__`` identity semantics.
         """
         if not isinstance(other, CodeGraphNode):
             return NotImplemented
@@ -151,12 +135,8 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
     def __init__(self, **kwargs: Any) -> None:
         """Initialise a node with the given property values.
 
-        For pure-Python subclasses (no ``StructuredNode`` in the MRO),
-        sets each keyword argument via ``setattr``, which invokes our
+        Sets each keyword argument via ``setattr``, which invokes our
         ``Property.__set__`` and lazily creates ``_props``.
-
-        When ``StructuredNode`` is in the MRO, this init is never
-        reached — neomodel's init chain handles everything first.
         """
         for key, value in kwargs.items():
             setattr(self, key, value)
@@ -199,8 +179,7 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
                 manager to return.
 
         Returns:
-            The matching relationship descriptor (``Relationship`` or
-            neomodel ``RelationshipTo`` / ``RelationshipFrom``).
+            The matching relationship descriptor (``Relationship``).
 
         Raises:
             ValueError: If no matching manager is found.
@@ -341,29 +320,13 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         CodeGraphNode.register(cls)
         # Only register concrete classes that have their own ``_llm_fields``.
         # Mixins like CompoundNode / MemberNode set _llm_fields but are
-        # still abstract (they inherit from StructuredNode directly). We skip
-        # any class whose name starts with an underscore by convention.
+        # abstract. We skip any class whose name starts with an underscore
+        # by convention.
         if not cls.__name__.startswith("_") and cls._llm_fields:
             CodeGraphNode._registry[cls.__name__] = cls
 
-            # Override neomodel's delete() on each concrete class.
-            # Without this injection, MRO resolution finds
-            # StructuredNode.delete() first (StructuredNode precedes
-            # CodeGraphNode in the MRO of every concrete subclass),
-            # so our enhanced version on CodeGraphNode would be shadowed.
-            # Putting delete directly in the concrete class's __dict__
-            # makes it the first entry found during method resolution.
-            #
-            # create() is NOT injected because neomodel's
-            # StructuredNode.create() is called internally by save(),
-            # and overriding it on concrete classes breaks the internal
-            # creation path.  Instead, save_new() (below) provides
-            # the single-node creation API.
-            # Inject save() — same MRO-shadowing rationale as delete()
-            # above: StructuredNode precedes CodeGraphNode in the MRO of
-            # every concrete subclass, so a save() defined on CodeGraphNode
-            # would be shadowed.  Putting it in the concrete class's
-            # __dict__ makes it the first entry found.
+            # Inject save() / delete() / save_new() so they are first in
+            # method resolution for every concrete subclass.
             if "save" not in cls.__dict__:
                 cls.save = CodeGraphNode._save
 
@@ -385,24 +348,10 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
                     return classmethod(save_new)
                 cls.save_new = _make_save_new(cls)
 
-            # Inject a ``.nodes`` query shim for pure-Python subclasses
-            # (those without ``StructuredNode`` in the MRO).  neomodel
-            # subclasses already get ``.nodes`` from ``NodeMeta``'s
-            # metaclass property — the shim must not shadow it.
-            # The shim delegates to the active backend; no storage
-            # logic lives in the model layer.
-            from neomodel import StructuredNode
-
-            if not issubclass(cls, StructuredNode):
-                if "nodes" not in cls.__dict__:
-                    cls.nodes = _BackendNodeSet(cls)
-            else:
-                # neomodel subclass: inject inflate() that hydrates
-                # migrated descriptors (name/refid/source are now our
-                # Property descriptors, so neomodel's own inflate skips
-                # them and loaded nodes would lose those values).
-                if "inflate" not in cls.__dict__:
-                    cls.inflate = _make_inflate(cls)
+            # Inject a ``.nodes`` query shim that delegates to the
+            # active backend.  No storage logic lives in the model layer.
+            if "nodes" not in cls.__dict__:
+                cls.nodes = _BackendNodeSet(cls)
 
     # ── Create / Delete ──────────────────────────────────────────────────
 
@@ -411,8 +360,8 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         """Create and persist a single node instance.
 
         Validates that all keyword arguments correspond to declared
-        neomodel properties, constructs a node instance, saves it to
-        Neo4j, and returns the saved instance.
+        properties, constructs a node instance, saves it to the
+        backend, and returns the saved instance.
 
         Called by the ``save_new()`` classmethod injected on each
         concrete subclass via ``__init_subclass__``.
@@ -420,7 +369,7 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         Args:
             cls: The concrete CodeGraphNode subclass to instantiate.
             **kwargs: Property names and their initial values.
-                Each key must correspond to a declared neomodel property
+                Each key must correspond to a declared property
                 on ``cls``.
 
         Returns:
@@ -557,7 +506,7 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         By default (``fields="llm"``, ``nested=False``), only includes
         property fields listed in the node's ``_llm_fields`` set — the
         minimal subset relevant for LLM consumption.  Pass
-        ``fields="all"`` to include every neomodel-defined property.
+        ``fields="all"`` to include every declared property.
 
         When ``nested=True``, walks outgoing COMPOSES relationship
         managers and inlines composed children under a ``composes``
@@ -744,9 +693,8 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
     def serialize_relationships(cls) -> list[dict]:
         """Return relationship descriptors for this node type.
 
-        Inspects ``Relationship`` descriptors (new system) and
-        neomodel ``RelationshipTo`` / ``RelationshipFrom`` descriptors
-        statically — no database call needed.
+        Inspects ``Relationship`` descriptors statically — no database
+        call needed.
 
         Returns:
             A list of dicts, each with keys: ``attr`` (Python attribute name),
@@ -790,8 +738,7 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
     def _uid_prop(cls) -> str | None:
         """Return the name of this node type's unique identifier property, or None.
 
-        Uses ``PropertyRegistry.unique_id_name()`` which works with both
-        neomodel ``UniqueIdProperty`` and the new ``UniqueId`` descriptor.
+        Uses ``PropertyRegistry.unique_id_name()``.
 
         Returns:
             The property name string if a unique identifier exists, otherwise
@@ -803,7 +750,7 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         """Return the value of this instance's unique identifier, or None.
 
         Returns:
-            The unique identifier value string if a UniqueIdProperty exists,
+            The unique identifier value string if a UniqueId exists,
             otherwise None.
         """
         uid = type(self)._uid_prop()
@@ -818,12 +765,12 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
         Sets each keyword argument as an attribute on this node instance,
         then calls ``save()`` to write the changes to the database.
 
-        Only neomodel-defined properties are accepted — passing a key
+        Only declared properties are accepted — passing a key
         that is not a declared property raises ``ValueError``.
 
         Args:
             **kwargs: Property names and their new values.
-                Each key must correspond to a declared neomodel property
+                Each key must correspond to a declared property
                 on this node type (e.g. ``name``, ``source``, ``kind``,
                 ``brief_description``, etc.).
 
@@ -955,75 +902,17 @@ class CodeGraphNode(metaclass=_CodeGraphNodeMeta):
 
 
 def _class_label(cls: type) -> str:
-    """Return the primary Neo4j label for a node type.
-
-    Uses neomodel's ``__label__`` when available; falls back to the
-    class name for pure-Python classes (no ``StructuredNode``).
-    """
-    label = getattr(cls, "__label__", None)
-    if label:
-        return label
+    """Return the primary Neo4j label for a node type (the class name)."""
     return cls.__name__
 
 
-def _make_inflate(klass: type):
-    """Build an ``inflate`` classmethod for a neomodel subclass.
-
-    Wraps neomodel's ``StructuredNode.inflate`` and then hydrates our
-    migrated ``Property`` descriptors (e.g. ``name``/``refid``/``source``
-    on ``CodeGraphNode``) from the raw node, since neomodel's own
-    inflate only populates neomodel-declared properties.
-    """
-    from neomodel import StructuredNode
-
-    @classmethod
-    def inflate(cls, raw):
-        node = StructuredNode.inflate.__func__(cls, raw)
-        _hydrate_migrated_props(node, raw)
-        return node
-
-    return inflate
-
-
-def _hydrate_migrated_props(node, raw) -> None:
-    """Copy raw values for migrated descriptors onto a neomodel instance.
-
-    After neomodel inflate, properties that we migrated to our
-    ``Property`` descriptors are missing from ``__properties__``.  Read
-    them from the raw node and write them through our descriptors
-    (which mirror into ``_props`` and ``__properties__``).
-    """
-    if not hasattr(raw, "items"):
-        return  # lazy-load path (raw is an element id string)
-    from codegraph.models.descriptors import (
-        DateTimeProperty as CGDateTimeProperty,
-        Property as CGProperty,
-    )
-
-    for pname, prop in PropertyRegistry.properties_of(type(node)).items():
-        if not isinstance(prop, CGProperty):
-            continue  # neomodel property — already handled by neomodel
-        if pname not in raw:
-            continue
-        val = raw[pname]
-        if isinstance(prop, CGDateTimeProperty) and isinstance(val, (int, float)) and not isinstance(val, bool):
-            try:
-                import datetime as _dt
-                val = _dt.datetime.fromtimestamp(val)
-            except (OverflowError, OSError, ValueError):
-                pass
-        setattr(node, pname, val)
-
-
 class _BackendNodeSet:
-    """Backend-delegating ``.nodes`` shim for pure-Python node types.
+    """Backend-delegating ``.nodes`` query shim for node types.
 
-    Injected as ``cls.nodes`` on ``CodeGraphNode`` subclasses that do
-    NOT inherit ``StructuredNode`` (which provides neomodel's real
-    ``NodeSet`` via a metaclass property).  Provides the same
-    query surface used across the codebase — ``get``, ``get_or_none``,
-    ``filter``, ``all`` — delegating to the active backend.  No
-    storage-specific logic lives here.
+    Injected as ``cls.nodes`` on every concrete ``CodeGraphNode``
+    subclass.  Provides the query surface used across the codebase —
+    ``get``, ``get_or_none``, ``filter``, ``all`` — delegating to the
+    active backend.  No storage-specific logic lives here.
     """
 
     def __init__(self, node_cls: type):

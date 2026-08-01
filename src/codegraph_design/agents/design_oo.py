@@ -26,7 +26,8 @@ from dataclasses import dataclass, field
 
 from llm_caller import call_tool_loop
 from codegraph.backends import get_backend
-from neomodel import RelationshipTo, RelationshipFrom
+
+from codegraph.models.descriptors import Relationship as CGRelationship
 
 from codegraph.models.tags import CodeGraphNode
 from codegraph.models.test import TestNode
@@ -62,8 +63,8 @@ def _first_or_none(query_set):
 def get_typed_edge_targets(node, edge_type: str) -> list[dict]:
     """Return all targets of *edge_type* from *node* across all relationship managers.
 
-    Because codegraph test models declare separate RelationshipTo /
-    RelationshipFrom descriptors per target type (e.g.
+    Because codegraph test models declare separate ``Relationship``
+    descriptors per target type (e.g.
     ``left_operand_compound``, ``left_operand_literal``), a single edge
     type has multiple managers.  This helper iterates all of them and
     returns a combined list of dicts with ``qualified_name``, ``name``,
@@ -74,9 +75,9 @@ def get_typed_edge_targets(node, edge_type: str) -> list[dict]:
 
     for klass in type(node).__mro__:
         for name, val in vars(klass).items():
-            if not isinstance(val, (RelationshipTo, RelationshipFrom)):
+            if not isinstance(val, CGRelationship):
                 continue
-            if val.definition["relation_type"] != edge_type:
+            if val.relation_type != edge_type:
                 continue
             if name in seen:
                 continue

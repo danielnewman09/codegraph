@@ -7,15 +7,11 @@ Represents a third-party library that components depend on
 serialization, registry, and relationship introspection infrastructure.
 """
 
-from neomodel import (
-    StructuredNode, StringProperty, BooleanProperty, ArrayProperty,
-    RelationshipFrom,
-)
-
+from codegraph.models.descriptors import Property, Relationship
 from codegraph.models.tags import CodeGraphNode
 
 
-class Dependency(StructuredNode, CodeGraphNode):
+class Dependency(CodeGraphNode):
     """External library dependency node — :Dependency label in Neo4j.
 
     Represents a third-party library that components depend on
@@ -42,43 +38,42 @@ class Dependency(StructuredNode, CodeGraphNode):
     """
 
     # --- Dependency metadata ---
-    kind = StringProperty(default="dependency")
-    qualified_name = StringProperty(
-        default="", index=True,
+    kind = Property(str, default="dependency")
+    qualified_name = Property(
+        str, default="", index=True,
         help_text="Qualified name for display/serialization. Mirrors name.",
     )
-    version = StringProperty(default="",
+    version = Property(str, default="",
         help_text="Pinned version string (e.g. '1.82.0', '2.31.0').")
-    github_url = StringProperty(default="",
+    github_url = Property(str, default="",
         help_text="Repository URL for the dependency.")
-    is_dev = BooleanProperty(default=False,
+    is_dev = Property(bool, default=False,
         help_text="True if this is a dev-only dependency (not shipped in production).")
 
     # --- Manager linkage ---
-    manager_name = StringProperty(default="",
+    manager_name = Property(str, default="",
         help_text="Name of the package manager (e.g. 'pip', 'conan', 'npm').")
 
     # --- Doxygen indexing config ---
-    index_file_patterns = StringProperty(default="*.h *.hpp",
+    index_file_patterns = Property(str, default="*.h *.hpp",
         help_text="File glob patterns for Doxygen indexing.")
-    index_subdir = StringProperty(default="",
+    index_subdir = Property(str, default="",
         help_text="Subdirectory within the dependency to index.")
-    index_exclude_patterns = StringProperty(default="",
+    index_exclude_patterns = Property(str, default="",
         help_text="File patterns to exclude from indexing.")
-    index_recursive = BooleanProperty(default=True,
+    index_recursive = Property(bool, default=True,
         help_text="Whether to index recursively.")
 
     # --- Workflow tags ---
-    tags = ArrayProperty(StringProperty(), default=list,
+    tags = Property(list, default=list,
         help_text="Workflow tags: 'registered', 'missing', 'integrated', "
                   "'indexed', 'passing', 'failing'.")
 
     # --- Reverse relationships -------------------------------------------------
-    components = RelationshipFrom(
-        'codegraph_project.models.component.Component', 'DEPENDS_ON')
+    components = Relationship('DEPENDS_ON', direction='INCOMING',
+                              target_class='codegraph_project.models.component.Component')
 
     # --- Serialization contract ---
     _llm_fields: set[str] = {
         "name", "version", "manager_name", "github_url", "is_dev", "tags",
     }
-    kind = StringProperty(default="dependency")

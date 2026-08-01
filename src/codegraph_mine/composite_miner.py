@@ -253,7 +253,7 @@ class CompositeHLRMiner(RequirementMiner):
         namespaces: list = []
         for row in results:
             try:
-                ns = NamespaceNode.inflate(row[0])
+                ns = get_backend().inflate(row[0], NamespaceNode)
                 namespaces.append(ns)
             except Exception:
                 pass
