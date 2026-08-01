@@ -8,9 +8,9 @@ by this decision.  Decisions can SUPERSEDE older decisions.
 
 from __future__ import annotations
 
-from neomodel import RelationshipTo, RelationshipFrom
+from codegraph.models.descriptors import Relationship
 
-from codegraph.models.tags import CodeGraphNode  # noqa: F401 — needed for neomodel class resolution
+from codegraph.models.tags import CodeGraphNode  # noqa: F401 — kept for registry side-effects
 from codegraph.models.compound import CompoundNode
 from codegraph.models.member import MemberNode
 from codegraph_memory.models.base import MemoryNode
@@ -29,12 +29,10 @@ class DecisionNode(MemoryNode):
     _identity_fields: tuple[str, ...] = ("qualified_name",)
 
     # ── Memory → Code ─────────────────────────────────────────────
-    # Separate descriptors for CompoundNode / MemberNode targets
-    # so that neomodel resolves the correct label (ClassNode,
-    # MethodNode, etc. are subclasses of these).
-    motivates_compound = RelationshipTo(CompoundNode, "MOTIVATES")
-    motivates_member = RelationshipTo(MemberNode, "MOTIVATES")
+    # Separate descriptors for CompoundNode / MemberNode targets.
+    motivates_compound = Relationship("MOTIVATES", direction="OUTGOING", target_class="CompoundNode")
+    motivates_member = Relationship("MOTIVATES", direction="OUTGOING", target_class="MemberNode")
 
     # ── Memory → Memory ────────────────────────────────────────────
-    supersedes = RelationshipTo("DecisionNode", "SUPERSEDES")
-    superseded_by = RelationshipFrom("DecisionNode", "SUPERSEDES")
+    supersedes = Relationship("SUPERSEDES", direction="OUTGOING", target_class="DecisionNode")
+    superseded_by = Relationship("SUPERSEDES", direction="INCOMING", target_class="DecisionNode")

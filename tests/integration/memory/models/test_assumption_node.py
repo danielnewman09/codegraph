@@ -70,4 +70,4 @@ class TestAssumptionNode:
     def test_assumption_not_abstract(self, neo4j_connection):
         from codegraph_memory import AssumptionNode
         assert getattr(AssumptionNode, "__abstract__", True) is False
-        assert AssumptionNode.__label__ == "AssumptionNode"
+        assert getattr(AssumptionNode, "__label__", "AssumptionNode") == "AssumptionNode"

@@ -9,7 +9,7 @@ assumptions signal speculative foundations that should be revalidated.
 
 from __future__ import annotations
 
-from neomodel import RelationshipTo, RelationshipFrom
+from codegraph.models.descriptors import Relationship
 
 from codegraph.models.tags import CodeGraphNode  # noqa: F401
 from codegraph.models.compound import CompoundNode
@@ -30,9 +30,9 @@ class AssumptionNode(MemoryNode):
     _identity_fields: tuple[str, ...] = ("qualified_name",)
 
     # ── Memory → Code ─────────────────────────────────────────────
-    assumes_compound = RelationshipTo(CompoundNode, "ASSUMES")
-    assumes_member = RelationshipTo(MemberNode, "ASSUMES")
+    assumes_compound = Relationship("ASSUMES", direction="OUTGOING", target_class="CompoundNode")
+    assumes_member = Relationship("ASSUMES", direction="OUTGOING", target_class="MemberNode")
 
     # ── Memory → Memory ────────────────────────────────────────────
-    contradicts = RelationshipTo("AssumptionNode", "CONTRADICTS")
-    contradicted_by = RelationshipFrom("AssumptionNode", "CONTRADICTS")
+    contradicts = Relationship("CONTRADICTS", direction="OUTGOING", target_class="AssumptionNode")
+    contradicted_by = Relationship("CONTRADICTS", direction="INCOMING", target_class="AssumptionNode")

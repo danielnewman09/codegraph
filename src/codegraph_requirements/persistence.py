@@ -36,6 +36,7 @@ from collections import deque
 from dataclasses import dataclass, field
 
 from codegraph.backends import get_backend
+from codegraph.models.descriptors import PropertyRegistry
 
 from codegraph_requirements.models.requirement import HLR, LLR
 from codegraph_requirements.schemas import DecomposedRequirementSchema
@@ -76,24 +77,13 @@ class DecompositionResult:
 
 
 def _persist_node(node) -> object:
-    """Persist a node via ``create_or_update``, returning the saved instance."""
-    node_type = type(node)
-    uid_prop = node_type._uid_prop()
-    if uid_prop is None:
-        node.save()
-        return node
+    """Persist a node, returning the saved instance.
 
-    props = {}
-    for prop_name in node_type.defined_properties():
-        val = getattr(node, prop_name, None)
-        if val is not None:
-            props[prop_name] = val
-
-    persisted = node_type.create_or_update(
-        props,
-        merge_by={"keys": [uid_prop]},
-    )
-    return persisted[0]
+    Delegates to ``node.save()`` which goes through the active backend.
+    The backend handles MERGE/upsert, property introspection, and all
+    storage-specific logic.
+    """
+    return node.save()
 
 
 def _create_edge(source, target, edge_type: str) -> bool:

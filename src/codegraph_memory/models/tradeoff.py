@@ -8,7 +8,7 @@ architecture decisions: what was given up to achieve a benefit elsewhere.
 
 from __future__ import annotations
 
-from neomodel import RelationshipTo
+from codegraph.models.descriptors import Relationship
 
 from codegraph.models.tags import CodeGraphNode  # noqa: F401
 from codegraph.models.compound import CompoundNode
@@ -29,5 +29,5 @@ class TradeoffNode(MemoryNode):
     _identity_fields: tuple[str, ...] = ("qualified_name",)
 
     # ── Memory → Code ─────────────────────────────────────────────
-    trades_off_compound = RelationshipTo(CompoundNode, "TRADES_OFF")
-    trades_off_member = RelationshipTo(MemberNode, "TRADES_OFF")
+    trades_off_compound = Relationship("TRADES_OFF", direction="OUTGOING", target_class="CompoundNode")
+    trades_off_member = Relationship("TRADES_OFF", direction="OUTGOING", target_class="MemberNode")

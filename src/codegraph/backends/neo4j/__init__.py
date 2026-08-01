@@ -108,6 +108,12 @@ class Neo4jBackend(Backend):
         return self._node_ops.get(node_type, **filters)
 
     @override
+    def find_all(
+        self, node_type: type[CodeGraphNode], **filters: Any
+    ) -> list[CodeGraphNode]:
+        return self._node_ops.find_all(node_type, **filters)
+
+    @override
     def inflate(self, raw: Any, node_type: type[CodeGraphNode]) -> CodeGraphNode:
         return self._node_ops.inflate(raw, node_type)
 

@@ -8,7 +8,7 @@ requirements, security boundaries, compatibility requirements, etc.
 
 from __future__ import annotations
 
-from neomodel import RelationshipTo
+from codegraph.models.descriptors import Relationship
 
 from codegraph.models.tags import CodeGraphNode  # noqa: F401
 from codegraph.models.compound import CompoundNode
@@ -29,5 +29,5 @@ class ConstraintNode(MemoryNode):
     _identity_fields: tuple[str, ...] = ("qualified_name",)
 
     # ── Memory → Code ─────────────────────────────────────────────
-    constrains_compound = RelationshipTo(CompoundNode, "CONSTRAINS")
-    constrains_member = RelationshipTo(MemberNode, "CONSTRAINS")
+    constrains_compound = Relationship("CONSTRAINS", direction="OUTGOING", target_class="CompoundNode")
+    constrains_member = Relationship("CONSTRAINS", direction="OUTGOING", target_class="MemberNode")

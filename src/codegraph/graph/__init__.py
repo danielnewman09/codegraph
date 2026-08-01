@@ -20,6 +20,7 @@ from codegraph.backends import get_backend
 
 from codegraph.constants import Tag, TAGS
 from codegraph.models.tags import CodeGraphNode
+from codegraph.models.descriptors import PropertyRegistry
 
 
 @dataclass
@@ -651,7 +652,7 @@ class LayerGraph:
             "FunctionNode": "function",
             "LiteralNode": "literal",
         }
-        if target_type in kind_defaults and "kind" in target_cls.defined_properties():
+        if target_type in kind_defaults and PropertyRegistry.has_property(target_cls, "kind"):
             scaffold_data["kind"] = kind_defaults[target_type]
 
         # LiteralNode needs a value with basic type classification

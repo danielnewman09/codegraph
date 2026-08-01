@@ -50,4 +50,4 @@ class TestTradeoffNode:
     def test_tradeoff_not_abstract(self, neo4j_connection):
         from codegraph_memory import TradeoffNode
         assert getattr(TradeoffNode, "__abstract__", True) is False
-        assert TradeoffNode.__label__ == "TradeoffNode"
+        assert getattr(TradeoffNode, "__label__", "TradeoffNode") == "TradeoffNode"

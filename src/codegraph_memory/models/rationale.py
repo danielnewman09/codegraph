@@ -8,7 +8,7 @@ decision, elaborating on the "why" behind a design choice.
 
 from __future__ import annotations
 
-from neomodel import RelationshipTo
+from codegraph.models.descriptors import Relationship
 
 from codegraph.models.tags import CodeGraphNode  # noqa: F401
 from codegraph.models.compound import CompoundNode
@@ -29,8 +29,8 @@ class RationaleNode(MemoryNode):
     _identity_fields: tuple[str, ...] = ("qualified_name",)
 
     # ── Memory → Code ─────────────────────────────────────────────
-    explains_compound = RelationshipTo(CompoundNode, "EXPLAINS")
-    explains_member = RelationshipTo(MemberNode, "EXPLAINS")
+    explains_compound = Relationship("EXPLAINS", direction="OUTGOING", target_class="CompoundNode")
+    explains_member = Relationship("EXPLAINS", direction="OUTGOING", target_class="MemberNode")
 
     # ── Memory → Memory ────────────────────────────────────────────
-    refines = RelationshipTo("DecisionNode", "REFINES")
+    refines = Relationship("REFINES", direction="OUTGOING", target_class="DecisionNode")

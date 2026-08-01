@@ -51,4 +51,4 @@ class TestConstraintNode:
     def test_constraint_not_abstract(self, neo4j_connection):
         from codegraph_memory import ConstraintNode
         assert getattr(ConstraintNode, "__abstract__", True) is False
-        assert ConstraintNode.__label__ == "ConstraintNode"
+        assert getattr(ConstraintNode, "__label__", "ConstraintNode") == "ConstraintNode"

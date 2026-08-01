@@ -60,13 +60,10 @@ must be configured (by importing ``codegraph.backends`` or setting the
 ``CODEGRAPH_BACKEND`` environment variable).
 """
 
-from neomodel import (
-    ArrayProperty,
-    StructuredNode,
-    StringProperty,
-    UniqueIdProperty,
-    RelationshipTo,
-    RelationshipFrom,
+from codegraph.models.descriptors import (
+    Property,
+    Relationship,
+    UniqueId,
 )
 
 from codegraph.models.tags import CodeGraphNode
@@ -76,7 +73,7 @@ from codegraph.models.tags import CodeGraphNode
 # ══════════════════════════════════════════════════════════════════════════
 
 
-class HLR(StructuredNode, CodeGraphNode):
+class HLR(CodeGraphNode):
     """High-level requirement node — :HLR label in Neo4j.
 
     An HLR captures a top-level system requirement.  It composes into
@@ -101,9 +98,9 @@ class HLR(StructuredNode, CodeGraphNode):
     __test__ = False
 
     # --- Identity (deterministic uid from qualified_name) ------------
-    kind = StringProperty(default="hlr")
+    kind = Property(str, default="hlr")
     _identity_fields: tuple[str, ...] = ("qualified_name",)
-    uid = UniqueIdProperty()
+    uid = UniqueId()
 
     # --- Qualified name ----------------------------------------------------
     # Dot-delimited path derived from the incoming component and parent_hlr
@@ -114,22 +111,23 @@ class HLR(StructuredNode, CodeGraphNode):
     # If no component or parent_hlr, the corresponding segment is omitted.
     # This mirrors how ClassNode uses ``namespace::ClassName`` — HLR/LLR use
     # dot-delimited paths because requirements are not C++ symbols.
-    qualified_name = StringProperty(
-        default="", index=True,
+    qualified_name = Property(
+        str, default="", index=True,
         help_text="Dot-delimited qualified name derived from component/parent "
                   "relationships and name. Used as the identity field for "
                   "deterministic uid computation.",
     )
 
     # --- Requirement text -------------------------------------------------------
-    description = StringProperty(
+    description = Property(
+        str,
         required=True,
         help_text="Full requirement text.",
     )
 
     # --- Tags & provenance ----------------------------------------------------
-    tags = ArrayProperty(
-        StringProperty(),
+    tags = Property(
+        list,
         default=list,
         help_text="Provenance tags: 'design', 'as-built', 'dependency', 'scaffold'.",
     )
@@ -163,41 +161,27 @@ class HLR(StructuredNode, CodeGraphNode):
     #    The parent composite HLR that this HLR is nested under, if any.
     # --------------------------------------------------------------------------
 
-    llrs = RelationshipTo(
-        "codegraph_requirements.models.requirement.LLR", "COMPOSES"
-    )
-    component = RelationshipFrom(
-        "codegraph_project.models.component.Component", "COMPOSES"
-    )
-    design_compounds = RelationshipTo(
-        "codegraph.models.compound.CompoundNode", "COMPOSES"
-    )
+    llrs = Relationship("COMPOSES", direction="OUTGOING", target_class="LLR")
+    component = Relationship("COMPOSES", direction="INCOMING", target_class="Component")
+    design_compounds = Relationship("COMPOSES", direction="OUTGOING", target_class="CompoundNode")
     # Composite HLR nesting: a composite HLR owns child HLRs
-    sub_hlrs = RelationshipTo(
-        "codegraph_requirements.models.requirement.HLR", "COMPOSES"
-    )
-    parent_hlr = RelationshipFrom(
-        "codegraph_requirements.models.requirement.HLR", "COMPOSES"
-    )
+    sub_hlrs = Relationship("COMPOSES", direction="OUTGOING", target_class="HLR")
+    parent_hlr = Relationship("COMPOSES", direction="INCOMING", target_class="HLR")
 
     #  • DEPENDS_ON (outgoing) — HLR → HLR
     #    This HLR's functionality relies on the depended-on HLR being
     #    satisfied.  Distinct from COMPOSES (which expresses parent-child
     #    decomposition, not dependency).  Enables dependency-aware design
     #    ordering, impact analysis, and context assembly.
-    depends_on_hlrs = RelationshipTo(
-        "codegraph_requirements.models.requirement.HLR", "DEPENDS_ON"
-    )
+    depends_on_hlrs = Relationship("DEPENDS_ON", direction="OUTGOING", target_class="HLR")
     #  • DEPENDS_ON (incoming) — HLR → HLR
     #    Other HLRs that depend on this one.  Used for reverse traversal
     #    (impact analysis: "who depends on this HLR?").
-    depended_on_by_hlrs = RelationshipFrom(
-        "codegraph_requirements.models.requirement.HLR", "DEPENDS_ON"
-    )
+    depended_on_by_hlrs = Relationship("DEPENDS_ON", direction="INCOMING", target_class="HLR")
 
     # --- Serialization contract ---
     _llm_fields: set[str] = {"qualified_name", "name", "description", "tags"}
-    kind = StringProperty(default="hlr")
+    kind = Property(str, default="hlr")
 
     _markdown_keyword = "HLR"
 
@@ -253,7 +237,7 @@ class HLR(StructuredNode, CodeGraphNode):
 # ══════════════════════════════════════════════════════════════════════════
 
 
-class LLR(StructuredNode, CodeGraphNode):
+class LLR(CodeGraphNode):
     """Low-level requirement node — :LLR label in Neo4j.
 
     An LLR is a concrete, testable requirement derived from an HLR.
@@ -275,9 +259,9 @@ class LLR(StructuredNode, CodeGraphNode):
     __test__ = False
 
     # --- Identity (deterministic uid from qualified_name) ------------
-    kind = StringProperty(default="llr")
+    kind = Property(str, default="llr")
     _identity_fields: tuple[str, ...] = ("qualified_name",)
-    uid = UniqueIdProperty()
+    uid = UniqueId()
 
     # --- Qualified name ----------------------------------------------------
     # Dot-delimited path derived from the parent HLR's qualified_name
@@ -286,22 +270,23 @@ class LLR(StructuredNode, CodeGraphNode):
     #   hlr.qualified_name + "." + self.name
     #
     # If no parent HLR is connected, falls back to just ``name``.
-    qualified_name = StringProperty(
-        default="", index=True,
+    qualified_name = Property(
+        str, default="", index=True,
         help_text="Dot-delimited qualified name derived from parent HLR "
                   "and name. Used as the identity field for deterministic "
                   "uid computation.",
     )
 
     # --- Requirement text -------------------------------------------------------
-    description = StringProperty(
+    description = Property(
+        str,
         required=True,
         help_text="Full requirement text.",
     )
 
     # --- Tags & provenance ----------------------------------------------------
-    tags = ArrayProperty(
-        StringProperty(),
+    tags = Property(
+        list,
         default=list,
         help_text="Provenance tags: 'design', 'as-built', 'dependency', 'scaffold'.",
     )
@@ -318,19 +303,13 @@ class LLR(StructuredNode, CodeGraphNode):
     #    Design nodes composed by this LLR.
     # --------------------------------------------------------------------------
 
-    hlr = RelationshipFrom(
-        "codegraph_requirements.models.requirement.HLR", "COMPOSES"
-    )
-    verification_methods = RelationshipTo(
-        "codegraph.models.test.TestNode", "COMPOSES"
-    )
-    design_compounds = RelationshipTo(
-        "codegraph.models.compound.CompoundNode", "COMPOSES"
-    )
+    hlr = Relationship("COMPOSES", direction="INCOMING", target_class="HLR")
+    verification_methods = Relationship("COMPOSES", direction="OUTGOING", target_class="TestNode")
+    design_compounds = Relationship("COMPOSES", direction="OUTGOING", target_class="CompoundNode")
 
     # --- Serialization contract ---
     _llm_fields: set[str] = {"qualified_name", "name", "description", "tags"}
-    kind = StringProperty(default="llr")
+    kind = Property(str, default="llr")
 
     _markdown_keyword = "LLR"
 

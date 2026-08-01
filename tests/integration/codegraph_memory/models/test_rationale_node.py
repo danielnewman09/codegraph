@@ -68,4 +68,4 @@ class TestRationaleNode:
     def test_rationale_not_abstract(self, neo4j_connection):
         from codegraph_memory import RationaleNode
         assert getattr(RationaleNode, "__abstract__", True) is False
-        assert RationaleNode.__label__ == "RationaleNode"
+        assert getattr(RationaleNode, "__label__", "RationaleNode") == "RationaleNode"

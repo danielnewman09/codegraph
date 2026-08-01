@@ -51,11 +51,13 @@ class InMemoryBackend(Backend):
 
         Raises ValueError if source or identity fields are empty.
         """
-        from codegraph.models.tags import CodeGraphNode
+        from codegraph.models.descriptors import PropertyRegistry
 
         # Ensure qualified_name is set before computing uid.
-        props_def = type(node).defined_properties()
-        if "qualified_name" in props_def and not getattr(node, "qualified_name", ""):
+        if (
+            PropertyRegistry.has_property(type(node), "qualified_name")
+            and not getattr(node, "qualified_name", "")
+        ):
             node.qualified_name = node._compute_qualified_name()
 
         node.uid = node._compute_uid()
@@ -99,6 +101,23 @@ class InMemoryBackend(Backend):
             ):
                 return node
         return None
+
+    def find_all(
+        self,
+        node_type: type["CodeGraphNode"],
+        **filters: Any,
+    ) -> list["CodeGraphNode"]:
+        """Return all nodes of *node_type* matching field filters (or all)."""
+        results = []
+        for node in self._nodes.values():
+            if not isinstance(node, node_type):
+                continue
+            if all(
+                getattr(node, key, None) == value
+                for key, value in filters.items()
+            ):
+                results.append(node)
+        return results
 
     def inflate(
         self,
@@ -161,13 +180,22 @@ class InMemoryBackend(Backend):
     ) -> None:
         """Create a relationship between two saved nodes.
 
-        Validates via the neomodel relationship manager (same as Neo4j).
+        Validates that the relationship is declared on the source type
+        (same semantics as the Neo4j backend), then tracks the edge in
+        the in-memory adjacency lists.
         """
-        from codegraph.backends.neo4j.rel_ops import Neo4jRelOps
-        manager = Neo4jRelOps._find_manager(source, rel_type, target)
-        manager.connect(target)
+        from codegraph.models.descriptors import find_relationship_descriptor
 
-        # Also track in our in-memory adjacency list
+        descriptor = find_relationship_descriptor(
+            type(source), rel_type, type(target)
+        )
+        if descriptor is None:
+            raise ValueError(
+                f"No '{rel_type}' relationship from "
+                f"{type(source).__name__} to {type(target).__name__}"
+            )
+
+        # Track in our in-memory adjacency list
         src_uid = source._uid_value()
         tgt_uid = target._uid_value()
         if src_uid and tgt_uid:

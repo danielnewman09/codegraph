@@ -148,6 +148,15 @@ class Backend(ABC):
         ...
 
     @abstractmethod
+    def find_all(
+        self,
+        node_type: type["CodeGraphNode"],
+        **filters: Any,
+    ) -> list["CodeGraphNode"]:
+        """Return all nodes of *node_type* matching field filters (or all)."""
+        ...
+
+    @abstractmethod
     def inflate(
         self,
         raw: Any,

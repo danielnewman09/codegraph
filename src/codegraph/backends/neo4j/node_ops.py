@@ -1,10 +1,13 @@
 """Neo4j node CRUD operations.
 
 Extracted from ``codegraph.models.tags.CodeGraphNode``.
+Updated to use ``PropertyRegistry`` for property introspection,
+supporting both neomodel and the new ``Property``/``Relationship`` descriptors.
 """
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from neomodel import db
@@ -13,6 +16,74 @@ from neomodel import RelationshipTo, RelationshipFrom
 
 from codegraph.backends.neo4j.connection import Neo4jConnection
 from codegraph.models.tags import CodeGraphNode
+from codegraph.models.descriptors import (
+    Property as CGProperty,
+    DateTimeProperty as CGDateTimeProperty,
+    Relationship as CGRelationship,
+    PropertyRegistry,
+)
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Helpers
+# ══════════════════════════════════════════════════════════════════════════
+
+
+def _node_labels(node_type: type) -> list[str]:
+    """Return Neo4j labels for a node type.
+
+    Uses neomodel's ``inherited_labels()`` when available (neomodel
+    ``StructuredNode`` subclasses).  Falls back to ``[node_type.__name__]``
+    for pure-Python classes using the new descriptor system.
+    """
+    if hasattr(node_type, "inherited_labels"):
+        return node_type.inherited_labels()
+    # Pure-Python: use class name as the sole label
+    return [node_type.__name__]
+
+
+def _deflate_value(prop: Any, value: Any) -> Any:
+    """Deflate a property value for Neo4j storage.
+
+    Handles both neomodel properties (which have their own
+    ``.deflate()``) and our new descriptors.  For our
+    ``DateTimeProperty``, converts ``datetime`` to Unix timestamp.
+    """
+    # Neomodel properties have their own deflate
+    if hasattr(prop, "deflate"):
+        return prop.deflate(value)
+    # Our DateTimeProperty: datetime → Unix timestamp
+    if isinstance(prop, CGDateTimeProperty) and isinstance(value, datetime):
+        return value.timestamp()
+    # Our Property / UniqueId: pass through
+    return value
+
+
+def _is_relationship_descriptor(prop: Any) -> bool:
+    """Check whether *prop* is a relationship descriptor (ours or neomodel's)."""
+    return isinstance(prop, (RelationshipTo, RelationshipFrom, CGRelationship))
+
+
+def _inflate_props(node_type: type, raw_props: dict[str, Any]) -> dict[str, Any]:
+    """Convert raw Neo4j property values to Python values for a node type.
+
+    Handles our ``DateTimeProperty`` (timestamps stored by
+    ``_deflate_value`` must come back as ``datetime``).  Neomodel
+    properties are handled by neomodel's own inflate path.
+    """
+    if not raw_props:
+        return {}
+    declared = PropertyRegistry.properties_of(node_type)
+    props = dict(raw_props)
+    for name, prop in declared.items():
+        if isinstance(prop, CGDateTimeProperty) and name in props:
+            val = props[name]
+            if isinstance(val, (int, float)) and not isinstance(val, bool):
+                try:
+                    props[name] = datetime.fromtimestamp(val)
+                except (OverflowError, OSError, ValueError):
+                    pass
+    return props
 
 class Neo4jNodeOps:
     """Node CRUD + query operations for the Neo4j backend.
@@ -31,6 +102,8 @@ class Neo4jNodeOps:
         """Save a node to Neo4j, computing uid from identity fields.
 
         Uses MERGE on uid for idempotent create-or-update.
+        Uses ``PropertyRegistry`` for introspection — works with
+        both neomodel and new ``Property`` descriptors.
 
         Raises ``ValueError`` if ``source`` or the primary identity
         field is empty — a deterministic uid cannot be derived and
@@ -38,24 +111,27 @@ class Neo4jNodeOps:
 
         Returns the saved node.
         """
+        node_type = type(node)
 
         # Ensure qualified_name is set before computing uid.
-        props_def = type(node).defined_properties()
-        if "qualified_name" in props_def and not getattr(node, "qualified_name", ""):
-            node.qualified_name = node._compute_qualified_name()
+        if PropertyRegistry.has_property(node_type, "qualified_name"):
+            if not getattr(node, "qualified_name", ""):
+                node.qualified_name = node._compute_qualified_name()
 
         computed = node._compute_uid()
         node.uid = computed
-        labels = ":".join(type(node).inherited_labels())
+        labels = ":".join(_node_labels(node_type))
 
+        # Build property dict using PropertyRegistry (supports both old and new)
         props: dict = {}
-        for pname, prop in type(node).defined_properties().items():
-            if isinstance(prop, (RelationshipTo, RelationshipFrom)):
+        declared = PropertyRegistry.properties_of(node_type)
+        for pname, prop in declared.items():
+            if _is_relationship_descriptor(prop):
                 continue
             val = getattr(node, pname, None)
             if val is None or val == "" or val == []:
                 continue
-            props[pname] = prop.deflate(val)
+            props[pname] = _deflate_value(prop, val)
         props["uid"] = computed
 
         query = (
@@ -91,46 +167,90 @@ class Neo4jNodeOps:
 
         # Disconnect all remaining relationships to clear caches
         seen: set[str] = set()
+        _, declared_rels = PropertyRegistry.of(type(node))
         for klass in type(node).__mro__:
             for name, val in vars(klass).items():
-                if not isinstance(val, (RelationshipTo, RelationshipFrom)):
+                if not isinstance(val, (RelationshipTo, RelationshipFrom, CGRelationship)):
                     continue
                 if name in seen:
                     continue
                 seen.add(name)
-                manager = getattr(node, name)
-                try:
-                    for connected in manager.all():
-                        try:
-                            manager.disconnect(connected)
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
+                if isinstance(val, CGRelationship):
+                    # Pure-Python: delete edges via raw Cypher
+                    if not hasattr(node, "element_id_property"):
+                        continue
+                    if val.direction == "INCOMING":
+                        rel_match = f"MATCH (n)<-[r:{val.relation_type}]-()"
+                    else:
+                        rel_match = f"MATCH (n)-[r:{val.relation_type}]->()"
+                    db.cypher_query(
+                        f"{rel_match} WHERE elementId(n) = $eid DELETE r",
+                        {"eid": node.element_id},
+                    )
+                else:
+                    # Neomodel: use manager
+                    manager = getattr(node, name)
+                    try:
+                        for connected in manager.all():
+                            try:
+                                manager.disconnect(connected)
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
 
-        StructuredNode.delete(node)
+        if hasattr(node, "element_id_property"):
+            # DETACH DELETE via Cypher (works for both neomodel and pure-Python)
+            db.cypher_query(
+                "MATCH (n) WHERE elementId(n) = $eid DETACH DELETE n",
+                {"eid": node.element_id},
+            )
+            node.deleted = True
 
     def get_composed_children(
         self,
         node: "CodeGraphNode",
     ) -> list["CodeGraphNode"]:
-        """Return all nodes reachable via outgoing COMPOSES edges."""
+        """Return all nodes reachable via outgoing COMPOSES edges.
 
+        Uses neomodel relationship managers when available; falls back
+        to raw Cypher for pure-Python classes.
+        """
         if not hasattr(node, "element_id_property"):
             return []
 
         children: list["CodeGraphNode"] = []
         seen: set[str] = set()
+        _, declared_rels = PropertyRegistry.of(type(node))
+
         for klass in type(node).__mro__:
             for name, val in vars(klass).items():
-                if not isinstance(val, RelationshipTo):
-                    continue
-                if val.definition["relation_type"] != "COMPOSES":
-                    continue
                 if name in seen:
                     continue
-                seen.add(name)
-                children.extend(getattr(node, name).all())
+                # Check both neomodel and new descriptors
+                if isinstance(val, CGRelationship):
+                    if val.relation_type != "COMPOSES" or val.direction != "OUTGOING":
+                        continue
+                    seen.add(name)
+                    # Raw Cypher fallback for new descriptors
+                    results, _ = db.cypher_query(
+                        "MATCH (n)-[:COMPOSES]->(c) "
+                        "WHERE elementId(n) = $eid RETURN c",
+                        {"eid": node.element_id},
+                    )
+                    for row in results:
+                        raw = row[0]
+                        if raw is None:
+                            continue
+                        child = self._inflate_by_labels(raw)
+                        if child is not None:
+                            children.append(child)
+                elif isinstance(val, RelationshipTo):
+                    if val.definition["relation_type"] != "COMPOSES":
+                        continue
+                    seen.add(name)
+                    children.extend(getattr(node, name).all())
+
         return children
 
     def get(
@@ -140,9 +260,50 @@ class Neo4jNodeOps:
     ) -> "CodeGraphNode | None":
         """Get a single node by field filters.
 
-        Uses neomodel's ``.nodes.get_or_none(**filters)``.
+        Uses neomodel's ``.nodes.get_or_none()`` for neomodel
+        ``StructuredNode`` subclasses; uses raw Cypher for
+        pure-Python classes (which have a backend-delegating
+        ``.nodes`` shim that must NOT be re-entered here).
         """
-        return node_type.nodes.get_or_none(**filters)
+        if issubclass(node_type, StructuredNode):
+            return node_type.nodes.get_or_none(**filters)
+        # Pure-Python: build a MATCH query from filters
+        label = _node_labels(node_type)[0]
+        clauses = []
+        params = {}
+        for key, value in filters.items():
+            param_name = f"filter_{key}"
+            clauses.append(f"n.{key} = ${param_name}")
+            params[param_name] = value
+        query = f"MATCH (n:`{label}`) WHERE {' AND '.join(clauses)} RETURN n LIMIT 1"
+        # resolve_objects=False: raw Bolt nodes (resolve_objects would
+        # raise NodeClassNotDefined for pure-Python labels).
+        results, _ = db.cypher_query(query, params)
+        if not results:
+            return None
+        return self.inflate(results[0][0], node_type)
+
+    def find_all(
+        self,
+        node_type: type["CodeGraphNode"],
+        **filters: Any,
+    ) -> list["CodeGraphNode"]:
+        """Return all nodes of *node_type* matching field filters (or all).
+
+        Raw Cypher for both neomodel and pure-Python classes — this is
+        the backend implementation behind ``cls.nodes.filter()``.
+        """
+        label = _node_labels(node_type)[0]
+        clauses = []
+        params = {}
+        for key, value in filters.items():
+            param_name = f"filter_{key}"
+            clauses.append(f"n.{key} = ${param_name}")
+            params[param_name] = value
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        query = f"MATCH (n:`{label}`) {where} RETURN n"
+        results, _ = db.cypher_query(query, params)
+        return [self.inflate(r[0], node_type) for r in results if r[0]]
 
     def inflate(
         self,
@@ -151,10 +312,30 @@ class Neo4jNodeOps:
     ) -> "CodeGraphNode":
         """Inflate a raw Neo4j result row into a CodeGraphNode.
 
-        For Bolt node records, determines the correct class from labels
-        and calls ``.inflate()``.
+        Uses neomodel's ``.inflate()`` when available; for pure-Python
+        classes, extracts property values from the Bolt node, converts
+        timestamps back to ``datetime`` for ``DateTimeProperty``, and
+        constructs a new instance (attaching ``element_id``).
         """
-        return node_type.inflate(raw)
+        if issubclass(node_type, StructuredNode):
+            return node_type.inflate(raw)
+        # Pure-Python: find the most-derived registered class whose
+        # labels overlap the raw node's labels.
+        labels = set(raw.labels) if hasattr(raw, "labels") else set()
+        candidates: list[tuple[int, type]] = []
+        for cls in CodeGraphNode._registry.values():
+            if labels & set(_node_labels(cls)):
+                candidates.append((len(cls.__mro__), cls))
+        target_type = node_type
+        if candidates:
+            target_type = max(candidates, key=lambda t: t[0])[1]
+
+        raw_props = dict(raw.items()) if hasattr(raw, "items") else {}
+        props = _inflate_props(target_type, raw_props)
+        instance = target_type(**props)
+        if hasattr(raw, "element_id"):
+            instance.element_id_property = raw.element_id
+        return instance
 
     # ── Node queries ─────────────────────────────────────────────────
     #
@@ -168,10 +349,10 @@ class Neo4jNodeOps:
         tag: str,
     ) -> list["CodeGraphNode"]:
         """Fetch all nodes of node_type whose tags array contains tag."""
-        label = node_type.__label__
+        label = _node_labels(node_type)[0]
         query = f"MATCH (n:`{label}`) WHERE $tag IN n.tags RETURN n"
         results, _ = db.cypher_query(query, {"tag": tag})
-        return [node_type.inflate(row[0]) for row in results]
+        return [self.inflate(row[0], node_type) for row in results]
 
     def find_all_by_tag(self, tag: str) -> list["CodeGraphNode"]:
         """Fetch all nodes across all registered types matching tag."""
@@ -184,7 +365,15 @@ class Neo4jNodeOps:
         """Fetch all nodes across all types matching source."""
         result: list["CodeGraphNode"] = []
         for node_cls in CodeGraphNode._registry.values():
-            result.extend(node_cls.nodes.filter(source=source))
+            label = _node_labels(node_cls)[0]
+            try:
+                query = f"MATCH (n:`{label}`) WHERE n.source = $src RETURN n"
+                rows, _ = db.cypher_query(query, {"src": source})
+                result.extend(
+                    self.inflate(r[0], node_cls) for r in rows if r[0]
+                )
+            except Exception:
+                pass
         return result
 
     def find_all_by_kind(
@@ -195,24 +384,40 @@ class Neo4jNodeOps:
         """Fetch all nodes matching kind (and optionally tag)."""
         result: list["CodeGraphNode"] = []
         for node_cls in CodeGraphNode._registry.values():
-            nodes = list(node_cls.nodes.filter(kind=kind))
-            if tag is not None:
-                nodes = [n for n in nodes if tag in (n.tags or [])]
-            result.extend(nodes)
+            label = _node_labels(node_cls)[0]
+            try:
+                tag_filter = ""
+                params: dict = {"kind": kind}
+                if tag is not None:
+                    tag_filter = "AND $tag IN coalesce(n.tags, [])"
+                    params["tag"] = tag
+                query = (
+                    f"MATCH (n:`{label}`) "
+                    f"WHERE n.kind = $kind {tag_filter} RETURN n"
+                )
+                rows, _ = db.cypher_query(query, params)
+                result.extend(
+                    self.inflate(r[0], node_cls) for r in rows if r[0]
+                )
+            except Exception:
+                pass
         return result
 
     # ── uid-based node queries ────────────────────────────────────
 
     def find_by_uid(self, uid: str) -> "CodeGraphNode | None":
-        """Find any node by its deterministic uid."""
+        """Find any node by its deterministic uid.
+
+        Inflates by labels — works for both neomodel and pure-Python
+        node types.
+        """
         results, _ = db.cypher_query(
             "MATCH (n) WHERE n.uid = $uid RETURN n LIMIT 1",
             {"uid": uid},
-            resolve_objects=True,
         )
         if not results:
             return None
-        return results[0][0]
+        return self._inflate_by_labels(results[0][0])
 
     def get_labels(self, uid: str) -> set[str]:
         """Return Neo4j labels for a node by uid."""
@@ -333,9 +538,36 @@ class Neo4jNodeOps:
         results, _ = db.cypher_query(
             "MATCH (n) WHERE n.qualified_name = $qn RETURN n",
             {"qn": qualified_name},
-            resolve_objects=True,
         )
-        return [row[0] for row in results]
+        out: list[CodeGraphNode] = []
+        for row in results:
+            node = self._inflate_by_labels(row[0])
+            if node is not None:
+                out.append(node)
+        return out
+
+    def _inflate_by_labels(self, raw) -> "CodeGraphNode | None":
+        """Inflate a raw Bolt node by matching its labels to the registry.
+
+        Handles both neomodel classes (via their own ``.inflate()``)
+        and pure-Python classes (constructed from properties).
+        """
+        labels = set(raw.labels) if hasattr(raw, "labels") else set()
+        candidates: list[tuple[int, type]] = []
+        for cls in CodeGraphNode._registry.values():
+            if labels & set(_node_labels(cls)):
+                candidates.append((len(cls.__mro__), cls))
+        if not candidates:
+            return None
+        target_type = max(candidates, key=lambda t: t[0])[1]
+        if issubclass(target_type, StructuredNode):
+            return target_type.inflate(raw)
+        raw_props = dict(raw.items()) if hasattr(raw, "items") else {}
+        props = _inflate_props(target_type, raw_props)
+        instance = target_type(**props)
+        if hasattr(raw, "element_id"):
+            instance.element_id_property = raw.element_id
+        return instance
 
     def find_qualified_name_by_uid(self, uid: str) -> str | None:
         """Look up qualified_name for a node by uid."""
@@ -435,12 +667,15 @@ class Neo4jNodeOps:
                 "RETURN m AS node, 1.0 AS score "
                 "LIMIT $limit"
             )
-            results, _ = db.cypher_query(cypher, params, resolve_objects=True)
-            return [
-                {"node": r[0], "score": 1.0}
-                for r in results
-                if r[0] is not None
-            ]
+            results, _ = db.cypher_query(cypher, params)
+            out = []
+            for r in results:
+                if r[0] is None:
+                    continue
+                node = self._inflate_by_labels(r[0])
+                if node is not None:
+                    out.append({"node": node, "score": 1.0})
+            return out
 
     # ── Bulk label queries ───────────────────────────────────
 
@@ -505,11 +740,14 @@ class Neo4jNodeOps:
                 cypher += "WHERE $tag IN node.tags "
                 params["tag"] = tag
             cypher += "RETURN node, score ORDER BY score DESC"
-            results, _ = db.cypher_query(cypher, params, resolve_objects=True)
-            return [
-                {"node": r[0], "score": r[1]}
-                for r in results
-                if r[0] is not None
-            ]
+            results, _ = db.cypher_query(cypher, params)
+            out = []
+            for r in results:
+                if r[0] is None:
+                    continue
+                node = self._inflate_by_labels(r[0])
+                if node is not None:
+                    out.append({"node": node, "score": r[1]})
+            return out
         except Exception:
             return []

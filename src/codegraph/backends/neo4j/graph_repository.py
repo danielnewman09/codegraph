@@ -14,7 +14,7 @@ from codegraph.backends.neo4j.connection import Neo4jConnection
 from codegraph.backends.neo4j.node_ops import Neo4jNodeOps
 from codegraph.backends.neo4j.rel_ops import Neo4jRelOps
 from codegraph.persistence.repository import GraphRepository
-
+from codegraph.models.descriptors import PropertyRegistry
 from codegraph.constants import Tag
 from codegraph.graph import LayerGraph, CompositeEntry
 from codegraph.models.compound import (
@@ -541,7 +541,7 @@ class Neo4jGraphRepository(GraphRepository):
 
         all_tags: set[str] = set()
         for node in seeds:
-            if "tags" in type(node).defined_properties():
+            if PropertyRegistry.has_property(type(node), "tags"):
                 node_tags = getattr(node, "tags", None)
                 if node_tags:
                     all_tags.update(node_tags)

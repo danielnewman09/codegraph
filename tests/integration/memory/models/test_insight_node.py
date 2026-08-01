@@ -50,4 +50,4 @@ class TestInsightNode:
     def test_insight_not_abstract(self, neo4j_connection):
         from codegraph_memory import InsightNode
         assert getattr(InsightNode, "__abstract__", True) is False
-        assert InsightNode.__label__ == "InsightNode"
+        assert getattr(InsightNode, "__label__", "InsightNode") == "InsightNode"

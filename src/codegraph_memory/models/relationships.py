@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from codegraph.models.tags import CodeGraphNode
+from codegraph.models.descriptors import PropertyRegistry
 from codegraph.backends import get_backend
 
 
@@ -12,22 +13,34 @@ def _inflate_code_node(raw_node: Any) -> CodeGraphNode | None:
     """Inflate a raw Neo4j node to the appropriate CodeGraphNode subclass.
 
     Determines the correct Python class by matching the node's Neo4j
-    labels against ``__label__`` attributes in ``CodeGraphNode._registry``.
+    labels against the labels of classes in ``CodeGraphNode._registry``
+    (neomodel ``__label__`` for legacy classes, class name for
+    pure-Python classes).  Delegates inflation to the backend so both
+    neomodel and pure-Python classes are handled.
     """
     if raw_node is None:
         return None
+    from codegraph.backends import get_backend
 
-    labels = set(raw_node.labels) if hasattr(raw_node, "labels") else set()
+    # Already-inflated object (neomodel resolve_objects)
+    if not hasattr(raw_node, "labels"):
+        return raw_node if isinstance(raw_node, CodeGraphNode) else None
+
+    labels = set(raw_node.labels)
+
+    def _cls_labels(cls: type) -> set[str]:
+        if hasattr(cls, "inherited_labels"):
+            return set(cls.inherited_labels())
+        return {cls.__name__}
 
     best_cls = None
     best_score = 0
     for cls in CodeGraphNode._registry.values():
-        cls_label = getattr(cls, "__label__", None)
-        if not cls_label or cls_label not in labels:
+        if not labels & _cls_labels(cls):
             continue
         is_abstract = getattr(cls, "__abstract__", False)
         score = (0 if is_abstract else 1000) + len(
-            cls.defined_properties().keys() & set(raw_node.keys())
+            PropertyRegistry.properties_of(cls).keys() & set(raw_node.keys())
         )
         if score > best_score:
             best_cls = cls
@@ -36,7 +49,7 @@ def _inflate_code_node(raw_node: Any) -> CodeGraphNode | None:
     if best_cls is None:
         return None
 
-    return best_cls.inflate(raw_node)
+    return get_backend().inflate(raw_node, best_cls)
 
 
 def get_linked_code_nodes(

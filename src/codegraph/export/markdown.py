@@ -65,6 +65,7 @@ import re
 
 from codegraph.graph import CompositeEntry, LayerGraph
 from codegraph.models.tags import CodeGraphNode
+from codegraph.models.descriptors import PropertyRegistry
 from codegraph.export.plantuml import PlantUMLParseError, ParseDiagnostic
 
 # ── Constants ────────────────────────────────────────────────────────────
@@ -409,7 +410,7 @@ class MarkdownExporter:
         node = entry.node
         lines: list[str] = []
         llm_fields = getattr(type(node), "_llm_fields", set())
-        props = type(node).defined_properties()
+        props = PropertyRegistry.properties_of(type(node))
         for key in sorted(llm_fields):
             if key in _HEADING_FIELDS or key in _NON_HUMAN_READABLE:
                 continue
@@ -600,7 +601,7 @@ class MarkdownImporter:
                     # for compound nodes, or description for requirement/
                     # component nodes that don't have brief_description.
                     node = stack[-1][2].node
-                    props = type(node).defined_properties()
+                    props = PropertyRegistry.properties_of(type(node))
                     if "brief_description" in props:
                         existing = getattr(node, "brief_description", "")
                         if not existing:
@@ -717,7 +718,7 @@ class MarkdownImporter:
         For ``tags`` (an ArrayProperty), parses the comma-separated
         string into a list before assignment.
         """
-        props = type(node).defined_properties()
+        props = PropertyRegistry.properties_of(type(node))
         if key not in props:
             return
         if key == "tags":
@@ -750,18 +751,15 @@ class MarkdownImporter:
             data["path"] = name
         node = CodeGraphNode.deserialize(data)
 
-        # Initialize required StringProperty fields to empty string so
+        # Initialize required string properties to empty string so
         # that ``to_neo4j()`` does not raise ``RequiredProperty`` during
         # ``deflate()``.  HLR, LLR, and Component all declare
-        # ``description = StringProperty(required=True)`` — if the
-        # description line is absent from the markdown (e.g. a heading
-        # immediately followed by another heading), the property stays
-        # ``None`` and ingestion fails.
-        from neomodel import StringProperty
-        for pname, prop in type(node).defined_properties().items():
-            if not isinstance(prop, StringProperty):
-                continue
-            if not getattr(prop, "required", False):
+        # ``description`` as a required string — if the description
+        # line is absent from the markdown (e.g. a heading immediately
+        # followed by another heading), the property stays ``None`` and
+        # ingestion fails.
+        for pname, prop in PropertyRegistry.properties_of(type(node)).items():
+            if not PropertyRegistry.is_required_string(prop):
                 continue
             if getattr(node, pname, None) is None:
                 setattr(node, pname, "")
