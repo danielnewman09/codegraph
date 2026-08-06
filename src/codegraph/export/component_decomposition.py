@@ -122,6 +122,13 @@ class ComponentDecomposition:
         self.graph = graph
         self.min_component_size = max(min_component_size, 1)
         self._components: dict[str, ComponentInfo] = {}
+        self._flat: dict | None = None
+
+    def _flat_index(self) -> dict:
+        """Cached flat key → entry index (see PlantUMLExporter note)."""
+        if self._flat is None:
+            self._flat = self.graph._flat_index()
+        return self._flat
 
     # ── Public API ─────────────────────────────────────────────────────
 
@@ -331,7 +338,9 @@ class ComponentDecomposition:
                     )
 
             for _rel_type, target_key in all_refs:
-                target_name = self.graph.resolve_target_name(target_key)
+                target_name = self.graph.resolve_target_name(
+                    target_key, flat=self._flat_index()
+                )
                 # Match target to a known component
                 for other_qname in self._components:
                     if other_qname == comp_qname:

@@ -16,8 +16,22 @@ from codegraph_agents.context import ContextProvider
 from codegraph.backends import get_backend
 
 log = logging.getLogger("codegraph_agents.context.builtins")
-repo = get_backend().graph
 
+
+class _LazyGraphRepo:
+    """Deferred access to ``get_backend().graph``.
+
+    Resolves the backend on first attribute access rather than at
+    import time, so importing this module never touches the database
+    (no stray backend files / connections) and works regardless of how
+    the backend is configured afterwards.
+    """
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(get_backend().graph, name)
+
+
+repo = _LazyGraphRepo()
 
 # ── Mandatory resolvers ────────────────────────────────────────
 

@@ -56,7 +56,12 @@ class ImplementationNode(CodeGraphNode):
     kind = Property(str, default="implementation")
 
     # --- Identity fields for uid computation ---
-    _identity_fields: tuple[str, ...] = ("qualified_name",)
+    # ``kind`` disambiguates from node types that share the parent's
+    # qualified_name (e.g. TestStepNode — an implementation of a step
+    # has the same qname as the step).  Neo4j tolerates same-uid
+    # different-label nodes, but the sqlite backend keys on uid, so the
+    # identity must be unique across types.
+    _identity_fields: tuple[str, ...] = ("qualified_name", "kind")
 
     # --- Source code ---
     implementation = Property(

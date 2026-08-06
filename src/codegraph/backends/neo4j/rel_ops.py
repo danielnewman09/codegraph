@@ -216,6 +216,81 @@ class Neo4jRelOps:
                 children.append(child)
         return children
 
+    def get_composed_children_for_uids(
+        self,
+        uids: list[str],
+    ) -> dict[str, list["CodeGraphNode"]]:
+        """Fetch outgoing COMPOSES children for many parents by uid.
+
+        One query — the batched counterpart of
+        :meth:`get_composed_children`, used by ``LayerGraph.from_backend``
+        so tree assembly stays O(batches) instead of O(nodes) round
+        trips.  Returns ``{parent_uid: [child_node, ...]}``.
+        """
+        if not uids:
+            return {}
+        from codegraph.backends.neo4j.node_ops import Neo4jNodeOps
+
+        node_ops = Neo4jNodeOps(self._conn)
+        children_by_parent: dict[str, list["CodeGraphNode"]] = {u: [] for u in uids}
+        results, _ = db.cypher_query(
+            "MATCH (n)-[:COMPOSES]->(c) WHERE n.uid IN $uids "
+            "RETURN n.uid AS src, c",
+            {"uids": uids},
+        )
+        for row in results:
+            src, raw = row[0], row[1]
+            if raw is None:
+                continue
+            child = node_ops._inflate_by_labels(raw)
+            if child is not None:
+                children_by_parent.setdefault(src, []).append(child)
+        return children_by_parent
+
+    def get_edges_for_uids(
+        self,
+        uids: list[str],
+    ) -> dict[str, list[EdgeDescriptor]]:
+        """Fetch incoming + outgoing edges for many source nodes by uid.
+
+        Two queries total (outgoing, incoming) using ``uid IN $uids`` —
+        the batched counterpart of :meth:`get_all_edges`, used by
+        ``bulk_load_by_tag`` so 1-hop retrieval stays O(batches) instead
+        of O(nodes) round trips.  Returns ``{source_uid: [EdgeDescriptor]}
+        ``.
+        """
+        if not uids:
+            return {}
+        edges_by_src: dict[str, list[EdgeDescriptor]] = {u: [] for u in uids}
+        for outgoing in (True, False):
+            if outgoing:
+                cypher = (
+                    "MATCH (n)-[r]->(t) WHERE n.uid IN $uids "
+                    "RETURN n.uid AS src, type(r) AS rel_type, "
+                    "t.uid AS tuid, labels(t) AS tlbls"
+                )
+            else:
+                cypher = (
+                    "MATCH (t)-[r]->(n) WHERE n.uid IN $uids "
+                    "RETURN n.uid AS src, type(r) AS rel_type, "
+                    "t.uid AS tuid, labels(t) AS tlbls"
+                )
+            results, _ = db.cypher_query(cypher, {"uids": uids})
+            for row in results:
+                src, rel_type, tuid, tlbls = row[0], row[1], row[2], row[3]
+                labels = set(tlbls or set())
+                from codegraph.backends.neo4j.node_ops import best_class_for_labels
+
+                best = best_class_for_labels(labels)
+                target_type = best.__name__ if best is not None else "CodeGraphNode"
+                edges_by_src.setdefault(src, []).append(EdgeDescriptor(
+                    relation_type=rel_type,
+                    target_uid=tuid,
+                    target_type=target_type,
+                    is_outgoing=outgoing,
+                ))
+        return edges_by_src
+
     def get_all_edges(
         self,
         node: "CodeGraphNode",

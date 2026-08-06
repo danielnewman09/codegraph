@@ -106,8 +106,12 @@ def apply_schema() -> None:
     """Apply all memory node constraints and indexes to Neo4j.
 
     Idempotent — uses ``IF NOT EXISTS`` on every statement.
-    Safe to call multiple times.
+    Safe to call multiple times.  No-op for non-Neo4j backends
+    (SQLite manages its own schema in ``backends/sqlite/schema.py``).
     """
+    backend = get_backend()
+    if type(backend).__name__ != "Neo4jBackend":
+        return
     for stmt in MEMORY_CONSTRAINTS_AND_INDEXES:
         try:
             get_backend().execute_raw(stmt)

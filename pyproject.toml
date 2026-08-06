@@ -31,6 +31,8 @@ dependencies = [
     "langchain-core>=0.3.0",
     "langgraph>=0.2.0",
     "openai>=1.0",
+    "sqlalchemy>=2.0",
+    "numpy>=1.26",
 ]
 
 [project.scripts]
@@ -52,7 +54,7 @@ packages = ["src/codegraph", "src/codegraph_design", "src/codegraph_enrich", "sr
 testpaths = ["tests"]
 norecursedirs = ["tests/backends"]
 markers = [
-    "integration: marks tests that require Neo4j",
+    "integration: marks tests that exercise the full stack against a live backend (Neo4j-only unless otherwise noted)",
     "neo4j: marks tests that require a running Neo4j instance",
     "slow: marks tests that require an LLM call (OPENAI_API_KEY)",
     "browser: marks tests that require a Playwright headless browser",

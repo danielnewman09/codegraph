@@ -89,14 +89,9 @@ def get_typed_edge_targets(node, edge_type: str) -> list[dict]:
                 name_val = getattr(connected, "name", "") or ""
 
                 labels: list[str] = []
-                if hasattr(connected, "element_id_property"):
+                if hasattr(connected, "element_id_property") and connected._uid_value():
                     try:
-                        _, results = get_backend().execute_raw(
-                            "MATCH (n) WHERE elementId(n) = $eid RETURN labels(n)",
-                            {"eid": (connected.element_id)},
-                        )
-                        if results:
-                            labels = results[0][0]
+                        labels = sorted(get_backend().graph.get_labels(connected._uid_value()))
                     except Exception:
                         pass
 
@@ -526,7 +521,13 @@ def _flatten_design_nodes(design_nodes: list[dict]) -> list[dict]:
 
 
 def _update_scaffold_to_design(scaffold_node, design_dict: dict) -> bool:
-    """Update a scaffold node in place to become a design node via raw Cypher."""
+    """Update a scaffold node in place to become a design node.
+
+    Uses the graph repository (uid-keyed, backend-agnostic) instead of
+    raw Cypher: properties are set via ``update_properties`` (which
+    re-keys the uid when it changes) and labels are migrated via
+    ``get_labels`` / ``remove_labels`` / ``add_labels``.
+    """
     from codegraph.uid import compute_uid, normalize_argsstring
 
     dqn = design_dict.get("qualified_name", "")
@@ -546,19 +547,24 @@ def _update_scaffold_to_design(scaffold_node, design_dict: dict) -> bool:
     else:
         new_uid = compute_uid(dqn)
 
-    sn_type = type(scaffold_node).__name__
-    eid = (scaffold_node.element_id)
+    backend = get_backend()
+    old_uid = scaffold_node._uid_value()
+    if not old_uid:
+        log.warning("Scaffold %s has no uid — cannot migrate", dqn)
+        return False
 
-    set_parts = [
-        "n.qualified_name = $qn",
-        "n.name = $name",
-        "n.kind = $kind",
-        "n.tags = $tags",
-        "n.uid = $uid",
-    ]
-    params: dict = {
-        "eid": eid,
-        "qn": dqn,
+    # Capture actual DB labels before any re-keying.
+    old_labels = set(backend.graph.get_labels(old_uid)) or {type(scaffold_node).__name__}
+    target_cls = CodeGraphNode._registry.get(dtype) if dtype else None
+    new_labels = (
+        set(getattr(target_cls, "inherited_labels", lambda: [dtype])())
+        if target_cls else ({dtype} if dtype else old_labels)
+    )
+    stale = old_labels - new_labels
+    missing = new_labels - old_labels
+
+    props: dict = {
+        "qualified_name": dqn,
         "name": dname,
         "kind": dkind,
         "tags": ["design"],
@@ -570,75 +576,25 @@ def _update_scaffold_to_design(scaffold_node, design_dict: dict) -> bool:
     if "::" in dqn:
         parent_qn = dqn.rsplit("::", 1)[0]
         if parent_qn and parent_qn != dqn:
-            set_parts.append("n.parent_qualified_name = $parent_qn")
-            params["parent_qn"] = parent_qn
+            props["parent_qualified_name"] = parent_qn
     if dts:
-        set_parts.append("n.type_signature = $ts")
-        params["ts"] = dts
+        props["type_signature"] = dts
     if dvis:
-        set_parts.append("n.visibility = $vis")
-        params["vis"] = dvis
+        props["visibility"] = dvis
     if dbd:
-        set_parts.append("n.brief_description = $bd")
-        params["bd"] = dbd
+        props["brief_description"] = dbd
 
-    label_ops = ""
-    stale: set[str] = set()
-    if dtype:
-        # Query the ACTUAL labels from Neo4j, not from the Python
-        # class hierarchy.  Neomodel may resolve a node with labels
-        # {AttributeNode, MemberNode} as either AttributeNode or
-        # MemberNode; relying on inherited_labels() from the Python
-        # type loses the concrete label (e.g. AttributeNode) and
-        # skips the REMOVE step.  Using actual DB labels ensures we
-        # know exactly what to remove.
-        actual_label_rows, __ = get_backend().execute_raw(
-            "MATCH (n) WHERE elementId(n) = $eid RETURN labels(n)",
-            {"eid": eid},
-        )
-        old_labels = set(actual_label_rows[0][0]) if actual_label_rows else {sn_type}
-        target_cls = CodeGraphNode._registry.get(dtype)
-        new_labels = set(getattr(target_cls, "inherited_labels", lambda: [dtype])()) if target_cls else {dtype}
-        stale = old_labels - new_labels
-        # Only run migration if the node doesn't already have the target label
-        # Set ALL inherited labels, not just dtype.  Otherwise nodes
-        # that lack a parent label (e.g. LiteralNode→EnumValueNode
-        # where LiteralNode has no MemberNode) only get the leaf label
-        # and fail neomodel resolution later.
-        missing_labels = new_labels - old_labels
-        label_ops = " ".join(f"SET n:`{l}`" for l in sorted(missing_labels))
-        for sl in sorted(stale):
-            try:
-                get_backend().execute_raw(
-                    "MATCH (n) WHERE elementId(n) = $eid REMOVE n:`" + sl + "`",
-                    {"eid": eid},
-                )
-            except Exception as exc:
-                log.warning("REMOVE label %s failed for %s: %s", sl, dqn, exc)
-
-    query = (
-        f"MATCH (n) WHERE elementId(n) = $eid "
-        f"{label_ops}"
-        f"SET {', '.join(set_parts)}"
-    )
     try:
-        get_backend().execute_raw(query, params)
-        # ── Post-update: verify no stale labels remain ──
+        updated = backend.graph.update_properties(old_uid, props)
+        if not updated:
+            log.warning("Scaffold %s not found by uid — cannot migrate", old_uid)
+            return False
+        # After re-keying, the node lives at new_uid.
+        live_uid = new_uid or old_uid
         if stale:
-            for sl in sorted(stale):
-                check_results, _ = get_backend().execute_raw(
-                    "MATCH (n) WHERE elementId(n) = $eid AND n:`" + sl + "` RETURN n",
-                    {"eid": eid},
-                )
-                if check_results:
-                    log.warning(
-                        "Scaffold %s still has stale label %s after update; forcing removal",
-                        dqn, sl,
-                    )
-                    get_backend().execute_raw(
-                        "MATCH (n) WHERE elementId(n) = $eid REMOVE n:`" + sl + "`",
-                        {"eid": eid},
-                    )
+            backend.graph.remove_labels(live_uid, sorted(stale))
+        if missing:
+            backend.graph.update_properties(live_uid, {}, add_labels=sorted(missing))
         log.info("Updated scaffold %s → %s (labels %s → %s)",
                  getattr(scaffold_node, "qualified_name", "?"), dqn,
                  sorted(old_labels), sorted(new_labels))
@@ -1163,18 +1119,10 @@ def _persist_verifications(
                 step = steps[i]
                 try:
                     # Remove old CALLEE edge, create new one.
-                    get_backend().execute_raw(
-                        "MATCH (step:TestStepNode {qualified_name: $sqn})-[r:CALLEE]->() "
-                        "DELETE r",
-                        {"sqn": step.qualified_name},
+                    get_backend().requirements.replace_callee(
+                        step.qualified_name, callee_qn,
                     )
-                    step_uid = get_backend().graph.resolve_uid(step.qualified_name)
-                    callee_uid = get_backend().graph.resolve_uid(callee_qn)
-                    if step_uid and callee_uid:
-                        get_backend().graph.merge_relationship(
-                            step_uid, "CALLEE", callee_uid,
-                        )
-                        callee_updated += 1
+                    callee_updated += 1
                     log.debug(
                         "CALLEE updated: step %s → %s",
                         step.qualified_name, callee_qn,

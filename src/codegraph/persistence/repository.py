@@ -129,6 +129,30 @@ class GraphRepository(ABC):
         """Delete a node (DETACH) by uid."""
         ...
 
+    @abstractmethod
+    def delete_by_source(self, source: str) -> int:
+        """Delete ALL nodes carrying *source* in one aggregate operation.
+
+        Edges cascade (DETACH semantics).  Never per-node round trips —
+        backends implement this as a single native statement (Cypher
+        ``DETACH DELETE`` / SQL ``DELETE`` with FK cascade).
+
+        Returns:
+            The number of nodes deleted.
+        """
+        ...
+
+    @abstractmethod
+    def delete_by_uids(self, uids: list[str]) -> int:
+        """Delete all nodes with the given uids in one aggregate operation.
+
+        Edges cascade.  Idempotent — uids that don't exist are ignored.
+
+        Returns:
+            The number of nodes deleted.
+        """
+        ...
+
     # ── Relationships ─────────────────────────────────────────────
 
     @abstractmethod

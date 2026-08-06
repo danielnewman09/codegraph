@@ -22,7 +22,7 @@ from codegraph.backends.neo4j.connection import Neo4jConnection
 from codegraph.backends.neo4j.graph_repository import Neo4jGraphRepository
 from codegraph.backends.neo4j.memory_repository import Neo4jMemoryRepository
 from codegraph.backends.neo4j.requirements_repository import Neo4jRequirementsRepository
-from codegraph.backends.neo4j.node_ops import Neo4jNodeOps
+from codegraph.backends.neo4j.node_ops import Neo4jNodeOps, _node_labels
 from codegraph.backends.neo4j.rel_ops import Neo4jRelOps
 from codegraph.backends.neo4j.bulk_ops import Neo4jBulkOps
 from codegraph.models.tags import CodeGraphNode
@@ -59,6 +59,29 @@ class Neo4jBackend(Backend):
     @override
     def initialize(self, config: BackendConfig) -> None:
         self._conn.ensure_driver()
+        self.apply_schema()
+
+    @override
+    def apply_schema(self) -> None:
+        """Create per-label ``uid`` indexes for every registered model.
+
+        The batched write path (``UNWIND ... MERGE (n:Label {uid})``)
+        and the 1-hop retrieval path both match on ``uid``; without
+        these indexes they degrade to unindexed label scans — measured
+        ~80x slower at 20k nodes.  Replaces neomodel's
+        ``install_all_labels()``, which is a no-op for the pure-Python
+        model layer.  Idempotent; safe to call repeatedly.
+        """
+        self._conn.ensure_driver()
+        for node_cls in CodeGraphNode._registry.values():
+            label = _node_labels(node_cls)[0]
+            try:
+                self._conn.execute_raw(
+                    f"CREATE INDEX IF NOT EXISTS FOR (n:`{label}`) ON (n.uid)"
+                )
+            except Exception:
+                # Best-effort — a missing label/type must not break startup.
+                continue
 
     @override
     def health_check(self) -> bool:
@@ -134,6 +157,22 @@ class Neo4jBackend(Backend):
     @override
     def get_composed_children(self, node: CodeGraphNode) -> list[CodeGraphNode]:
         return self._rel_ops.get_composed_children(node)
+
+    @override
+    def get_edges_bulk(
+        self,
+        nodes: list[CodeGraphNode],
+    ) -> dict[str, list[EdgeDescriptor]]:
+        uids = [n._uid_value() for n in nodes if n._uid_value()]
+        return self._rel_ops.get_edges_for_uids(uids)
+
+    @override
+    def get_composed_children_bulk(
+        self,
+        nodes: list[CodeGraphNode],
+    ) -> dict[str, list[CodeGraphNode]]:
+        uids = [n._uid_value() for n in nodes if n._uid_value()]
+        return self._rel_ops.get_composed_children_for_uids(uids)
 
     @override
     def get_all_edges(self, node: CodeGraphNode) -> list[EdgeDescriptor]:

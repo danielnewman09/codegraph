@@ -100,6 +100,11 @@ def layer_graph_to_cytoscape(
     edges: list[dict] = []
     seen: set[str] = set()
 
+    def _dbg(msg: str) -> None:
+        import os as _os
+        if _os.environ.get("CODEGRAPH_DEBUG") == "1":
+            print(f"[DBG cytoscape] {msg}", flush=True)
+
     # Build a mapping from uid → display name AND a reverse mapping
     # from uid → parent compound qualified_name (for redirecting edges
     # that target collapsed leaf members).
@@ -131,19 +136,49 @@ def layer_graph_to_cytoscape(
         _walk_entry(entry, parent_id=None, nodes=nodes, edges=edges,
                     seen=seen, layer=layer, key_to_display=key_to_display,
                     collapse_members=collapse_members)
+    _dbg(f"walked: {len(nodes)} nodes, {len(edges)} edges")
 
     # Resolve edge targets: redirect edges pointing at collapsed leaf
     # members to their parent compound so they don't get dropped by the
     # dangling-edge filter below.
+    _dbg("resolving collapsed-member edge targets...")
     node_ids_pre = {n["data"]["id"] for n in nodes}
+    # Build a reverse display-name → uid index ONCE (O(N)); the original
+    # code scanned every node per unresolved edge (O(E × N)).  Only uids
+    # with a known parent compound are candidates — matches the original
+    # first-wins scan semantics exactly.
+    display_to_uid: dict[str, str] = {}
+    for uid, display in key_to_display.items():
+        if uid in uid_to_parent:
+            display_to_uid.setdefault(display, uid)
     for edge in edges:
         target = edge["data"]["target"]
         if target not in node_ids_pre:
-            for uid, display in key_to_display.items():
-                if display == target and uid in uid_to_parent:
-                    resolved = uid_to_parent[uid]
-                    edge["data"]["target"] = resolved
-                    break
+            uid = display_to_uid.get(target)
+            if uid:
+                edge["data"]["target"] = uid_to_parent[uid]
+    _dbg("edge target resolution done")
+
+    # Deduplicate AFTER member-target redirection: several distinct
+    # member-targeted edges (different members, same parent compound)
+    # collapse to one (source, target, label) once targets are
+    # redirected to the parent — e.g. N members of class A depending on
+    # members of class B must produce ONE edge A→B.  Deduping before
+    # redirection misses these because the keys differ pre-redirect.
+    seen_edges: set[tuple[str, str, str]] = set()
+    unique_edges: list[dict] = []
+    for edge in edges:
+        key = (
+            edge["data"]["source"],
+            edge["data"]["target"],
+            edge["data"]["label"],
+        )
+        if key in seen_edges:
+            continue
+        seen_edges.add(key)
+        unique_edges.append(edge)
+    edges = unique_edges
+    _dbg(f"after redirect+dedup: {len(edges)} edges")
 
     # Sanity check: drop edges whose source or target doesn't have a
     # matching node ID.  This handles dangling references to entities

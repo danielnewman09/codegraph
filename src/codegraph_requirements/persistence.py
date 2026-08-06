@@ -87,20 +87,9 @@ def _persist_node(node) -> object:
 
 
 def _create_edge(source, target, edge_type: str) -> bool:
-    """Create any edge between two saved nodes using raw Cypher MERGE."""
+    """Create any edge between two saved nodes via the active backend."""
     try:
-        query = (
-            f"MATCH (s), (t) "
-            f"WHERE elementId(s) = $source_id AND elementId(t) = $target_id "
-            f"MERGE (s)-[:{edge_type}]->(t)"
-        )
-        get_backend().execute_raw(
-            query,
-            {
-                "source_id": source.element_id,
-                "target_id": target.element_id,
-            },
-        )
+        get_backend().connect(source, edge_type, target)
         return True
     except Exception as exc:
         log.warning("Failed to create %s edge: %s", edge_type, exc)
@@ -429,110 +418,65 @@ def _cleanup_orphaned_scaffolds() -> int:
 
     Returns the number of nodes deleted.
     """
-    # Step 1: Find scaffold nodes that ARE directly referenced by
-    #         AssertionNode/TestStepNode edges.
-    query_direct = """
-    MATCH (ca)-[r]->(s)
-    WHERE (ca:AssertionNode OR ca:TestStepNode)
-      AND (r:LEFT_OPERAND OR r:RIGHT_OPERAND OR r:CALLEE)
-      AND 'scaffold' IN s.tags
-    RETURN DISTINCT elementId(s) AS eid
-    """
-    try:
-        results, _ = get_backend().execute_raw(query_direct)
-    except Exception as exc:
-        log.warning("_cleanup_orphaned_scaffolds: direct query failed: %s", exc)
-        return 0
+    backend = get_backend()
+    req = backend.requirements
 
-    directly_referenced_eids = {row[0] for row in results}
+    # Step 1: Scaffold nodes directly referenced by AssertionNode /
+    #         TestStepNode edges (LEFT_OPERAND / RIGHT_OPERAND / CALLEE).
+    directly_referenced_uids = set(req.find_scaffold_uids(directly_referenced=True))
 
-    # Step 2: Find scaffold ClassNodes that have at least one COMPOSES child
-    #         that is directly referenced.
-    query_parent = """
-    MATCH (parent:ClassNode)-[:COMPOSES]->(child)
-    WHERE 'scaffold' IN parent.tags
-      AND elementId(child) IN $referenced_eids
-    RETURN DISTINCT elementId(parent) AS eid
-    """
-    try:
-        results, _ = get_backend().execute_raw(
-            query_parent,
-            {"referenced_eids": list(directly_referenced_eids)},
-        )
-    except Exception as exc:
-        log.warning("_cleanup_orphaned_scaffolds: parent query failed: %s", exc)
-        return 0
+    # Step 2: Scaffold ClassNodes that compose at least one referenced node.
+    referenced_parent_uids = set(
+        req.find_scaffold_parents_of_referenced(list(directly_referenced_uids))
+    )
 
-    referenced_parent_eids = {row[0] for row in results}
-    all_reachable = directly_referenced_eids | referenced_parent_eids
+    all_reachable = directly_referenced_uids | referenced_parent_uids
 
-    # Step 3: Find ALL scaffold nodes and delete those not in the reachable set.
-    query_all = """
-    MATCH (s)
-    WHERE 'scaffold' IN s.tags
-    RETURN elementId(s) AS eid, s.qualified_name AS qn, labels(s) AS lbls
-    """
-    try:
-        results, _ = get_backend().execute_raw(query_all)
-    except Exception as exc:
-        log.warning("_cleanup_orphaned_scaffolds: list query failed: %s", exc)
-        return 0
+    # Step 3: All scaffold uids; orphans = not reachable.
+    all_scaffold_uids = set(req.find_scaffold_uids())
+    orphan_uids = all_scaffold_uids - all_reachable
 
-    orphan_eids = []
-    for row in results:
-        eid, qn, lbls = row[0], row[1], row[2]
-        if eid not in all_reachable:
-            orphan_eids.append(eid)
-
-    if not orphan_eids:
+    if not orphan_uids:
         log.info(
             "_cleanup_orphaned_scaffolds: all %d scaffold(s) are reachable — "
             "%d directly, %d via parent ClassNode",
-            len(results),
-            len(directly_referenced_eids),
-            len(referenced_parent_eids),
+            len(all_scaffold_uids),
+            len(directly_referenced_uids),
+            len(referenced_parent_uids),
         )
         return 0
 
     log.warning(
         "_cleanup_orphaned_scaffolds: %d of %d scaffold(s) are orphaned "
         "(%d directly referenced, %d via parent ClassNode)",
-        len(orphan_eids), len(results),
-        len(directly_referenced_eids), len(referenced_parent_eids),
+        len(orphan_uids), len(all_scaffold_uids),
+        len(directly_referenced_uids), len(referenced_parent_uids),
     )
-    # Log first 10 orphan names, then summarise
-    for i, (eid, qn) in enumerate(zip(
-        [r[0] for r in results if r[0] in orphan_eids],
-        [r[1] for r in results if r[0] in orphan_eids],
-    )):
+    for i, uid in enumerate(sorted(orphan_uids)):
         if i < 10:
-            lbls = [r[2] for r in results if r[0] == eid]
+            qn = backend.graph.resolve_qualified_name(uid)
             log.info(
-                "_cleanup_orphaned_scaffolds: orphaned scaffold %s (%s)",
-                qn or "?", lbls[0] if lbls else "?",
+                "_cleanup_orphaned_scaffolds: orphaned scaffold %s",
+                qn or uid,
             )
         else:
             log.info(
                 "_cleanup_orphaned_scaffolds: ... and %d more orphaned scaffolds",
-                len(orphan_eids) - 10,
+                len(orphan_uids) - 10,
             )
             break
 
     # Step 4: Delete orphaned scaffold nodes (and their edges).
-    for eid in orphan_eids:
+    for uid in orphan_uids:
         try:
-            get_backend().execute_raw(
-                "MATCH (s) WHERE elementId(s) = $eid "
-                "DETACH DELETE s",
-                {"eid": eid},
-            )
+            req.delete_scaffold(uid)
         except Exception as exc:
             log.warning(
                 "_cleanup_orphaned_scaffolds: failed to delete %s: %s",
-                eid, exc,
+                uid, exc,
             )
 
-    return len(orphan_eids)
+    return len(orphan_uids)
 
 
 def _delete_llr_subtree(llr: LLR) -> None:

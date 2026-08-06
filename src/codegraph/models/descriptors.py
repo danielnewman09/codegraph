@@ -268,8 +268,37 @@ class RelationshipManager:
 
     # ── Traversal ──────────────────────────────────────────────────
 
+    def _resolved_target_class(self) -> type | None:
+        """Resolve the declared ``target_class`` to a registered type."""
+        tc = self._rel.target_class
+        if isinstance(tc, type):
+            return tc
+        leaf = tc.rsplit(".", 1)[-1]
+        from codegraph.models.tags import CodeGraphNode
+
+        return CodeGraphNode._registry.get(leaf)
+
+    def _target_matches(self, edge) -> bool:
+        """True when the edge's connected node matches the declared target class.
+
+        Restores neomodel's ``RelationshipTo(Class, rel_type)`` contract,
+        which the pure-Python descriptor migration dropped: traversal must
+        be filtered to the declared target type, otherwise e.g.
+        ``NamespaceNode.classes`` (COMPOSES -> ClassNode) also returns
+        interfaces, enums, functions, ... that share the edge type.
+        """
+        target_cls = self._resolved_target_class()
+        if target_cls is None:
+            return True  # unresolvable declaration — don't over-filter
+        if edge.target_type == target_cls.__name__:
+            return True
+        from codegraph.models.tags import CodeGraphNode
+
+        candidate = CodeGraphNode._registry.get(edge.target_type)
+        return candidate is not None and issubclass(candidate, target_cls)
+
     def all(self) -> list[Any]:
-        """Return all connected target nodes."""
+        """Return all connected target nodes matching the declared class."""
         from codegraph.backends import get_backend
 
         backend = get_backend()
@@ -281,6 +310,8 @@ class RelationshipManager:
             if self._rel.direction == "OUTGOING" and not edge.is_outgoing:
                 continue
             if self._rel.direction == "INCOMING" and edge.is_outgoing:
+                continue
+            if not self._target_matches(edge):
                 continue
             target = backend.graph.find_by_uid(edge.target_uid)
             if target is not None:

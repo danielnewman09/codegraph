@@ -198,6 +198,13 @@ class MarkdownExporter:
         self.leaf_types = leaf_types
         self._rel_lines: list[str] = []
         self._file_names: list[str] = []
+        self._flat: dict | None = None
+
+    def _flat_index(self) -> dict:
+        """Cached flat key → entry index (see PlantUMLExporter note)."""
+        if self._flat is None:
+            self._flat = self.graph._flat_index()
+        return self._flat
 
     def export(self) -> str:
         """Return the Markdown representation as a string."""
@@ -384,7 +391,9 @@ class MarkdownExporter:
             if rel_type in _NESTING_REL_TYPES:
                 continue
             label = _INLINE_REL_TYPES.get(rel_type)
-            display_key = self.graph.resolve_target_name(target_key)
+            display_key = self.graph.resolve_target_name(
+                target_key, flat=self._flat_index()
+            )
             if label:
                 lines.append(f"**{label}:** `{display_key}`")
             else:

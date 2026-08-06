@@ -108,9 +108,14 @@ def main(argv: list[str] | None = None) -> None:
     p_status = sub.add_parser(
         "status", help="Show container status and connection info.",
         description="Print the container's state, ports, data directory, and "
-                    "Bolt connectivity check.",
+                    "Bolt connectivity check. With --backend sqlite, prints "
+                    "the SQLite file state instead.",
     )
     _add_project_dir_arg(p_status)
+    p_status.add_argument(
+        "--backend", choices=["auto", "neo4j", "sqlite"], default="auto",
+        help="Which backend to report on (default: auto).",
+    )
 
     # --- logs ---
     p_logs = sub.add_parser(
@@ -170,17 +175,23 @@ def main(argv: list[str] | None = None) -> None:
 
     # --- backup ---
     p_backup = sub.add_parser(
-        "backup", help="Create a database backup (dump or tar).",
+        "backup", help="Create a database backup (dump, tar, or file copy).",
         description=(
-            "Create a backup of the Neo4j database. The container is briefly "
-            "stopped for a consistent snapshot, then restarted."
+            "Create a backup of the database. Neo4j: the container is briefly "
+            "stopped for a consistent snapshot, then restarted. SQLite: a "
+            "consistent file copy (no Docker)."
         ),
     )
     _add_project_dir_arg(p_backup)
     p_backup.add_argument(
+        "--backend", choices=["auto", "neo4j", "sqlite"], default="auto",
+        help="Backend to back up. 'auto' uses CODEGRAPH_BACKEND / SQLITE_PATH "
+             "(default: sqlite).",
+    )
+    p_backup.add_argument(
         "--mode", choices=["dump", "tar"], default="dump",
-        help="Backup mode: 'dump' (logical neo4j-admin dump, default) or "
-             "'tar' (filesystem-level tar.gz).",
+        help="Backup mode (Neo4j only): 'dump' (logical neo4j-admin dump, "
+             "default) or 'tar' (filesystem-level tar.gz).",
     )
     p_backup.add_argument(
         "--keep", type=int, default=None,
@@ -191,11 +202,16 @@ def main(argv: list[str] | None = None) -> None:
     p_restore = sub.add_parser(
         "restore", help="Restore the database from a backup file.",
         description=(
-            "Restore the Neo4j database from a backup file. WARNING: this "
-            "destroys the current database. A safety backup is created first."
+            "Restore the database from a backup file. WARNING: this "
+            "destroys the current database. A safety backup is created first. "
+            "Neo4j restores from a container; SQLite restores by file copy."
         ),
     )
     _add_project_dir_arg(p_restore)
+    p_restore.add_argument(
+        "--backend", choices=["auto", "neo4j", "sqlite"], default="auto",
+        help="Backend to restore into. 'auto' uses CODEGRAPH_BACKEND (default: sqlite).",
+    )
     p_restore.add_argument(
         "backup_file", nargs="?", default="",
         help="Backup file to restore. If omitted, lists available backups.",
@@ -207,52 +223,101 @@ def main(argv: list[str] | None = None) -> None:
         description="List all backup files with size, mode, and timestamp.",
     )
     _add_project_dir_arg(p_backups)
+    p_backups.add_argument(
+        "--backend", choices=["auto", "neo4j", "sqlite"], default="auto",
+        help="Which backend's backups to list (default: auto).",
+    )
 
     args = parser.parse_args(argv)
 
-    cfg: Neo4jContainerConfig = load_container_config(args.project_dir)
+    from codegraph.persistence import sqlite_cli
+
+    def _backend_is(args) -> bool:
+        """Resolve --backend: explicit flag wins; else CODEGRAPH_BACKEND."""
+        flag = getattr(args, "backend", "auto")
+        if flag == "sqlite":
+            return True
+        if flag == "neo4j":
+            return False
+        return sqlite_cli.is_sqlite_configured(args.project_dir)
+
+    cfg: Neo4jContainerConfig | None = None
+
+    def _config() -> Neo4jContainerConfig:
+        """Load the container config lazily (not needed for sqlite)."""
+        nonlocal cfg
+        if cfg is None:
+            cfg = load_container_config(args.project_dir)
+        return cfg
 
     if args.command == "start":
-        start_container(cfg, wait=not args.no_wait)
+        start_container(_config(), wait=not args.no_wait)
     elif args.command == "stop":
-        stop_container(cfg)
+        stop_container(_config())
     elif args.command == "restart":
-        restart_container(cfg)
+        restart_container(_config())
     elif args.command == "status":
-        show_status(cfg)
+        if _backend_is(args):
+            sqlite_cli.sqlite_status(args.project_dir)
+        else:
+            show_status(_config())
     elif args.command == "logs":
-        show_logs(cfg, follow=args.follow)
+        show_logs(_config(), follow=args.follow)
     elif args.command == "shell":
-        sys.exit(open_shell(cfg))
+        sys.exit(open_shell(_config()))
     elif args.command == "browser":
-        browser_url(cfg, open_browser=not args.no_open)
+        browser_url(_config(), open_browser=not args.no_open)
     elif args.command == "init":
-        init_project(cfg, pull=not args.no_pull)
+        init_project(_config(), pull=not args.no_pull)
     elif args.command == "rm":
-        remove_container(cfg, force=args.force)
+        remove_container(_config(), force=args.force)
     elif args.command == "backup":
-        backup_database(cfg, mode=args.mode, keep=args.keep)
+        if _backend_is(args):
+            sqlite_cli.sqlite_backup(args.project_dir, keep=args.keep)
+        else:
+            backup_database(_config(), mode=args.mode, keep=args.keep)
     elif args.command == "restore":
-        if not args.backup_file:
+        if _backend_is(args):
+            if not args.backup_file:
+                backups = sqlite_cli.sqlite_list_backups(args.project_dir)
+                if not backups:
+                    print("No backups found.")
+                else:
+                    print(f"Available backups in {args.project_dir}/codegraph/backups:")
+                    for b in backups:
+                        print(f"  {b['name']}  ({b['size_human']}, {b['mode']}, {b['mtime']})")
+                    print("\nUsage: codegraph-db restore <backup_file> --backend sqlite")
+            else:
+                sqlite_cli.sqlite_restore(args.project_dir, args.backup_file)
+        elif not args.backup_file:
             # List available backups if no file specified.
-            backups = list_backups(cfg)
+            backups = list_backups(_config())
             if not backups:
                 print("No backups found.")
             else:
-                print(f"Available backups in {cfg.neo4j_dir / 'backups'}:")
+                print(f"Available backups in {_config().neo4j_dir / 'backups'}:")
                 for b in backups:
                     print(f"  {b['name']}  ({b['size_human']}, {b['mode']}, {b['mtime']})")
                 print(f"\nUsage: codegraph-db restore <backup_file>")
         else:
-            restore_database(cfg, args.backup_file)
+            restore_database(_config(), args.backup_file)
     elif args.command == "backups":
-        backups = list_backups(cfg)
-        if not backups:
-            print("No backups found.")
+        if _backend_is(args):
+            backups = sqlite_cli.sqlite_list_backups(args.project_dir)
+            if not backups:
+                print("No backups found.")
+            else:
+                print(f"Backups in {args.project_dir}/codegraph/backups:")
+                for b in backups:
+                    print(f"  {b['name']}  ({b['size_human']}, {b['mode']}, {b['mtime']})")
         else:
-            print(f"Backups in {cfg.neo4j_dir / 'backups'}:")
-            for b in backups:
-                print(f"  {b['name']}  ({b['size_human']}, {b['mode']}, {b['mtime']})")
+            backups = list_backups(_config())
+            if not backups:
+                print("No backups found.")
+            else:
+                print(f"Backups in {_config().neo4j_dir / 'backups'}:")
+                for b in backups:
+                    print(f"  {b['name']}  ({b['size_human']}, {b['mode']}, {b['mtime']})")
 
 
 if __name__ == "__main__":

@@ -223,7 +223,11 @@ class LayerGraph:
         # Fallback for types without UniqueIdProperty (e.g. ParameterNode)
         return obj.name
 
-    def resolve_target_name(self, target_key: str) -> str:
+    def resolve_target_name(
+        self,
+        target_key: str,
+        flat: dict[str, "CompositeEntry"] | None = None,
+    ) -> str:
         """Resolve a target key (uid hash) to a human-readable display name.
 
         Looks up *target_key* in the flat entry index and returns the
@@ -233,11 +237,17 @@ class LayerGraph:
 
         Args:
             target_key: The target node's key (typically a uid hash).
+            flat: Optional prebuilt flat key → entry index.  Callers
+                that resolve MANY targets (exporters) MUST pass a
+                cached index — the default builds the index from
+                scratch per call, which is O(N) per resolution and
+                quadratic over a whole export.
 
         Returns:
             A human-readable display name for the target node.
         """
-        flat = self._flat_index()
+        if flat is None:
+            flat = self._flat_index()
         entry = flat.get(target_key)
         if entry is not None:
             qn = getattr(entry.node, "qualified_name", "") or ""
@@ -801,13 +811,30 @@ class LayerGraph:
             key_to_entry[key] = entry
 
         child_keys: set[str] = set()
+
+        # Batch-fetch children + edges once.  The ABC default falls back
+        # to per-node queries; the Neo4j backend batches (2 queries for
+        # edges, 1 for children) so tree assembly stays O(batches) rather
+        # than O(nodes) round trips at graph scale.
+        node_list = list(nodes.values())
+        children_by_uid = backend.get_composed_children_bulk(node_list)
+        edges_by_uid = backend.get_edges_bulk(node_list)
+
         for key, node in nodes.items():
             canonical_key = duplicate_to_canonical.get(key, key)
             entry = key_to_entry.get(canonical_key)
             if entry is None:
                 continue
 
-            for child in backend.get_composed_children(node):
+            uid = node._uid_value()
+            if uid is None:
+                children = backend.get_composed_children(node)
+                edges = backend.get_all_edges(node)
+            else:
+                children = children_by_uid.get(uid, [])
+                edges = edges_by_uid.get(uid, [])
+
+            for child in children:
                 child_key = cls._node_key(child)
                 child_key = duplicate_to_canonical.get(child_key, child_key)
                 if child_key not in key_to_entry:
@@ -817,7 +844,7 @@ class LayerGraph:
                 entry.children.setdefault(child_type, {})[child_key] = child_entry
                 child_keys.add(child_key)
 
-            for edge in backend.get_all_edges(node):
+            for edge in edges:
                 if edge.relation_type in ("COMPOSES", "HAS_IMPLEMENTATION"):
                     continue
                 if not edge.is_outgoing:

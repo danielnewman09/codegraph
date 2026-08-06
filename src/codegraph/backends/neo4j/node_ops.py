@@ -108,6 +108,44 @@ def _inflate_props(node_type: type, raw_props: dict[str, Any]) -> dict[str, Any]
                     pass
     return props
 
+def _build_save_payload(node: "CodeGraphNode") -> tuple[str, str, dict]:
+    """Compute the labels, deterministic uid, and props for *node*.
+
+    Mirrors ``Neo4jNodeOps.save()`` exactly (same uid derivation,
+    same PropertyRegistry prop building, same empty-value skipping,
+    same deflation) so the batched bulk-write path stores byte-identical
+    rows to the per-node path.  Sets ``node.uid`` in place, matching
+    ``save()``.
+
+    Returns:
+        ``(labels, uid, props)`` — *labels* is the ``:``-joined Neo4j
+        label chain, *props* includes the ``uid`` key.
+    """
+    node_type = type(node)
+
+    # Ensure qualified_name is set before computing uid.
+    if PropertyRegistry.has_property(node_type, "qualified_name"):
+        if not getattr(node, "qualified_name", ""):
+            node.qualified_name = node._compute_qualified_name()
+
+    computed = node._compute_uid()
+    node.uid = computed
+    labels = ":".join(_node_labels(node_type))
+
+    # Build property dict using PropertyRegistry (supports both old and new)
+    props: dict = {}
+    declared = PropertyRegistry.properties_of(node_type)
+    for pname, prop in declared.items():
+        if _is_relationship_descriptor(prop):
+            continue
+        val = getattr(node, pname, None)
+        if val is None or val == "" or val == []:
+            continue
+        props[pname] = _deflate_value(prop, val)
+    props["uid"] = computed
+    return labels, computed, props
+
+
 class Neo4jNodeOps:
     """Node CRUD + query operations for the Neo4j backend.
 
@@ -134,28 +172,7 @@ class Neo4jNodeOps:
 
         Returns the saved node.
         """
-        node_type = type(node)
-
-        # Ensure qualified_name is set before computing uid.
-        if PropertyRegistry.has_property(node_type, "qualified_name"):
-            if not getattr(node, "qualified_name", ""):
-                node.qualified_name = node._compute_qualified_name()
-
-        computed = node._compute_uid()
-        node.uid = computed
-        labels = ":".join(_node_labels(node_type))
-
-        # Build property dict using PropertyRegistry (supports both old and new)
-        props: dict = {}
-        declared = PropertyRegistry.properties_of(node_type)
-        for pname, prop in declared.items():
-            if _is_relationship_descriptor(prop):
-                continue
-            val = getattr(node, pname, None)
-            if val is None or val == "" or val == []:
-                continue
-            props[pname] = _deflate_value(prop, val)
-        props["uid"] = computed
+        labels, computed, props = _build_save_payload(node)
 
         query = (
             f"MERGE (n:{labels} {{uid: $uid}})"
@@ -326,6 +343,24 @@ class Neo4jNodeOps:
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         query = f"MATCH (n:`{label}`) {where} RETURN n"
         results, _ = db.cypher_query(query, params)
+        return [self.inflate(r[0], node_type) for r in results if r[0]]
+
+    def find_all_by_uids(
+        self,
+        node_type: type["CodeGraphNode"],
+        uids: list[str],
+    ) -> list["CodeGraphNode"]:
+        """Return all nodes of *node_type* whose ``uid`` is in *uids*.
+
+        One batched query — the bulk counterpart of :meth:`get`, used
+        by the 1-hop neighbor expansion in ``bulk_load_by_tag`` to
+        avoid a per-node round trip.
+        """
+        if not uids:
+            return []
+        label = _node_labels(node_type)[0]
+        query = f"MATCH (n:`{label}`) WHERE n.uid IN $uids RETURN n"
+        results, _ = db.cypher_query(query, {"uids": uids})
         return [self.inflate(r[0], node_type) for r in results if r[0]]
 
     def inflate(
@@ -499,7 +534,8 @@ class Neo4jNodeOps:
         query = (
             f"MATCH (n) WHERE n.uid = $uid "
             f"{label_ops} "
-            f"SET {', '.join(set_parts)}"
+            f"SET {', '.join(set_parts)} "
+            f"RETURN n"
         )
         results, _ = db.cypher_query(query, params)
         return len(results) > 0
@@ -512,6 +548,35 @@ class Neo4jNodeOps:
             {"uid": uid},
         )
         return results and results[0][0] > 0
+
+    def delete_by_source(self, source: str) -> int:
+        """Delete every node carrying *source* in ONE query (DETACH).
+
+        The aggregate counterpart of :meth:`delete_by_uid` — used by
+        ``clear_source`` at scale; per-node deletes were ~26ms/node.
+        """
+        results, _ = db.cypher_query(
+            "MATCH (n) WHERE n.source = $src "
+            "DETACH DELETE n RETURN count(n) AS cnt",
+            {"src": source},
+        )
+        return results[0][0] if results else 0
+
+    def delete_by_uids(self, uids: list[str]) -> int:
+        """Delete all nodes with the given uids in ONE query (DETACH).
+
+        Idempotent — missing uids are ignored.  Used by stale-node
+        pruning in incremental re-index (per-node deletes were
+        ~26ms/node).
+        """
+        if not uids:
+            return 0
+        results, _ = db.cypher_query(
+            "MATCH (n) WHERE n.uid IN $uids "
+            "DETACH DELETE n RETURN count(n) AS cnt",
+            {"uids": uids},
+        )
+        return results[0][0] if results else 0
 
     def find_uids_by_tag(self, tag: str) -> list[str]:
         """Return all uids for nodes whose tags array contains tag."""

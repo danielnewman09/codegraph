@@ -43,6 +43,10 @@ class InMemoryBackend(Backend):
 
     # ── Lifecycle ────────────────────────────────────────────────────
 
+    def apply_schema(self) -> None:
+        """In-memory backend needs no schema."""
+        return None
+
     def initialize(self, config: BackendConfig) -> None:
         """No-op — nothing to set up."""
         pass
@@ -309,6 +313,15 @@ class InMemoryBackend(Backend):
         """Save all nodes and relationships from a LayerGraph."""
         from codegraph.graph import CompositeEntry
 
+        def _connect_refs(entry: CompositeEntry, graph) -> None:
+            for rel_type, target_key, _target_type in entry.references:
+                target_entry = graph.entries.get(target_key)
+                if target_entry is not None:
+                    self.connect(entry.node, rel_type, target_entry.node)
+            for children in entry.children.values():
+                for child_entry in children.values():
+                    _connect_refs(child_entry, graph)
+
         def _save_entry(entry: CompositeEntry) -> None:
             self.save(entry.node)
             for children in entry.children.values():
@@ -322,15 +335,6 @@ class InMemoryBackend(Backend):
         # Connect reference edges
         for entry in layer_graph.entries.values():
             _connect_refs(entry, layer_graph)
-
-        def _connect_refs(entry: CompositeEntry, graph) -> None:
-            for rel_type, target_key, _target_type in entry.references:
-                target_entry = graph.entries.get(target_key)
-                if target_entry is not None:
-                    self.connect(entry.node, rel_type, target_entry.node)
-            for children in entry.children.values():
-                for child_entry in children.values():
-                    _connect_refs(child_entry, graph)
 
     def bulk_load_by_tag(self, tag: str) -> list["CodeGraphNode"]:
         """Load all nodes with *tag* plus 1-hop neighbors."""
@@ -491,6 +495,22 @@ class InMemoryGraphRepository:
             return False
         self._backend.delete(node)
         return True
+
+    def delete_by_source(self, source: str) -> int:
+        """Delete every node carrying *source* (edges cascade)."""
+        stale = [n for n in self._backend._nodes.values()
+                 if getattr(n, "source", None) == source]
+        for node in stale:
+            self._backend.delete(node)
+        return len(stale)
+
+    def delete_by_uids(self, uids: list[str]) -> int:
+        """Delete all nodes with the given uids (edges cascade)."""
+        deleted = 0
+        for uid in list(dict.fromkeys(uids)):
+            if self.delete_by_uid(uid):
+                deleted += 1
+        return deleted
 
     # ── Relationships ─────────────────────────────────────────────
 

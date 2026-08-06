@@ -3,13 +3,17 @@
 Converts DecisionNode + linked RationaleNode/TradeoffNode trees into
 Architecture Decision Records, suitable for documentation or agent
 context windows.  Also provides module-level memory summaries.
+
+All data access goes through the public backend APIs so the same code
+runs on Neo4j and SQLite.
 """
 
 from __future__ import annotations
 
 from codegraph.backends import get_backend
-
-from codegraph_memory.models.relationships import _inflate_code_node
+from codegraph_memory.models.decision import DecisionNode
+from codegraph_memory.models.rationale import RationaleNode
+from codegraph_memory.models.tradeoff import TradeoffNode
 
 
 def export_adr(
@@ -31,16 +35,9 @@ def export_adr(
     backend = get_backend()
 
     # Fetch the decision
-    results, _ = backend.execute_raw(
-        "MATCH (d:DecisionNode {qualified_name: $qname}) RETURN d",
-        {"qname": decision_qualified_name},
-    )
-    if not results:
-        return f"<!-- Decision '{decision_qualified_name}' not found -->"
-
-    decision = _inflate_code_node(results[0][0])
+    decision = backend.get(DecisionNode, qualified_name=decision_qualified_name)
     if decision is None:
-        return f"<!-- Could not inflate decision '{decision_qualified_name}' -->"
+        return f"<!-- Decision '{decision_qualified_name}' not found -->"
 
     lines: list[str] = []
     h = "#" * depth
@@ -74,13 +71,15 @@ def export_adr(
         lines.append("")
 
     # ── Rationale ──────────────────────────────────────────────────
-    #TODO: remove raw cypher from this place
-    results, _ = backend.execute_raw(
-        "MATCH (r:RationaleNode)-[:REFINES]->(d:DecisionNode) "
-        "WHERE d.qualified_name = $qname RETURN r",
-        {"qname": decision_qualified_name},
-    )
-    rationales = [n for n in (_inflate_code_node(r[0]) for r in results) if n is not None]
+    decision_uid = decision._uid_value()
+    rationales = []
+    for rat in backend.find_all(RationaleNode):
+        refines = [
+            e for e in backend.get_all_edges_outgoing(rat)
+            if e.relation_type == "REFINES" and e.target_uid == decision_uid
+        ]
+        if refines:
+            rationales.append(rat)
     if rationales:
         lines.append(f"{h}# Rationale")
         lines.append("")
@@ -95,12 +94,15 @@ def export_adr(
     if motivated:
         motivated_uids = [n.uid for n in motivated if hasattr(n, "uid")]
         if motivated_uids:
-            results, _ = backend.execute_raw(
-                "MATCH (t:TradeoffNode)-[:TRADES_OFF]->(c) "
-                "WHERE c.uid IN $uids RETURN DISTINCT t",
-                {"uids": motivated_uids},
-            )
-            tradeoffs = [n for n in (_inflate_code_node(r[0]) for r in results) if n is not None]
+            tradeoffs = []
+            for to in backend.find_all(TradeoffNode):
+                trades_off = [
+                    e for e in backend.get_all_edges_outgoing(to)
+                    if e.relation_type == "TRADES_OFF"
+                    and e.target_uid in motivated_uids
+                ]
+                if trades_off:
+                    tradeoffs.append(to)
             if tradeoffs:
                 lines.append(f"{h}# Tradeoffs")
                 lines.append("")
@@ -111,17 +113,23 @@ def export_adr(
                     lines.append("")
 
     # ── Supersession chain ─────────────────────────────────────────
-    results, _ = backend.execute_raw(
-        "MATCH (d:DecisionNode)-[:SUPERSEDES]->(older) "
-        "WHERE d.qualified_name = $qname "
-        "RETURN older.qualified_name, older.content, older.decided_at, older.tags "
-        "ORDER BY older.decided_at DESC",
-        {"qname": decision_qualified_name},
-    )
-    if results:
+    superseded_rows = []
+    for edge in backend.get_all_edges_outgoing(decision):
+        if edge.relation_type != "SUPERSEDES":
+            continue
+        older = backend.graph.find_by_uid(edge.target_uid)
+        if older is not None:
+            superseded_rows.append((
+                getattr(older, "qualified_name", ""),
+                getattr(older, "content", ""),
+                getattr(older, "decided_at", None),
+                getattr(older, "tags", None) or [],
+            ))
+    superseded_rows.sort(key=lambda r: r[2] or "", reverse=True)
+    if superseded_rows:
         lines.append(f"{h}# Superseded By")
         lines.append("")
-        for row in results:
+        for row in superseded_rows:
             lines.append(f"### `{row[0]}`")
             lines.append("")
             lines.append(row[1] or "")

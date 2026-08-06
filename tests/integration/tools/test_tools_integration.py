@@ -69,8 +69,18 @@ def _collect_types(entries: list[dict]) -> set[str]:
 
 @pytest.fixture(autouse=True)
 def _require_dev_neo4j(request):
-    """Fail fast if dev Neo4j isn't running (needed by @pytest.mark.integration)."""
+    """Fail fast if dev Neo4j isn't running (needed by @pytest.mark.integration).
+
+    Only enforced when the active backend is actually Neo4j — under the
+    SQLite backend (the default) these tests exercise SQLite via
+    ``get_backend()`` and need no container.
+    """
     if not request.node.get_closest_marker("integration"):
+        return
+
+    from codegraph.backends import get_backend
+
+    if type(get_backend()).__name__ != "Neo4jBackend":
         return
 
     from codegraph.backends.neo4j.connection import Neo4jConnection

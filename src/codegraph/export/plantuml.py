@@ -487,6 +487,19 @@ class PlantUMLExporter:
         # architectural design elements. The tag is set by the design
         # agent during node creation.
         self._test_tagged_keys: set[str] = self._build_test_tagged_keys()
+        self._flat: dict | None = None            # cached flat entry index
+
+    def _flat_index(self) -> dict:
+        """Build the flat key → entry index once per export.
+
+        ``resolve_target_name`` defaults to rebuilding the index per
+        call (O(N) each) — over thousands of references that is
+        quadratic and dominated integration-test runtime.  Cache it
+        here and pass it to every resolution.
+        """
+        if self._flat is None:
+            self._flat = self.graph._flat_index()
+        return self._flat
 
     # ── Derived properties ────────────────────────────────────────────
 
@@ -623,7 +636,9 @@ class PlantUMLExporter:
                 for rel_type, target_key, _target_type in child_entry.references:
                     if rel_type == "DEFINED_IN":
                         continue
-                    display = self.graph.resolve_target_name(target_key)
+                    display = self.graph.resolve_target_name(
+                        target_key, flat=self._flat_index()
+                    )
                     if not display:
                         continue
                     if display.startswith(target_qname + "::"):
@@ -650,10 +665,17 @@ class PlantUMLExporter:
             A complete PlantUML class-diagram string enclosed in
             ``@startuml`` / ``@enduml``.
         """
+        import os as _os
+        def _dbg(msg: str) -> None:
+            if _os.environ.get("CODEGRAPH_DEBUG") == "1":
+                print(f"[DBG plantuml] {msg}", flush=True)
+
         lines: list[str] = ["@startuml"]
 
         # Compute scoped view: which classes and members to show
+        _dbg("compute_scope...")
         self._compute_scope()
+        _dbg("compute_scope done")
 
         # Style hints
         lines.append("skinparam classAttributeIconSize 0")
@@ -662,7 +684,9 @@ class PlantUMLExporter:
         # When collapsing dependency details, pre-compute which
         # entries get collapsed into simple package declarations.
         if self._collapse_deps():
+            _dbg("build_collapsed_namespaces...")
             self._build_collapsed_namespaces()
+            _dbg("build_collapsed_namespaces done")
             # In PUBLIC_API mode, external packages are hidden entirely.
             # In COLLAPSED mode, emit synthetic package declarations.
             if self._show_external():
@@ -682,17 +706,23 @@ class PlantUMLExporter:
         # When hiding private members, build the map from ALL members
         # (including private) so that arrows TARGETING a private
         # member can still redirect to the parent compound.
+        _dbg("build_member_parent_map...")
         self._build_member_parent_map(include_private_members=True)
+        _dbg("build_member_parent_map done")
 
         # Emit elements for root entries (depth-first)
+        _dbg("emit entries...")
         for entry in self.graph.entries.values():
             lines.extend(self._emit_entry(entry, indent=0))
+        _dbg(f"emit entries done: {len(self._rel_lines)} rel lines")
 
         # Emit relationship arrows (sorted for deterministic output)
         if self._rel_lines:
             lines.append("")
             lines.append("' ── Relationships ─────────────────────")
+            _dbg("sort rel lines...")
             lines.extend(sorted(self._rel_lines))
+            _dbg("sort rel lines done")
 
         lines.append("")
         lines.append("@enduml")
@@ -830,7 +860,9 @@ class PlantUMLExporter:
             return None
 
         # Resolve the target key to a display name
-        display = self.graph.resolve_target_name(target_key)
+        display = self.graph.resolve_target_name(
+            target_key, flat=self._flat_index()
+        )
         if not display or display == target_key:
             # Check if the raw key is in collapsed_keys
             if target_key in self._collapsed_keys and self._collapsed_prefixes:
@@ -889,6 +921,10 @@ class PlantUMLExporter:
         if node_type == "FileNode" and not self._show_files():
             return []
         if node_type == "ConceptNode" and not self._show_concepts():
+            return []
+        if node_type == "ParameterNode":
+            # Parameters are function-signature detail rendered inside
+            # the member line — never standalone PlantUML elements.
             return []
         tags = getattr(node, "tags", []) or []
         if "test" in tags and not self._show_tests():
@@ -1016,6 +1052,11 @@ class PlantUMLExporter:
                         continue
                     if target_type == "ConceptNode" and not self._show_concepts():
                         continue
+                    if target_type == "ParameterNode":
+                        # Parameters are function-signature detail
+                        # (rendered inside the member line), never
+                        # standalone PlantUML elements.
+                        continue
                     if self._target_has_tag(target_key, "test") and not self._show_tests():
                         continue
 
@@ -1024,7 +1065,9 @@ class PlantUMLExporter:
                     if collapsed:
                         target_alias = collapsed
                     else:
-                        display_key = self.graph.resolve_target_name(target_key)
+                        display_key = self.graph.resolve_target_name(
+                            target_key, flat=self._flat_index()
+                        )
                         target_alias = (
                             _sanitize_alias(display_key) if display_key else ""
                         )
@@ -1123,6 +1166,11 @@ class PlantUMLExporter:
                             continue
                         if target_type == "ConceptNode" and not self._show_concepts():
                             continue
+                        if target_type == "ParameterNode":
+                            # Parameters are function-signature detail
+                            # (rendered inside the member line), never
+                            # standalone PlantUML elements.
+                            continue
                         if self._target_has_tag(target_key, "test") and not self._show_tests():
                             continue
                         # Redirect to collapsed namespace package if applicable
@@ -1134,7 +1182,9 @@ class PlantUMLExporter:
                                 continue
                             target_alias = collapsed
                         else:
-                            display_key = self.graph.resolve_target_name(target_key)
+                            display_key = self.graph.resolve_target_name(
+                                target_key, flat=self._flat_index()
+                            )
                             target_alias = _sanitize_alias(display_key) if display_key else ""
                             # If the target is a member type, redirect
                             # to the parent compound's alias — members
@@ -1276,7 +1326,9 @@ class PlantUMLExporter:
                 return
             target_alias = collapsed
         else:
-            display_key = self.graph.resolve_target_name(target_key)
+            display_key = self.graph.resolve_target_name(
+                target_key, flat=self._flat_index()
+            )
             target_alias = _sanitize_alias(display_key)
             # If the target is a member type (MethodNode, AttributeNode,
             # EnumValueNode), redirect the arrow to the parent compound's

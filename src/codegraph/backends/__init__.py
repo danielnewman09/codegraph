@@ -1,21 +1,41 @@
 """Backend registry — configure and access the active storage backend.
 
-Usage::
+Choosing a backend
+------------------
 
-    from codegraph.backends import get_backend
+Two mechanisms, used interchangeably (the most recent wins):
 
-    # First call auto-configures from CODEGRAPH_BACKEND env var
-    # (default: "neo4j").  No explicit set_backend() needed.
-    backend = get_backend()
-    node.save()  # delegates to backend.save(node)
+1. **Convention (env vars)** — the default path.  ``get_backend()``
+   reads ``CODEGRAPH_BACKEND`` (``"sqlite"`` (default), ``"neo4j"``,
+   ``"memory"``) plus the backend's own vars (``SQLITE_PATH`` or
+   ``NEO4J_URI``/``NEO4J_USER``/``NEO4J_PASSWORD``).  A repo-root
+   ``.env`` is loaded if present; explicitly-set shell/CI vars always
+   win::
 
-For tests, call ``set_backend()`` before any ``get_backend()`` calls
-to use a specific backend instance (e.g. with test credentials):
+       CODEGRAPH_BACKEND=sqlite SQLITE_PATH=/tmp/cg.sqlite3 my_script.py
 
-    from codegraph.backends import set_backend
-    from codegraph.backends.neo4j import Neo4jBackend
+   or in ``.env``::
 
-    set_backend(Neo4jBackend(config=test_config))
+       CODEGRAPH_BACKEND=sqlite
+
+2. **Programmatic (set_backend)** — for library consumers that have
+   their own configuration (tests, embedding into another app):
+   construct the backend explicitly and register it *before* the first
+   ``get_backend()`` call::
+
+       from codegraph.backends import set_backend, get_backend
+       from codegraph.backends.sqlite import SqliteBackend, SqliteConfig
+
+       set_backend(SqliteBackend(SqliteConfig(path="/data/cg.sqlite3")))
+       node = get_backend().graph.find_by_uid(...)
+
+   This disables env-based auto-configuration for the rest of the
+   process.
+
+The backend is a process-global singleton: call ``get_backend()``
+freely, it returns the same instance.  To swap backends mid-process
+(e.g. between test suites) call ``set_backend()`` again with a new
+instance.
 """
 
 from __future__ import annotations
@@ -50,9 +70,12 @@ def set_backend(backend: Backend) -> None:
 def get_backend() -> Backend:
     """Return the active backend, auto-configuring on first call.
 
-    Loads ``.env`` before reading the ``CODEGRAPH_BACKEND`` environment
-    variable (default ``"neo4j"``) and creates the corresponding
-    backend.  Subsequent calls return the same instance.
+    Loads a repo-root ``.env`` (if present; ``override=False`` so
+    explicitly-set environment variables win), then reads the
+    ``CODEGRAPH_BACKEND`` environment variable (default ``"sqlite"``)
+    and creates the corresponding backend.  Subsequent calls return
+    the same instance.  A backend set via :func:`set_backend` always
+    wins over env-based auto-configuration.
 
     Raises:
         ValueError: If ``CODEGRAPH_BACKEND`` names an unknown backend.
@@ -60,14 +83,11 @@ def get_backend() -> Backend:
     global _current_backend, _force_configured, _load_dotenv_called
 
     if not _load_dotenv_called:
-        # Only load .env if the relevant variables are not already set
-        # in the environment (e.g. from a test fixture or CI config).
-        _needs_dotenv = any(
-            os.environ.get(k) is None
-            for k in ("NEO4J_URI", "NEO4J_USER", "NEO4J_PASSWORD")
-        )
-        if _needs_dotenv:
-            load_dotenv()
+        # Load .env once, before reading CODEGRAPH_BACKEND.  Explicitly
+        # set environment variables (shell / CI / set_backend) are not
+        # overridden by the file (load_dotenv defaults to
+        # override=False).
+        load_dotenv()
         _load_dotenv_called = True
 
     if _current_backend is not None:
@@ -86,7 +106,7 @@ def get_backend() -> Backend:
 
 def _create_backend_from_env() -> Backend:
     """Read CODEGRAPH_BACKEND env var and instantiate the backend."""
-    backend_name = os.environ.get("CODEGRAPH_BACKEND", "neo4j").strip().lower()
+    backend_name = os.environ.get("CODEGRAPH_BACKEND", "sqlite").strip().lower()
 
     if backend_name == "neo4j":
         from codegraph.backends.neo4j import Neo4jBackend, Neo4jConfig
@@ -99,7 +119,13 @@ def _create_backend_from_env() -> Backend:
 
         return InMemoryBackend()
 
+    if backend_name == "sqlite":
+        from codegraph.backends.sqlite import SqliteBackend, SqliteConfig
+
+        config = SqliteConfig.from_env()
+        return SqliteBackend(config)
+
     raise ValueError(
         f"Unknown CODEGRAPH_BACKEND: '{backend_name}'. "
-        f"Supported values: neo4j, memory"
+        f"Supported values: neo4j, memory, sqlite"
     )

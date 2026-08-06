@@ -206,16 +206,16 @@ def _build_summary(
             qname = m.get("qualified_name", "")
             if qname:
                 backend = get_backend()
-                #TODO: remove raw cypher
-                rows, _ = backend.execute_raw(
-                    "MATCH (newer:DecisionNode)-[:SUPERSEDES]->"
-                    "(older:DecisionNode) "
-                    "WHERE older.qualified_name = $qname "
-                    "RETURN newer.qualified_name",
-                    {"qname": qname},
-                )
-                if rows:
-                    superseded.append(qname)
+                from codegraph_memory.models.decision import DecisionNode
+
+                older = backend.get(DecisionNode, qualified_name=qname)
+                if older is not None:
+                    superseded_by = [
+                        e for e in backend.get_all_edges(older)
+                        if e.relation_type == "SUPERSEDES" and not e.is_outgoing
+                    ]
+                    if superseded_by:
+                        superseded.append(qname)
 
     return {
         "total_memories": len(memories),

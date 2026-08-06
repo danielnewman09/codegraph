@@ -281,16 +281,60 @@ class TestDisambiguation:
         d1.save()
 
         # Create second node via raw Cypher with a different uid.
-        # Using the backend's save() would recompute the uid, so raw
-        # Cypher is the only way to create a node that bypasses the
+        # Create second node via raw backend SQL with a different uid.
+        # Using the backend's save() would recompute the uid, so a raw
+        # write is the only way to create a node that bypasses the
         # normal uid computation — this test exists to verify the
         # system handles such externally-created nodes.
-        get_backend().execute_raw(
-            "CREATE (n:DecisionNode:MemoryNode) SET n.uid = 'manual-uid-99999', "
-            "n.qualified_name = 'memory::test-ambiguous-raw', "
-            "n.content = 'Second version.', n.source = 'test', n.tags = [], "
-            "n.confidence = 1.0, n.name = ''"
-        )
+        backend = get_backend()
+        if type(backend).__name__ == "SqliteBackend":
+            import json as _json
+
+            from codegraph_memory.models.decision import DecisionNode as _DN
+
+            _props = {
+                "uid": "manual-uid-99999",
+                "qualified_name": "memory::test-ambiguous-raw",
+                "content": "Second version.",
+                "source": "test",
+                "tags": [],
+                "confidence": 1.0,
+                "name": "",
+            }
+            _labels = _DN.inherited_labels()
+            rows, _ = backend.execute_raw(
+                "INSERT INTO nodes (uid, labels, properties) "
+                "VALUES (:uid, :labels, :props) "
+                "ON CONFLICT(uid) DO NOTHING RETURNING id",
+                {
+                    "uid": "manual-uid-99999",
+                    "labels": _json.dumps(_labels),
+                    "props": _json.dumps(_props),
+                },
+            )
+            _nid = rows[0]["id"]
+            backend.execute_raw(
+                "INSERT OR IGNORE INTO node_labels (node_id, label) "
+                "VALUES (:nid, :lbl)",
+                [{"nid": _nid, "lbl": l} for l in _labels],
+            )
+            backend.execute_raw(
+                "INSERT INTO fts_nodes (uid, content, qualified_name, tags) "
+                "VALUES (:uid, :content, :qname, :tags)",
+                {
+                    "uid": "manual-uid-99999",
+                    "content": "Second version.",
+                    "qname": "memory::test-ambiguous-raw",
+                    "tags": "",
+                },
+            )
+        else:
+            backend.execute_raw(
+                "CREATE (n:DecisionNode:MemoryNode) SET n.uid = 'manual-uid-99999', "
+                "n.qualified_name = 'memory::test-ambiguous-raw', "
+                "n.content = 'Second version.', n.source = 'test', n.tags = [], "
+                "n.confidence = 1.0, n.name = ''"
+            )
 
         result = record_memory(
             type="decision",

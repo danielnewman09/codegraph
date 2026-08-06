@@ -65,6 +65,18 @@ class Backend(ABC):
         ...
 
     @abstractmethod
+    def apply_schema(self) -> None:
+        """Create the indexes/constraints this backend manages (idempotent).
+
+        Backends own their schema: Neo4j creates per-label ``uid``
+        indexes (replacing neomodel's ``install_all_labels``, which is a
+        no-op for the pure-Python model layer); SQLite creates tables in
+        :meth:`initialize` and lazily on first write; memory needs
+        nothing.  Safe to call repeatedly.
+        """
+        ...
+
+    @abstractmethod
     def health_check(self) -> bool:
         """Return True if the storage layer is reachable and operational."""
         ...
@@ -204,6 +216,40 @@ class Backend(ABC):
     ) -> list[EdgeDescriptor]:
         """Return ALL edges (incoming + outgoing) from node."""
         ...
+
+    def get_edges_bulk(
+        self,
+        nodes: list["CodeGraphNode"],
+    ) -> dict[str, list[EdgeDescriptor]]:
+        """All edges (incoming + outgoing) keyed by source-node uid.
+
+        Default implementation loops per node via :meth:`get_all_edges`;
+        backends override with batched implementations for large graphs
+        (Neo4j uses 2 queries total).
+        """
+        out: dict[str, list[EdgeDescriptor]] = {}
+        for node in nodes:
+            uid = node._uid_value()
+            if uid:
+                out[uid] = self.get_all_edges(node)
+        return out
+
+    def get_composed_children_bulk(
+        self,
+        nodes: list["CodeGraphNode"],
+    ) -> dict[str, list["CodeGraphNode"]]:
+        """Outgoing COMPOSES children keyed by parent-node uid.
+
+        Default implementation loops per node via
+        :meth:`get_composed_children`; backends override with batched
+        implementations for large graphs.
+        """
+        out: dict[str, list["CodeGraphNode"]] = {}
+        for node in nodes:
+            uid = node._uid_value()
+            if uid:
+                out[uid] = self.get_composed_children(node)
+        return out
 
     @abstractmethod
     def get_all_edges_outgoing(

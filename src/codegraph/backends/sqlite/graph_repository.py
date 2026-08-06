@@ -1,46 +1,53 @@
-"""Neo4jGraphRepository — Neo4j implementation of the GraphRepository
+"""SqliteGraphRepository — SQLite implementation of the GraphRepository
 abstract interface.
 
-Composes ``Neo4jNodeOps`` + ``Neo4jRelOps``.  All Cypher is sealed
-inside these sub-modules.  Complex graph construction (layer graphs,
-filtering) is pure Python.
+Composes ``SqliteNodeOps`` + ``SqliteRelOps``.  All SQL is sealed inside
+the ops sub-modules; LayerGraph construction and filtering are pure
+Python (shared shape with the Neo4j repository).
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, override
+from typing import Any, override
 
-from codegraph.backends.neo4j.connection import Neo4jConnection
-from codegraph.backends.neo4j.node_ops import Neo4jNodeOps
-from codegraph.backends.neo4j.rel_ops import Neo4jRelOps
-from codegraph.persistence.repository import GraphRepository
-from codegraph.models.descriptors import PropertyRegistry
+import sqlalchemy as sa
+
+from codegraph.backends.sqlite.connection import SqliteConnection
+from codegraph.backends.sqlite.node_ops import SqliteNodeOps
+from codegraph.backends.sqlite.rel_ops import SqliteRelOps
 from codegraph.constants import Tag
-from codegraph.graph import LayerGraph, CompositeEntry
+from codegraph.graph import CompositeEntry, LayerGraph
 from codegraph.models.compound import (
-    ClassNode, InterfaceNode, EnumNode, UnionNode, ModuleNode,
+    ClassNode,
+    EnumNode,
+    InterfaceNode,
+    ModuleNode,
+    UnionNode,
 )
+from codegraph.models.descriptors import PropertyRegistry
 from codegraph.models.member import (
-    MethodNode, AttributeNode, EnumValueNode, FunctionNode, DefineNode,
+    AttributeNode,
+    DefineNode,
+    EnumValueNode,
+    FunctionNode,
+    MethodNode,
 )
 from codegraph.models.namespace import NamespaceNode
 from codegraph.models.tags import CodeGraphNode
-
-if TYPE_CHECKING:
-    from codegraph.backends.interface import Backend
+from codegraph.persistence.repository import GraphRepository
 
 _COMPOUND_TYPES = [ClassNode, InterfaceNode, EnumNode, UnionNode, ModuleNode]
 _MEMBER_TYPES = [MethodNode, AttributeNode, EnumValueNode, FunctionNode, DefineNode]
 _NAMESPACE_TYPES = [NamespaceNode]
 
 
-class Neo4jGraphRepository(GraphRepository):
-    """Neo4j implementation of the GraphRepository interface."""
+class SqliteGraphRepository(GraphRepository):
+    """SQLite implementation of the GraphRepository interface."""
 
-    def __init__(self, conn: Neo4jConnection):
+    def __init__(self, conn: SqliteConnection):
         self._conn = conn
-        self._node_ops = Neo4jNodeOps(conn)
-        self._rel_ops = Neo4jRelOps(conn)
+        self._node_ops = SqliteNodeOps(conn)
+        self._rel_ops = SqliteRelOps(conn)
 
     # ── uid / qualified_name resolution ───────────────────────────
 
@@ -59,13 +66,13 @@ class Neo4jGraphRepository(GraphRepository):
     # ── Node lookup ───────────────────────────────────────────────
 
     @override
-    def find_by_uid(self, uid: str) -> "CodeGraphNode | None":
+    def find_by_uid(self, uid: str) -> CodeGraphNode | None:
         return self._node_ops.find_by_uid(uid)
 
     @override
     def find_by_qualified_name(
         self, qualified_name: str
-    ) -> "CodeGraphNode | None":
+    ) -> CodeGraphNode | None:
         uid = self.resolve_uid(qualified_name)
         if uid is None:
             return None
@@ -74,8 +81,7 @@ class Neo4jGraphRepository(GraphRepository):
     @override
     def find_all_by_qualified_name(
         self, qualified_name: str
-    ) -> list["CodeGraphNode"]:
-        """Return all nodes matching *qualified_name*."""
+    ) -> list[CodeGraphNode]:
         return self._node_ops.find_all_by_qualified_name(qualified_name)
 
     # ── Node label operations ─────────────────────────────────────
@@ -103,7 +109,10 @@ class Neo4jGraphRepository(GraphRepository):
         return self._node_ops.find_nodes_with_labels(labels)
 
     @override
-    def count_all_nodes(self) -> int:
+    def count_all_nodes(self, tag: str | None = None) -> int:
+        """Count all nodes, optionally filtered by *tag*."""
+        if tag:
+            return len(self._node_ops.find_uids_by_tag(tag))
         return self._node_ops.count_all_nodes()
 
     # ── Node mutation ─────────────────────────────────────────────
@@ -112,9 +121,7 @@ class Neo4jGraphRepository(GraphRepository):
     def update_properties(
         self, uid: str, props: dict, *, add_labels: list[str] | None = None
     ) -> bool:
-        return self._node_ops.update_properties(
-            uid, props, add_labels=add_labels,
-        )
+        return self._node_ops.update_properties(uid, props, add_labels=add_labels)
 
     @override
     def delete_by_uid(self, uid: str) -> bool:
@@ -153,10 +160,9 @@ class Neo4jGraphRepository(GraphRepository):
         target_uid: str,
         target_label: str,
     ) -> None:
-        from codegraph.backends.neo4j.memory_ops import Neo4jMemoryOps
-        Neo4jMemoryOps(self._conn).merge_labeled_relationship(
-            source_uid, source_label, rel_type, target_uid, target_label,
-        )
+        # Labels are advisory in SQLite (uid is the canonical key) —
+        # same idempotent MERGE via the UNIQUE triple.
+        self._rel_ops.merge_relationship(source_uid, rel_type, target_uid)
 
     # ── Traversal ─────────────────────────────────────────────────
 
@@ -200,8 +206,8 @@ class Neo4jGraphRepository(GraphRepository):
         *,
         source_labels: str | None = None,
     ) -> list[dict]:
-        from codegraph.backends.neo4j.memory_ops import Neo4jMemoryOps
-        return Neo4jMemoryOps(self._conn).find_related_nodes(
+        from codegraph.backends.sqlite.memory_ops import SqliteMemoryOps
+        return SqliteMemoryOps(self._conn).find_related_nodes(
             target_uid, rel_pattern, source_labels=source_labels,
         )
 
@@ -290,7 +296,6 @@ class Neo4jGraphRepository(GraphRepository):
         if hlr is None:
             return LayerGraph(tags=frozenset({"design"}))
 
-        # Phase 1: multi-hop COMPOSES traversal from HLR
         seen_uids: set[str] = set()
         queue: list[CodeGraphNode] = [hlr]
         composes_reachable: list[CodeGraphNode] = []
@@ -397,39 +402,11 @@ class Neo4jGraphRepository(GraphRepository):
 
     @override
     def save_layer_graph(self, graph: LayerGraph) -> None:
-        from codegraph.backends.neo4j.bulk_ops import Neo4jBulkOps
-        bulk = Neo4jBulkOps(self._conn, self._node_ops, self._rel_ops)
+        from codegraph.backends.sqlite.bulk_ops import SqliteBulkOps
+        bulk = SqliteBulkOps(self._conn, self._node_ops, self._rel_ops)
         bulk.bulk_save(graph)
 
     # ── Aggregation ──────────────────────────────────────────────
-
-    @override
-    def count_all_nodes(self, tag: str | None = None) -> int:
-        """Count all nodes, optionally filtered by *tag*."""
-        if tag:
-            return len(self._node_ops.find_uids_by_tag(tag))
-        rows, _ = self._conn.execute_raw("MATCH (n) RETURN count(n) AS c")
-        return rows[0]["c"]
-
-    @override
-    def find_nodes_with_labels(
-        self, labels: list[str]
-    ) -> list[dict]:
-        """Find nodes that carry ALL of the given Neo4j labels."""
-        if not labels:
-            return []
-        label_clause = "".join(f":{lbl}" for lbl in labels)
-        rows, _ = self._conn.execute_raw(
-            f"MATCH (n{label_clause}) "
-            "RETURN n.uid AS uid, "
-            "coalesce(n.qualified_name, '(none)') AS qualified_name, "
-            "labels(n) AS labels"
-        )
-        return [
-            {"uid": r["uid"], "qualified_name": r["qualified_name"],
-             "labels": sorted(r["labels"])}
-            for r in rows
-        ]
 
     @override
     def count_relationships(
@@ -443,24 +420,31 @@ class Neo4jGraphRepository(GraphRepository):
         """Count relationships whose type is in *rel_types*."""
         if not rel_types:
             return 0
-        # Build the MATCH clause
-        src_clause = "(s"
-        if source_labels:
-            src_clause += ":" + ":".join(source_labels)
-        src_clause += ")"
-        tgt_clause = "(t"
-        if target_labels:
-            tgt_clause += ":" + ":".join(target_labels)
-        tgt_clause += ")"
-        type_conds = " OR ".join(f"r:{rt}" for rt in rel_types)
-        where_parts = [type_conds]
-        if target_tag:
-            where_parts.append(f"'{target_tag}' IN t.tags")
-        where_clause = " AND ".join(where_parts)
-        rows, _ = self._conn.execute_raw(
-            f"MATCH {src_clause}-[r]->{tgt_clause} WHERE {where_clause} RETURN count(r) AS c"
+        sql = (
+            "SELECT COUNT(*) AS c FROM edges e "
+            "JOIN nodes s ON s.id = e.source_id "
+            "JOIN nodes t ON t.id = e.target_id "
         )
-        return rows[0]["c"]
+        binds = ", ".join(f":rt{i}" for i in range(len(rel_types)))
+        params: dict[str, Any] = {f"rt{i}": rt for i, rt in enumerate(rel_types)}
+        where = [f"e.rel_type IN ({binds})"]
+        if source_labels:
+            sl = ", ".join(f":sl{i}" for i in range(len(source_labels)))
+            sql += "JOIN node_labels snl ON snl.node_id = s.id "
+            where.append(f"snl.label IN ({sl})")
+            params.update({f"sl{i}": l for i, l in enumerate(source_labels)})
+        if target_labels:
+            tl = ", ".join(f":tl{i}" for i in range(len(target_labels)))
+            sql += "JOIN node_labels tnl ON tnl.node_id = t.id "
+            where.append(f"tnl.label IN ({tl})")
+            params.update({f"tl{i}": l for i, l in enumerate(target_labels)})
+        if target_tag:
+            sql += "JOIN node_tags tt ON tt.node_id = t.id "
+            where.append("tt.tag = :ttag")
+            params["ttag"] = target_tag
+        with self._conn.connect() as conn:
+            row = conn.execute(sa.text(sql + " WHERE " + " AND ".join(where)), params).first()
+        return row[0] if row else 0
 
     # ── Private helpers ───────────────────────────────────────────
 
@@ -505,15 +489,11 @@ class Neo4jGraphRepository(GraphRepository):
                 if target_uid not in uid_to_key:
                     target_cls = CodeGraphNode._registry.get(target_type)
                     if target_cls:
-                        uid_prop = target_cls._uid_prop()
-                        if uid_prop:
-                            neighbor = self._node_ops.get(
-                                target_cls, **{uid_prop: target_uid}
-                            )
-                            if neighbor:
-                                neighbor_key = LayerGraph._node_key(neighbor)
-                                nodes[neighbor_key] = neighbor
-                                uid_to_key[target_uid] = neighbor_key
+                        neighbor = self._node_ops.get(target_cls, uid=target_uid)
+                        if neighbor:
+                            neighbor_key = LayerGraph._node_key(neighbor)
+                            nodes[neighbor_key] = neighbor
+                            uid_to_key[target_uid] = neighbor_key
 
         key_to_entry: dict[str, CompositeEntry] = {}
         for key, node in nodes.items():
@@ -559,7 +539,7 @@ class Neo4jGraphRepository(GraphRepository):
 
 
 # ══════════════════════════════════════════════════════════════════════════
-# Filter helpers (pure Python — no Cypher)
+# Filter helpers (pure Python — no SQL)
 # ══════════════════════════════════════════════════════════════════════════
 
 

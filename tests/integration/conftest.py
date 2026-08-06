@@ -1,7 +1,8 @@
 """Integration test configuration.
 
-Integration tests require a running backend (Neo4j by default).  Neo4j
-fixtures are loaded globally from the root conftest.
+Integration tests require a running backend (SQLite in-memory by
+default; Neo4j when ``CODEGRAPH_BACKEND=neo4j``).  Backend fixtures
+are loaded globally from the root conftest.
 
 All tests under this directory must go through the Backend ABC or
 ``GraphRepository`` — direct neomodel ``.all()`` calls on relationship
