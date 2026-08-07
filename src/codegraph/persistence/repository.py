@@ -378,6 +378,16 @@ class GraphRepository(ABC):
     # ── Aggregation ──────────────────────────────────────────────
 
     @abstractmethod
+    def list_sources(self) -> list[dict]:
+        """Return distinct ``source`` values with node counts.
+
+        Returns a list of ``{"source": str, "count": int}`` sorted by
+        count descending.  Used to enumerate indexed source projects
+        (e.g. ``cppreference``, ``boost``, a project's own code).
+        """
+        ...
+
+    @abstractmethod
     def count_all_nodes(self, tag: str | None = None) -> int:
         """Count all nodes in the graph, optionally filtered by *tag*."""
         ...

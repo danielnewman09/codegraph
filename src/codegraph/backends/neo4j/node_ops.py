@@ -413,17 +413,46 @@ class Neo4jNodeOps:
             result.extend(self.find_by_tag(node_cls, tag))
         return result
 
+    def _inflate_unique(
+        self,
+        rows: list,
+        node_cls: type["CodeGraphNode"],
+        seen: set[str],
+    ) -> list["CodeGraphNode"]:
+        """Inflate *rows* from one label-scoped query, deduping by element_id.
+
+        Nodes stored under multiple labels (e.g. a ClassNode carries
+        ``ClassNode`` and ``CompoundNode``) are matched by several
+        per-label queries; this keeps each node exactly once.  The first
+        (most specific) label query wins; ``inflate`` independently picks
+        the best class from the raw node's labels.
+        """
+        out: list["CodeGraphNode"] = []
+        for r in rows:
+            if not r or not r[0]:
+                continue
+            raw = r[0]
+            uid = getattr(raw, "element_id", None)
+            if uid is None:
+                uid = id(raw)
+            if uid in seen:
+                continue
+            seen.add(uid)
+            inflated = self.inflate(raw, node_cls)
+            if inflated is not None:
+                out.append(inflated)
+        return out
+
     def find_all_by_source(self, source: str) -> list["CodeGraphNode"]:
-        """Fetch all nodes across all types matching source."""
+        """Fetch all nodes across all types matching source (no duplicates)."""
         result: list["CodeGraphNode"] = []
+        seen: set[str] = set()
         for node_cls in CodeGraphNode._registry.values():
             label = _node_labels(node_cls)[0]
             try:
                 query = f"MATCH (n:`{label}`) WHERE n.source = $src RETURN n"
                 rows, _ = db.cypher_query(query, {"src": source})
-                result.extend(
-                    self.inflate(r[0], node_cls) for r in rows if r[0]
-                )
+                result.extend(self._inflate_unique(rows, node_cls, seen))
             except Exception:
                 pass
         return result
@@ -435,6 +464,7 @@ class Neo4jNodeOps:
     ) -> list["CodeGraphNode"]:
         """Fetch all nodes matching kind (and optionally tag)."""
         result: list["CodeGraphNode"] = []
+        seen: set[str] = set()
         for node_cls in CodeGraphNode._registry.values():
             label = _node_labels(node_cls)[0]
             try:
@@ -448,9 +478,7 @@ class Neo4jNodeOps:
                     f"WHERE n.kind = $kind {tag_filter} RETURN n"
                 )
                 rows, _ = db.cypher_query(query, params)
-                result.extend(
-                    self.inflate(r[0], node_cls) for r in rows if r[0]
-                )
+                result.extend(self._inflate_unique(rows, node_cls, seen))
             except Exception:
                 pass
         return result

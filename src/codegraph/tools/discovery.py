@@ -417,15 +417,8 @@ def handle_browse_namespace(ctx: CodeGraphDispatcher, tool_input: dict) -> str:
 def handle_list_sources(ctx: CodeGraphDispatcher, _tool_input: dict) -> str:
     """List all source projects with node counts."""
     try:
-        rows, _ = get_backend().execute_raw(
-            "MATCH (n:CompoundNode) "
-            "WHERE n.source IS NOT NULL AND n.source <> '' "
-            "RETURN n.source AS source, count(n) AS cnt "
-            "ORDER BY cnt DESC"
-        )
-        sources: dict[str, int] = {}
-        for record in rows:
-            sources[record["source"]] = record["cnt"]
+        rows = get_backend().graph.list_sources()
+        sources: dict[str, int] = {row["source"]: row["count"] for row in rows}
         return json.dumps({"sources": sources})
     except Exception:
         log.warning("list_sources: query failed", exc_info=True)

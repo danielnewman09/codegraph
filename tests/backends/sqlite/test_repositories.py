@@ -53,6 +53,33 @@ def _make_hlr_tree(b):
 # ── LayerGraph round-trip ────────────────────────────────────────────────
 
 
+def test_list_sources_counts_by_source_desc():
+    """list_sources returns distinct sources with node counts, desc."""
+    b = get_backend()
+    assert b.graph.list_sources() == []
+
+    # Two sources, multiple nodes each
+    ClassNode(name="A", source="alpha", qualified_name="a.A", kind="class").save()
+    ClassNode(name="B", source="alpha", qualified_name="a.B", kind="class").save()
+    NamespaceNode(name="ns", source="beta", qualified_name="ns", kind="namespace").save()
+
+    assert b.graph.list_sources() == [
+        {"source": "alpha", "count": 2},
+        {"source": "beta", "count": 1},
+    ]
+
+
+def test_list_sources_counts_all_kinds():
+    """All node kinds with a source are counted (incl. requirement nodes)."""
+    b = get_backend()
+    _make_tree(b)  # 3 nodes, source="demo"
+    _make_hlr_tree(b)  # 4 nodes, source="req"
+    assert b.graph.list_sources() == [
+        {"source": "req", "count": 4},
+        {"source": "demo", "count": 3},
+    ]
+
+
 def test_layer_graph_roundtrip():
     b = get_backend()
     ns = NamespaceNode(name="calc", source="demo", qualified_name="calc", kind="namespace", tags=["design"])

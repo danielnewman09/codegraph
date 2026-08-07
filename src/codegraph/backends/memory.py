@@ -477,6 +477,18 @@ class InMemoryGraphRepository:
     def count_all_nodes(self) -> int:
         return len(self._backend._nodes)
 
+    def list_sources(self) -> list[dict[str, Any]]:
+        """Return distinct ``source`` values with node counts, desc."""
+        counts: dict[str, int] = {}
+        for node in self._backend._nodes.values():
+            src = getattr(node, "source", None)
+            if src:
+                counts[src] = counts.get(src, 0) + 1
+        return [
+            {"source": src, "count": cnt}
+            for src, cnt in sorted(counts.items(), key=lambda kv: kv[1], reverse=True)
+        ]
+
     # ── Node mutation ─────────────────────────────────────────────
 
     def update_properties(

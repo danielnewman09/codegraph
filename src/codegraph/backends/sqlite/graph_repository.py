@@ -115,6 +115,23 @@ class SqliteGraphRepository(GraphRepository):
             return len(self._node_ops.find_uids_by_tag(tag))
         return self._node_ops.count_all_nodes()
 
+    @override
+    def list_sources(self) -> list[dict]:
+        """Return distinct ``source`` values with node counts, desc."""
+        with self._conn.connect() as conn:
+            rows = list(
+                conn.execute(
+                    sa.text(
+                        "SELECT source AS source, COUNT(*) AS cnt "
+                        "FROM nodes "
+                        "WHERE source IS NOT NULL AND source <> '' "
+                        "GROUP BY source "
+                        "ORDER BY cnt DESC"
+                    )
+                )
+            )
+        return [{"source": r[0], "count": r[1]} for r in rows]
+
     # ── Node mutation ─────────────────────────────────────────────
 
     @override

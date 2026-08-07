@@ -106,6 +106,17 @@ class Neo4jGraphRepository(GraphRepository):
     def count_all_nodes(self) -> int:
         return self._node_ops.count_all_nodes()
 
+    @override
+    def list_sources(self) -> list[dict]:
+        """Return distinct ``source`` values with node counts, desc."""
+        rows, _ = self._conn.execute_raw(
+            "MATCH (n) "
+            "WHERE n.source IS NOT NULL AND n.source <> '' "
+            "RETURN n.source AS source, count(n) AS cnt "
+            "ORDER BY cnt DESC"
+        )
+        return [{"source": row["source"], "count": row["cnt"]} for row in rows]
+
     # ── Node mutation ─────────────────────────────────────────────
 
     @override

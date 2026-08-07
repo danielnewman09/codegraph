@@ -275,6 +275,13 @@ _NESTING_REL_TYPES: set[str] = {
     "HAS_IMPLEMENTATION",
 }
 
+# Structural relationships never rendered as arrows: nesting types plus
+# TEMPLATE_PARAM (compound → template-parameter slot).  Type parameters
+# are not emitted as standalone elements — the template parameter list
+# is already visible in the member signature line — so a TEMPLATE_PARAM
+# arrow would point at an element that doesn't exist in the diagram.
+_STRUCTURAL_REL_TYPES: set[str] = _NESTING_REL_TYPES | {"TEMPLATE_PARAM"}
+
 # Known PlantUML keywords that start element declarations
 _ELEMENT_KEYWORDS = ("package", "class", "interface", "enum", "note")
 
@@ -472,6 +479,11 @@ class PlantUMLExporter:
         self._collapsed_prefixes: dict[str, str] = {}
         # Set of aliases that should be skipped (collapsed into package)
         self._collapsed_keys: set[str] = set()
+        # Node key (uid) → collapsed package prefix, for redirecting
+        # edges whose target was collapsed by SOURCE rather than by
+        # qname prefix (root-level external classes whose namespace
+        # prefix was flattened away by doxygen).
+        self._collapsed_key_prefix: dict[str, str] = {}
         # Mapping from member target_key → parent compound alias.
         # Used to redirect arrows targeting member nodes (which are
         # rendered inline) to the parent compound that IS a standalone
@@ -804,6 +816,13 @@ class PlantUMLExporter:
         namespace ``cpp_sqlite`` and root-level classes like
         ``DAOBase`` are emitted in full; everything else is collapsed
         into its top-level namespace prefix.
+
+        Classification is by ``source`` attribute FIRST — a node tagged
+        with an external library is external even when its qname lost
+        the namespace prefix (doxygen flattens e.g.
+        ``boost::utf8_codecvt_facet`` to ``utf8_codecvt_facet``, whose
+        root-level members would otherwise leak into project views).
+        Falls back to qname-prefix classification for untagged nodes.
         """
         project_prefix = "cpp_sqlite"
         # Known external libraries whose types we collapse into packages
@@ -811,12 +830,18 @@ class PlantUMLExporter:
             "std", "boost", "spdlog", "sqlite3",
             "detail", "fmt", "mp_cond",
         }
+        # Source labels that are definitively external libraries.
+        _EXTERNAL_SOURCES: set[str] = {
+            "std", "boost", "spdlog", "sqlite3",
+            "detail", "fmt", "mp_cond", "cppreference",
+        }
         # Root-level project names (no ::) that should NOT be collapsed
         _PROJECT_ROOTS: set[str] = {"DAOBase"}
 
         all_entries = list(self.graph._all_entries())
         for e in all_entries:
-            qn = getattr(e.node, "qualified_name", "") or ""
+            node = e.node
+            qn = getattr(node, "qualified_name", "") or ""
             if not qn:
                 continue
             if qn == project_prefix or qn.startswith(project_prefix + "::"):
@@ -832,7 +857,7 @@ class PlantUMLExporter:
             if prefix not in _KNOWN_EXTERNAL and prefix not in _PROJECT_ROOTS:
                 # Check if this is a root-level external function/class
                 # (e.g. sqlite3_step, sqlite3_column_int64)
-                name = getattr(e.node, "name", "") or qn
+                name = getattr(node, "name", "") or qn
                 found = False
                 for ext in ("sqlite3",):
                     if name == ext or name.startswith(ext + "_"):
@@ -840,7 +865,17 @@ class PlantUMLExporter:
                         found = True
                         break
                 if not found:
-                    continue  # Project type, don't collapse
+                    # Qname didn't classify it — fall back to the node's
+                    # SOURCE label.  Doxygen flattens some external
+                    # classes to namespace-less qnames (e.g.
+                    # ``boost::utf8_codecvt_facet`` →
+                    # ``utf8_codecvt_facet``); the source attribute is
+                    # the ground truth for those.
+                    node_source = getattr(node, "source", "") or ""
+                    if node_source in _EXTERNAL_SOURCES:
+                        prefix = node_source
+                    else:
+                        continue  # Project type, don't collapse
 
             # Also skip project root-level entries
             if prefix in _PROJECT_ROOTS:
@@ -849,9 +884,10 @@ class PlantUMLExporter:
             if prefix not in self._collapsed_prefixes:
                 self._collapsed_prefixes[prefix] = _sanitize_alias(prefix).strip("_")
 
-            key = e.node._uid_value()
+            key = node._uid_value()
             if key:
                 self._collapsed_keys.add(key)
+                self._collapsed_key_prefix[key] = prefix
 
     def _collapsed_alias_for(self, target_key: str) -> str | None:
         """If *target_key* falls under a collapsed namespace, return
@@ -864,10 +900,12 @@ class PlantUMLExporter:
             target_key, flat=self._flat_index()
         )
         if not display or display == target_key:
-            # Check if the raw key is in collapsed_keys
-            if target_key in self._collapsed_keys and self._collapsed_prefixes:
-                # We don't know the prefix — use the first one for now
-                return list(self._collapsed_prefixes.values())[0]
+            # The raw key is a collapsed entry — map it through the
+            # uid→prefix table recorded at classification time (covers
+            # root-level external classes collapsed by SOURCE).
+            prefix = self._collapsed_key_prefix.get(target_key)
+            if prefix:
+                return self._collapsed_prefixes.get(prefix)
             return None
 
         # Check if display name starts with any collapsed prefix::
@@ -909,6 +947,18 @@ class PlantUMLExporter:
             return []
         node = entry.node
         node_type = type(node).__name__
+
+        # Skip type-parameter slots (kind='type_parameter', qname
+        # ``type_param:<parent>:<pos>``): template scaffolding, not
+        # diagram elements.  TEMPLATE_PARAM edges to them are
+        # suppressed via _STRUCTURAL_REL_TYPES, and their outgoing
+        # edges (e.g. ENFORCES_CONCEPT) are dropped with them since
+        # references are emitted from the entry.
+        if (
+            getattr(node, "kind", "") == "type_parameter"
+            or (getattr(node, "qualified_name", "") or "").startswith("type_param:")
+        ):
+            return []
 
         # Scoped-view: skip entries not in the allowed set.
         # Namespaces are kept if any descendant qualifies.
@@ -1046,7 +1096,7 @@ class PlantUMLExporter:
                 # member node (not from the parent class). This shows
                 # which specific member connects to each dependency.
                 for rel_type, target_key, target_type in child_entry.references:
-                    if rel_type in _NESTING_REL_TYPES:
+                    if rel_type in _STRUCTURAL_REL_TYPES:
                         continue
                     if target_type == "FileNode" and not self._show_files():
                         continue
@@ -1158,7 +1208,7 @@ class PlantUMLExporter:
                     # members may depend on the same target, but visually
                     # that's one edge.
                     for rel_type, target_key, target_type in child_entry.references:
-                        if rel_type in _NESTING_REL_TYPES:
+                        if rel_type in _STRUCTURAL_REL_TYPES:
                             continue
                         # Skip references to node types hidden in
                         # the current view mode.
@@ -1300,7 +1350,7 @@ class PlantUMLExporter:
                 to the parent compound's alias since members are
                 rendered inline and are never standalone elements.
         """
-        if rel_type in _NESTING_REL_TYPES:
+        if rel_type in _STRUCTURAL_REL_TYPES:
             return
 
         # Skip references to node types hidden in the current view mode.
@@ -1309,6 +1359,10 @@ class PlantUMLExporter:
         if target_type == "FileNode" and not self._show_files():
             return
         if target_type == "ConceptNode" and not self._show_concepts():
+            return
+        if target_type == "ParameterNode":
+            # Parameters are function-signature detail (rendered inside
+            # the member line), never standalone PlantUML elements.
             return
         if self._target_has_tag(target_key, "test") and not self._show_tests():
             return
