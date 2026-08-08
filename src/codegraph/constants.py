@@ -125,6 +125,7 @@ PREDICATE_TO_REL_TYPE: dict[str, str] = {
     "references": "REFERENCES",
     "invokes": "INVOKES",
     "has_argument": "HAS_ARGUMENT",
+    "has_parameter": "HAS_PARAMETER",
     "returns": "RETURNS",
     "type_argument": "TYPE_ARGUMENT",
     "template_param": "TEMPLATE_PARAM",
@@ -154,6 +155,7 @@ DEFAULT_PREDICATES: list[tuple[str, str]] = [
      "Specify mechanism (e.g., std::unique_ptr, std::shared_ptr, raw_pointer, reference)"),
     ("invokes", "Weak association, signifying a caller-callee relationship"),
     ("has_argument", "A method accepts a parameter of the given type (method → type)"),
+    ("has_parameter", "A method/function has the given parameter (member → parameter, ordered by position)"),
     ("returns", "A method returns a value of the given entity type (method → type)"),
     ("type_argument", "A template accepts a type argument at a given position"),
     ("template_param", "A template declares a type parameter slot"),
@@ -255,6 +257,45 @@ LANGUAGE_SPECIALIZATIONS: dict[str, dict[str, list[str]]] = {
 
 SUPPORTED_LANGUAGES: set[str] = set(LANGUAGE_SPECIALIZATIONS.keys())
 
+#: Producer spellings → canonical lowercase language key.
+#:
+#: Doxygen writes ``language="C++"`` on ``<compounddef>``; the Python AST
+#: parser writes ``"Python"``.  ``FileNode.language`` promises lowercase
+#: canonical keys ("cpp", "python", …) so both producers are mapped here,
+#: and legacy rows already stored in backends normalize the same way.
+_LANGUAGE_ALIASES: dict[str, str] = {
+    "c++": "cpp",
+    "cpp": "cpp",
+    "c": "cpp",
+    "python": "python",
+    "py": "python",
+    "javascript": "javascript",
+    "js": "javascript",
+    "typescript": "typescript",
+    "ts": "typescript",
+    "java": "java",
+    "rust": "rust",
+}
+
+
+def normalize_language(raw: str) -> str:
+    """Map a producer language spelling to the canonical lowercase key.
+
+    Args:
+        raw: The language string as written by a producer (e.g. Doxygen's
+            ``"C++"``, the Python parser's ``"Python"``, or an already
+            canonical ``"cpp"``).  Case-insensitive; unknown values pass
+            through lowercased.
+
+    Returns:
+        The canonical key (e.g. ``"cpp"``, ``"python"``), or the raw
+        value lowercased when it has no known alias.
+    """
+    if not raw:
+        return ""
+    key = raw.strip().lower()
+    return _LANGUAGE_ALIASES.get(key, key)
+
 
 def valid_specializations(language: str, kind: str) -> set[str]:
     """Return the set of valid specializations for a language + kind.
@@ -268,6 +309,7 @@ def valid_specializations(language: str, kind: str) -> set[str]:
     """
     lang_spec = LANGUAGE_SPECIALIZATIONS.get(language, {})
     return set(lang_spec.get(kind, []))
+
 
 # ---------------------------------------------------------------------------
 # Schema DDL — constraints and indexes for Neo4j

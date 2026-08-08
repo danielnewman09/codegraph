@@ -164,6 +164,12 @@ class MethodNode(MemberNode):
     returns = Relationship('RETURNS', direction='OUTGOING',
                            target_class='codegraph.models.compound.ClassNode')
 
+    # ── Parameters ────────────────────────────────────────────────
+    # Ordered by ParameterNode.position (0-based).  Populated from the
+    # doxygen-index ``HAS_PARAMETER`` edges (member → parameter).
+    has_parameters = Relationship('HAS_PARAMETER', direction='OUTGOING',
+                                  target_class='codegraph.models.parameter.ParameterNode')
+
 
 class AttributeNode(MemberNode):
     """Member variable / data attribute — Neo4j label ``:Attribute``.
@@ -199,9 +205,18 @@ class EnumValueNode(MemberNode):
 
     Attributes:
         kind: Defaults to "enumvalue".
+        initializer: The explicit value expression, if any (e.g. ``1``,
+            ``1 << 3``, ``"a"``).  Captured from the Doxygen
+            ``<initializer>`` element; empty when the enumerator relies
+            on implicit sequential values.
     """
 
     kind = Property(str, default="enumvalue")
+    initializer = Property(
+        str, default="",
+        help_text="Explicit value expression for this enumerator (from Doxygen "
+                  "<initializer>). Empty means implicit sequential value.",
+    )
 
     _llm_fields = {"qualified_name", "name", "kind", "tags", "brief_description", "visibility"}
 
@@ -240,6 +255,12 @@ class FunctionNode(MemberNode):
     invokes_function = Relationship('INVOKES', direction='OUTGOING', target_class='FunctionNode')
     invoked_by_method = Relationship('INVOKES', direction='INCOMING', target_class='MethodNode')
     invoked_by_function = Relationship('INVOKES', direction='INCOMING', target_class='FunctionNode')
+
+    # ── Parameters ────────────────────────────────────────────────
+    # Ordered by ParameterNode.position (0-based).  Populated from the
+    # doxygen-index ``HAS_PARAMETER`` edges (member → parameter).
+    has_parameters = Relationship('HAS_PARAMETER', direction='OUTGOING',
+                                  target_class='codegraph.models.parameter.ParameterNode')
 
 
 class DefineNode(MemberNode):

@@ -541,7 +541,16 @@ class CodeGraphNode(metaclass=ABCMeta):
             result = dict(sorted(all_props.items()))
         else:
             result = {k: all_props[k] for k in sorted(self._llm_fields) if k in all_props}
-        result["type"] = type(self).__name__
+        # The node-kind discriminator normally lives under ``"type"`` — but
+        # ParameterNode (and any future node) declares a real ``type``
+        # property (the C++ type string).  Writing the discriminator over
+        # it destroyed the value (and deserialize() skipped it).  When the
+        # class declares its own ``type`` property, the discriminator is
+        # emitted under ``"node_type"`` instead so the property survives
+        # the round-trip.
+        declared = PropertyRegistry.properties_of(type(self))
+        discriminator = "node_type" if "type" in declared else "type"
+        result[discriminator] = type(self).__name__
 
         # Always include the uid property (e.g. ``uid``) so that
         # roundtrip deserialization and edge target resolution work
@@ -641,7 +650,7 @@ class CodeGraphNode(metaclass=ABCMeta):
                 abstract ``CodeGraphNode`` base.
             KeyError: If the ``type`` value is not in the registry.
         """
-        type_name = data.get("type")
+        type_name = _type_discriminator(data)
         if type_name is not None:
             if type_name not in cls._registry:
                 raise KeyError(
@@ -656,14 +665,21 @@ class CodeGraphNode(metaclass=ABCMeta):
         else:
             target_cls = cls
 
-        skip = {"edges", "type"}
+        declared = PropertyRegistry.properties_of(target_cls)
+        # Skip the discriminator key(s) — but only the ones the target
+        # class does NOT declare as a real property.  ParameterNode
+        # declares ``type`` (the C++ type string), so for it the
+        # discriminator is ``node_type`` and ``type`` must be kept.
+        skip: set[str] = {"edges"}
+        for key in ("type", "node_type"):
+            if key not in declared:
+                skip.add(key)
         # Backward compatibility: convert legacy "layer" field to "tags".
         # If data has "layer" but no "tags", promote the single layer value
         # into a tags list.
         compat_data = dict(data)
         if "layer" in compat_data and "tags" not in compat_data:
             compat_data["tags"] = [compat_data.pop("layer")]
-        declared = PropertyRegistry.properties_of(target_cls)
         filtered = {k: v for k, v in compat_data.items()
                     if k not in skip and k in declared}
         node = target_cls(**filtered)
@@ -904,6 +920,20 @@ class CodeGraphNode(metaclass=ABCMeta):
 def _class_label(cls: type) -> str:
     """Return the primary Neo4j label for a node type (the class name)."""
     return cls.__name__
+
+
+def _type_discriminator(data: dict) -> str | None:
+    """Return the node-type discriminator from a serialized dict.
+
+    Prefers ``node_type`` and falls back to the legacy ``type`` key.
+    ``node_type`` is used by node classes that declare their own
+    ``type`` property (currently only ``ParameterNode`` — the C++ type
+    string), so the discriminator doesn't clobber the property.
+    """
+    value = data.get("node_type")
+    if value is None:
+        value = data.get("type")
+    return value
 
 
 class _BackendNodeSet:
