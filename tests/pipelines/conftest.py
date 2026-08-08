@@ -1,7 +1,8 @@
 """Pipeline test configuration.
 
-Sets up Neo4j connection for ingestion fixtures and configures
-logging so fixture progress is visible during test runs.
+Sets up the storage backend (SQLite by default, Neo4j opt-in) for
+ingestion fixtures and configures logging so fixture progress is
+visible during test runs.
 
 Shared fixtures:
 
@@ -12,6 +13,7 @@ Shared fixtures:
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -58,14 +60,26 @@ def clear_db():
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_neomodel():
-    """Override root conftest — use the main Neo4j container, never wipe.
+    """Backend-aware setup — SQLite by default, Neo4j opt-in.
 
-    The root ``tests/conftest.py`` starts a test container on port 7688
-    and wipes it.  Pipeline tests use the main container on 7687
-    so that ingested as-built + requirements data persists across
-    the module.
+    SQLite (``CODEGRAPH_BACKEND=sqlite``, the default): the root
+    conftest's sqlite plugin already installed an in-memory
+    ``SqliteBackend``; nothing to do here.  Pipeline modules ingest
+    once (``clear_db`` is a no-op in this conftest) and the in-memory
+    DB is discarded when the session ends — no persistent store to
+    accumulate stale data.
+
+    Neo4j (``CODEGRAPH_BACKEND=neo4j``): use the main development
+    container on port 7687 and never wipe it, so ingested as-built +
+    requirements data persists across the module.
     """
     _setup_logging()
+
+    if os.environ.get("CODEGRAPH_BACKEND", "sqlite").lower() != "neo4j":
+        # SQLite (or memory) — the root conftest already configured the
+        # backend for this session.
+        yield
+        return
 
     try:
         from codegraph.backends import get_backend, set_backend
@@ -101,7 +115,7 @@ def test_neo4j_container():
 
 
 def _has_neomodel_connection():
-    """Check if Neo4j is reachable."""
+    """Check if the active storage backend is reachable."""
     try:
         from codegraph.backends import get_backend
         return get_backend().health_check()

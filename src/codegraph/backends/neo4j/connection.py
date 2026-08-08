@@ -69,6 +69,25 @@ class Neo4jConnection:
             config = Neo4jConfig.from_env()
         self._config = config
         self._driver_ensured = False
+        self._sync_neomodel_config()
+
+    def _sync_neomodel_config(self) -> None:
+        """Point neomodel's global config at this backend's URL.
+
+        neomodel auto-creates a driver from ``get_config().database_url``
+        whenever ``db.driver`` is unset (its ``cypher_query`` wrapper does
+        ``set_connection(url=config.database_url)``).  Without this sync,
+        any code path that hits ``db.cypher_query`` before
+        :meth:`ensure_driver` connects to whatever ``NEO4J_URI``
+        (e.g. a stale ``.env`` value) points at, with the wrong
+        credentials — not this backend's configured server.
+        """
+        try:
+            from neomodel import get_config
+
+            get_config().database_url = self._config.database_url
+        except Exception:  # pragma: no cover — config module drift
+            pass
 
     def ensure_driver(self) -> None:
         """Ensure neomodel's driver is initialised.
@@ -89,6 +108,7 @@ class Neo4jConnection:
             )
 
         try:
+            self._sync_neomodel_config()
             db.set_connection(url=self._config.database_url)
             self._driver_ensured = True
         except Exception as exc:

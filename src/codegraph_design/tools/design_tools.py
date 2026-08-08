@@ -307,15 +307,32 @@ def _qname_in_codegraph(qname: str) -> bool:
     bare = safe.rsplit("::", 1)[-1] if "::" in safe else safe
     try:
         from codegraph.backends import get_backend
-        rows, _ = get_backend().execute_raw(
-            "MATCH (n) WHERE n.qualified_name = $qn "
-            "OR n.qualified_name ENDS WITH $suffix "
-            "OR n.name = $bare "
-            "RETURN n.qualified_name AS qn, n.name AS name, "
-            "labels(n) AS labels, n.tags AS tags "
-            "LIMIT 1",
-            {"qn": qname, "suffix": "::" + bare, "bare": bare},
-        )
+        backend = get_backend()
+        if type(backend).__name__ == "Neo4jBackend":
+            rows, _ = backend.execute_raw(
+                "MATCH (n) WHERE n.qualified_name = $qn "
+                "OR n.qualified_name ENDS WITH $suffix "
+                "OR n.name = $bare "
+                "RETURN n.qualified_name AS qn, n.name AS name, "
+                "labels(n) AS labels, n.tags AS tags "
+                "LIMIT 1",
+                {"qn": qname, "suffix": "::" + bare, "bare": bare},
+            )
+        else:
+            # SQLite: match against the properties JSON.
+            rows, _ = backend.execute_raw(
+                "SELECT "
+                "json_extract(properties, '$.qualified_name') AS qn, "
+                "json_extract(properties, '$.name') AS name, "
+                "labels AS labels, "
+                "json_extract(properties, '$.tags') AS tags "
+                "FROM nodes "
+                "WHERE json_extract(properties, '$.qualified_name') = :qn "
+                "OR json_extract(properties, '$.qualified_name') LIKE :suffix "
+                "OR json_extract(properties, '$.name') = :bare "
+                "LIMIT 1",
+                {"qn": qname, "suffix": "%::" + bare, "bare": bare},
+            )
         record = rows[0] if rows else None
         found = bool(record and record["qn"])
         if found:
@@ -583,6 +600,50 @@ def handle_import_compound(ctx: DesignToolDispatcher, tool_input: dict) -> str:
     })
 
 
+def _search_codegraph_by_name(name: str, limit: int = 20) -> list[dict]:
+    """Case-insensitive CONTAINS search over qualified_name/name.
+
+    Backend-agnostic (``execute_raw`` is the documented escape hatch
+    for backend-native queries): Cypher on Neo4j, LIKE over the
+    properties JSON on SQLite.  Returns rows keyed by
+    ``qualified_name``/``name``/``labels``.
+    """
+    from codegraph.backends import get_backend
+
+    backend = get_backend()
+    if type(backend).__name__ == "Neo4jBackend":
+        rows, _ = backend.execute_raw(
+            "MATCH (n) WHERE "
+            "toLower(n.qualified_name) CONTAINS toLower($name) "
+            "OR toLower(n.name) CONTAINS toLower($name) "
+            "RETURN n.qualified_name AS qn, n.name AS name, "
+            "labels(n) AS labels "
+            "LIMIT $limit",
+            {"name": name, "limit": limit},
+        )
+        return rows
+    rows, _ = backend.execute_raw(
+        "SELECT "
+        "json_extract(properties, '$.qualified_name') AS qn, "
+        "json_extract(properties, '$.name') AS name, "
+        "json_extract(labels, '$[0]') AS label0 "
+        "FROM nodes "
+        "WHERE lower(json_extract(properties, '$.qualified_name')) "
+        "LIKE lower(:like) "
+        "OR lower(json_extract(properties, '$.name')) LIKE lower(:like) "
+        "ORDER BY qn LIMIT :limit",
+        {"like": f"%{name}%", "limit": limit},
+    )
+    return [
+        {
+            "qn": r.get("qn") or "",
+            "name": r.get("name") or "",
+            "labels": [r["label0"]] if r.get("label0") else [],
+        }
+        for r in rows
+    ]
+
+
 def handle_check_class_name(ctx: DesignToolDispatcher, tool_input: dict) -> str:
     """Check if a class name exists in context graph, design draft,
     or the codegraph."""
@@ -628,16 +689,9 @@ def handle_check_class_name(ctx: DesignToolDispatcher, tool_input: dict) -> str:
     # Search as-built codebase (limited, CONTAINS query)
     if len(matches) < 20:
         try:
-            rows, _ = get_backend().execute_raw(
-                "MATCH (n) WHERE "
-                "toLower(n.qualified_name) CONTAINS toLower($name) "
-                "OR toLower(n.name) CONTAINS toLower($name) "
-                "RETURN n.qualified_name AS qn, n.name AS name, "
-                "labels(n) AS labels "
-                "LIMIT $limit",
-                {"name": name, "limit": 20 - len(matches)},
-            )
-            for record in rows:
+            for record in _search_codegraph_by_name(
+                name, 20 - len(matches),
+            ):
                 qn = record.get("qn", "") or ""
                 if qn in seen:
                     continue
@@ -651,7 +705,10 @@ def handle_check_class_name(ctx: DesignToolDispatcher, tool_input: dict) -> str:
                     "source": "codegraph",
                 })
         except Exception as exc:
-            log.warning("check_class_name: Neo4j search for '%s' failed: %s", name, exc)
+            log.warning(
+                "check_class_name: codegraph search for '%s' failed: %s",
+                name, exc,
+            )
 
     log.info(
         "check_class_name('%s'): %d matches (context=%d, draft=%d, codegraph=%d)",

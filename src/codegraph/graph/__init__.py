@@ -15,12 +15,83 @@ from typing import Iterator
 
 log = logging.getLogger(__name__)
 
+#: Node types that live in separate model packages and are registered
+#: lazily (mirrors ``codegraph.export.markdown._LAZY_IMPORTS``).  A
+#: serialized design LayerGraph may contain requirements nodes (HLR,
+#: LLR) produced by the design pipeline; deserializing them requires
+#: the owning package to be imported so its model classes register in
+#: ``CodeGraphNode._registry``.
+_LAZY_TYPE_IMPORTS: dict[str, str] = {
+    "HLR": "codegraph_requirements.models.requirement",
+    "LLR": "codegraph_requirements.models.requirement",
+    "Component": "codegraph_project.models.component",
+}
+
+
+def _ensure_type_registered(node_type: str) -> None:
+    """Import the package that registers *node_type* if not registered.
+
+    Called before deserializing a node so unknown ``type`` values in
+    serialized JSON (HLR/LLR/Component) resolve instead of raising
+    ``KeyError`` from ``CodeGraphNode.deserialize``.
+    """
+    if node_type in CodeGraphNode._registry:
+        return
+    module = _LAZY_TYPE_IMPORTS.get(node_type)
+    if module:
+        import importlib
+
+        importlib.import_module(module)
+
 from codegraph.backends.interface import Backend
 from codegraph.backends import get_backend
 
 from codegraph.constants import Tag, TAGS
-from codegraph.models.tags import CodeGraphNode
+from codegraph.models.tags import CodeGraphNode, _type_discriminator
 from codegraph.models.descriptors import PropertyRegistry
+
+
+def _require_tags(tag: str, nodes) -> None:
+    """Raise if any loaded graph node lacks a provenance tag.
+
+    Every persisted node must carry at least one provenance tag from
+    ``TAGS`` (design, as-built, dependency, scaffold, requirements,
+    test).  An empty ``tags`` list means the node was written without
+    tag propagation — surfacing the offenders here pinpoints which
+    write path dropped the tag.
+
+    Args:
+        tag: The tag the graph was loaded with (for the error message).
+        nodes: Iterable of loaded node instances.
+
+    Raises:
+        ValueError: If one or more nodes have no tags.
+    """
+    untagged: list[tuple[str, str, str, str | None]] = []
+    for node in nodes:
+        if getattr(node, "tags", None):
+            continue
+        untagged.append(
+            (
+                type(node).__name__,
+                getattr(node, "qualified_name", None)
+                or getattr(node, "name", None)
+                or "<unnamed>",
+                getattr(node, "source", "") or "",
+                getattr(node, "uid", None),
+            )
+        )
+    if untagged:
+        details = "; ".join(
+            f"{cls}({qn}, source={src!r}, uid={uid})"
+            for cls, qn, src, uid in untagged[:15]
+        )
+        more = f" (+{len(untagged) - 15} more)" if len(untagged) > 15 else ""
+        raise ValueError(
+            f"LayerGraph.from_backend({tag!r}): {len(untagged)} node(s) have "
+            f"empty tags — every node must carry a provenance tag from "
+            f"{TAGS}. First offenders: {details}{more}"
+        )
 
 
 @dataclass
@@ -176,7 +247,7 @@ class LayerGraph:
             The stable local key string for the node.
         """
         if isinstance(obj, dict):
-            type_name = obj.get("type")
+            type_name = _type_discriminator(obj)
             if type_name and type_name in CodeGraphNode._registry:
                 model_cls = CodeGraphNode._registry[type_name]
                 uid_prop = model_cls._uid_prop()
@@ -364,6 +435,7 @@ class LayerGraph:
             The CompositeEntry for this node (with children attached,
             references pending).
         """
+        _ensure_type_registered(_type_discriminator(data) or "")
         node = CodeGraphNode.deserialize(data)
         entry = CompositeEntry(node=node)
 
@@ -382,7 +454,7 @@ class LayerGraph:
                 child_data, key_to_entry, uid_to_key, child_keys
             )
             child_key = cls._node_key(child_data)
-            child_type = child_data["type"]
+            child_type = _type_discriminator(child_data)
             if child_type not in entry.children:
                 entry.children[child_type] = {}
             entry.children[child_type][child_key] = child_entry
@@ -500,6 +572,7 @@ class LayerGraph:
 
         # Phase 1: create all CompositeEntry instances (nodes only, no edges yet)
         for node_data in data:
+            _ensure_type_registered(_type_discriminator(node_data) or "")
             node = CodeGraphNode.deserialize(node_data)
             key = cls._node_key(node_data)
             key_to_entry[key] = CompositeEntry(node=node)
@@ -873,6 +946,8 @@ class LayerGraph:
             for key, entry in key_to_entry.items()
             if key not in child_keys
         }
+
+        _require_tags(tag, (e.node for e in key_to_entry.values()))
 
         graph = cls(tags=frozenset({tag}), entries=root_entries)
         graph._prune_empty_namespaces()

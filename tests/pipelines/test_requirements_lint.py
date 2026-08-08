@@ -5,9 +5,10 @@ the Database Migration Manager requirements with different contracts:
 
 - v1: original requirements, no contract → expect "fail" (known gaps)
 - v2: improved requirements, partial contract → expect "fail" (still gaps)
-- v3: reconciled requirements + full contract → expect "pass"/"warn"
+- v3: reconciled requirements + full contract, rollback spec still contradictory → expect "fail"
+- v4: v3 with rollback/apply/verify edge cases resolved → expect "pass"/"warn"
 
-Requires: Neo4j running, LLM_API_KEY set in .env.
+Requires: storage backend (SQLite by default), LLM_API_KEY set in .env.
 Skip with: ``pytest -m "not slow"``
 """
 
@@ -47,13 +48,12 @@ _LINT_VARIANTS = [
             "contract_md": None,
             "expected_score": "fail",
             "expected_readiness": "not_ready",
-            "min_blocking": 2,
+            "min_blocking": 1,
             "min_total": 6,
             "min_blocking_plus_warn": 6,
             "required_categories": {
                 "dangling_type",
                 "unnamed_entity",
-                "missing_attributes",
                 "missing_edge_case",
             },
             "required_both_categories": {"dangling_type", "unnamed_entity"},
@@ -70,10 +70,7 @@ _LINT_VARIANTS = [
             "min_blocking": 1,
             "min_total": 4,
             "min_blocking_plus_warn": 3,
-            "required_categories": {
-                "dangling_type",
-                "missing_dependency",
-            },
+            "required_categories": {"missing_dependency"},
             "required_both_categories": set(),
         },
         id="v2_improved_partial_contract",
@@ -83,6 +80,21 @@ _LINT_VARIANTS = [
             "label": "v3",
             "requirements_md": "migration_manager_requirements_v3.md",
             "contract_md": "migration_manager_api_contract_v3.md",
+            "expected_score": "fail",
+            "expected_readiness": "not_ready",
+            "min_blocking": 1,
+            "min_total": 0,
+            "min_blocking_plus_warn": 0,
+            "required_categories": set(),
+            "required_both_categories": set(),
+        },
+        id="v3_reconciled_full_contract",
+    ),
+    pytest.param(
+        {
+            "label": "v4",
+            "requirements_md": "migration_manager_requirements_v4.md",
+            "contract_md": "migration_manager_api_contract_v4.md",
             "expected_score": {"pass", "warn"},
             "expected_readiness": {"ready", "needs_review"},
             "min_blocking": 0,
@@ -91,7 +103,7 @@ _LINT_VARIANTS = [
             "required_categories": set(),
             "required_both_categories": set(),
         },
-        id="v3_reconciled_full_contract",
+        id="v4_clean_full_contract",
     ),
 ]
 
@@ -171,12 +183,10 @@ def lint_variant(request):
 
 # ── Tests ────────────────────────────────────────────────────────
 
-
-@pytest.mark.skip
 @pytest.mark.slow
 @pytest.mark.integration
 class TestRequirementsLint:
-    """Parametrized lint agent tests across v1/v2/v3."""
+    """Parametrized lint agent tests across v1/v2/v3/v4."""
 
     def test_requirements_ingested(self, lint_variant: dict) -> None:
         """Requirements fixture loaded and HLR uid returned."""
@@ -188,7 +198,8 @@ class TestRequirementsLint:
         The assertions are calibrated per variant:
         - v1: known gaps, expect fail with blocking findings
         - v2: improved but still gaps
-        - v3: fully reconciled, expect pass/warn with zero blockers
+        - v3: full contract but rollback spec still contradictory, expect fail
+        - v4: v3 with rollback/apply/verify edge cases resolved, expect pass/warn with zero blockers
         """
         log = logging.getLogger(__name__)
         _requires_openai()

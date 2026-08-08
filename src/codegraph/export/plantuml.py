@@ -282,6 +282,14 @@ _NESTING_REL_TYPES: set[str] = {
 # arrow would point at an element that doesn't exist in the diagram.
 _STRUCTURAL_REL_TYPES: set[str] = _NESTING_REL_TYPES | {"TEMPLATE_PARAM"}
 
+#: Node types that are design/test scaffolding, not architecture.
+#: DESIGN_API hides these by TYPE (the design agent may tag them
+#: ``design``, so a tag-based filter is not reliable).
+_SCAFFOLDING_TYPES: frozenset[str] = frozenset({
+    "TestNode", "TestStepNode", "AssertionNode", "TestFixtureNode",
+    "LiteralNode", "HLR", "LLR",
+})
+
 # Known PlantUML keywords that start element declarations
 _ELEMENT_KEYWORDS = ("package", "class", "interface", "enum", "note")
 
@@ -475,6 +483,10 @@ class PlantUMLExporter:
         self._rel_lines: list[str] = []           # arrow lines (emitted last)
         self._rel_set: set[str] = set()            # dedup set for arrow lines
         self._seen: set[str] = set()              # aliases already emitted
+        # Compound children hoisted out of their parent's class body
+        # (parent_alias, child_entry) — PlantUML cannot render
+        # class-in-class, so they emit at top level with a *-- arrow.
+        self._hoisted_compounds: list[tuple[str, CompositeEntry]] = []
         # When collapsing deps: mapping from collapsed alias → package alias
         self._collapsed_prefixes: dict[str, str] = {}
         # Set of aliases that should be skipped (collapsed into package)
@@ -728,6 +740,30 @@ class PlantUMLExporter:
             lines.extend(self._emit_entry(entry, indent=0))
         _dbg(f"emit entries done: {len(self._rel_lines)} rel lines")
 
+        # Emit compound children that were hoisted out of their parent's
+        # class body (composition across compounds renders as *-- arrows,
+        # never class-in-class nesting).
+        _dbg("emit hoisted compounds...")
+        for parent_alias, child_entry in self._hoisted_compounds:
+            child_qn = (
+                getattr(child_entry.node, "qualified_name", None)
+                or child_entry.node.name
+            )
+            child_alias = _sanitize_alias(child_qn)
+            if child_alias in self._seen:
+                pass  # already emitted via another parent / the namespace
+            else:
+                child_lines = self._emit_entry(child_entry, indent=0)
+                if not child_lines:
+                    # Filtered out of this view — no arrow to a phantom.
+                    continue
+                lines.extend(child_lines)
+            line = f"{parent_alias} *-- {child_alias} : composes"
+            if line not in self._rel_set:
+                self._rel_set.add(line)
+                self._rel_lines.append(line)
+        _dbg("emit hoisted compounds done")
+
         # Emit relationship arrows (sorted for deterministic output)
         if self._rel_lines:
             lines.append("")
@@ -926,6 +962,10 @@ class PlantUMLExporter:
         key = entry.node._uid_value()
         return key in self._collapsed_keys if key else False
 
+    def _entry_is_root(self, entry: CompositeEntry) -> bool:
+        """True when *entry* is a top-level graph entry (not nested)."""
+        return any(entry is root for root in self.graph.entries.values())
+
     # ── Element emission ──────────────────────────────────────────────
 
     def _emit_entry(self, entry: CompositeEntry, indent: int = 0) -> list[str]:
@@ -957,6 +997,22 @@ class PlantUMLExporter:
         if (
             getattr(node, "kind", "") == "type_parameter"
             or (getattr(node, "qualified_name", "") or "").startswith("type_param:")
+        ):
+            return []
+
+        # Design/test scaffolding is hidden from DESIGN_API by node
+        # TYPE — the design agent may tag these ``design``, so the
+        # legacy tag-based check below is not sufficient.
+        if node_type in _SCAFFOLDING_TYPES and not self._show_tests():
+            return []
+
+        # Standalone members (root-level AttributeNode/MethodNode/…)
+        # are test fixtures in design graphs — they exist only to feed
+        # hidden assertions.  Hide them from DESIGN_API.
+        if (
+            node_type in _MEMBER_TYPES
+            and not self._show_tests()
+            and self._entry_is_root(entry)
         ):
             return []
 
@@ -998,9 +1054,13 @@ class PlantUMLExporter:
         alias = _sanitize_alias(qname)
         self._aliases[qname] = alias
 
-        # Emit references (non-COMPOSES edges) as arrows
+        # Emit references as arrows.  COMPOSES is normally represented by
+        # nesting (children) and skipped; when a graph stores it as a flat
+        # reference (e.g. markdown-imported scaffold designs where the
+        # composed classes are top-level entries), the arrow renders so
+        # the composition is not silently dropped from the diagram.
         for rel_type, target_key, target_type in entry.references:
-            self._emit_reference(node, rel_type, target_key, target_type)
+            self._emit_reference(entry, rel_type, target_key, target_type)
 
         # Choose emission strategy by node type.
         # TestNode and HLR/LLR nodes with child elements use
@@ -1221,6 +1281,8 @@ class PlantUMLExporter:
                             # (rendered inside the member line), never
                             # standalone PlantUML elements.
                             continue
+                        if target_type in _SCAFFOLDING_TYPES and not self._show_tests():
+                            continue
                         if self._target_has_tag(target_key, "test") and not self._show_tests():
                             continue
                         # Redirect to collapsed namespace package if applicable
@@ -1262,7 +1324,11 @@ class PlantUMLExporter:
                             self._rel_set.add(line)
                             self._rel_lines.append(line)
 
-        # Emit non-member, non-namespace children nested
+        # Emit non-member, non-namespace children as hoisted siblings.
+        # PlantUML cannot render class-in-class (V1.2026.6 crashes on
+        # ``class { class { } }``), so composed compounds/enums are
+        # emitted at top level and linked with a ``*--`` composition
+        # arrow instead of being nested inside the parent body.
         for child_type, type_children in entry.children.items():
             if child_type not in _MEMBER_TYPES and child_type != "NamespaceNode":
                 if child_type not in ("MethodNode", "AttributeNode"):
@@ -1270,7 +1336,7 @@ class PlantUMLExporter:
                         if child_type == "EnumValueNode":
                             lines.append(self._format_enum_value_line(child_entry))
                         else:
-                            lines.extend(self._emit_entry(child_entry, indent + 1))
+                            self._hoisted_compounds.append((alias, child_entry))
 
         lines.append(f"{prefix}}}")
         self._seen.add(alias)
@@ -1336,12 +1402,36 @@ class PlantUMLExporter:
 
     # ── Reference (arrow) emission ─────────────────────────────────────
 
-    def _emit_reference(self, source_node: CodeGraphNode, rel_type: str,
+    def _is_nested_child(self, source_entry: CompositeEntry,
+                         target_key: str) -> bool:
+        """True when *target_key* resolves to a direct child of
+        *source_entry* (composition already represented by nesting).
+
+        COMPOSES references are skipped by the exporter because nesting
+        normally represents them; this check lets flat-reference graphs
+        (markdown imports) fall through to an arrow instead.
+        """
+        display = self.graph.resolve_target_name(
+            target_key, flat=self._flat_index()
+        )
+        if not display:
+            return False
+        for type_children in source_entry.children.values():
+            for child_entry in type_children.values():
+                child_name = (
+                    getattr(child_entry.node, "qualified_name", None)
+                    or child_entry.node.name
+                )
+                if child_name == display:
+                    return True
+        return False
+
+    def _emit_reference(self, source_entry: CompositeEntry, rel_type: str,
                        target_key: str, target_type: str = "") -> None:
         """Queue a relationship arrow for later emission.
 
         Args:
-            source_node: The source node of the relationship.
+            source_entry: The entry owning the relationship.
             rel_type: The relationship type (e.g. ``"DEPENDS_ON"``).
             target_key: The target node key (qualified name or name).
             target_type: The target node type name (e.g. ``"MethodNode"``).
@@ -1351,7 +1441,18 @@ class PlantUMLExporter:
                 rendered inline and are never standalone elements.
         """
         if rel_type in _STRUCTURAL_REL_TYPES:
-            return
+            # COMPOSES is normally represented by nesting (children) and
+            # gets no arrow.  But some graphs store COMPOSES as a flat
+            # reference (e.g. markdown-imported scaffold designs, where
+            # composed classes stay top-level entries).  Rendering the
+            # ``*--`` composition arrow keeps those relationships visible
+            # instead of silently dropping them.
+            if rel_type == "COMPOSES" and not self._is_nested_child(
+                source_entry, target_key
+            ):
+                pass
+            else:
+                return
 
         # Skip references to node types hidden in the current view mode.
         # FileNode targets are hidden in COLLAPSED and PUBLIC_API;
@@ -1364,9 +1465,15 @@ class PlantUMLExporter:
             # Parameters are function-signature detail (rendered inside
             # the member line), never standalone PlantUML elements.
             return
+        # Design/test scaffolding targets are hidden from DESIGN_API by
+        # TYPE (the agent may tag them ``design``) — keep the legacy
+        # tag-based check as well for older data.
+        if target_type in _SCAFFOLDING_TYPES and not self._show_tests():
+            return
         if self._target_has_tag(target_key, "test") and not self._show_tests():
             return
 
+        source_node = source_entry.node
         source_qname = getattr(source_node, "qualified_name", None) or source_node.name
         source_alias = self._aliases.get(source_qname) or _sanitize_alias(source_qname)
 

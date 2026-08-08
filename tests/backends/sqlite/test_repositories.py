@@ -106,6 +106,47 @@ def test_layer_graph_roundtrip():
     assert list(inner.children.keys()) == ["MethodNode"]
 
 
+def test_bulk_save_incremental_preserves_labels_and_tags():
+    """Incremental bulk_save must not wipe earlier batches' label/tag rows.
+
+    Regression: ``bulk_save`` used to ``DELETE FROM node_labels`` and
+    ``node_tags`` then re-insert only the current batch, so a second
+    ingest (e.g. the API contract as scaffold after the requirements)
+    erased the first batch's mirror rows — nodes stopped resolving by
+    label or tag even though their rows were intact.
+    """
+    b = get_backend()
+
+    # Batch 1: an HLR carrying the HLR label + design tag.
+    hlr = HLR(
+        name="Database Migration Manager", source="markdown-import",
+        kind="hlr", tags=["design"],
+    )
+    g1 = LayerGraph(
+        tags=frozenset({"design"}),
+        entries={LayerGraph._node_key(hlr): CompositeEntry(node=hlr)},
+    )
+    g1.to_backend(b)
+
+    # Batch 2: disjoint scaffold node — must not disturb batch 1.
+    cls = ClassNode(
+        name="Migration", source="scaffold",
+        qualified_name="Migration", kind="class", tags=["scaffold"],
+    )
+    g2 = LayerGraph(
+        tags=frozenset({"scaffold"}),
+        entries={LayerGraph._node_key(cls): CompositeEntry(node=cls)},
+    )
+    g2.to_backend(b)
+
+    # Batch 1's HLR still resolves by label and by tag.
+    assert len(list(HLR.nodes.all())) == 1
+    loaded = LayerGraph.from_backend(b, "design")
+    assert [e.node.name for e in loaded.entries.values()] == [
+        "Database Migration Manager",
+    ]
+
+
 def test_get_by_tag_and_source():
     b = get_backend()
     _make_tree(b)

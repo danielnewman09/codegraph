@@ -176,7 +176,25 @@ class SqliteBulkOps:
                         }
                     )
 
-            conn.execute(sa.text("DELETE FROM node_labels"), ())
+            # ── Mirror tables: labels + tags ───────────────────────
+            # Scoped per-node (matching ``_sync_labels``/``_sync_tags``
+            # in node_ops): only THIS batch's rows are replaced, so
+            # nodes persisted by earlier ``bulk_save`` calls keep their
+            # label/tag mirror rows.  A blanket ``DELETE FROM
+            # node_labels`` would erase the labels/tags of every other
+            # node in the store on each incremental ingest.
+            batch_ids = sorted(
+                {entry.node.element_id_property for entry in entries}
+            )
+            for table in ("node_labels", "node_tags"):
+                for chunk in _chunks(batch_ids, _DELETE_CHUNK):
+                    binds = ", ".join(f":n{i}" for i in range(len(chunk)))
+                    conn.execute(
+                        sa.text(
+                            f"DELETE FROM {table} WHERE node_id IN ({binds})"
+                        ),
+                        {f"n{i}": nid for i, nid in enumerate(chunk)},
+                    )
             if label_rows:
                 conn.execute(
                     sa.text(
@@ -185,7 +203,6 @@ class SqliteBulkOps:
                     ),
                     label_rows,
                 )
-            conn.execute(sa.text("DELETE FROM node_tags"), ())
             if tag_rows:
                 conn.execute(
                     sa.text(
@@ -214,7 +231,7 @@ class SqliteBulkOps:
             # IN-deletes keep the identical per-node semantics at O(n)
             # index visits.
             fts_uids = [r["uid"] for r in fts_rows]
-            for chunk in _chunks(fts_uids, 500):
+            for chunk in _chunks(fts_uids, _DELETE_CHUNK):
                 binds = ", ".join(f":u{i}" for i in range(len(chunk)))
                 conn.execute(
                     sa.text(f"DELETE FROM fts_nodes WHERE uid IN ({binds})"),
@@ -230,7 +247,7 @@ class SqliteBulkOps:
                 )
 
             emb_ids = [r["nid"] for r in emb_rows]
-            for chunk in _chunks(emb_ids, 500):
+            for chunk in _chunks(emb_ids, _DELETE_CHUNK):
                 binds = ", ".join(f":n{i}" for i in range(len(chunk)))
                 conn.execute(
                     sa.text(f"DELETE FROM node_embeddings WHERE node_id IN ({binds})"),
@@ -310,6 +327,14 @@ class SqliteBulkOps:
 def _chunks(items: list, size: int) -> list[list]:
     """Split *items* into consecutive chunks of at most *size*."""
     return [items[i : i + size] for i in range(0, len(items), size)]
+
+
+# IN-clause delete batch size.  The mirror-table/FTS/embedding deletes
+# run ``DELETE ... WHERE id IN (...`` per chunk; one statement per chunk
+# keeps SQLAlchemy compile overhead low while staying far under every
+# SQLite build's SQLITE_MAX_VARIABLE_NUMBER (32766 default; this build
+# raises it to 250000).
+_DELETE_CHUNK = 5000
 
 
 def _prep_uid(node: CodeGraphNode) -> str:

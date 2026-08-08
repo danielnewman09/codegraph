@@ -7,7 +7,7 @@ This is an end-to-end test of the DesignAgent pipeline:
 3. Run DesignAgent.run_with_reconciliation()
 4. Assert the design meets minimum expectations
 
-Requires: Neo4j running, LLM_API_KEY set in .env.
+Requires: storage backend (SQLite by default), LLM_API_KEY set in .env.
 Skip with: ``pytest -m "not slow"``
 """
 
@@ -30,10 +30,11 @@ for root in _roots:
         load_dotenv(env_path)
         break
 
-DATA_DIR = Path(__file__).parent.parent / "data" / "cpp_sqlite"
+DATA_DIR = Path(__file__).parent / "data" / "cpp_sqlite"
 
 from codegraph.graph import LayerGraph
 from codegraph.export.format import export_graph
+from codegraph.constants import TAGS
 
 
 def _requires_openai():
@@ -131,17 +132,16 @@ def v3_design_inputs() -> dict:
 
 # ── Tests ────────────────────────────────────────────────────────
 
-
-@pytest.mark.skip
 @pytest.mark.slow
 @pytest.mark.integration
 class TestDesignMigrationManager:
     """Pipeline test: DesignAgent → Migration Manager."""
 
     def test_neo4j_reachable(self) -> None:
-        """Prerequisite: Neo4j must be running."""
+        """Prerequisite: the storage backend must be reachable."""
         assert _has_neomodel_connection(), (
-            "Neo4j not reachable at bolt://localhost:7687"
+            "storage backend not reachable (SQLite default; "
+            "or Neo4j at bolt://localhost:7687 when CODEGRAPH_BACKEND=neo4j)"
         )
 
     def test_as_built_ingested(
@@ -157,7 +157,6 @@ class TestDesignMigrationManager:
             f"{sorted(ingest_as_built)}"
         )
 
-    @pytest.mark.slow
     def test_design_agent_produces_expected_classes(
         self,
         ingest_as_built: set[str],
@@ -243,9 +242,35 @@ class TestDesignMigrationManager:
             )
 
         # ── Required edges (from expected_design.json) ──
+        # Checked through the backend API (get_all_edges + find_by_uid)
+        # so the test runs on both SQLite and Neo4j — execute_raw() is
+        # backend-native (SQL vs Cypher) and cannot be shared.
         edge_assertions = expected.get("must_have_edges", [])
         if edge_assertions:
             from codegraph.backends import get_backend
+            backend = get_backend()
+
+            def _edge_exists(
+                from_name: str, rel: str, to_name: str,
+            ) -> bool:
+                """True if any saved edge a -[rel]-> b exists with a
+                ``qualified_name`` CONTAINS match on both endpoints
+                (the semantics of the Cypher query it replaces)."""
+                for node in CompoundNode.nodes.all():
+                    qn = getattr(node, "qualified_name", "") or ""
+                    if from_name not in qn:
+                        continue
+                    for edge in backend.get_all_edges(node):
+                        if edge.relation_type != rel or not edge.is_outgoing:
+                            continue
+                        target = backend.graph.find_by_uid(edge.target_uid)
+                        if target is None:
+                            continue
+                        tqn = getattr(target, "qualified_name", "") or ""
+                        if to_name in tqn:
+                            return True
+                return False
+
             missing = []
             for edge_spec in edge_assertions:
                 from_name = edge_spec["from_class"]
@@ -253,19 +278,7 @@ class TestDesignMigrationManager:
                 to_name = edge_spec["to_class"]
                 desc = edge_spec.get("description", "")
 
-                query = """
-                    MATCH (a)-[r]->(b)
-                    WHERE a.qualified_name CONTAINS $from_name
-                      AND type(r) = $rel
-                      AND b.qualified_name CONTAINS $to_name
-                    RETURN count(r) > 0 as exists
-                """
-                rows, _ = get_backend().execute_raw(
-                    query,
-                    {"from_name": from_name, "rel": rel, "to_name": to_name},
-                )
-                exists = rows[0]["exists"] if rows else False
-                if not exists:
+                if not _edge_exists(from_name, rel, to_name):
                     entry = f"{from_name} -[{rel}]-> {to_name}"
                     if desc:
                         entry += f" ({desc})"
@@ -340,7 +353,7 @@ class TestDesignMigrationManager:
                 )
 
         # ── Export artifacts ──
-        out_dir = Path(__file__).parent.parent / "unit_test_data"
+        out_dir = Path(__file__).parent / "unit_test_data"
         out_dir.mkdir(parents=True, exist_ok=True)
 
         artifacts = result.get("artifacts", {})
@@ -371,6 +384,31 @@ class TestDesignMigrationManager:
         log.info(
             "Exported design LayerGraph JSON: %s (%d bytes)",
             json_dest, len(json_text),
+        )
+
+        # ── Every exported node must carry a provenance tag ──
+        exported = json.loads(json_text)
+
+        def _iter_exported(items):
+            for item in items:
+                yield item
+                composes = item.get("composes")
+                if isinstance(composes, list):
+                    yield from _iter_exported(composes)
+
+        untagged = [
+            (
+                n.get("qualified_name") or n.get("name") or "<unnamed>",
+                n.get("uid"),
+                n.get("type") or n.get("kind"),
+            )
+            for n in _iter_exported(exported)
+            if not n.get("tags")
+        ]
+        assert not untagged, (
+            f"Exported design graph has {len(untagged)} node(s) with empty "
+            f"tags — every node must carry a provenance tag from {TAGS}. "
+            f"Offenders: {untagged[:15]}"
         )
 
         log.info(

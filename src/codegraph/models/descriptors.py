@@ -38,6 +38,7 @@ Design notes
 
 from __future__ import annotations
 
+import functools
 import uuid
 from datetime import datetime
 from typing import Any
@@ -397,6 +398,7 @@ class PropertyRegistry:
     """
 
     @staticmethod
+    @functools.lru_cache(maxsize=None)
     def of(
         klass: type,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -405,6 +407,12 @@ class PropertyRegistry:
         Walks the MRO in reverse (base classes first), collecting
         Property and Relationship descriptors.  The most-derived
         class's descriptor wins for a given name.
+
+        Memoized (``lru_cache``): a class's descriptor set is static
+        after module import, and this is called per-node on every
+        save/serialize path — e.g. ``bulk_save`` calls it ~60k times
+        for a 50k-node ingest.  The cached dicts are shared; callers
+        must treat them as read-only (none currently mutate them).
         """
         props: dict[str, Any] = {}
         rels: dict[str, Any] = {}
