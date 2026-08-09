@@ -16,7 +16,7 @@ class TestMemberEmbeddingFields:
         # codegraph:test-desc member.test_member_search_fields.TestMemberEmbeddingFields.test_method_doc_embedding_default_empty::step_0
         # Initializes the test environment by creating the MethodNode fixture,
         # establishing a baseline state where no embedding has been set.
-        m = MethodNode(kind="method")
+        m = MethodNode(kind="method", source="test",)
         # codegraph:test-desc member.test_member_search_fields.TestMemberEmbeddingFields.test_method_doc_embedding_default_empty::post_0
         # Confirms that the doc_embedding attribute of the MethodNode is an empty list,
         # ensuring the default behavior returns no embeddings when none have been added.
@@ -29,7 +29,7 @@ class TestMemberEmbeddingFields:
         # codegraph:test-desc member.test_member_search_fields.TestMemberEmbeddingFields.test_method_doc_embedding_stored::step_0
         # Sets up the initial state required for the test, ensuring that the environment
         # is ready for storing the method's doc embedding.
-        m = MethodNode(kind="method", doc_embedding=[0.1, 0.2, 0.3])
+        m = MethodNode(kind="method", doc_embedding=[0.1, 0.2, 0.3], source="test",)
         # codegraph:test-desc member.test_member_search_fields.TestMemberEmbeddingFields.test_method_doc_embedding_stored::post_0
         # Verifies that the doc_embedding field of the MethodNode instance equals the
         # expected list [0.1, 0.2, 0.3], confirming that the embedding was stored
@@ -44,7 +44,7 @@ class TestMemberEmbeddingFields:
         # Sets up the test by creating the FunctionNode fixture instance, providing the
         # necessary object on which the default doc_embedding value will later be
         # verified.
-        f = FunctionNode(kind="function")
+        f = FunctionNode(kind="function", source="test",)
         # codegraph:test-desc member.test_member_search_fields.TestMemberEmbeddingFields.test_function_doc_embedding_default::post_0
         # Verifies that the newly created FunctionNode's doc_embedding attribute is an
         # empty list, confirming the expected default initialization of this field.
@@ -114,7 +114,7 @@ class TestMemberLlmFields:
             kind="method",
             name="draw",
             doc_embedding=[0.1, 0.2, 0.3],
-        )
+        source="test",)
         serialized = m.serialize()
         # codegraph:test-desc member.test_member_search_fields.TestMemberLlmFields.test_method_serialize_excludes_embeddings::post_0
         # This assertion verifies that the 'doc_embedding' field is not present in the
@@ -153,7 +153,7 @@ class TestMemberImplementationRef:
         # codegraph:test-desc member.test_member_search_fields.TestMemberImplementationRef.test_method_has_implementation_ref::step_0
         # Sets up the test environment by creating or retrieving a method node instance
         # for subsequent validation.
-        m = MethodNode(kind="method")
+        m = MethodNode(kind="method", source="test",)
         # codegraph:test-desc member.test_member_search_fields.TestMemberImplementationRef.test_method_has_implementation_ref::post_0
         # Checks that the method node possesses the implementation_ref attribute,
         # confirming the relationship manager exists as expected.
@@ -164,7 +164,7 @@ class TestMemberImplementationRef:
         # codegraph:test-desc member.test_member_search_fields.TestMemberImplementationRef.test_function_has_implementation_ref::step_0
         # The setup block initializes the test environment by creating or retrieving the
         # necessary FunctionNode fixture, preparing for the subsequent assertions.
-        f = FunctionNode(kind="function")
+        f = FunctionNode(kind="function", source="test",)
         # codegraph:test-desc member.test_member_search_fields.TestMemberImplementationRef.test_function_has_implementation_ref::post_0
         # This assertion checks that the FunctionNode instance has an attribute named
         # 'implementation_ref', confirming that the relationship manager is present as
@@ -177,7 +177,7 @@ class TestMemberImplementationRef:
         # Sets up the test by creating the AttributeNode instance 'a', which is the
         # foundational step to enable subsequent verification of the attribute's
         # relationship manager.
-        a = AttributeNode(kind="attribute")
+        a = AttributeNode(kind="attribute", source="test",)
         # codegraph:test-desc member.test_member_search_fields.TestMemberImplementationRef.test_attribute_has_implementation_ref::post_0
         # Verifies that the AttributeNode instance has an attribute named
         # 'implementation_ref', confirming that the code under test correctly defines
@@ -189,7 +189,7 @@ class TestMemberImplementationRef:
         # codegraph:test-desc member.test_member_search_fields.TestMemberImplementationRef.test_define_has_implementation_ref::step_0
         # Sets up the DefineNode fixture without executing any search, providing a
         # baseline for verifying the existence of the implementation_ref attribute.
-        d = DefineNode(kind="define")
+        d = DefineNode(kind="define", source="test",)
         # codegraph:test-desc member.test_member_search_fields.TestMemberImplementationRef.test_define_has_implementation_ref::post_0
         # Confirms that a DefineNode object possesses an implementation_ref attribute,
         # ensuring that the required relationship manager exists for linking to
@@ -261,7 +261,7 @@ class TestMemberBodyLocation:
         # Calls `m.body_start` (assuming `m` is the MethodNode fixture) to retrieve the
         # body start value of the method. This advances the test by obtaining the actual
         # value that will be compared against the expected default of zero.
-        m = MethodNode(kind="method")
+        m = MethodNode(kind="method", source="test",)
         # codegraph:test-desc member.test_member_search_fields.TestMemberBodyLocation.test_method_body_start_default_zero::post_0
         # Verifies that the body start value of the method is equal to zero. This
         # assertion is important because it confirms that the body_start property
@@ -276,7 +276,7 @@ class TestMemberBodyLocation:
         # codegraph:test-desc member.test_member_search_fields.TestMemberBodyLocation.test_method_body_end_default_zero::step_0
         # Sets up the test by initializing the MethodNode fixture and preparing its
         # attributes for verification.
-        m = MethodNode(kind="method")
+        m = MethodNode(kind="method", source="test",)
         # codegraph:test-desc member.test_member_search_fields.TestMemberBodyLocation.test_method_body_end_default_zero::post_0
         # Verifies that the method's body_end attribute defaults to zero, ensuring
         # consistent initialization behavior.
@@ -289,7 +289,7 @@ class TestMemberBodyLocation:
         # codegraph:test-desc member.test_member_search_fields.TestMemberBodyLocation.test_method_body_start_stored::step_0
         # This step sets up the initial state by creating or retrieving the MethodNode
         # object, preparing for subsequent assertions on its body_start property.
-        m = MethodNode(kind="method", body_start=25, body_end=30)
+        m = MethodNode(kind="method", body_start=25, body_end=30, source="test",)
         # codegraph:test-desc member.test_member_search_fields.TestMemberBodyLocation.test_method_body_start_stored::post_0
         # This assertion checks that the method node's body_start attribute is not None,
         # ensuring the body start location has been properly captured and stored.
@@ -306,7 +306,7 @@ class TestMemberBodyLocation:
         # codegraph:test-desc member.test_member_search_fields.TestMemberBodyLocation.test_function_body_start_stored::step_0
         # Sets up the test by creating a FunctionNode with a known body_start value,
         # establishing the precondition needed to check the stored attribute.
-        f = FunctionNode(kind="function", body_start=100, body_end=120)
+        f = FunctionNode(kind="function", body_start=100, body_end=120, source="test",)
         # codegraph:test-desc member.test_member_search_fields.TestMemberBodyLocation.test_function_body_start_stored::post_0
         # Verifies that the 'body_start' attribute of the FunctionNode equals the
         # expected value, confirming that the node correctly captured the start location
@@ -339,7 +339,7 @@ class TestMemberBodyLocation:
         # codegraph:test-desc member.test_member_search_fields.TestMemberBodyLocation.test_method_serialize_excludes_body_location::step_0
         # Setup step that prepares the test environment by initializing the MethodNode
         # fixture 'm' and performing any necessary configuration before serialization.
-        m = MethodNode(kind="method", body_start=25, body_end=30, name="draw")
+        m = MethodNode(kind="method", body_start=25, body_end=30, name="draw", source="test",)
         serialized = m.serialize()
         # codegraph:test-desc member.test_member_search_fields.TestMemberBodyLocation.test_method_serialize_excludes_body_location::post_0
         # Checks that the serialized method omits the 'body_start' field, ensuring that

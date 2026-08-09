@@ -30,39 +30,39 @@ from codegraph.export.format import export_graph, import_graph
 
 def _make_simple_graph() -> LayerGraph:
     """Small graph with namespace, class, methods, attributes, interface, enum."""
-    ns = NamespaceNode(name="calc", kind="namespace", qualified_name="calc",
+    ns = NamespaceNode(name="calc", kind="namespace", source="test", qualified_name="calc",
                        tags=["design"])
-    cls = ClassNode(name="CalculatorEngine", kind="class",
+    cls = ClassNode(name="CalculatorEngine", kind="class", source="test",
                     qualified_name="calc::CalculatorEngine",
                     tags=["design"], visibility="public",
                     brief_description="Core engine handling arithmetic.")
-    iface = InterfaceNode(name="ICalculator", kind="interface",
+    iface = InterfaceNode(name="ICalculator", kind="interface", source="test",
                           qualified_name="calc::ICalculator",
                           tags=["design"], visibility="public",
                           brief_description="Calculator contract.")
-    meth = MethodNode(name="add", kind="method",
+    meth = MethodNode(name="add", kind="method", source="test",
                       qualified_name="calc::CalculatorEngine::add",
                       tags=["design"], visibility="public",
                       brief_description="Performs addition.",
                       type_signature="int", argsstring="(int a, int b)")
-    meth2 = MethodNode(name="_helper", kind="method",
+    meth2 = MethodNode(name="_helper", kind="method", source="test",
                        qualified_name="calc::CalculatorEngine::_helper",
                        tags=["design"], visibility="private",
                        brief_description="Internal helper.")
-    attr = AttributeNode(name="precision", kind="attribute",
+    attr = AttributeNode(name="precision", kind="attribute", source="test",
                          qualified_name="calc::CalculatorEngine::precision",
                          tags=["design"], visibility="public",
                          type_signature="int",
                          brief_description="Decimal precision.")
-    op_enum = EnumNode(name="Operation", kind="enum",
+    op_enum = EnumNode(name="Operation", kind="enum", source="test",
                        qualified_name="calc::Operation",
                        tags=["design"], visibility="public",
                        brief_description="Supported operations.")
-    add_val = EnumValueNode(name="ADD", kind="enumvalue",
+    add_val = EnumValueNode(name="ADD", kind="enumvalue", source="test",
                             qualified_name="calc::Operation::ADD",
                             tags=["design"],
                             brief_description="Addition operation.")
-    sub_val = EnumValueNode(name="SUBTRACT", kind="enumvalue",
+    sub_val = EnumValueNode(name="SUBTRACT", kind="enumvalue", source="test",
                             qualified_name="calc::Operation::SUBTRACT",
                             tags=["design"],
                             brief_description="Subtraction operation.")
@@ -296,9 +296,9 @@ class TestMarkdownExport:
         # codegraph:test-desc test_markdown.TestMarkdownExport.test_inherits_from_inline::step_0
         # Executes the markdown export function on the graph and stores the result,
         # advancing the test from setup to the point of generating output for assertion.
-        base = ClassNode(name="Animal", kind="class",
+        base = ClassNode(name="Animal", kind="class", source="test",
                         qualified_name="Animal", tags=["design"])
-        derived = ClassNode(name="Dog", kind="class",
+        derived = ClassNode(name="Dog", kind="class", source="test",
                            qualified_name="Dog", tags=["design"])
         derived_entry = CompositeEntry(
             node=derived,
@@ -350,11 +350,11 @@ class TestMarkdownExport:
         # Performs the setup of the graph with all necessary nodes and entries, then
         # calls export_markdown to generate the Markdown string, preparing the output
         # for assertion checks.
-        ns = NamespaceNode(name="ns", kind="namespace",
+        ns = NamespaceNode(name="ns", kind="namespace", source="test",
                            qualified_name="ns", tags=["design"])
-        a = ClassNode(name="A", kind="class",
+        a = ClassNode(name="A", kind="class", source="test",
                       qualified_name="ns::A", tags=["design"])
-        b = ClassNode(name="B", kind="class",
+        b = ClassNode(name="B", kind="class", source="test",
                       qualified_name="ns::B", tags=["design"])
         a_entry = CompositeEntry(
             node=a,
@@ -943,9 +943,9 @@ class TestMarkdownRoundTrip:
     # inheritance relationships preserves the structure, ensuring the round-trip
     # conversion maintains the correctness of the object model.
     def test_round_trip_inheritance(self):
-        base = ClassNode(name="Animal", kind="class",
+        base = ClassNode(name="Animal", kind="class", source="test",
                         qualified_name="Animal", tags=["design"])
-        derived = ClassNode(name="Dog", kind="class",
+        derived = ClassNode(name="Dog", kind="class", source="test",
                            qualified_name="Dog", tags=["design"])
         base_entry = CompositeEntry(node=base)
         derived_entry = CompositeEntry(

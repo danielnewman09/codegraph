@@ -695,11 +695,13 @@ class CodeGraphNode(metaclass=ABCMeta):
                 if computed:
                     setattr(node, uid_prop, computed)
             except ValueError:
-                # source or identity fields are empty — leave the
-                # UniqueIdProperty auto-generated value untouched.
+                # source or identity fields are empty — the node is left
+                # without a uid.  Reading ``.uid`` later raises; no random
+                # auto-generated uid is ever minted.  Callers must inject
+                # ``source`` before deserializing.
                 logging.warning(
                     "Cannot compute deterministic uid for %s: missing source "
-                    "or identity fields. Falling back to auto-generated uid.",
+                    "or identity fields — uid will raise on access.",
                     target_cls.__name__,
                 )
 

@@ -23,6 +23,7 @@ from codegraph.backends.sqlite.node_ops import (
 )
 from codegraph.backends.sqlite.rel_ops import SqliteRelOps
 from codegraph.graph import LayerGraph
+from codegraph.models.namespace import NamespaceNode
 from codegraph.models.tags import CodeGraphNode
 
 log = logging.getLogger(__name__)
@@ -299,7 +300,12 @@ class SqliteBulkOps:
                             nodes[neighbor_key] = neighbor
                             uid_to_key[target_uid] = neighbor_key
 
-        # Second pass: pull in namespace parents of non-project 1-hop neighbours.
+        # Second pass: pull in namespace parents of non-project 1-hop
+        # neighbours.  ONLY ``NamespaceNode`` parents qualify — arbitrary
+        # COMPOSES parents (e.g. an HLR composing its LLRs) would drag
+        # unrelated requirements/scaffold trees into e.g. a design
+        # export, breaking the design-closure invariant (every node
+        # design-tagged or 1-hop from a design-tagged node).
         initial_uids = {n._uid_value() for n in matched_nodes}
         for node in list(nodes.values()):
             if node._uid_value() in initial_uids:
@@ -311,15 +317,16 @@ class SqliteBulkOps:
                     continue  # only interested in incoming (parent→ns)
                 target_uid = edge.target_uid
                 target_type = edge.target_type
+                target_cls = CodeGraphNode._registry.get(target_type)
+                if target_cls is None or not issubclass(target_cls, NamespaceNode):
+                    continue
                 if target_uid not in seen_uids:
                     seen_uids.add(target_uid)
-                    target_cls = CodeGraphNode._registry.get(target_type)
-                    if target_cls:
-                        parent_ns = self._node_ops.get(target_cls, uid=target_uid)
-                        if parent_ns:
-                            ns_key = LayerGraph._node_key(parent_ns)
-                            nodes[ns_key] = parent_ns
-                            uid_to_key[target_uid] = ns_key
+                    parent_ns = self._node_ops.get(target_cls, uid=target_uid)
+                    if parent_ns:
+                        ns_key = LayerGraph._node_key(parent_ns)
+                        nodes[ns_key] = parent_ns
+                        uid_to_key[target_uid] = ns_key
 
         return list(nodes.values())
 

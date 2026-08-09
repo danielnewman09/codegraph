@@ -35,6 +35,7 @@ def _make_requirements_graph() -> LayerGraph:
 
     comp = Component(
         name="Calculation Engine",
+        source="test",
         qualified_name="Calculation Engine",
         description="The calculation engine shall provide arithmetic operations.",
         namespace="calc.engine",
@@ -42,30 +43,35 @@ def _make_requirements_graph() -> LayerGraph:
     )
     hlr1 = HLR(
         name="Requirements for Addition",
+        source="test",
         qualified_name="Requirements for Addition",
         description="The system shall support addition of two numbers.",
         tags=["design"],
     )
     hlr2 = HLR(
         name="Requirements for Subtraction",
+        source="test",
         qualified_name="Requirements for Subtraction",
         description="The system shall support subtraction of two numbers.",
         tags=["design"],
     )
     llr1 = LLR(
         name="Addition LLR-1",
+        source="test",
         qualified_name="Addition LLR-1",
         description="The add function shall return the sum of two integers.",
         tags=["design"],
     )
     llr2 = LLR(
         name="Addition LLR-2",
+        source="test",
         qualified_name="Addition LLR-2",
         description="The add function shall handle negative numbers.",
         tags=["design"],
     )
     llr3 = LLR(
         name="Subtraction LLR-1",
+        source="test",
         qualified_name="Subtraction LLR-1",
         description="The subtract function shall return the difference.",
         tags=["design"],
@@ -350,12 +356,14 @@ def _make_test_verification_graph() -> LayerGraph:
     # ── Requirement nodes ──
     hlr = HLR(
         name="Test Feature",
+        source="test",
         qualified_name="Test Feature",
         description="The system shall support test verification roundtrips.",
         tags=["design"],
     )
     llr = LLR(
         name="Test LLR-001",
+        source="test",
         qualified_name="Test LLR-001",
         description="The generate operation returns valid output.",
         tags=["design"],
@@ -364,6 +372,7 @@ def _make_test_verification_graph() -> LayerGraph:
     # ── Verification nodes ──
     test_node = TestNode(
         name="",
+        source="test",
         qualified_name="vm::generate::test_valid",
         test_name="test_generate_returns_valid_output",
         method="automated",
@@ -373,6 +382,7 @@ def _make_test_verification_graph() -> LayerGraph:
 
     precond = AssertionNode(
         name="",
+        source="test",
         qualified_name="cond::pre::calibrated",
         phase="pre",
         operator="is_true",
@@ -381,6 +391,7 @@ def _make_test_verification_graph() -> LayerGraph:
 
     postcond = AssertionNode(
         name="",
+        source="test",
         qualified_name="cond::post::output_ok",
         phase="post",
         operator="==",
@@ -389,6 +400,7 @@ def _make_test_verification_graph() -> LayerGraph:
 
     step = TestStepNode(
         name="",
+        source="test",
         qualified_name="step::invoke",
         description="Invoke the generate operation.",
         tags=["design"],
@@ -397,27 +409,32 @@ def _make_test_verification_graph() -> LayerGraph:
     # ── Scaffold target nodes ──
     is_ready = AttributeNode(
         name="is_ready",
+        source="test",
         qualified_name="Diagram::is_ready",
         tags=["design"],
     )
     output = AttributeNode(
         name="output",
+        source="test",
         qualified_name="Diagram::output",
         tags=["design"],
     )
     generate_op = AttributeNode(
         name="generate",
+        source="test",
         qualified_name="Diagram::generate",
         tags=["design"],
     )
     lit_true = LiteralNode(
         name="true",
+        source="test",
         qualified_name="literal::true",
         value="true",
         tags=["design"],
     )
     lit_not_empty = LiteralNode(
         name="not_empty",
+        source="test",
         qualified_name="literal::not_empty",
         value="not_empty",
         tags=["design"],

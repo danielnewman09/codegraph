@@ -315,9 +315,13 @@ class TestPlantUMLIntegration:
 
         Saves ``design_graph_puml.json`` alongside the original
         ``design_graph.json`` fixture so the two can be diffed to see
-        exactly what the PlantUML round-trip preserves and what it loses."""
+        exactly what the PlantUML round-trip preserves and what it loses.
+
+        ``source="calculator"`` (the fixture's source) makes restored
+        uids deterministic and identical to the original graph's uids,
+        so the artifact is stable across runs."""
         puml = export_plantuml(self.graph)
-        restored = import_plantuml(puml)
+        restored = import_plantuml(puml, source="calculator")
 
         json_data = restored.serialize(fields="all")
         out_path = Path(__file__).resolve().parent / "data" / "design_graph_puml.json"

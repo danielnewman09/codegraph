@@ -21,6 +21,7 @@ from codegraph.backends.neo4j.rel_ops import Neo4jRelOps
 
 from codegraph.graph import CompositeEntry
 from codegraph.graph import LayerGraph
+from codegraph.models.namespace import NamespaceNode
 from codegraph.models.tags import CodeGraphNode
 
 log = logging.getLogger(__name__)
@@ -211,7 +212,12 @@ class Neo4jBulkOps:
             if nbr._uid_value():
                 uid_to_key[nbr._uid_value()] = key
 
-        # Second pass: pull in namespace parents of non-project 1-hop neighbours
+        # Second pass: pull in namespace parents of non-project 1-hop
+        # neighbours.  ONLY ``NamespaceNode`` parents qualify — arbitrary
+        # COMPOSES parents (e.g. an HLR composing its LLRs) would drag
+        # unrelated requirements/scaffold trees into e.g. a design
+        # export, breaking the design-closure invariant (every node
+        # design-tagged or 1-hop from a design-tagged node).
         initial_uids = {n._uid_value() for n in matched_nodes}
         neighbor_uids = [n._uid_value() for n in neighbors if n._uid_value()]
         parent_edges = self._rel_ops.get_edges_for_uids(neighbor_uids)
@@ -226,6 +232,9 @@ class Neo4jBulkOps:
                 if edge.is_outgoing:
                     continue  # only interested in incoming (parent→ns)
                 target_uid = edge.target_uid
+                target_cls = CodeGraphNode._registry.get(edge.target_type)
+                if target_cls is None or not issubclass(target_cls, NamespaceNode):
+                    continue
                 if target_uid not in seen_uids:
                     seen_uids.add(target_uid)
                     pending2.setdefault(edge.target_type, []).append(target_uid)

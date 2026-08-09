@@ -29,7 +29,7 @@ def test_attribute_node_roundtrip():
         type_signature="int",
         visibility="private",
         brief_description="Widget width in pixels",
-    )
+    source="test",)
 
     # 2. Write to unit_test_data/ using serialize()
     FIXTURE_DIR.mkdir(exist_ok=True)

@@ -53,33 +53,33 @@ def _plantuml_available() -> bool:
 
 def _make_simple_graph() -> LayerGraph:
     """Build a small LayerGraph with a namespace, class, and method."""
-    ns = NamespaceNode(name="calc", kind="namespace", qualified_name="calc",
+    ns = NamespaceNode(name="calc", kind="namespace", source="test", qualified_name="calc",
                        tags=["design"])
-    cls = ClassNode(name="CalculatorEngine", kind="class",
+    cls = ClassNode(name="CalculatorEngine", kind="class", source="test",
                     qualified_name="calc::CalculatorEngine",
                     tags=["design"], visibility="public")
-    iface = InterfaceNode(name="ICalculator", kind="interface",
+    iface = InterfaceNode(name="ICalculator", kind="interface", source="test",
                           qualified_name="calc::ICalculator",
                           tags=["design"], visibility="public")
-    meth = MethodNode(name="add", kind="method",
+    meth = MethodNode(name="add", kind="method", source="test",
                       qualified_name="calc::CalculatorEngine::add",
                       tags=["design"], visibility="public",
                       type_signature="int",
                       argsstring="(int a, int b)")
-    attr = AttributeNode(name="precision", kind="attribute",
+    attr = AttributeNode(name="precision", kind="attribute", source="test",
                          qualified_name="calc::CalculatorEngine::precision",
                          tags=["design"], visibility="private",
                          type_signature="int")
-    op_enum = EnumNode(name="Operation", kind="enum",
+    op_enum = EnumNode(name="Operation", kind="enum", source="test",
                        qualified_name="calc::Operation",
                        tags=["design"], visibility="public")
-    add_val = EnumValueNode(name="ADD", kind="enumvalue",
+    add_val = EnumValueNode(name="ADD", kind="enumvalue", source="test",
                             qualified_name="calc::Operation::ADD",
                             tags=["design"])
-    sub_val = EnumValueNode(name="SUBTRACT", kind="enumvalue",
+    sub_val = EnumValueNode(name="SUBTRACT", kind="enumvalue", source="test",
                             qualified_name="calc::Operation::SUBTRACT",
                             tags=["design"])
-    func = FunctionNode(name="formatResult", kind="function",
+    func = FunctionNode(name="formatResult", kind="function", source="test",
                         qualified_name="calc::formatResult",
                         tags=["design"], visibility="public",
                         type_signature="string",
@@ -399,11 +399,11 @@ class TestExportRelationships:
     # relationship between two nodes, ensuring that dependency arrows are properly
     # represented in generated diagrams.
     def test_depends_on_arrow(self):
-        ns = NamespaceNode(name="ns", kind="namespace",
+        ns = NamespaceNode(name="ns", kind="namespace", source="test",
                            qualified_name="ns", tags=["design"])
-        cls_a = ClassNode(name="A", kind="class",
+        cls_a = ClassNode(name="A", kind="class", source="test",
                           qualified_name="ns::A", tags=["design"])
-        cls_b = ClassNode(name="B", kind="class",
+        cls_b = ClassNode(name="B", kind="class", source="test",
                           qualified_name="ns::B", tags=["design"])
         a_entry = CompositeEntry(
             node=cls_a,
@@ -436,14 +436,14 @@ class TestExportRelationships:
 
         Regression test: cpp_sqlite__ForeignKey ..> cpp_sqlite__Database__getDAO
         should become cpp_sqlite__ForeignKey ..> cpp_sqlite__Database."""
-        ns = NamespaceNode(name="ns", kind="namespace",
+        ns = NamespaceNode(name="ns", kind="namespace", source="test",
                            qualified_name="ns", tags=["design"])
-        cls_a = ClassNode(name="A", kind="class",
+        cls_a = ClassNode(name="A", kind="class", source="test",
                           qualified_name="ns::A", tags=["design"])
-        cls_b = ClassNode(name="B", kind="class",
+        cls_b = ClassNode(name="B", kind="class", source="test",
                           qualified_name="ns::B", tags=["design"])
         # B has a method foo that A invokes
-        meth_foo = MethodNode(name="foo", kind="method",
+        meth_foo = MethodNode(name="foo", kind="method", source="test",
                               qualified_name="ns::B::foo",
                               tags=["design"], visibility="public",
                               type_signature="void",
@@ -478,9 +478,9 @@ class TestExportRelationships:
     # class body.
     def test_same_class_member_suppressed(self):
         """Self-referential member edges (class → own member) should be suppressed."""
-        cls_a = ClassNode(name="A", kind="class",
+        cls_a = ClassNode(name="A", kind="class", source="test",
                           qualified_name="A", tags=["design"])
-        meth_bar = MethodNode(name="bar", kind="method",
+        meth_bar = MethodNode(name="bar", kind="method", source="test",
                               qualified_name="A::bar",
                               tags=["design"], visibility="private",
                               type_signature="int",
@@ -1231,9 +1231,9 @@ class TestExportImportRoundTrip:
     # exporting a LayerGraph to PlantUML and reimporting it, ensuring the round-trip
     # conversion maintains structural integrity.
     def test_round_trip_inheritance(self):
-        base = ClassNode(name="Animal", kind="class",
+        base = ClassNode(name="Animal", kind="class", source="test",
                         qualified_name="Animal", tags=["design"])
-        derived = ClassNode(name="Dog", kind="class",
+        derived = ClassNode(name="Dog", kind="class", source="test",
                            qualified_name="Dog", tags=["design"])
         base_entry = CompositeEntry(node=base)
         derived_entry = CompositeEntry(
@@ -1360,9 +1360,9 @@ class TestPngCompilation:
     # object-oriented hierarchies is accurate and functionally consistent with the
     # underlying graph model.
     def test_inheritance_to_png(self):
-        base = ClassNode(name="Animal", kind="class",
+        base = ClassNode(name="Animal", kind="class", source="test",
                         qualified_name="Animal", tags=["design"])
-        derived = ClassNode(name="Dog", kind="class",
+        derived = ClassNode(name="Dog", kind="class", source="test",
                            qualified_name="Dog", tags=["design"])
         base_entry = CompositeEntry(node=base)
         derived_entry = CompositeEntry(
@@ -1386,11 +1386,11 @@ class TestPngCompilation:
     # a PNG image via export_plantuml, ensuring that the PlantUML diagram generation
     # works end‑to‑end for enum types.
     def test_enum_to_png(self):
-        op_enum = EnumNode(name="Operation", kind="enum",
+        op_enum = EnumNode(name="Operation", kind="enum", source="test",
                           qualified_name="Operation", tags=["design"])
-        add_val = EnumValueNode(name="ADD", kind="enumvalue",
+        add_val = EnumValueNode(name="ADD", kind="enumvalue", source="test",
                                qualified_name="Operation::ADD", tags=["design"])
-        sub_val = EnumValueNode(name="SUBTRACT", kind="enumvalue",
+        sub_val = EnumValueNode(name="SUBTRACT", kind="enumvalue", source="test",
                                qualified_name="Operation::SUBTRACT", tags=["design"])
         op_entry = CompositeEntry(
             node=op_enum,

@@ -140,7 +140,7 @@ def test_build_uml_html_basic():
                 "visibility": "public",
                 "type_signature": "int",
                 "argsstring": "(int a, int b)",
-                "qualified_name": "calc::Calculator::add",
+                "source": "test", "qualified_name": "calc::Calculator::add",
                 "layer": "design",
             }
         ]
@@ -176,9 +176,9 @@ def test_build_uml_html_enum():
     by_kind = {
         "enum_value": [
             {"name": "RED", "visibility": "public", "type_signature": "",
-             "argsstring": "", "qualified_name": "Color::RED", "layer": "design"},
+             "argsstring": "", "source": "test", "qualified_name": "Color::RED", "layer": "design"},
             {"name": "GREEN", "visibility": "public", "type_signature": "",
-             "argsstring": "", "qualified_name": "Color::GREEN", "layer": "design"},
+             "argsstring": "", "source": "test", "qualified_name": "Color::GREEN", "layer": "design"},
         ]
     }
     result = build_uml_html("Color", by_kind, owner_kind="enum")
@@ -197,9 +197,9 @@ def test_build_uml_html_respects_visibility_order():
     by_kind = {
         "attribute": [
             {"name": "private_attr", "visibility": "private", "type_signature": "int",
-             "argsstring": "", "qualified_name": "Foo::private_attr", "layer": "design"},
+             "argsstring": "", "source": "test", "qualified_name": "Foo::private_attr", "layer": "design"},
             {"name": "public_attr", "visibility": "public", "type_signature": "str",
-             "argsstring": "", "qualified_name": "Foo::public_attr", "layer": "design"},
+             "argsstring": "", "source": "test", "qualified_name": "Foo::public_attr", "layer": "design"},
         ]
     }
     result = build_uml_html("Foo", by_kind, owner_kind="class")
@@ -231,7 +231,7 @@ def test_layer_graph_to_cytoscape_single_class():
     cls = ClassNode.deserialize({
         "type": "ClassNode",
         "name": "Calculator",
-        "qualified_name": "calc::Calculator",
+        "source": "test", "qualified_name": "calc::Calculator",
         "kind": "class",
         "tags": ["design"],
         "visibility": "public",
@@ -273,7 +273,7 @@ def test_layer_graph_to_cytoscape_class_with_members():
     method = MethodNode.deserialize({
         "type": "MethodNode",
         "name": "add",
-        "qualified_name": "calc::Calculator::add",
+        "source": "test", "qualified_name": "calc::Calculator::add",
         "kind": "method",
         "tags": ["design"],
         "visibility": "public",
@@ -284,7 +284,7 @@ def test_layer_graph_to_cytoscape_class_with_members():
     cls = ClassNode.deserialize({
         "type": "ClassNode",
         "name": "Calculator",
-        "qualified_name": "calc::Calculator",
+        "source": "test", "qualified_name": "calc::Calculator",
         "kind": "class",
         "tags": ["design"],
         "visibility": "public",
@@ -321,12 +321,12 @@ def test_layer_graph_to_cytoscape_class_with_members():
 def test_layer_graph_to_cytoscape_with_edges():
     """References between nodes produce Cytoscape edges."""
     cls_a = ClassNode.deserialize({
-        "type": "ClassNode", "name": "A", "qualified_name": "ns::A",
+        "type": "ClassNode", "name": "A", "source": "test", "qualified_name": "ns::A",
         "kind": "class", "tags": ["design"], "visibility": "public",
         "edges": [],
     })
     cls_b = ClassNode.deserialize({
-        "type": "ClassNode", "name": "B", "qualified_name": "ns::B",
+        "type": "ClassNode", "name": "B", "source": "test", "qualified_name": "ns::B",
         "kind": "class", "tags": ["design"], "visibility": "public",
         "edges": [],
     })
@@ -367,12 +367,12 @@ def test_layer_graph_to_cytoscape_with_namespace():
     """Namespace nodes get is_namespace flag and children get parent."""
     ns = NamespaceNode.deserialize({
         "type": "NamespaceNode", "name": "calc",
-        "qualified_name": "calc", "kind": "namespace",
+        "source": "test", "qualified_name": "calc", "kind": "namespace",
         "tags": ["design"], "edges": [],
     })
     cls = ClassNode.deserialize({
         "type": "ClassNode", "name": "Calculator",
-        "qualified_name": "calc::Calculator", "kind": "class",
+        "source": "test", "qualified_name": "calc::Calculator", "kind": "class",
         "tags": ["design"], "visibility": "public", "edges": [],
     })
     ns_entry = CompositeEntry(node=ns)
@@ -408,18 +408,18 @@ def test_layer_graph_to_cytoscape_method_reference_becomes_edge():
     """A reference from a collapsed method becomes an edge from the parent."""
     method = MethodNode.deserialize({
         "type": "MethodNode", "name": "calculate",
-        "qualified_name": "calc::Engine::calculate", "kind": "method",
+        "source": "test", "qualified_name": "calc::Engine::calculate", "kind": "method",
         "tags": ["design"], "visibility": "public", "edges": [],
     })
     cls_engine = ClassNode.deserialize({
         "type": "ClassNode", "name": "Engine",
-        "qualified_name": "calc::Engine",
+        "source": "test", "qualified_name": "calc::Engine",
         "kind": "class", "tags": ["design"], "visibility": "public",
         "edges": [],
     })
     cls_result = ClassNode.deserialize({
         "type": "ClassNode", "name": "Result",
-        "qualified_name": "calc::Result",
+        "source": "test", "qualified_name": "calc::Result",
         "kind": "class", "tags": ["design"], "visibility": "public",
         "edges": [],
     })
@@ -466,7 +466,7 @@ def test_layer_graph_to_cytoscape_method_reference_becomes_edge():
 def test_layer_graph_to_cytoscape_excludes_implementation_node():
     """ImplementationNode references are excluded from edges."""
     cls = ClassNode.deserialize({
-        "type": "ClassNode", "name": "Foo", "qualified_name": "ns::Foo",
+        "type": "ClassNode", "name": "Foo", "source": "test", "qualified_name": "ns::Foo",
         "kind": "class", "tags": ["design"], "visibility": "public",
         "edges": [],
     })
@@ -484,7 +484,7 @@ def test_layer_graph_to_cytoscape_excludes_implementation_node():
 def test_layer_graph_to_cytoscape_as_built_layer():
     """as-built tag produces layer='as-built' in node data."""
     cls = ClassNode.deserialize({
-        "type": "ClassNode", "name": "Foo", "qualified_name": "ns::Foo",
+        "type": "ClassNode", "name": "Foo", "source": "test", "qualified_name": "ns::Foo",
         "kind": "class", "tags": ["as-built"], "visibility": "public",
         "edges": [],
     })
@@ -505,7 +505,7 @@ def test_layer_graph_to_cytoscape_as_built_layer():
 def test_layer_graph_to_cytoscape_dependency_layer():
     """dependency tag produces layer='dependency' in node data."""
     cls = ClassNode.deserialize({
-        "type": "ClassNode", "name": "ExtLib", "qualified_name": "ext::Lib",
+        "type": "ClassNode", "name": "ExtLib", "source": "test", "qualified_name": "ext::Lib",
         "kind": "class", "tags": ["dependency"], "visibility": "public",
         "edges": [],
     })
@@ -526,17 +526,17 @@ def test_layer_graph_to_cytoscape_dependency_layer():
 def test_edge_ids_are_unique():
     """Multiple edges from same source to different targets have unique IDs."""
     cls_a = ClassNode.deserialize({
-        "type": "ClassNode", "name": "A", "qualified_name": "ns::A",
+        "type": "ClassNode", "name": "A", "source": "test", "qualified_name": "ns::A",
         "kind": "class", "tags": ["design"], "visibility": "public",
         "edges": [],
     })
     cls_b = ClassNode.deserialize({
-        "type": "ClassNode", "name": "B", "qualified_name": "ns::B",
+        "type": "ClassNode", "name": "B", "source": "test", "qualified_name": "ns::B",
         "kind": "class", "tags": ["design"], "visibility": "public",
         "edges": [],
     })
     cls_c = ClassNode.deserialize({
-        "type": "ClassNode", "name": "C", "qualified_name": "ns::C",
+        "type": "ClassNode", "name": "C", "source": "test", "qualified_name": "ns::C",
         "kind": "class", "tags": ["design"], "visibility": "public",
         "edges": [],
     })
@@ -703,7 +703,7 @@ def test_export_html_from_json_writes_valid_file(tmp_path):
     # Minimal graph data with uid fields
     data = [
         {"type": "ClassNode", "name": "Engine", "kind": "class",
-         "qualified_name": "ns::Engine", "tags": ["design"],
+         "source": "test", "qualified_name": "ns::Engine", "tags": ["design"],
          "uid": compute_uid("ns::Engine"), "edges": []},
     ]
     json_path = tmp_path / "graph.json"
@@ -740,7 +740,7 @@ def test_export_html_from_json_uses_filename_as_title(tmp_path):
     """When title is None, the JSON filename stem is used."""
     data = [
         {"type": "NamespaceNode", "name": "ns", "kind": "namespace",
-         "qualified_name": "ns", "tags": ["design"],
+         "source": "test", "qualified_name": "ns", "tags": ["design"],
          "uid": "x", "edges": []},
     ]
     json_path = tmp_path / "my_project.json"

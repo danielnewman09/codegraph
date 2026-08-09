@@ -1527,8 +1527,9 @@ class PlantUMLImporter:
 
     The resulting LayerGraph contains the core structure:
     NamespaceNodes, CompoundNodes, MemberNodes, and their
-    relationships.  Metadata (source, component_id, etc.) is not
-    preserved — the graph is rebuilt from the diagram structure.
+    relationships.  Source provenance is assigned from the ``source``
+    argument so imported nodes get deterministic uids (required —
+    random auto-generated uids are impossible).
 
     Diagnostics are collected during parsing and available on the
     ``diagnostics`` attribute after :meth:`import_plantuml` returns.
@@ -1538,14 +1539,20 @@ class PlantUMLImporter:
     Args:
         tags: Tags to apply to every imported node.
             Defaults to ``frozenset({"design"})``.
+        source: Source provenance label for every imported node
+            (required for deterministic uid computation).  Defaults to
+            ``"plantuml-import"`` — mirroring the Markdown importer's
+            ``"markdown-import"`` default.
         strict: If ``True``, raise :class:`PlantUMLParseError` when
             any error-level diagnostic is recorded.  Defaults to
             ``False`` (collect diagnostics but still return the graph).
     """
 
     def __init__(self, tags: frozenset[str] | None = None,
+                 source: str = "plantuml-import",
                  strict: bool = False):
         self._tags = list(tags) if tags else ["design"]
+        self._source = source
         self._strict = strict
         self.diagnostics: list[ParseDiagnostic] = []
 
@@ -1918,6 +1925,7 @@ class PlantUMLImporter:
             "type": node_type,
             "name": name,
             "qualified_name": qname,
+            "source": self._source,
             "tags": list(self._tags),
         }
         kind = _NODE_TYPE_TO_KIND.get(node_type)
@@ -1935,6 +1943,7 @@ class PlantUMLImporter:
             "type": node_type,
             "name": name,
             "qualified_name": qname,
+            "source": self._source,
             "tags": list(self._tags),
         }
         kind = _NODE_TYPE_TO_KIND.get(node_type)
@@ -2022,6 +2031,7 @@ def export_plantuml(graph: LayerGraph, fields: str = "llm",
 
 
 def import_plantuml(text: str, tags: frozenset[str] | None = None,
+                    source: str = "plantuml-import",
                     strict: bool = False) -> LayerGraph:
     """Import PlantUML class-diagram text into a :class:`LayerGraph`.
 
@@ -2039,6 +2049,11 @@ def import_plantuml(text: str, tags: frozenset[str] | None = None,
             optional and will be skipped if present).
         tags: Tags to apply to every imported node.
             Defaults to ``frozenset({"design"})``.
+        source: Source provenance label for every imported node
+            (required for deterministic uid computation).  Defaults to
+            ``"plantuml-import"``.  Pass the original graph's source
+            (e.g. ``"calculator"``) to make round-trip uids match the
+            source graph's uids.
         strict: If ``True``, raise :class:`PlantUMLParseError` when
             any error-level diagnostic is recorded.
 
@@ -2050,4 +2065,4 @@ def import_plantuml(text: str, tags: frozenset[str] | None = None,
         PlantUMLParseError: In strict mode, when structural errors are
             found in the PlantUML input.
     """
-    return PlantUMLImporter(tags=tags, strict=strict).import_plantuml(text)
+    return PlantUMLImporter(tags=tags, source=source, strict=strict).import_plantuml(text)

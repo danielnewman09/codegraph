@@ -411,6 +411,63 @@ class TestDesignMigrationManager:
             f"Offenders: {untagged[:15]}"
         )
 
+        # ── Design closure: every node is tagged "design" or directly
+        # edge-connected (any direction, any relation) to a node tagged
+        # "design".  Namespace nodes are structural and exempt.  Guards
+        # against unrelated requirements/scaffold trees (e.g. the HLR
+        # composing its LLRs) leaking into the design export via
+        # ``bulk_load_by_tag``'s namespace-parent pass. ──
+        items = list(_iter_exported(exported))
+        uid_to_item = {n["uid"]: n for n in items if n.get("uid")}
+
+        adjacent: dict[str, set[str]] = {}
+        for item in items:
+            uid = item.get("uid")
+            assert uid
+            neighbors = adjacent.setdefault(uid, set())
+            for child in item.get("composes", []) or []:
+                cuid = child.get("uid")
+                if cuid:
+                    neighbors.add(cuid)
+                    adjacent.setdefault(cuid, set()).add(uid)
+            for edge in item.get("edges", []) or []:
+                tuid = edge.get("target_uid")
+                if tuid:
+                    neighbors.add(tuid)
+                    adjacent.setdefault(tuid, set()).add(uid)
+
+        design_uids = {
+            uid
+            for uid in adjacent
+            if "design" in (uid_to_item.get(uid, {}).get("tags") or [])
+        }
+        not_design_closed: list[tuple] = []
+        for uid, neighbors in adjacent.items():
+            item = uid_to_item.get(uid)
+            if item is None:
+                continue  # edge target outside the export
+            if (item.get("type") or item.get("kind")) == "NamespaceNode":
+                continue  # namespaces are structural
+            if "design" in (item.get("tags") or []):
+                continue
+            if neighbors & design_uids:
+                continue
+            not_design_closed.append(
+                (
+                    item.get("qualified_name")
+                    or item.get("name")
+                    or "<unnamed>",
+                    item.get("tags"),
+                    uid[:12],
+                )
+            )
+        assert not not_design_closed, (
+            f"Exported design graph has {len(not_design_closed)} node(s) "
+            f"neither tagged 'design' nor directly edge-connected to a "
+            f"design-tagged node — design closure invariant broken. "
+            f"Offenders: {not_design_closed[:15]}"
+        )
+
         log.info(
             "Design verified: %d classes, %d methods",
             len(design_qnames),

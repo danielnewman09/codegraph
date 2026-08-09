@@ -39,7 +39,6 @@ Design notes
 from __future__ import annotations
 
 import functools
-import uuid
 from datetime import datetime
 from typing import Any
 
@@ -123,19 +122,17 @@ class UniqueId(Property):
     A class may have at most one ``UniqueId`` property.  The backend uses
     this property as the primary key for MERGE / upsert operations.
 
-    Default value is generated lazily — it is a callable that produces
-    a new random UUID7 string.  The first time the property is read on an
-    instance without an explicit set, the callable is invoked and the
-    result is stored.
+    Uids are ALWAYS deterministic: reading the property on an instance
+    without an explicitly-set value derives it from the node's identity
+    fields (``source`` + ``_identity_fields``) via ``_compute_uid()``.
+    Random auto-generated uids are deliberately impossible — a missing
+    ``source`` or primary identity field raises ``ValueError`` instead of
+    silently minting a fresh random value (which would make every
+    re-import/round-trip produce different uids for the same symbol).
     """
 
     def __init__(self) -> None:
         super().__init__(str, default=None)
-        self._lazy_default = self._generate
-
-    @staticmethod
-    def _generate() -> str:
-        return str(uuid.uuid4())
 
     def __get__(self, obj: Any, objtype: type | None = None) -> Any:
         if obj is None:
@@ -143,7 +140,16 @@ class UniqueId(Property):
         props = obj.__dict__.setdefault("_props", {})
         val = props.get(self.name)
         if val is None:
-            val = self._lazy_default()
+            # No random fallback — derive the deterministic uid from the
+            # node's identity fields (raises ValueError when ``source``
+            # or the primary identity field is missing).
+            compute = getattr(obj, "_compute_uid", None)
+            if compute is None:
+                raise ValueError(
+                    f"{type(obj).__name__} declares a UniqueId but has no "
+                    f"_compute_uid() — uids are deterministic, never random."
+                )
+            val = compute()
             props[self.name] = val
         return val
 

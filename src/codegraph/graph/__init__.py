@@ -256,11 +256,11 @@ class LayerGraph:
                 # uid_prop exists but not in dict.  Compute the
                 # deterministic uid by deserializing — but ONLY when
                 # "source" is present.  Without "source",
-                # _compute_uid() raises ValueError and the
-                # deserializer falls back to a random auto-generated
-                # uid, producing different keys on each call.
-                # Callers (e.g. design agent) must inject "source"
-                # into LLM-produced dicts before deserializing.
+                # _compute_uid() raises ValueError and the key is
+                # unusable (no random auto-generated uid exists —
+                # uids are always deterministic).  Callers (e.g.
+                # design agent) must inject "source" into
+                # LLM-produced dicts before deserializing.
                 if uid_prop:
                     identity_fields = getattr(model_cls, "_identity_fields", ())
                     source_val = obj.get("source", "")

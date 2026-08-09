@@ -431,7 +431,7 @@ class TestSerializeFields:
         # codegraph:test-desc test_codegraph_node.TestSerializeFields.test_llm_fields_default::step_0
         # Calls serialize() on the ClassNode fixture without extra arguments to produce
         # the default serialization output for verification.
-        node = ClassNode(name="Widget", kind="class", qualified_name="ns::Widget")
+        node = ClassNode(name="Widget", kind="class", source="test", qualified_name="ns::Widget")
         result = node.serialize()
         # _llm_fields for ClassNode: qualified_name, name, kind,
         # brief_description, base_classes, visibility
@@ -460,6 +460,7 @@ class TestSerializeFields:
         node = ClassNode(
             name="Widget",
             kind="class",
+            source="test",
             qualified_name="ns::Widget",
             tags=["design"],
             module="mymod",
@@ -582,7 +583,7 @@ class TestSerializeFields:
         # codegraph:test-desc test_codegraph_node.TestSerializeFields.test_all_fields_has_more_keys_than_llm::step_0
         # Calls node.serialize(fields='all') and node.serialize(fields='llm') to collect
         # the keys from both serialization modes, setting up the data for comparison.
-        node = ClassNode(name="A", kind="class", qualified_name="ns::A")
+        node = ClassNode(name="A", kind="class", source="test", qualified_name="ns::A")
         llm_result = node.serialize()
         all_result = node.serialize(fields="all")
         # 'type' and 'edges' are in both, so we strip them for comparison
@@ -602,7 +603,7 @@ class TestSerializeFields:
         # codegraph:test-desc test_codegraph_node.TestSerializeFields.test_llm_fields_on_file_node::step_0
         # Calls the serialize() method on the FileNode fixture to produce a result
         # dictionary, which is then checked by subsequent assertions.
-        node = FileNode(name="test.h", path="/src/test.h")
+        node = FileNode(name="test.h", path="/src/test.h", source="test")
         result = node.serialize()
         # FileNode _llm_fields is {name, path, source}
         # codegraph:test-desc test_codegraph_node.TestSerializeFields.test_llm_fields_on_file_node::post_0
@@ -632,7 +633,7 @@ class TestSerializeFields:
         # codegraph:test-desc test_codegraph_node.TestSerializeFields.test_all_fields_on_file_node_includes_refid::step_0
         # Calls `serialize(fields='all')` on the FileNode to generate its full
         # serialized representation, which is the core action being tested.
-        node = FileNode(name="test.h", path="/src/test.h")
+        node = FileNode(name="test.h", path="/src/test.h", source="test")
         result = node.serialize(fields="all")
         # codegraph:test-desc test_codegraph_node.TestSerializeFields.test_all_fields_on_file_node_includes_refid::post_0
         # Verifies that the key 'refid' exists in the serialized result, establishing
@@ -649,7 +650,7 @@ class TestSerializeFields:
         # codegraph:test-desc test_codegraph_node.TestSerializeFields.test_unsaved_node_has_empty_edges::step_0
         # Sets up the test by creating the unsaved node fixture; this step initiates the
         # test scenario by providing the node for serialization.
-        node = ClassNode(name="Ghost", kind="class", qualified_name="ns::Ghost")
+        node = ClassNode(name="Ghost", kind="class", source="test", qualified_name="ns::Ghost")
         # codegraph:test-desc test_codegraph_node.TestSerializeFields.test_unsaved_node_has_empty_edges::post_0
         # Verifies that the default serialization of an unsaved node includes an empty
         # edges list, ensuring the node behaves correctly before persistence.
@@ -705,27 +706,19 @@ class TestUidAccessors:
             cls.delete()
 
     def test_uid_value_for_unsaved_file_node(self):
-        """FileNode gets auto-generated refid even before explicit save."""
+        """FileNode uid is deterministic from source + path — never random."""
         # codegraph:test-desc test_codegraph_node.TestUidAccessors.test_uid_value_for_unsaved_file_node::step_0
-        # Access the '_uid_value' property of the unsaved FileNode to retrieve the
-        # automatically generated unique identifier, setting up the value for subsequent
-        # assertions.
+        # A FileNode without source cannot derive a uid; reading it raises.
         f = FileNode(name="unsaved.h")
-        uid = f._uid_value()
-        # UniqueIdProperty auto-generates a value on instantiation
-        # codegraph:test-desc test_codegraph_node.TestUidAccessors.test_uid_value_for_unsaved_file_node::post_0
-        # Verifies that the unique identifier (_uid_value) is not None, ensuring
-        # auto-generation produces a non-null refid for unsaved nodes.
-        assert uid is not None
-        # codegraph:test-desc test_codegraph_node.TestUidAccessors.test_uid_value_for_unsaved_file_node::post_1
-        # Verifies that the unique identifier is a string, confirming the auto-generated
-        # refid conforms to the expected data type required for downstream operations.
+        with pytest.raises(ValueError):
+            _ = f._uid_value()
+
+        # With source + path, the uid is a deterministic hash.
+        g = FileNode(name="unsaved.h", source="test")
+        uid = g._uid_value()
         assert isinstance(uid, str)
-        # codegraph:test-desc test_codegraph_node.TestUidAccessors.test_uid_value_for_unsaved_file_node::post_2
-        # Verifies that the unique identifier has a positive length, confirming it is a
-        # non-empty value, which matches expected behavior for a valid unique
-        # identifier.
-        assert len(uid) > 0
+        assert len(uid) == 40  # SHA-1 hex digest
+        assert g._uid_value() == uid  # stable across reads
 
     # ── HLR/LLR deterministic uid tests ───────────────────────────────
 
@@ -1092,7 +1085,7 @@ class TestSerializeNested:
         # Calls the serialize method on the unsaved ClassNode with 'nested=True' to
         # produce a serialized representation that will be validated in subsequent
         # assertions.
-        node = ClassNode(name="Unsaved", kind="class", qualified_name="ns::Unsaved")
+        node = ClassNode(name="Unsaved", kind="class", source="test", qualified_name="ns::Unsaved")
         result = node.serialize(nested=True)
         # codegraph:test-desc test_codegraph_node.TestSerializeNested.test_nested_unsaved_node::post_0
         # Ensures the serialized result maintains the correct node type 'ClassNode',

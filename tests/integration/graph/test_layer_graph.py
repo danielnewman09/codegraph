@@ -193,30 +193,30 @@ class TestNodeKey:
         assert len(key) == 40  # SHA-1 hex hash
 
     def test_file_node_instance_uses_uid(self):
-        """Unsaved FileNode: uid is auto-generated (random), _node_key returns it."""
+        """Unsaved FileNode: uid is deterministic (source + path), _node_key returns it."""
         # codegraph:test-desc test_layer_graph.TestNodeKey.test_file_node_instance_uses_uid::step_0
         # Sets up the test by creating the unsaved FileNode and the LayerGraph
         # containing it, preparing the objects needed to retrieve and inspect the node's
         # key.
-        node = FileNode(name="test.h", path="/src/test.h", refid="file-test-h")
+        node = FileNode(name="test.h", path="/src/test.h", refid="file-test-h", source="test")
         result = LayerGraph._node_key(node)
-        # uid is auto-generated UniqueIdProperty — non-empty string
+        # uid is the deterministic SHA-1 hash — non-empty string
         # codegraph:test-desc test_layer_graph.TestNodeKey.test_file_node_instance_uses_uid::post_0
         # Verifies that the _node_key result is a string, ensuring the method returns
         # the expected data type for an unsaved FileNode.
         assert isinstance(result, str)
         # codegraph:test-desc test_layer_graph.TestNodeKey.test_file_node_instance_uses_uid::post_1
-        # Verifies that the _node_key result is not empty, confirming the auto-generated
+        # Verifies that the _node_key result is not empty, confirming the deterministic
         # uid is valid and meaningful for an unsaved FileNode.
         assert len(result) > 0
 
     def test_class_node_instance_uses_uid(self):
-        """Unsaved ClassNode: uid is auto-generated (random), _node_key returns it."""
+        """Unsaved ClassNode: uid is deterministic (source + qname), _node_key returns it."""
         # codegraph:test-desc test_layer_graph.TestNodeKey.test_class_node_instance_uses_uid::step_0
         # Executes the setup by adding the unsaved ClassNode to the LayerGraph and
         # retrieving its _node_key result, preparing the value that will be checked by
         # the subsequent assertions.
-        node = ClassNode(name="Widget", kind="class", qualified_name="ns::Widget")
+        node = ClassNode(name="Widget", kind="class", qualified_name="ns::Widget", source="test")
         result = LayerGraph._node_key(node)
         # codegraph:test-desc test_layer_graph.TestNodeKey.test_class_node_instance_uses_uid::post_0
         # Verifies that the node key returned by _node_key for the unsaved ClassNode is
@@ -225,7 +225,7 @@ class TestNodeKey:
         assert isinstance(result, str)
         # codegraph:test-desc test_layer_graph.TestNodeKey.test_class_node_instance_uses_uid::post_1
         # Verifies that the resulting node key is not empty, ensuring that the
-        # auto-generated UID produced a non-zero-length string and that the key
+        # deterministic uid produced a non-zero-length string and that the key
         # generation logic does not fail for unsaved nodes.
         assert len(result) > 0
 
@@ -235,7 +235,7 @@ class TestNodeKey:
         # Sets up the test by creating the ParameterNode with a UID and adding it to the
         # LayerGraph, then invokes _node_key to get the key for this node.
         from codegraph.models.parameter import ParameterNode
-        node = ParameterNode(name="argc", position=0, type="int")
+        node = ParameterNode(name="argc", position=0, type="int", source="test")
         result = LayerGraph._node_key(node)
         # codegraph:test-desc test_layer_graph.TestNodeKey.test_parameter_node_uses_uid::post_0
         # Verifies that the result of _node_key is a string, ensuring the method returns
@@ -922,7 +922,7 @@ class TestSerializeFields:
         # subsets (e.g., LLM-only, all fields) to collect output results, advancing the
         # test toward verification of field inclusion or exclusion.
         node = ClassNode(name="Widget", kind="class", qualified_name="ns::Widget",
-                         module="mymod", is_abstract=True)
+                         source="test", module="mymod", is_abstract=True)
         entry = CompositeEntry(node=node)
 
         llm_result = entry.serialize()

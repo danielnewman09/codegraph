@@ -17,7 +17,7 @@ class TestTestStepNodeModel:
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_kind_defaults_to_test_step::step_0
         # Sets up the test by creating a TestStepNode model instance without specifying
         # a kind, so that its default value can later be checked.
-        node = TestStepNode()
+        node = TestStepNode(source="test",)
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_kind_defaults_to_test_step::post_0
         # Verifies that the 'kind' attribute of the TestStepNode model defaults to
         # 'test_step', ensuring the model correctly assigns a default type when none is
@@ -29,16 +29,25 @@ class TestTestStepNodeModel:
     # creation, ensuring each node can be reliably distinguished and referenced in test
     # workflows.
     def test_uid_auto_generated(self):
+        """uid is deterministic (source + identity) — never random."""
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_uid_auto_generated::step_0
-        # Sets up the test environment by initializing the node object (likely a
-        # TestStepNode model instance) to ensure it is ready for verification of
-        # automatic UUID generation.
+        # A TestStepNode without source cannot derive a uid — reading it raises.
         node = TestStepNode()
+        try:
+            _ = node.uid
+            raise AssertionError("uid without source must raise")
+        except ValueError:
+            pass
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_uid_auto_generated::post_0
-        # Checks that the node's unique identifier (uid) is a non-empty string,
-        # confirming that the system automatically generates a valid UUID when a new
-        # node is created.
-        assert len(node.uid) > 0
+        # With source + qualified_name the uid is a deterministic SHA-1 hash.
+        node = TestStepNode(
+            qualified_name="tests::test_update::test_single::step_0",
+            source="test",
+        )
+        uid = node.uid
+        assert isinstance(uid, str)
+        assert len(uid) == 40
+        assert node.uid == uid
 
     # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_order_defaults_to_zero
     # This test verifies that the default value of the 'order' attribute in a
@@ -49,7 +58,7 @@ class TestTestStepNodeModel:
         # Sets up the initial test context before verification, typically by
         # instantiating the test node or preparing its state to ensure that the system
         # under test is in a known baseline condition.
-        node = TestStepNode()
+        node = TestStepNode(source="test",)
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_order_defaults_to_zero::post_0
         # Verifies that the `order` attribute of the test step node defaults to zero,
         # which is important because it ensures that step ordering begins from a
@@ -64,7 +73,7 @@ class TestTestStepNodeModel:
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_description_default_empty::step_0
         # Initializes the test by setting up the TestStepNodeModel instance without
         # providing a description, preparing to check its default state.
-        node = TestStepNode()
+        node = TestStepNode(source="test",)
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_description_default_empty::post_0
         # Verifies that the description attribute of the TestStepNodeModel is an empty
         # string, ensuring that when no description is provided, the model defaults to
@@ -79,7 +88,7 @@ class TestTestStepNodeModel:
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_body_start_defaults_to_zero::step_0
         # Creates or configures a TestStepNodeModel instance without specifying a
         # body_start value, establishing the default state to be tested.
-        node = TestStepNode()
+        node = TestStepNode(source="test",)
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_body_start_defaults_to_zero::post_0
         # Verifies that the body_start attribute of the TestStepNodeModel is equal to
         # zero, confirming that the default value is correctly initialized as expected.
@@ -93,7 +102,7 @@ class TestTestStepNodeModel:
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_body_end_defaults_to_zero::step_0
         # Sets up the initial state of the test step node model, ensuring it is ready
         # for the subsequent verification of default behavior.
-        node = TestStepNode()
+        node = TestStepNode(source="test",)
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_body_end_defaults_to_zero::post_0
         # Verifies that the body_end property defaults to zero, confirming that the test
         # step node model initializes with the expected default value.
@@ -107,7 +116,7 @@ class TestTestStepNodeModel:
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_body_start_can_be_set::step_0
         # Sets up the initial state required for the test, ensuring that the test
         # environment is properly configured before executing the body_start assignment.
-        node = TestStepNode(body_start=45, body_end=48)
+        node = TestStepNode(body_start=45, body_end=48, source="test",)
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_body_start_can_be_set::post_0
         # Verifies that the body_start property has been set to the expected value,
         # confirming that the assignment operation succeeded as intended.
@@ -124,7 +133,7 @@ class TestTestStepNodeModel:
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_tags_default_empty_list::step_0
         # Sets up the test by creating the 'node' object that will be used in the test,
         # ensuring that it is initialized for subsequent assertions.
-        node = TestStepNode()
+        node = TestStepNode(source="test",)
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_tags_default_empty_list::post_0
         # Verifies that the node's 'tags' attribute is an empty list by default,
         # confirming that no tags are automatically assigned upon node creation, which
@@ -180,7 +189,7 @@ class TestTestStepNodeModel:
             qualified_name="tests::test_update::test_single::step_0",
             description="Call engine.set_target(30)",
             order=0,
-        )
+        source="test",)
         serialized = node.serialize()
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_serialize_includes_description::post_0
         # Verifies that the serialized output correctly retains the step's description
@@ -204,7 +213,7 @@ class TestTestStepNodeModel:
         # correct starting state.
         node = TestStepNode(
             qualified_name="tests::test_update::test_single::step_0",
-        )
+        source="test",)
         serialized = node.serialize()
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_serialize_includes_type_discriminator::post_0
         # Verifies that the serialized output contains a 'type' field set to
@@ -222,7 +231,7 @@ class TestTestStepNodeModel:
             qualified_name="tests::test_update::test_single::step_0",
             body_start=45,
             body_end=48,
-        )
+        source="test",)
         serialized = node.serialize()
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_serialize_excludes_body_start_end::post_0
         # Verifies that 'body_start' is not included in the serialized output,
@@ -244,7 +253,7 @@ class TestTestStepNodeModel:
             qualified_name="tests::test_update::test_single::step_0",
             body_start=45,
             body_end=48,
-        )
+        source="test",)
         serialized = node.serialize(fields="all")
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_serialize_all_includes_body_start_end::post_0
         # Verifies that when serializing with fields set to 'all', the body_start

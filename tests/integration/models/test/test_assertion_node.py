@@ -18,7 +18,7 @@ class TestAssertionNodeModel:
         # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_kind_defaults_to_assertion::step_0
         # Sets up the test environment by initializing the AssertionNode object (the
         # node fixture) so that its default properties can be examined.
-        node = AssertionNode()
+        node = AssertionNode(source="test",)
         # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_kind_defaults_to_assertion::post_0
         # Checks that the 'kind' attribute of the AssertionNode equals 'assertion',
         # confirming the default value is correctly assigned and the model behaves as
@@ -30,14 +30,26 @@ class TestAssertionNodeModel:
     # identifier (uid) upon creation, ensuring each node can be uniquely referenced and
     # tracked within the model.
     def test_uid_auto_generated(self):
+        """uid is deterministic (source + identity) — never random."""
         # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_uid_auto_generated::step_0
-        # Sets up the test environment by initializing the node fixture, enabling the
-        # subsequent verification of its auto-generated UID.
+        # An AssertionNode without source cannot derive a uid — reading it raises.
         node = AssertionNode()
+        try:
+            _ = node.uid
+            raise AssertionError("uid without source must raise")
+        except ValueError:
+            pass
         # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_uid_auto_generated::post_0
-        # Checks that the node's UID is a non-empty string, confirming the automatic UID
-        # generation feature of AssertionNode works correctly.
-        assert len(node.uid) > 0
+        # With source + qualified_name the uid is a deterministic SHA-1 hash.
+        node = AssertionNode(
+            qualified_name="tests::test_update::test_single::post_0",
+            phase="post",
+            source="test",
+        )
+        uid = node.uid
+        assert isinstance(uid, str)
+        assert len(uid) == 40
+        assert node.uid == uid
 
     def test_phase_required(self):
         """phase is a required field — constructing without it uses default."""
@@ -60,7 +72,7 @@ class TestAssertionNodeModel:
         # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_order_defaults_to_zero::step_0
         # Sets up the test by initializing the AssertionNode fixture, establishing the
         # baseline state needed to verify the default value of the 'order' field.
-        node = AssertionNode()
+        node = AssertionNode(source="test",)
         # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_order_defaults_to_zero::post_0
         # Confirms that the 'order' attribute of the AssertionNode is zero by default,
         # validating that the model correctly assigns a default value when none is
@@ -74,7 +86,7 @@ class TestAssertionNodeModel:
         # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_operator_defaults_to_eq::step_0
         # Sets up the test by instantiating an AssertionNode with no explicit operator,
         # preparing it for inspection of its default value.
-        node = AssertionNode()
+        node = AssertionNode(source="test",)
         # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_operator_defaults_to_eq::post_0
         # Verifies that the AssertionNode's operator property defaults to 'eq', ensuring
         # the model initializes with the expected default behavior.
@@ -87,7 +99,7 @@ class TestAssertionNodeModel:
         # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_description_default_empty::step_0
         # Calls the default constructor of AssertionNode with no arguments, setting up
         # the node object to be inspected for its default description value.
-        node = AssertionNode()
+        node = AssertionNode(source="test",)
         # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_description_default_empty::post_0
         # Verifies that the description attribute of the AssertionNode is an empty
         # string, confirming that newly created assertion nodes have no pre-set
@@ -101,7 +113,7 @@ class TestAssertionNodeModel:
         # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_tags_default_empty_list::step_0
         # Sets up the test by initializing the AssertionNode with no tags, preparing to
         # check its default tag attribute.
-        node = AssertionNode()
+        node = AssertionNode(source="test",)
         # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_tags_default_empty_list::post_0
         # Verifies that the tags attribute of the AssertionNode is an empty list,
         # confirming the default behavior of the model.
@@ -175,7 +187,7 @@ class TestAssertionNodeModel:
             qualified_name="tests::test_update::test_single::post_0",
             phase="post",
             operator="==",
-        )
+        source="test",)
         serialized = node.serialize()
         # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_serialize_includes_phase::post_0
         # Verifies that the serialized output includes the correct phase field ('post'),
@@ -198,7 +210,7 @@ class TestAssertionNodeModel:
         node = AssertionNode(
             qualified_name="tests::test_update::test_single::post_0",
             phase="post",
-        )
+        source="test",)
         serialized = node.serialize()
         # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_serialize_includes_type_discriminator::post_0
         # Verifies that the serialized output includes a 'type' field set to

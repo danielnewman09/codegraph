@@ -30,13 +30,13 @@
             "name": "add",
             "qualified_name": "calc::CalculatorEngine::add",
             "refid": "",
-            "source": "",
+            "source": "calculator",
             "tags": [
               "design"
             ],
             "type": "MethodNode",
             "type_signature": "CalculatorResult",
-            "uid": "603ca9dd-55ee-4a72-adaf-41fdf2a3d408",
+            "uid": "f03506a446d2e754452e774955c83c7ccd7bf8c6",
             "visibility": "public"
           },
           {
@@ -62,13 +62,13 @@
             "name": "validateInput",
             "qualified_name": "calc::CalculatorEngine::validateInput",
             "refid": "",
-            "source": "",
+            "source": "calculator",
             "tags": [
               "design"
             ],
             "type": "MethodNode",
             "type_signature": "bool",
-            "uid": "6eb8cdf6-5d36-4df7-81f4-3a3bf933566c",
+            "uid": "546620476ca16b2f3db46b316f9e8b9aa6d925f1",
             "visibility": "public"
           },
           {
@@ -89,13 +89,13 @@
             "name": "precision",
             "qualified_name": "calc::CalculatorEngine::precision",
             "refid": "",
-            "source": "",
+            "source": "calculator",
             "tags": [
               "design"
             ],
             "type": "AttributeNode",
             "type_signature": "int",
-            "uid": "263ff709-b8a7-45cb-9d81-b4a397c25bf3",
+            "uid": "e2c8a236f5d302627dcc4d2e22070f9519505e91",
             "visibility": "public"
           }
         ],
@@ -123,13 +123,13 @@
         "name": "CalculatorEngine",
         "qualified_name": "calc::CalculatorEngine",
         "refid": "",
-        "source": "",
+        "source": "calculator",
         "source_type": "",
         "tags": [
           "design"
         ],
         "type": "ClassNode",
-        "uid": "b1a0f867-15e1-44f5-9d4f-2975701a7272",
+        "uid": "93aeaa5ee440aac253b156ccf2f15227aa11e0ac",
         "visibility": ""
       },
       {
@@ -160,13 +160,13 @@
             "name": "get_value",
             "qualified_name": "calc::CalculatorResult::get_value",
             "refid": "",
-            "source": "",
+            "source": "calculator",
             "tags": [
               "design"
             ],
             "type": "MethodNode",
             "type_signature": "double",
-            "uid": "325b479d-0c59-4b0e-b948-cdeaa21e6035",
+            "uid": "29590eee47c8aaca1eeb2f993d7ed9830353bf26",
             "visibility": "public"
           },
           {
@@ -187,13 +187,13 @@
             "name": "value",
             "qualified_name": "calc::CalculatorResult::value",
             "refid": "",
-            "source": "",
+            "source": "calculator",
             "tags": [
               "design"
             ],
             "type": "AttributeNode",
             "type_signature": "double",
-            "uid": "2a2e81bf-8a71-4eda-9b00-4e8277e9172d",
+            "uid": "4c582541814c6e1e69804100ff09496d81ce1ba7",
             "visibility": "public"
           }
         ],
@@ -210,13 +210,13 @@
         "name": "CalculatorResult",
         "qualified_name": "calc::CalculatorResult",
         "refid": "",
-        "source": "",
+        "source": "calculator",
         "source_type": "",
         "tags": [
           "design"
         ],
         "type": "ClassNode",
-        "uid": "79240da0-cf4d-4484-9681-3d4ea9eafd7f",
+        "uid": "3beaa98236596366493cf23e0ab33dad2bec8398",
         "visibility": ""
       },
       {
@@ -246,13 +246,13 @@
             "name": "calculate",
             "qualified_name": "calc::ICalculator::calculate",
             "refid": "",
-            "source": "",
+            "source": "calculator",
             "tags": [
               "design"
             ],
             "type": "MethodNode",
             "type_signature": "CalculatorResult",
-            "uid": "de50d053-2754-416b-a625-6c51929a51b6",
+            "uid": "ae91bd9b059d2cbd18c3c6f0e5b6cbcd9a10bc58",
             "visibility": "public"
           }
         ],
@@ -268,13 +268,13 @@
         "name": "ICalculator",
         "qualified_name": "calc::ICalculator",
         "refid": "",
-        "source": "",
+        "source": "calculator",
         "source_type": "",
         "tags": [
           "design"
         ],
         "type": "InterfaceNode",
-        "uid": "912b5f1e-9b50-46e6-b427-5d2458b435b1",
+        "uid": "c91c124590ac1b9feace1652a940c88ddcf38f3c",
         "visibility": ""
       },
       {
@@ -298,12 +298,12 @@
             "name": "ADD",
             "qualified_name": "calc::Operation::ADD",
             "refid": "",
-            "source": "",
+            "source": "calculator",
             "tags": [
               "design"
             ],
             "type": "EnumValueNode",
-            "uid": "f1bf9436-1a22-4cc2-a8e2-b5b8d962eb01",
+            "uid": "8abe9dc65a5df639ef2bcd7cf1bbfb7047405690",
             "visibility": ""
           },
           {
@@ -323,12 +323,12 @@
             "name": "SUBTRACT",
             "qualified_name": "calc::Operation::SUBTRACT",
             "refid": "",
-            "source": "",
+            "source": "calculator",
             "tags": [
               "design"
             ],
             "type": "EnumValueNode",
-            "uid": "9f4e164a-5f7a-4733-9477-077728da66dc",
+            "uid": "291b160857f2358aea93cf91dc891941c80042b0",
             "visibility": ""
           }
         ],
@@ -343,13 +343,13 @@
         "name": "Operation",
         "qualified_name": "calc::Operation",
         "refid": "",
-        "source": "",
+        "source": "calculator",
         "source_type": "",
         "tags": [
           "design"
         ],
         "type": "EnumNode",
-        "uid": "3438eaf8-4d9a-4108-b0fd-c841644b5775",
+        "uid": "535a4bf2ad71c02172d3ebe363501e38da388059",
         "visibility": ""
       },
       {
@@ -369,13 +369,13 @@
         "name": "formatResult",
         "qualified_name": "calc::formatResult",
         "refid": "",
-        "source": "",
+        "source": "calculator",
         "tags": [
           "design"
         ],
         "type": "FunctionNode",
         "type_signature": "",
-        "uid": "879580e8-7242-4aae-bc38-c8ad8ccde9a4",
+        "uid": "b2871afab99a0863e8e92fcdc076b43f02ee5470",
         "visibility": ""
       }
     ],
@@ -385,12 +385,12 @@
     "name": "calc",
     "qualified_name": "calc",
     "refid": "",
-    "source": "",
+    "source": "calculator",
     "tags": [
       "design"
     ],
     "type": "NamespaceNode",
-    "uid": "b4a1ee46-ec88-48d8-8394-218ad5f9c584"
+    "uid": "bd8b6cf747ada9179df7b2b110cf2cb811fdb73a"
   },
   {
     "component_id": null,
@@ -423,13 +423,13 @@
             "name": "show",
             "qualified_name": "ui::BaseWindow::show",
             "refid": "",
-            "source": "",
+            "source": "calculator",
             "tags": [
               "design"
             ],
             "type": "MethodNode",
             "type_signature": "void",
-            "uid": "04df506d-97cc-41f7-b5b5-1f00270fdc0e",
+            "uid": "867d9f104a197c667c9a73c02d24f77960718dce",
             "visibility": "public"
           }
         ],
@@ -446,13 +446,13 @@
         "name": "BaseWindow",
         "qualified_name": "ui::BaseWindow",
         "refid": "",
-        "source": "",
+        "source": "calculator",
         "source_type": "",
         "tags": [
           "design"
         ],
         "type": "ClassNode",
-        "uid": "6d83f274-017b-4e05-b436-b90efbc7d82b",
+        "uid": "be5ed6c102db4247732c36442e610248058b2cc8",
         "visibility": ""
       },
       {
@@ -483,13 +483,13 @@
             "name": "handleEquals",
             "qualified_name": "ui::CalculatorWindow::handleEquals",
             "refid": "",
-            "source": "",
+            "source": "calculator",
             "tags": [
               "design"
             ],
             "type": "MethodNode",
             "type_signature": "void",
-            "uid": "9d5016fc-1d30-4c5e-9674-35bc929bef37",
+            "uid": "77a4b93934e021ded536b57f90c7ed400086c47d",
             "visibility": "private"
           },
           {
@@ -510,13 +510,13 @@
             "name": "display",
             "qualified_name": "ui::CalculatorWindow::display",
             "refid": "",
-            "source": "",
+            "source": "calculator",
             "tags": [
               "design"
             ],
             "type": "AttributeNode",
             "type_signature": "string",
-            "uid": "bae634d7-c00b-4152-8479-274c7f81d9f5",
+            "uid": "165fcec95cb3e811f028df0022614a35c6a8c3d1",
             "visibility": "private"
           },
           {
@@ -537,13 +537,13 @@
             "name": "currentInput",
             "qualified_name": "ui::CalculatorWindow::currentInput",
             "refid": "",
-            "source": "",
+            "source": "calculator",
             "tags": [
               "design"
             ],
             "type": "AttributeNode",
             "type_signature": "string",
-            "uid": "b18908d9-8947-4629-8cce-7d3f1612874d",
+            "uid": "6b1fe9d08012d6786d663495c456e28764f06612",
             "visibility": "private"
           }
         ],
@@ -571,13 +571,13 @@
         "name": "CalculatorWindow",
         "qualified_name": "ui::CalculatorWindow",
         "refid": "",
-        "source": "",
+        "source": "calculator",
         "source_type": "",
         "tags": [
           "design"
         ],
         "type": "ClassNode",
-        "uid": "954a91b8-6d88-4dca-93f0-ac7e1479b3fb",
+        "uid": "a7088a313f75ecdafea536ec62f8d93de39f2c33",
         "visibility": ""
       }
     ],
@@ -587,11 +587,11 @@
     "name": "ui",
     "qualified_name": "ui",
     "refid": "",
-    "source": "",
+    "source": "calculator",
     "tags": [
       "design"
     ],
     "type": "NamespaceNode",
-    "uid": "0fe95928-4c28-4065-95ae-a0626fddb332"
+    "uid": "6c4df8a4a9e9401d070103edf9a7f17fff19c2ba"
   }
 ]

@@ -18,26 +18,33 @@ class TestTestNodeModel:
         # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_kind_defaults_to_test::step_0
         # Creates an instance of TestNodeModel using the default constructor to set up
         # the initial state for verifying the default value of the 'kind' attribute.
-        node = TestNode()
+        node = TestNode(source="test",)
         # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_kind_defaults_to_test::post_0
         # Verifies that the 'kind' attribute of the TestNodeModel instance is equal to
         # 'test', confirming the expected default behavior of the model.
         assert node.kind == "test"
 
     def test_uid_auto_generated(self):
-        """UniqueIdProperty auto-generates a UUID for uid when no value is provided."""
+        """uid is deterministic (source + identity) — never random."""
         # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_uid_auto_generated::step_0
-        # Creates a new instance of TestNodeModel without providing a uid, in order to
-        # test that the UniqueIdProperty automatically generates one.
+        # A TestNode without source cannot derive a uid — reading it raises
+        # (random auto-generated uids are impossible).
         node = TestNode()
+        try:
+            _ = node.uid
+            raise AssertionError("uid without source must raise")
+        except ValueError:
+            pass
         # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_uid_auto_generated::post_0
-        # Asserts that the uid field is not empty, ensuring the auto-generation
-        # mechanism produced a value as required.
-        assert len(node.uid) > 0
-        # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_uid_auto_generated::post_1
-        # Verifies that the auto-generated uid is a valid UUID string, confirming that
-        # the property correctly conforms to the UUID format.
-        assert node.qualified_name == ""
+        # With source + qualified_name the uid is a deterministic SHA-1 hash.
+        node = TestNode(
+            qualified_name="tests::test_update::test_single_field",
+            source="test",
+        )
+        uid = node.uid
+        assert isinstance(uid, str)
+        assert len(uid) == 40
+        assert node.uid == uid  # stable across reads
 
     # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_qualified_name_explicit_set
     # Verifies that directly setting the qualified_name attribute on a TestNode yields
@@ -47,7 +54,7 @@ class TestTestNodeModel:
         # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_qualified_name_explicit_set::step_0
         # Initializes a test node model with an explicitly set qualified name to prepare
         # for verifying that the custom name is stored correctly.
-        node = TestNode(qualified_name="tests::test_update::test_single_field")
+        node = TestNode(qualified_name="tests::test_update::test_single_field", source="test",)
         # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_qualified_name_explicit_set::post_0
         # Confirms that the model's qualified name attribute matches the explicitly set
         # value, ensuring the node correctly retains user-defined naming.
@@ -61,7 +68,7 @@ class TestTestNodeModel:
         # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_test_name_default_empty::step_0
         # Initializes the test node model to set up a default state where no test name
         # has been assigned.
-        node = TestNode()
+        node = TestNode(source="test",)
         # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_test_name_default_empty::post_0
         # Verifies that the test_name attribute defaults to an empty string, ensuring
         # the model's initial state is correct before any custom naming is applied.
@@ -76,7 +83,7 @@ class TestTestNodeModel:
         # Sets up the test environment by creating a fresh instance of the test node
         # model to ensure a clean starting state before verifying its default
         # properties.
-        node = TestNode()
+        node = TestNode(source="test",)
         # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_test_module_default_empty::post_0
         # Verifies that the test_module attribute of the node is an empty string by
         # default, confirming that the model initializes its module field to an empty
@@ -91,7 +98,7 @@ class TestTestNodeModel:
         # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_method_defaults_to_automated::step_0
         # Sets up the initial state of the test node, likely creating an instance with
         # default parameters to simulate a fresh test node before method verification.
-        node = TestNode()
+        node = TestNode(source="test",)
         # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_method_defaults_to_automated::post_0
         # Verifies that the node's method attribute is set to 'automated' by default,
         # confirming the intended default behavior of the test node model.
@@ -105,7 +112,7 @@ class TestTestNodeModel:
         # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_description_default_empty::step_0
         # Instantiates a TestNodeModel without providing a description, to set up the
         # object for evaluating its default description behavior.
-        node = TestNode()
+        node = TestNode(source="test",)
         # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_description_default_empty::post_0
         # Verifies that the description attribute of the TestNodeModel is an empty
         # string, confirming that newly created nodes have no default description.
@@ -118,7 +125,7 @@ class TestTestNodeModel:
         # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_tags_default_empty_list::step_0
         # Sets up the test environment and creates any necessary fixtures for testing
         # the default tags attribute.
-        node = TestNode()
+        node = TestNode(source="test",)
         # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_tags_default_empty_list::post_0
         # Verifies that the node's tags attribute defaults to an empty list, ensuring
         # the model initializes without any preassigned tags.
@@ -132,7 +139,7 @@ class TestTestNodeModel:
         # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_doc_embedding_default_empty::step_0
         # Sets up the test environment by initializing the node instance to be used in
         # the verification.
-        node = TestNode()
+        node = TestNode(source="test",)
         # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_doc_embedding_default_empty::post_0
         # Verifies that the node's doc_embedding attribute is an empty list by default,
         # confirming that no embedding is assigned before any document processing
@@ -224,7 +231,7 @@ class TestTestNodeModel:
         node = TestNode(
             qualified_name="tests::test_update::test_single_field",
             test_name="test_single_field",
-        )
+        source="test",)
         serialized = node.serialize()
         # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_serialize_includes_test_name::post_0
         # Verifies that the serialized output contains a 'test_name' field equal to
@@ -243,7 +250,7 @@ class TestTestNodeModel:
         node = TestNode(
             qualified_name="tests::test_update::test_single_field",
             doc_embedding=[0.1, 0.2, 0.3],
-        )
+        source="test",)
         serialized = node.serialize()
         # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_serialize_excludes_embedding::post_0
         # Verifies that the serialized output does not contain the 'doc_embedding'
@@ -258,7 +265,7 @@ class TestTestNodeModel:
         # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_serialize_includes_type_discriminator::step_0
         # Sets up the test environment and instantiates the TestNode object, preparing
         # it for serialization.
-        node = TestNode(qualified_name="tests::test_update::test_single_field")
+        node = TestNode(qualified_name="tests::test_update::test_single_field", source="test",)
         serialized = node.serialize()
         # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_serialize_includes_type_discriminator::post_0
         # Verifies that the serialized output contains a 'type' field equal to

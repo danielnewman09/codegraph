@@ -29,7 +29,7 @@ def test_method_node_roundtrip():
         argsstring="(Canvas c)",
         visibility="public",
         brief_description="Renders the widget onto a canvas",
-    )
+    source="test",)
 
     # 2. Write to unit_test_data/ using serialize()
     FIXTURE_DIR.mkdir(exist_ok=True)

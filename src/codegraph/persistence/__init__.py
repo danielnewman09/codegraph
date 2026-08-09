@@ -19,7 +19,6 @@ from codegraph.persistence.memory_repository import MemoryRepository
 
 # Backend access — re-export for convenience
 from codegraph.backends import get_backend, set_backend
-from codegraph.backends.neo4j import Neo4jBackend
 
 __all__ = [
     # Repositories
@@ -30,3 +29,18 @@ __all__ = [
     "set_backend",
     "Neo4jBackend",
 ]
+
+
+def __getattr__(name: str):
+    """Lazy attribute access (PEP 562).
+
+    ``Neo4jBackend`` is re-exported here for convenience, but importing
+    it eagerly drags in the neo4j driver + neomodel on every
+    ``import codegraph`` — even for sqlite-only runs.  Resolve it on
+    demand so sqlite/memory users never load the Neo4j stack.
+    """
+    if name == "Neo4jBackend":
+        from codegraph.backends.neo4j import Neo4jBackend
+
+        return Neo4jBackend
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

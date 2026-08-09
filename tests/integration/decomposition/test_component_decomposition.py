@@ -29,21 +29,21 @@ def simple_graph() -> LayerGraph:
     """A two-namespace graph with classes, interfaces, and methods."""
     # ── calc namespace ──
     calc_ns = NamespaceNode(
-        name="calc", kind="namespace", qualified_name="calc",
+        name="calc", kind="namespace", source="test", qualified_name="calc",
         tags=["as-built"],
     )
     calc_cls = ClassNode(
-        name="CalculatorEngine", kind="class",
+        name="CalculatorEngine", kind="class", source="test",
         qualified_name="calc::CalculatorEngine",
         tags=["as-built"], visibility="public",
     )
     calc_iface = InterfaceNode(
-        name="ICalculator", kind="interface",
+        name="ICalculator", kind="interface", source="test",
         qualified_name="calc::ICalculator",
         tags=["as-built"], visibility="public",
     )
     calc_meth = MethodNode(
-        name="add", kind="method",
+        name="add", kind="method", source="test",
         qualified_name="calc::CalculatorEngine::add",
         tags=["as-built"], visibility="public",
         type_signature="int", argsstring="(int a, int b)",
@@ -51,16 +51,16 @@ def simple_graph() -> LayerGraph:
 
     # ── store namespace ──
     store_ns = NamespaceNode(
-        name="store", kind="namespace", qualified_name="store",
+        name="store", kind="namespace", source="test", qualified_name="store",
         tags=["as-built"],
     )
     store_cls = ClassNode(
-        name="GraphRepository", kind="class",
+        name="GraphRepository", kind="class", source="test",
         qualified_name="store::GraphRepository",
         tags=["as-built"], visibility="public",
     )
     store_meth = MethodNode(
-        name="get_by_tag", kind="method",
+        name="get_by_tag", kind="method", source="test",
         qualified_name="store::GraphRepository::get_by_tag",
         tags=["as-built"], visibility="public",
         type_signature="LayerGraph", argsstring="(str tag)",
@@ -117,11 +117,11 @@ def simple_graph() -> LayerGraph:
 def standalone_graph() -> LayerGraph:
     """A graph with standalone classes (no namespace wrapper)."""
     cls = ClassNode(
-        name="App", kind="class", qualified_name="App",
+        name="App", kind="class", source="test", qualified_name="App",
         tags=["as-built"], visibility="public",
     )
     iface = InterfaceNode(
-        name="IApp", kind="interface", qualified_name="IApp",
+        name="IApp", kind="interface", source="test", qualified_name="IApp",
         tags=["as-built"], visibility="public",
     )
 
