@@ -32,7 +32,7 @@ class TestGenerate:
 
     def test_result_summary(self):
         result = generate(FULL_DECL)
-        assert "7 file(s)" in result.summarize()
+        assert "16 file(s)" in result.summarize()  # 7 headers + 9 test .cpp
         assert "skipped:" in result.summarize()
 
     def test_output_dir_writes_tree(self, tmp_path: Path):
@@ -44,13 +44,13 @@ class TestGenerate:
     def test_language_alias_normalized(self):
         # normalize_language('C++') → 'cpp'; builtin pack still loads.
         result = generate(FULL_DECL, language="C++")
-        assert len(result.files) == 7
+        assert len(result.files) == 16  # 7 headers + 9 test .cpp
 
 
 class TestSplitGoldenRender:
     def test_full_tree_renders(self):
         result = generate(SPLIT)
-        assert len(result.files) == 33
+        assert len(result.files) == 42  # 33 headers + 9 test .cpp
         assert all(text.endswith("\n") for text in result.files.values())
 
     def test_rendering_is_deterministic(self):

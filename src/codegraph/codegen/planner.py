@@ -84,15 +84,45 @@ class FilePlanner:
         """Plan output files for *graph*.
 
         Dispatches on provenance mode: FileNode roots → as-built
-        passthrough; otherwise design synthesis.
+        passthrough; otherwise design synthesis.  TestNode files are
+        planned in addition in both modes.
         """
         has_files = any(
             type(entry.node).__name__ == "FileNode"
             for entry in graph.entries.values()
         )
-        if has_files:
-            return self._plan_as_built(graph)
-        return self._plan_design(graph)
+        plans = (
+            self._plan_as_built(graph)
+            if has_files else self._plan_design(graph)
+        )
+        plans.extend(self._plan_tests(graph))
+        return plans
+
+    def _plan_tests(self, graph) -> list[FilePlan]:
+        """Synthesize one ``tests/<name>.cpp`` per TestNode (Phase 3).
+
+        Test nodes are composed under requirement nodes (HLR/LLR) which
+        render nothing — they are discovered by walking the whole graph
+        and planned independently.  Path synthesis mirrors the design
+        compound convention: flat ``tests/<TestName>.cpp``.
+        """
+        plans: list[FilePlan] = []
+        seen: set[str] = set()
+        for entry in graph._all_entries():
+            if type(entry.node).__name__ != "TestNode":
+                continue
+            name = entry.node.name or "test"
+            key = graph._node_key(entry.node)
+            if key in seen:
+                continue
+            seen.add(key)
+            plans.append(FilePlan(
+                path=f"tests/{name}.cpp",
+                kind="test",
+                node_keys=[key],
+                language="cpp",
+            ))
+        return plans
 
     # ── Design graphs: qname-based synthesis (D5, header-only D8) ───
 

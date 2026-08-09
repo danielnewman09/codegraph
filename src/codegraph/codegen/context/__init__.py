@@ -51,9 +51,15 @@ _MODULES = (
 )
 
 for _module in _MODULES:
+    _module_skips = getattr(_module, "SKIP_REASONS", {})
     for _node_type in _module.NODE_TYPES:
-        BUILDERS[_node_type] = _module.build_context
-    SKIP_REASONS.update(getattr(_module, "SKIP_REASONS", {}))
+        if _node_type in _module_skips:
+            # Per-type declared skip (e.g. TestFixtureNode inside an
+            # otherwise-real module): registered as a skip_builder.
+            BUILDERS[_node_type] = base.skip_builder(_module_skips[_node_type])
+        else:
+            BUILDERS[_node_type] = _module.build_context
+    SKIP_REASONS.update(_module_skips)
 
 
 @dataclass
@@ -166,6 +172,7 @@ class CodegenContextBuilder:
     def _build_file_context(self, graph, state, plan) -> dict | None:
         """Assemble one FileContext from a FilePlan."""
         top_contexts: list[dict] = []
+        test_blocks: list[dict] = []
         for key in plan.node_keys:
             entry = state.flat.get(key)
             if entry is None:
@@ -178,7 +185,16 @@ class CodegenContextBuilder:
                 ctx = namespace.build_context(entry, state)
             elif node_type in base.MEMBER_TYPES:
                 ctx = member.build_context(entry, state)
-            if ctx is not None:
+            elif node_type == "TestNode":
+                # Tests render as top-level blocks in their own .cpp file
+                # (never namespace-nested — test qnames carry design-
+                # pipeline namespaces like ``vm::``).
+                ctx = test.build_context(entry, state)
+            if ctx is None:
+                continue
+            if node_type == "TestNode":
+                test_blocks.append(ctx)
+            else:
                 top_contexts.append(ctx)
 
         includes: list[str] = []
@@ -198,7 +214,7 @@ class CodegenContextBuilder:
             "includes": includes,
             "forward_decls": [],
             "namespaces": _nest_by_namespace(top_contexts),
-            "blocks": _top_level_blocks(top_contexts),
+            "blocks": _top_level_blocks(top_contexts) + test_blocks,
         }
 
 

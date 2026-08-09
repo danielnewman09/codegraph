@@ -1,7 +1,11 @@
 """Declared-skip builder tests — scaffolding renders nothing (D11).
 
-Every skip module's builder returns None; reasons are declared in
-SKIP_REASONS; the completeness gate already asserts coverage.
+Test scaffolding is Phase 3 (Catch2 export): ``TestNode`` /
+``TestStepNode`` / ``AssertionNode`` now have real builders (see
+``test_test.py``); ``LiteralNode``, ``HLR``/``LLR``, ``TestFixtureNode``
+and the project types remain declared skips — their builders return
+None and reasons are declared in SKIP_REASONS (the completeness gate
+already asserts coverage).
 """
 
 from __future__ import annotations
@@ -18,12 +22,6 @@ SKIP_SAMPLE_DICTS = {
             "tags": ["design"]},
     "LLR": {"type": "LLR", "name": "llr_migration_apply",
             "qualified_name": "llr_migration_apply", "source": "test", "tags": ["design"]},
-    "TestNode": {"type": "TestNode", "name": "t1", "qualified_name": "t1",
-                 "source": "test", "tags": ["design"]},
-    "TestStepNode": {"type": "TestStepNode", "name": "step1", "qualified_name": "step1",
-                     "source": "test", "tags": ["design"]},
-    "AssertionNode": {"type": "AssertionNode", "name": "a1", "qualified_name": "a1",
-                      "source": "test", "tags": ["design"]},
     "TestFixtureNode": {"type": "TestFixtureNode", "name": "f1", "qualified_name": "f1",
                         "source": "test", "tags": ["design"]},
     "Component": {"type": "Component", "name": "comp", "qualified_name": "comp",
@@ -57,3 +55,9 @@ class TestDeclaredSkips:
         for node_type in ("ClassNode", "MethodNode", "AttributeNode", "EnumNode",
                           "FileNode", "NamespaceNode"):
             assert node_type not in SKIP_REASONS
+
+    def test_test_scaffolding_no_longer_skipped(self):
+        """Phase 3: TestNode/TestStepNode/AssertionNode have real builders."""
+        for node_type in ("TestNode", "TestStepNode", "AssertionNode"):
+            assert node_type not in SKIP_REASONS
+            assert node_type not in getattr(BUILDERS[node_type], "skip_reason", "")

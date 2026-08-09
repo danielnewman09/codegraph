@@ -1,0 +1,4 @@
+TEST_CASE("{{ node.name }}", "{{ node.qualified_name }}") {
+{% for step in node.steps %}{{ render_node(step, indent=4) }}
+{% endfor %}{% for a in node.assertions %}{{ render_node(a, indent=4) }}
+{% endfor %}}

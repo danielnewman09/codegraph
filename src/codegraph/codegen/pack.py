@@ -57,7 +57,7 @@ KIND_ALIASES_BY_TYPE: dict[str, dict[str, str]] = {
 PACK_SKIPPED: frozenset[str] = frozenset({
     # declared skips (mirror context/ skip modules)
     "LiteralNode",
-    "TestNode", "TestStepNode", "AssertionNode", "TestFixtureNode",
+    "TestFixtureNode",
     "HLR", "LLR",
     "Component", "Dependency", "Language", "ProjectMeta",
     # abstract bases — resolved by concrete subclass directory
@@ -275,7 +275,11 @@ class TemplatePack:
         ``"source"``), set by the planner.
         """
         kind = kind or ctx.get("kind", "header")
-        template_name = "file_header.j2" if kind == "header" else "file_source.j2"
+        template_name = {
+            "header": "file_header.j2",
+            "source": "file_source.j2",
+            "test": "file_test.j2",
+        }.get(kind, "file_header.j2")
         text = self.environment.get_template(template_name).render(node=ctx, pack=self)
         return _normalize(text)
 

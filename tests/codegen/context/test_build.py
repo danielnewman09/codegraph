@@ -151,8 +151,9 @@ class TestBuildGoldens:
         methods = [m for s in cls["sections"] for m in s["members"] if m["type"] == "MethodNode"]
         apply = next(m for m in methods if m["name"] == "apply")
         assert apply["declaration"] == "MigrationResult apply()"
-        assert out.skipped.get("TestNode", 0) == 9
-        assert out.skipped.get("TestStepNode", 0) == 19
+        # Phase 3: test nodes render instead of being skipped — one .cpp per test.
+        assert "tests/test_duplicate_version_rejected.cpp" in out.files
+        assert out.skipped.get("TestNode", 0) == 0
 
     def test_full_decl_golden_d9_dedup(self):
         """D9: nested duplicate structs are excluded from top-level files."""
@@ -163,8 +164,9 @@ class TestBuildGoldens:
         assert "include/cpp_sqlite/MigrationResult.hpp" not in out.files
         assert "include/cpp_sqlite/SchemaMismatch.hpp" not in out.files
         assert "include/cpp_sqlite/SchemaVerificationResult.hpp" not in out.files
-        # 5 namespace compounds (3 dedup'd) + 2 root classes + 2 enums = 7
-        assert len(out.files) == 7
+        # 5 namespace compounds (3 dedup'd) + 2 root classes + 2 enums
+        # + 9 test .cpp (Phase 3 test export) = 16
+        assert len(out.files) == 16
         assert out.skipped.get("AttributeNode", 0) == 23  # spec's stranded figure
 
     def test_full_decl_verbatim_emission(self):

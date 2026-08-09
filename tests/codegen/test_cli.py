@@ -20,7 +20,7 @@ class TestCli:
         captured = capsys.readouterr()
         assert rc == 0
         assert "include/cpp_sqlite/Migration.hpp" in captured.out
-        assert "7 file(s)" in captured.out
+        assert "16 file(s)" in captured.out
         assert "orphaned members skipped" in captured.err
 
     def test_output_writes_tree(self, tmp_path: Path, capsys):
