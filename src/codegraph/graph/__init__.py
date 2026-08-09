@@ -859,7 +859,25 @@ class LayerGraph:
         uid_to_key: dict[str, str] = {}
         seen_uids: set[str] = set()
 
+        # ImplementationNode is deliberately excluded from LayerGraphs
+        # (see its model docstring: "LayerGraph construction skips
+        # implementation nodes by design").  Implementation bodies are
+        # reachable only via HAS_IMPLEMENTATION edges, which the
+        # expansion/serialization/viz paths all exclude — but a tag
+        # match on the implementation node itself (e.g. project code
+        # tagged as-built) would still load it as a matched node,
+        # producing isolated floating leaves in every exporter.
+        #
+        # type_parameter nodes (ClassNode with kind="type_parameter" —
+        # template-parameter slots, ``type_param:<qn>:<pos>``) are
+        # likewise excluded: their TEMPLATE_PARAM edges are dropped
+        # from serialized graph views by design, so without this filter
+        # they load as matched nodes and float disconnected.
         for node in matched_nodes:
+            if type(node).__name__ == "ImplementationNode":
+                continue
+            if getattr(node, "kind", "") == "type_parameter":
+                continue
             key = cls._node_key(node)
             nodes[key] = node
             uid = node._uid_value()

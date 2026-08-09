@@ -16,6 +16,9 @@ from __future__ import annotations
 import pytest
 
 from codegraph.codegen.signature import (
+    args_qualifiers,
+    canonical_argsstring,
+    canonical_qualifiers,
     compute_guard,
     is_full_declaration,
     out_of_line_definition,
@@ -333,3 +336,51 @@ class TestComputeGuard:
 
     def test_empty(self):
         assert compute_guard("") == ""
+
+
+# ── Tier-2 canonicalization (verify.py diff keys) ──────────────────────────
+
+class TestCanonicalArgsstring:
+    def test_reconciles_design_and_parse_encodings(self):
+        # design fixture (decl-minus-qualifiers) vs doxygen spacing
+        assert canonical_argsstring("(std::unique_ptr<Migration>) ") == (
+            "(std::unique_ptr<Migration>)"
+        )
+        assert canonical_argsstring("(std::unique_ptr< Migration > migration)") == (
+            "(std::unique_ptr<Migration>)"
+        )
+
+    def test_strips_names_defaults_and_ref_spacing(self):
+        assert canonical_argsstring("(Database &db)") == "(Database&)"
+        assert canonical_argsstring("(const SchemaVersion &version)") == (
+            "(const SchemaVersion&)"
+        )
+        assert canonical_argsstring("(int x=1, double y = 2.0)") == (
+            "(int, double)"
+        )
+
+    def test_empty_and_bare(self):
+        assert canonical_argsstring("") == "()"
+        assert canonical_argsstring("()") == "()"
+        assert canonical_argsstring("Database &db") == "(Database&)"
+
+    def test_nested_templates_survive(self):
+        assert canonical_argsstring("(std::vector< std::vector< int > > v)") == (
+            "(std::vector<std::vector<int>>)"
+        )
+
+
+class TestCanonicalQualifiers:
+    def test_normalizes_default_markers(self):
+        assert canonical_qualifiers("= 0") == "=0"
+        assert canonical_qualifiers("const = default") == "=default const"
+        assert canonical_qualifiers("const override") == "const override"
+        assert canonical_qualifiers("") == ""
+
+
+class TestArgsQualifiers:
+    def test_trailing_qualifiers(self):
+        assert args_qualifiers("() const override") == "const override"
+        assert args_qualifiers("(int x) const") == "const"
+        assert args_qualifiers("()") == ""
+        assert args_qualifiers("Database &db") == ""

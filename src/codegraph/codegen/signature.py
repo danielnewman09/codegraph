@@ -305,6 +305,68 @@ def _parse_param(segment: str) -> dict:
     return {"type": seg, "name": "", "default": default}
 
 
+def _canonical_type(segment: str) -> str:
+    """One canonical param-type token for Tier-2 diffing.
+
+    Strips the parameter name and default value, collapses whitespace,
+    and normalizes template / pointer / ref spacing so the design
+    fixture's degraded encodings (``std::unique_ptr<Migration>``,
+    ``Database&``) hash equal to doxygen's (``std::unique_ptr< Migration >``,
+    ``Database &``).
+    """
+    seg = re.sub(r"\s+", " ", segment.strip())
+    eq = _find_top_level_eq(seg)
+    if eq is not None:
+        seg = seg[:eq].strip()
+    # Trailing name (same rule as _parse_param): ``const T &name`` → ``const T &``.
+    name_match = re.search(r"([A-Za-z_]\w*)$", seg)
+    if name_match:
+        candidate = seg[:name_match.start()].rstrip()
+        if candidate:
+            seg = candidate
+    # Template spacing: ``< X >`` → ``<X>``.
+    seg = re.sub(r"<\s+", "<", seg)
+    seg = re.sub(r"\s+>", ">", seg)
+    # Pointer/ref: ``X &`` → ``X&", ``X *`` → ``X*".
+    seg = re.sub(r"\s+([&*])", r"\1", seg)
+    return seg
+
+
+def args_qualifiers(argsstring: str) -> str:
+    """Trailing qualifiers after the param list (``"() const override"`` → ``"const override"``)."""
+    s = argsstring.strip()
+    parens = _find_parens(s)
+    if parens is not None and parens[0] == 0:
+        return s[parens[1] + 1:].strip()
+    return ""
+
+
+def canonical_argsstring(argsstring: str) -> str:
+    """Canonical param list for cross-graph diffing (Tier 2, verify.py).
+
+    ``"(T1, T2)"`` with canonical types (names and defaults stripped,
+    spacing normalized); ``"()"`` for empty.  Used **only** for
+    verification diffs — never for storage or uid hashing.
+    """
+    types = [
+        _canonical_type(p.get("type", ""))
+        for p in split_argsstring(argsstring)
+    ]
+    return "(" + ", ".join(t for t in types if t) + ")"
+
+
+def canonical_qualifiers(text: str) -> str:
+    """Canonical trailing-qualifier string for Tier-2 diffing.
+
+    Normalizes ``= 0`` vs ``=0`` and ``= default`` vs ``=default`` and
+    sorts the keyword set so both sides produce the same token stream
+    regardless of source ordering.
+    """
+    s = re.sub(r"=\s*(\w+)", r"=\1", text.strip())
+    tokens = sorted(t for t in re.split(r"\s+", s) if t)
+    return " ".join(tokens)
+
+
 def reconstruct_declaration(
     type_signature: str, name: str, argsstring: str, *, flags: dict | None = None
 ) -> str:
@@ -392,4 +454,7 @@ __all__ = [
     "reconstruct_declaration",
     "out_of_line_definition",
     "compute_guard",
+    "canonical_argsstring",
+    "canonical_qualifiers",
+    "args_qualifiers",
 ]

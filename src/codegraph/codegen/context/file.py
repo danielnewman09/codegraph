@@ -1,23 +1,60 @@
 """Context builder for FileNode (mirrors models/file.py).
 
-File context contract (spec's render-context section): ``type``, ``path``,
-``guard``, ``language`` (normalized lowercase, ``normalize_language``),
-``includes`` (INCLUDES edges), ``forward_decls`` (Phase 2: DEPENDS_ON),
-``namespaces`` (nesting blocks), and the document-level ``brief``/``detailed``.
+File context contract (spec's render-context section): ``type``,
+``path``, ``guard`` (computed via ``signature.compute_guard``),
+``language`` (normalized lowercase via ``normalize_language``),
+``includes`` (INCLUDES references), ``forward_decls`` (Phase 2:
+DEPENDS_ON), ``namespaces`` (nesting blocks — filled by the
+``CodegenContextBuilder`` orchestrator, empty here) and ``blocks``
+(top-level non-namespaced contexts, as-built files only).
 """
 
 from __future__ import annotations
 
-NODE_TYPES = ("FileNode",)
+from codegraph.codegen import signature
+from codegraph.codegen.context import base
+from codegraph.constants import normalize_language
+
+#: Node types this module addresses (mirrors models/file.py).
+NODE_TYPES: tuple[str, ...] = ("FileNode",)
 
 
-def build_context(entry, ctx=None):  # noqa: ANN001 — Phase 1 render slice
-    """Build the file context dict for *entry*.
+def build_context(entry, state) -> dict | None:
+    """Build the file-level scalar context dict for *entry*."""
+    node = entry.node
+    path = node.path or ""
+    includes: list[str] = []
+    if state is not None:
+        for relation_type, target_key, _target_type in entry.references:
+            if relation_type != "INCLUDES":
+                continue
+            target = state.flat.get(target_key)
+            if target is not None:
+                # INCLUDES targets are FileNodes — prefer their path.
+                name = (
+                    getattr(target.node, "path", "")
+                    or getattr(target.node, "name", "")
+                    or base.resolve_display_name(state, target_key)
+                )
+            else:
+                name = base.resolve_display_name(state, target_key)
+            if name:
+                includes.append(_include_form(name))
+    return {
+        "type": "FileNode",
+        "path": path,
+        "guard": signature.compute_guard(path) if path else "",
+        "language": normalize_language(node.language or "cpp") or "cpp",
+        "includes": includes,
+        "forward_decls": [],
+        "namespaces": [],
+        "blocks": [],
+    }
 
-    Raises:
-        NotImplementedError: Phase 1 render slice.
-    """
-    raise NotImplementedError(
-        f"file.build_context({entry.node.__class__.__name__}): "
-        "Phase 1 render slice"
-    )
+
+def _include_form(name: str) -> str:
+    """Phase 1 include rendering: quote bare names, keep existing form."""
+    name = name.strip()
+    if name.startswith("<") or name.startswith('"'):
+        return name
+    return f'"{name}"'

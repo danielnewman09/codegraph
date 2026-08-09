@@ -1,1 +1,68 @@
-{# Phase 1 render slice — implemented with the context builders (plan R2). #}
+{# cpp pack macros — the rendering logic behind the per-node-type templates.
+   Context keys: exactly the ones documented in template_contract.md (D3).
+   Whitespace convention: every output line ends with a literal newline;
+   macros end with {% endmacro %} (no dash) so trailing newlines survive. #}
+
+{% macro doc_block(node) %}{% if node.brief or node.detailed %}{% for line in (node.brief | wrap_lines) %}/// {{ line }}
+{% endfor %}{% if node.detailed %}///
+{% for line in (node.detailed | wrap_lines) %}/// {{ line }}
+{% endfor %}{% endif %}{% endif %}{% endmacro %}
+
+{% macro provenance(node) %}{% if node.uid and pack.emit_markers %}// @codegraph uid:{{ node.uid }}
+{% endif %}{% endmacro %}
+
+{# ── Callable members ─────────────────────────────────────────────── #}
+
+{% macro cg_method_decl(node) %}{{ doc_block(node) }}{{ provenance(node) }}{{ node.declaration }};
+{% endmacro %}
+
+{% macro cg_method_defn(node) %}{{ doc_block(node) }}{{ provenance(node) }}{{ node.definition_scoped or node.declaration }}
+{
+    // TODO(codegen): implementation body (Phase 3)
+}
+{% endmacro %}
+
+{% macro cg_function_decl(node) %}{{ cg_method_decl(node) }}{% endmacro %}
+
+{% macro cg_function_defn(node) %}{{ cg_method_defn(node) }}{% endmacro %}
+
+{# ── Attributes / typedefs ────────────────────────────────────────── #}
+
+{% macro cg_attribute(node) %}{{ doc_block(node) }}{{ provenance(node) }}{% if node.is_static %}static {% endif %}{% if node.is_const %}const {% endif %}{{ node.type_signature }} {{ node.name }};
+{% endmacro %}
+
+{% macro cg_typedef(node) %}{{ doc_block(node) }}{{ provenance(node) }}{{ node.declaration }};
+{% endmacro %}
+
+{# ── Enums ────────────────────────────────────────────────────────── #}
+
+{% macro cg_enum(node, enum_class=False) %}{{ doc_block(node) }}{{ provenance(node) }}{{ 'enum class' if enum_class else 'enum' }} {{ node.name }} {
+{% for v in node.enumerators %}    {{ cg_enum_value(v) }}{% if not loop.last %},{% endif %}{{ '\n' }}{% endfor %}};
+{% endmacro %}
+
+{% macro cg_enum_value(node) %}{{ node.name }}{% if node.initializer %} = {{ node.initializer }}{% endif %}{% endmacro %}
+
+{# ── Compounds ────────────────────────────────────────────────────── #}
+
+{% macro cg_class(node, keyword=None) %}{% for f in node.forward_decls %}{{ 'struct' if f.kind == 'struct' else 'class' }} {{ f.name }};
+{% endfor %}{{ doc_block(node) }}{{ provenance(node) }}{% if node.template_params %}template<{% for p in node.template_params %}{{ p.kind }} {{ p.name }}{% if not loop.last %}, {% endif %}{% endfor %}>
+{% endif %}{{ keyword or ('struct' if node.kind == 'struct' else 'class') }} {{ node.name }}{% if node.template_args %}{{ node.template_args }}{% endif %}{% if node.bases %} : {% for b in node.bases %}{{ b.access }} {{ b.name }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %} {
+{% for section in node.sections %}{{ section.access }}:
+{% for m in section.members %}{{ render_node(m, indent=4) }}
+{% endfor %}{% endfor %}};
+{% endmacro %}
+
+{% macro cg_template_param(node) %}{{ node.kind }} {{ node.name }}{% if node.default %} = {{ node.default }}{% endif %}{% if node.concept %} : {{ node.concept }}{% endif %}{% endmacro %}
+
+{# ── Concepts / defines / bodies / params ─────────────────────────── #}
+
+{% macro cg_concept(node) %}{{ doc_block(node) }}{{ provenance(node) }}{% if '//' in node.initializer %} // TODO(codegen): concept {{ node.name }} initializer contains embedded comments — not emitted (design data defect, D6)
+{% else %}{{ node.initializer }}{% if not node.initializer.endswith(';') %};{% endif %}
+{% endif %}{% endmacro %}
+
+{% macro cg_define(node) %}{{ doc_block(node) }}{{ provenance(node) }}{{ node.definition }}
+{% endmacro %}
+
+{% macro cg_body(node) %}{{ node.implementation }}{% endmacro %}
+
+{% macro cg_param(node) %}{{ node.type }}{% if node.name %} {{ node.name }}{% endif %}{% if node.default_value %} = {{ node.default_value }}{% endif %}{% endmacro %}

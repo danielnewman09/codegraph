@@ -8,16 +8,19 @@ serialization via the ``node_type`` discriminator fix), ``default_value``,
 
 from __future__ import annotations
 
-NODE_TYPES = ("ParameterNode",)
+#: Node types this module addresses (mirrors models/parameter.py).
+NODE_TYPES: tuple[str, ...] = ("ParameterNode",)
 
 
-def build_context(entry, ctx=None):  # noqa: ANN001 — Phase 1 render slice
-    """Build the parameter context dict for *entry*.
-
-    Raises:
-        NotImplementedError: Phase 1 render slice.
-    """
-    raise NotImplementedError(
-        f"parameter.build_context({entry.node.__class__.__name__}): "
-        "Phase 1 render slice"
-    )
+def build_context(entry, state) -> dict | None:
+    """Build the parameter context dict for *entry*."""
+    node = entry.node
+    return {
+        "type": "ParameterNode",
+        "kind": node.kind or "parameter",
+        "name": node.name or "",
+        "qualified_name": node.qualified_name or "",
+        "type": node.type or "",
+        "default_value": node.default_value or "",
+        "position": node.position or 0,
+    }

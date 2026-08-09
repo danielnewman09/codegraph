@@ -1,24 +1,23 @@
 """Context builder for ImplementationNode (mirrors models/implementation.py).
 
 Implementation context: ``implementation`` (raw body text) + the parent
-member/compound qname.  Rendered via the ``cg_body``-style macro in the
-``ImplementationNode/implementation.j2`` template.  Design graphs carry
-no ImplementationNodes (D8) — only as-built graphs and Phase 3 stub
-bodies do.
+member/compound qname.  Rendered via the ``ImplementationNode/
+implementation.j2`` template.  Design graphs carry no ImplementationNodes
+(D8) — only as-built graphs and Phase 3 stub bodies do.
 """
 
 from __future__ import annotations
 
-NODE_TYPES = ("ImplementationNode",)
+#: Node types this module addresses (mirrors models/implementation.py).
+NODE_TYPES: tuple[str, ...] = ("ImplementationNode",)
 
 
-def build_context(entry, ctx=None):  # noqa: ANN001 — Phase 1 render slice
-    """Build the implementation context dict for *entry*.
-
-    Raises:
-        NotImplementedError: Phase 1 render slice.
-    """
-    raise NotImplementedError(
-        f"implementation.build_context({entry.node.__class__.__name__}): "
-        "Phase 1 render slice"
-    )
+def build_context(entry, state) -> dict | None:
+    """Build the implementation context dict for *entry*."""
+    node = entry.node
+    return {
+        "type": "ImplementationNode",
+        "kind": node.kind or "implementation",
+        "qualified_name": node.qualified_name or "",
+        "implementation": node.implementation or "",
+    }

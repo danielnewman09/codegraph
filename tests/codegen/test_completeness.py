@@ -47,17 +47,26 @@ BUILDER_MODULES = (
 
 
 def _all_registered_types() -> set[str]:
-    """Registered node types defined in production packages.
+    """Registered node types from the model packages codegen mirrors.
 
-    Test fixtures (e.g. ``tests.unit.models.test_codegraph_node_descriptors``
-    defines ``TestClassNode`` etc.) subclass ``CodeGraphNode`` and pollute
-    the global registry — the codegen gate applies to production types
-    only (``codegraph*`` packages).
+    The gate covers ``codegraph.models.*`` (core node models),
+    ``codegraph_project.models.*`` (project/dependency/language) and
+    ``codegraph_requirements.models.*`` (HLR/LLR) — the packages the
+    builder modules mirror.  Test fixtures (``TestClassNode`` etc.) and
+    sibling subsystems that subclass ``CodeGraphNode`` but are not
+    codegen inputs (``codegraph_memory.*`` registers MemoryNode,
+    DecisionNode, …) pollute the global registry at collection time and
+    are excluded.
     """
+    allowed_prefixes = (
+        "codegraph.models",
+        "codegraph_project.models",
+        "codegraph_requirements.models",
+    )
     return {
         name
         for name, cls in CodeGraphNode._registry.items()
-        if cls.__module__.split(".", 1)[0].startswith("codegraph")
+        if cls.__module__.startswith(allowed_prefixes)
     }
 
 
