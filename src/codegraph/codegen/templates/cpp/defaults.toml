@@ -1,0 +1,16 @@
+# Layout conventions for the builtin cpp pack (spec D5).
+
+# Header layout for design graphs (no FileNode): <include_dir>/<ns path>/<Name>.<header_ext>
+include_dir = "include"
+header_ext = "hpp"
+
+# Source layout: <src_dir>/<ns path>/<Name>.<source_ext>
+src_dir = "src"
+source_ext = "cpp"
+
+# Design graphs carry no bodies (D8) → header-only by default.
+header_only = true
+
+# C++ struct default access is public — when a struct's members carry
+# explicit visibility labels, emit `public:` first (spec open question 2).
+struct_default_public = true
