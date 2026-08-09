@@ -37,6 +37,7 @@ dependencies = [
 
 [project.scripts]
 codegraph-html = "codegraph.export.viz:main"
+codegraph-codegen = "codegraph.codegen.cli:main"
 codegraph-db = "codegraph.persistence.db_cli:main"
 codegraph-enrich = "codegraph_enrich.__main__:main"
 codegraph-requirements = "codegraph_requirements.__main__:main"
