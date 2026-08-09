@@ -29,6 +29,7 @@ from codegraph.export.plantuml import (
     ParseDiagnostic,
     _sanitize_alias,
     _visibility_prefix,
+    validate_plantuml_svg,
 )
 
 # ── PNG compilation constants ────────────────────────────────────────────
@@ -172,6 +173,119 @@ class TestSanitizeAlias:
         # Verifies that the sanitized alias matches the expected exporter alias,
         # ensuring the round-trip conversion preserves the identifier correctly.
         assert _sanitize_alias(name) == "calc__CalculatorEngine__add"
+
+    # codegraph:test-desc test_plantuml.TestSanitizeAlias.test_strips_curly_braces
+    # Verifies that curly braces in an alias are replaced with underscores.
+    # Curly braces are structurally significant in PlantUML (they open/close
+    # element bodies): a C++ default-arg like ``event_handlers = {}`` leaking
+    # ``{}`` into an alias makes PlantUML read ``{`` as a class-body opener and
+    # fail with a syntax error — which the CLI reports as an SVG error page
+    # with exit code 0, so the breakage was previously silent.
+    def test_strips_curly_braces(self):
+        # codegraph:test-desc test_plantuml.TestSanitizeAlias.test_strips_curly_braces::post_0
+        # Verifies a signature default-arg alias has its braces replaced with
+        # underscores (``{}`` -> ``__``, collapsed to ``_`` by the run filter)
+        # and no brace survives into the alias.
+        alias = _sanitize_alias(
+            "spdlog::sinks::basic_file_sink::basic_file_sink("
+            "const filename_t &filename, bool truncate = false, "
+            "const file_event_handlers &event_handlers = {})"
+        )
+        assert "{" not in alias and "}" not in alias
+        assert "event_handlers" in alias
+
+
+# ── validate_plantuml_svg ──────────────────────────────────────────────────
+
+
+class TestValidatePlantumlSvg:
+    """Sanity checks for PlantUML-produced SVGs.
+
+    PlantUML exits 0 even on syntax errors and emits an *error page*
+    (the offending source echoed as text plus a red ``Syntax Error?``
+    footer) as SVG instead of failing, so existence/``<svg>``/size
+    checks all pass on a broken diagram.
+    """
+
+    @staticmethod
+    def _valid_svg() -> str:
+        """A small but plausible rendered-diagram SVG (well-formed,
+        no error markers, over the size floor)."""
+        body = "".join(
+            f'<rect x="{i}" y="10" width="8" height="8" '
+            f'fill="#{i*7:06x}"/>'
+            for i in range(1, 200)
+        )
+        return (
+            '<svg xmlns="http://www.w3.org/2000/svg" '
+            f'viewBox="0 0 1000 100">{body}</svg>'
+        )
+
+    @staticmethod
+    def _error_page_svg() -> str:
+        """Shape of the SVG PlantUML emits for a diagram with a syntax
+        error: source echoed as text, then a red footer."""
+        return (
+            '<svg xmlns="http://www.w3.org/2000/svg"><g>'
+            '<text x="5" y="17">class "Database" as cpp_sqlite__Database {</text>'
+            '<text x="5" y="583" fill="#FF0000">'
+            "Syntax Error? (Assumed diagram type: class)</text>"
+            "</g></svg>"
+        )
+
+    # codegraph:test-desc test_plantuml.TestValidatePlantumlSvg.test_valid_svg_passes
+    # Verifies that a well-formed SVG without error markers is accepted.
+    def test_valid_svg_passes(self):
+        # codegraph:test-desc test_plantuml.TestValidatePlantumlSvg.test_valid_svg_passes::post_0
+        # Asserts the validator reports no problems for a plausible diagram SVG.
+        assert validate_plantuml_svg(self._valid_svg()) == []
+
+    # codegraph:test-desc test_plantuml.TestValidatePlantumlSvg.test_error_page_rejected
+    # Verifies that a PlantUML syntax-error page is rejected, catching the
+    # exact failure mode that used to ship broken SVGs silently.
+    def test_error_page_rejected(self):
+        # codegraph:test-desc test_plantuml.TestValidatePlantumlSvg.test_error_page_rejected::post_0
+        # Asserts the problem list names the Syntax Error marker, so the
+        # failure message tells the caller the diagram failed to render.
+        problems = validate_plantuml_svg(self._error_page_svg())
+        assert any("Syntax Error" in p for p in problems)
+
+    # codegraph:test-desc test_plantuml.TestValidatePlantumlSvg.test_malformed_xml_rejected
+    # Verifies the validator catches non-well-formed XML, not just error pages.
+    def test_malformed_xml_rejected(self):
+        # codegraph:test-desc test_plantuml.TestValidatePlantumlSvg.test_malformed_xml_rejected::post_0
+        # Asserts an unclosed element yields a well-formedness problem.
+        problems = validate_plantuml_svg("<svg><g></svg>")
+        assert any("well-formed" in p for p in problems)
+
+    # codegraph:test-desc test_plantuml.TestValidatePlantumlSvg.test_tiny_svg_flagged
+    # Verifies a nearly-empty canvas is flagged as suspicious, guarding
+    # against truncated/empty renders that contain no error text.
+    def test_tiny_svg_flagged(self):
+        # codegraph:test-desc test_plantuml.TestValidatePlantumlSvg.test_tiny_svg_flagged::post_0
+        # Asserts an empty well-formed SVG is reported as too small.
+        problems = validate_plantuml_svg("<svg xmlns='http://www.w3.org/2000/svg'></svg>")
+        assert any("small" in p for p in problems)
+
+    # codegraph:test-desc test_plantuml.TestValidatePlantumlSvg.test_renders_fixed_puml
+    # End-to-end: a real PlantUML render of a small diagram must pass the
+    # validator.  Skipped when the plantuml CLI is not installed.
+    def test_renders_fixed_puml(self, tmp_path):
+        import shutil
+
+        if shutil.which("plantuml") is None:
+            pytest.skip("plantuml CLI not found on PATH")
+
+        from codegraph.export.plantuml import render_plantuml_to_svg
+
+        puml_path = tmp_path / "tiny.puml"
+        puml_path.write_text(
+            "@startuml\nclass Database {}\n@enduml\n",
+            encoding="utf-8",
+        )
+        svg_path = render_plantuml_to_svg(puml_path, timeout=60)
+        assert svg_path.exists()
+        assert validate_plantuml_svg(svg_path.read_text(encoding="utf-8")) == []
 
 
 # ── _visibility_prefix ─────────────────────────────────────────────────────

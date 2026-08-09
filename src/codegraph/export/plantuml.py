@@ -217,6 +217,13 @@ _REL_TYPE_TO_ARROW: dict[str, str] = {
     "IMPLEMENTS": "..|>",
 }
 
+# Matches a queued relationship-arrow line: ``SOURCE <arrow> TARGET : label``.
+# Used to drop arrows whose endpoint was filtered out of the view (see
+# ``PlantUMLExporter._arrow_endpoints_emitted``).
+_ARROW_LINE_RE = re.compile(
+    r"^(\S+)\s+(?:\.\.>|<\|--|\*--|\.\.\|>|-->|o--)\s+(\S+)"
+)
+
 # PlantUML arrow → default relationship type (used when label is absent)
 _ARROW_TO_REL_TYPE: dict[str, str] = {
     "<|--": "INHERITS_FROM",
@@ -328,10 +335,16 @@ def _sanitize_alias(name: str) -> str:
     """Convert a qualified name to a valid PlantUML alias.
 
     Replaces ``::`` with ``__`` and special characters (spaces,
-    dots, parentheses, angle brackets, commas, slashes, equals,
-    asterisks, ampersands) with ``_``.  The result is a valid
-    PlantUML identifier usable in ``as alias`` clauses and
+    dots, parentheses, angle brackets, braces, commas, slashes,
+    equals, asterisks, ampersands) with ``_``.  The result is a
+    valid PlantUML identifier usable in ``as alias`` clauses and
     arrow source/target references.
+
+    Curly braces are structurally significant in PlantUML (they open
+    and close element bodies), so a signature default like
+    ``event_handlers = {}`` must NOT leak ``{}`` into an alias —
+    PlantUML would read ``{`` as the start of a class body and fail
+    with a syntax error.
 
     Args:
         name: A qualified name (e.g. ``calc::CalculatorEngine``).
@@ -342,7 +355,7 @@ def _sanitize_alias(name: str) -> str:
     # Replace :: first (namespace separator → double underscore)
     sanitized = name.replace("::", "__")
     # Replace other special chars with single underscore
-    for ch in "./()<> ,=&*\"'":
+    for ch in "./()<> ,=&*\"'{};!":
         sanitized = sanitized.replace(ch, "_")
     # Collapse consecutive underscores from special-char runs
     # (e.g. "foo(())bar"  →  "foo___bar"  → "foo_bar").
@@ -653,6 +666,32 @@ class PlantUMLExporter:
         target_qname = target_entry.node.qualified_name
         self._allowed_classes.add(target_qname)
 
+        # The scoped class's OWN relationships (INHERITS_FROM,
+        # DEPENDS_ON, …) must also be allowed — e.g. its base class is
+        # a legitimate 1-hop neighbour and should render as a real
+        # element so the inheritance arrow resolves.  Without this, the
+        # base appears only as a phantom arrow target.
+        for rel_type, target_key, _target_type in target_entry.references:
+            if rel_type == "DEFINED_IN":
+                continue
+            display = self.graph.resolve_target_name(
+                target_key, flat=self._flat_index()
+            )
+            if not display:
+                continue
+            if _target_type in ("MethodNode", "AttributeNode"):
+                parent_qname = _parent_qname(display)
+                if parent_qname:
+                    self._allowed_classes.add(parent_qname)
+                    self._allowed_members.setdefault(
+                        parent_qname, set()
+                    ).add(display)
+            elif _target_type in ("ClassNode", "EnumNode",
+                                  "InterfaceNode", "UnionNode",
+                                  "StructNode", "FunctionNode",
+                                  "DefineNode"):
+                self._allowed_classes.add(display)
+
         for member_type in ("MethodNode", "AttributeNode"):
             if member_type not in target_entry.children:
                 continue
@@ -681,6 +720,24 @@ class PlantUMLExporter:
                         self._allowed_classes.add(display)
 
     # ── export() ─────────────────────────────────────────────────────
+
+    def _arrow_endpoints_emitted(self, line: str) -> bool:
+        """Return True when both endpoints of a queued arrow were emitted
+        as elements (their aliases are in ``_seen``).
+
+        Arrows to filtered-out targets — 2-hop neighbours in
+        ``scope_class`` mode, hidden private members in PUBLIC_API,
+        anything collapsed or otherwise not emitted — would otherwise
+        make PlantUML synthesize phantom nodes that float outside the
+        namespace tree.  ``_seen`` is authoritative: it is populated by
+        every element emission path (namespace/compound/enum emission,
+        scoped-class member nodes, collapsed package declarations,
+        hoisted compounds) before the arrow flush happens.
+        """
+        m = _ARROW_LINE_RE.match(line)
+        if not m:
+            return True  # not an arrow line — keep as-is
+        return m.group(1) in self._seen and m.group(2) in self._seen
 
     def export(self) -> str:
         """Return the PlantUML representation as a string.
@@ -764,12 +821,20 @@ class PlantUMLExporter:
                 self._rel_lines.append(line)
         _dbg("emit hoisted compounds done")
 
-        # Emit relationship arrows (sorted for deterministic output)
-        if self._rel_lines:
+        # Emit relationship arrows (sorted for deterministic output).
+        # Arrows whose endpoint was filtered out of the view (e.g. a
+        # 2-hop target in scoped mode) are dropped first — emitting
+        # them would make PlantUML synthesize phantom nodes outside
+        # the namespace tree.
+        rel_lines = [
+            line for line in self._rel_lines
+            if self._arrow_endpoints_emitted(line)
+        ]
+        if rel_lines:
             lines.append("")
             lines.append("' ── Relationships ─────────────────────")
             _dbg("sort rel lines...")
-            lines.extend(sorted(self._rel_lines))
+            lines.extend(sorted(rel_lines))
             _dbg("sort rel lines done")
 
         lines.append("")
@@ -1074,8 +1139,10 @@ class PlantUMLExporter:
         elif node_type == "EnumNode":
             return self._emit_enum(entry, alias, indent)
         else:
-            if self.scope_class and qname == self.scope_class:
-                return self._emit_scoped_class(entry, alias, indent)
+            # The scoped class renders as a normal compound (members
+            # inline in the class body, member edges aggregated to the
+            # class alias) — the earlier atomic per-member-node style
+            # was too busy for visualisation.
             return self._emit_compound(entry, alias, indent)
 
     def _emit_namespace(self, entry: CompositeEntry, alias: str,
@@ -1102,120 +1169,6 @@ class PlantUMLExporter:
         lines.append(f"{prefix}}}")
         self._seen.add(alias)
         return lines
-
-    def _emit_scoped_class(self, entry: CompositeEntry, alias: str,
-                           indent: int = 0) -> list[str]:
-        """Emit the scoped class as a pseudo-package with each member
-        rendered as a standalone ``class <<method>>`` or
-        ``class <<attribute>>`` node.  Individual member-to-dependency
-        edges are then drawn between these member nodes and their
-        targets, making the dependency graph per-method explicit."""
-        node = entry.node
-        prefix = "  " * indent
-        display_name = _short_display_name(node)
-
-        lines: list[str] = []
-        lines.append(f'{prefix}package "{display_name}" as {alias} {{')
-
-        for member_type in ("MethodNode", "AttributeNode"):
-            if member_type not in entry.children:
-                continue
-            for child_entry in entry.children[member_type].values():
-                child_node = child_entry.node
-                child_qname = (
-                    getattr(child_node, "qualified_name", None)
-                    or child_node.name
-                )
-                child_alias = self._member_alias(child_qname, alias,
-                                                 child_node.name)
-                child_display = child_node.name
-
-                # Register the member alias so edges can use it
-                self._aliases[child_qname] = child_alias
-                self._seen.add(child_alias)
-
-                # Record this member's parent alias for member-target
-                # redirects (method→method edges)
-                child_key = child_node._uid_value()
-                if child_key:
-                    self._member_parent_aliases[child_key] = alias
-
-                # Don't filter private members in scoped view — show all
-                if member_type == "MethodNode":
-                    stereotype = " <<method>>"
-                else:
-                    stereotype = " <<attribute>>"
-
-                lines.append(
-                    f'{prefix}  class "{child_display}"'
-                    f' as {child_alias}{stereotype} {{'
-                )
-                lines.append(f'{prefix}  }}')
-
-                # Emit this member's own references as edges FROM the
-                # member node (not from the parent class). This shows
-                # which specific member connects to each dependency.
-                for rel_type, target_key, target_type in child_entry.references:
-                    if rel_type in _STRUCTURAL_REL_TYPES:
-                        continue
-                    if target_type == "FileNode" and not self._show_files():
-                        continue
-                    if target_type == "ConceptNode" and not self._show_concepts():
-                        continue
-                    if target_type == "ParameterNode":
-                        # Parameters are function-signature detail
-                        # (rendered inside the member line), never
-                        # standalone PlantUML elements.
-                        continue
-                    if self._target_has_tag(target_key, "test") and not self._show_tests():
-                        continue
-
-
-                    collapsed = self._collapsed_alias_for(target_key)
-                    if collapsed:
-                        target_alias = collapsed
-                    else:
-                        display_key = self.graph.resolve_target_name(
-                            target_key, flat=self._flat_index()
-                        )
-                        target_alias = (
-                            _sanitize_alias(display_key) if display_key else ""
-                        )
-                        if target_type in _MEMBER_TYPES:
-                            parent_alias = self._member_parent_aliases.get(target_key)
-                            if parent_alias:
-                                target_alias = parent_alias
-                    if not target_alias:
-                        continue
-
-                    arrow = _REL_TYPE_TO_ARROW.get(rel_type, "..>")
-                    line = f"{child_alias} {arrow} {target_alias} : {rel_type.lower()}"
-                    # Suppress self-edges and edges back to the parent
-                    # class (internal bookkeeping, not meaningful for
-                    # the scoped dependency graph).
-                    if (child_alias == target_alias
-                            or target_alias == alias):
-                        continue
-                    if line not in self._rel_set:
-                        self._rel_set.add(line)
-                        self._rel_lines.append(line)
-
-        lines.append(f"{prefix}}}")
-        self._seen.add(alias)
-        return lines
-
-    @staticmethod
-    def _member_alias(member_qname: str, parent_alias: str,
-                      member_name: str = "") -> str:
-        """Build the PlantUML alias for a scoped-class member.
-
-        Uses the member's simple *name* (without signature) so
-        aliases stay readable.  e.g. ``Database::getDAO()`` with
-        parent ``cpp_sqlite__Database`` →
-        ``cpp_sqlite__Database__getDAO``.
-        """
-        suffix = member_name if member_name else member_qname
-        return f"{parent_alias}__{_sanitize_alias(suffix)}"
 
     def _emit_compound(self, entry: CompositeEntry, alias: str,
                        indent: int = 0) -> list[str]:
@@ -2066,3 +2019,132 @@ def import_plantuml(text: str, tags: frozenset[str] | None = None,
             found in the PlantUML input.
     """
     return PlantUMLImporter(tags=tags, source=source, strict=strict).import_plantuml(text)
+
+
+# ── SVG rendering / validation ─────────────────────────────────────────────
+
+
+#: Text markers that appear in the SVG page PlantUML emits when a diagram
+#: has a syntax error.  A ``plantuml -tsvg`` run returns exit code 0 even
+#: on syntax errors — it renders the *error page* (the offending source
+#: echoed as text plus a red ``Syntax Error?`` footer) instead of failing —
+#: so exit codes alone never catch a broken diagram.
+_PLANTUML_ERROR_MARKERS = (
+    "Syntax Error",
+    "Error line",
+    "Assumed diagram type",
+)
+
+
+def validate_plantuml_svg(svg_text: str) -> list[str]:
+    """Sanity-check a PlantUML-generated SVG: well-formed XML, and a
+    real diagram rather than a PlantUML error page.
+
+    Naive checks — the file exists, contains ``<svg>``, or is over a
+    size threshold — all pass on an error page, so a broken diagram
+    (e.g. an alias leaking ``{}`` that PlantUML mis-parses) can ship
+    silently.  This validator rejects error pages three ways:
+
+      1. The text must parse as well-formed XML.
+      2. It must not contain PlantUML error markers (``Syntax Error``,
+         ``Error line``, ``Assumed diagram type``).
+      3. It must not render as a nearly-empty canvas (error pages
+         for small diagrams are tiny; real diagrams draw boxes,
+         arrows and labels and are never that small).
+
+    Note: the ``<?plantuml-src ...?>`` processing instruction is NOT
+    a reliable error signal — PlantUML embeds the compressed source
+    in every SVG (it powers click-to-view-source), valid diagrams
+    included.
+
+    Args:
+        svg_text: Contents of a ``.svg`` file produced by PlantUML.
+
+    Returns:
+        A list of problems; an empty list means the SVG is valid.
+        Callers decide how to act (``assert not problems`` in tests,
+        raise in render pipelines, etc.).
+    """
+    import xml.etree.ElementTree as ET
+
+    problems: list[str] = []
+    try:
+        ET.fromstring(svg_text)
+    except ET.ParseError as e:
+        problems.append(f"SVG is not well-formed XML: {e}")
+
+    for marker in _PLANTUML_ERROR_MARKERS:
+        if marker in svg_text:
+            problems.append(
+                f"SVG is a PlantUML error page (contains {marker!r})"
+            )
+
+    if not problems and len(svg_text.strip()) < 1000:
+        problems.append(
+            "SVG is suspiciously small for a rendered diagram "
+            f"({len(svg_text.strip())} bytes)"
+        )
+
+    return problems
+
+
+def render_plantuml_to_svg(puml_path, output_dir=None,
+                           plantuml_bin: str = "plantuml",
+                           timeout: int = 120,
+                           env=None) -> Path:
+    """Render a PlantUML file to SVG with the ``plantuml`` CLI and
+    validate the result.
+
+    PlantUML returns exit code 0 even on syntax errors (it emits an
+    error-page SVG instead of failing), so a successful subprocess run
+    is NOT proof the diagram rendered.  This helper runs the CLI and
+    then validates the produced SVG with :func:`validate_plantuml_svg`,
+    raising if the output is an error page — rendering bugs surface
+    here instead of shipping a broken artifact.
+
+    Args:
+        puml_path: Path to the ``.puml`` file.
+        output_dir: Directory for the rendered SVG (default: the
+            ``.puml`` file's directory).
+        plantuml_bin: PlantUML CLI executable (default ``plantuml``).
+        timeout: Seconds to allow the render.
+        env: Optional environment dict passed to the subprocess.
+
+    Returns:
+        Path to the rendered ``.svg``.
+
+    Raises:
+        FileNotFoundError: If the plantuml CLI is not on PATH, or the
+            CLI produced no SVG.
+        ValueError: If the SVG is a PlantUML error page / invalid.
+    """
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    puml_path = Path(puml_path)
+    exe = shutil.which(plantuml_bin)
+    if exe is None:
+        raise FileNotFoundError(
+            f"plantuml CLI not found on PATH ({plantuml_bin!r})"
+        )
+
+    cmd = [exe, "-tsvg"]
+    if output_dir is not None:
+        cmd += ["-o", str(output_dir)]
+    cmd.append(str(puml_path))
+    # check=False is deliberate: PlantUML returns rc=0 even for syntax
+    # errors — the SVG validation below is the real gate.
+    subprocess.run(cmd, timeout=timeout, env=env, check=False)
+
+    svg_path = Path(output_dir or puml_path.parent) / (puml_path.stem + ".svg")
+    if not svg_path.exists():
+        raise FileNotFoundError(f"SVG not generated at {svg_path}")
+
+    problems = validate_plantuml_svg(svg_path.read_text(encoding="utf-8"))
+    if problems:
+        raise ValueError(
+            f"Invalid PlantUML SVG at {svg_path}:\n  "
+            + "\n  ".join(problems)
+        )
+    return svg_path

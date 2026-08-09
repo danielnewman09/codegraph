@@ -80,9 +80,14 @@ _LINT_VARIANTS = [
             "label": "v3",
             "requirements_md": "migration_manager_requirements_v3.md",
             "contract_md": "migration_manager_api_contract_v3.md",
-            "expected_score": "fail",
-            "expected_readiness": "not_ready",
-            "min_blocking": 1,
+            # The v3 fixture was deliberately rewritten (commit 57d45fc):
+            # the rollback spec's contradiction was resolved — the LLR is
+            # now internally consistent (VersionNotFound, below-lowest
+            # full rollback, idempotency all coherent) — so the lint
+            # correctly returns warn with zero blockers, not fail.
+            "expected_score": {"warn"},
+            "expected_readiness": {"needs_review"},
+            "min_blocking": 0,
             "min_total": 0,
             "min_blocking_plus_warn": 0,
             "required_categories": set(),
@@ -198,7 +203,9 @@ class TestRequirementsLint:
         The assertions are calibrated per variant:
         - v1: known gaps, expect fail with blocking findings
         - v2: improved but still gaps
-        - v3: full contract but rollback spec still contradictory, expect fail
+        - v3: full contract, rollback spec consistent (the original
+          contradiction was resolved in the fixture, commit 57d45fc) —
+          expect warn with zero blockers
         - v4: v3 with rollback/apply/verify edge cases resolved, expect pass/warn with zero blockers
         """
         log = logging.getLogger(__name__)
