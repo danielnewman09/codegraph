@@ -123,7 +123,7 @@ class TestDesignAgentLoadContext:
         """load_context() resolves context AND seeds DesignToolDispatcher."""
         from codegraph_agents.design import DesignAgent
 
-        dc = {"qualified_name": "ns::ExistingClass", "name": "ExistingClass", "kind": "class"}
+        dc = {"qualified_name": "ns::ExistingClass", "name": "ExistingClass", "kind": "class", "source": "test"}
 
         with patch(
             "codegraph_agents.context.ContextProvider.resolve"

@@ -519,12 +519,12 @@ class TestUidAccessorsNewDescriptors:
         assert TestMethodNode._uid_prop() == "uid"
 
     def test_uid_value_returns_string(self):
-        """_uid_value() returns the UniqueId-generated string."""
+        """_uid_value() returns the deterministic uid derived from identity."""
         node = TestClassNode(qualified_name="mymod::Uid", kind="class")
         uid = node._uid_value()
         assert uid is not None
         assert isinstance(uid, str)
-        assert len(uid) == 36
+        assert len(uid) == 40  # SHA-1 hex digest (deterministic, not random)
 
     def test_uid_value_cached(self):
         """_uid_value() returns the same value on repeated calls."""

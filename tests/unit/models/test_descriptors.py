@@ -28,6 +28,17 @@ class _BaseNode:
     uid = UniqueId()
     source = Property(str, default="")
 
+    def _compute_uid(self) -> str:
+        """Mirror CodeGraphNode's deterministic uid derivation: source
+        plus declared identity fields (SHA-1 hex digest)."""
+        import hashlib
+        parts = [str(getattr(self, "source", "") or "")]
+        for field in getattr(type(self), "_identity_fields", ()):
+            parts.append(str(getattr(self, field, "") or ""))
+        if not parts[0]:
+            raise ValueError("'source' is empty — cannot compute a deterministic uid")
+        return hashlib.sha1("\x00".join(parts).encode()).hexdigest()
+
 
 class _ConcreteNode(_BaseNode):
     name = Property(str, default="unnamed")
@@ -48,6 +59,12 @@ class _OverrideNode(_BaseNode):
 class _ReadonlyNode:
     """Node with no UniqueId — for testing uid_prop_name None case."""
     name = Property(str, default="")
+
+
+class _NoUidComputeNode:
+    """Node declaring a UniqueId but no _compute_uid — uid access must
+    raise (deterministic-only contract), not mint a random value."""
+    uid = UniqueId()
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -146,28 +163,53 @@ class TestDateTimeProperty:
 
 
 class TestUniqueId:
-    """Tests for the UniqueId descriptor."""
+    """Tests for the UniqueId descriptor.
 
-    def test_lazy_generation(self):
-        """First access generates a UUID string."""
+    Uids are ALWAYS deterministic — reading the property derives a
+    hash from ``source`` + identity fields; random auto-generated
+    uids are impossible.
+    """
+
+    def test_first_access_derives_deterministic_uid(self):
+        """First access computes the deterministic hash (40 hex chars)."""
         node = _BaseNode()
+        node.source = "proj"
         uid = node.uid
         assert isinstance(uid, str)
-        assert len(uid) == 36  # standard UUID format
-        assert uid.count("-") == 4
+        assert len(uid) == 40  # SHA-1 hex digest, not a random UUID
+        assert uid == node.uid  # deterministic
 
     def test_cached_after_first_access(self):
         """Second access returns the same value."""
         node = _BaseNode()
+        node.source = "proj"
         first = node.uid
         second = node.uid
         assert first == second
 
-    def test_unique_per_instance(self):
-        """Each instance gets a different UUID."""
+    def test_deterministic_across_instances(self):
+        """Same source + identity → same uid; different identity → different."""
         a = _BaseNode()
+        a.source = "proj"
         b = _BaseNode()
-        assert a.uid != b.uid
+        b.source = "proj"
+        assert a.uid == b.uid  # deterministic, not per-instance random
+
+        c = _BaseNode()
+        c.source = "other"
+        assert c.uid != a.uid  # different source → different uid
+
+    def test_missing_source_raises(self):
+        """Reading uid without source raises — never returns random."""
+        node = _BaseNode()  # source defaults to ""
+        with pytest.raises(ValueError):
+            _ = node.uid
+
+    def test_missing_compute_raises(self):
+        """A UniqueId without _compute_uid raises a clear error."""
+        node = _NoUidComputeNode()
+        with pytest.raises(ValueError):
+            _ = node.uid
 
     def test_class_access_returns_descriptor(self):
         """Accessing on the class returns the UniqueId descriptor."""
