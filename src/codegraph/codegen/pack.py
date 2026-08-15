@@ -244,8 +244,29 @@ class TemplatePack:
 
         Walks namespaces → compounds → sections → members with
         ``has_body`` and renders each via its ``_defn`` template variant.
+        The implementation export's bodies (``source_bodies`` — grouped
+        by top-level namespace) render first, verbatim (the body text
+        carries its own ``Class::method`` signature).
         """
         parts: list[str] = []
+
+        def render_source_body(ns: dict, pad: int) -> None:
+            if not ns.get("bodies"):
+                return
+            env = self.environment
+            open_text = env.get_template("NamespaceNode/namespace_open.j2").render(
+                node={"name": ns["name"]}, pack=self
+            ).rstrip()
+            close_text = env.get_template("NamespaceNode/namespace_close.j2").render(
+                node={"name": ns["name"]}, pack=self
+            ).strip()
+            parts.append(textwrap.indent(open_text, " " * pad))
+            for body in ns["bodies"]:
+                parts.append(self.render_node(body, indent=pad + 4, variant="defn"))
+            parts.append(textwrap.indent(close_text, " " * pad))
+
+        for ns in ctx.get("source_bodies", []):
+            render_source_body(ns, indent)
 
         def walk_compound(compound_ctx: dict, pad: int) -> None:
             for section in compound_ctx.get("sections", []):

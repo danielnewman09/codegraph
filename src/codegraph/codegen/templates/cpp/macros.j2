@@ -16,11 +16,11 @@
 {% macro cg_method_decl(node) %}{{ doc_block(node) }}{{ provenance(node) }}{{ node.declaration }};
 {% endmacro %}
 
-{% macro cg_method_defn(node) %}{{ doc_block(node) }}{{ provenance(node) }}{{ node.definition_scoped or node.declaration }}
+{% macro cg_method_defn(node) %}{% if node.body %}{{ node.body }}{% else %}{{ doc_block(node) }}{{ provenance(node) }}{{ node.definition_scoped or node.declaration }}
 {
     // TODO(codegen): implementation body (Phase 3)
 }
-{% endmacro %}
+{% endif %}{% endmacro %}
 
 {% macro cg_function_decl(node) %}{{ cg_method_decl(node) }}{% endmacro %}
 

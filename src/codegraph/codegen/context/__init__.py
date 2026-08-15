@@ -205,7 +205,7 @@ class CodegenContextBuilder:
                 includes = list(file_ctx.get("includes", []))
         includes = list(dict.fromkeys([*plan.includes, *includes]))
 
-        return {
+        file_ctx = {
             "type": "FileNode",
             "kind": plan.kind,
             "path": plan.path,
@@ -216,6 +216,56 @@ class CodegenContextBuilder:
             "namespaces": _nest_by_namespace(top_contexts),
             "blocks": _top_level_blocks(top_contexts) + test_blocks,
         }
+        # Source files (.cpp) are rebuilt from the implementation export:
+        # every method whose body lives in this file is routed here and
+        # rendered inside its top-level namespace (the out-of-line
+        # definition text carries its own ``Class::method`` signature).
+        if plan.kind == "source":
+            file_ctx["source_bodies"] = _collect_source_bodies(
+                graph, state, plan.path
+            )
+        return file_ctx
+
+
+def _collect_source_bodies(graph, state, plan_path: str) -> list[dict]:
+    """Member contexts for every method/function whose implementation body
+    lives in *plan_path* (the implementation export routes bodies to their
+    .cpp via ``body_file``)."""
+    bodies: list[dict] = []
+    for entry in state.flat.values():
+        node = entry.node
+        if type(node).__name__ not in ("MethodNode", "FunctionNode"):
+            continue
+        body = getattr(node, "body", "") or ""
+        body_file = getattr(node, "body_file", "") or ""
+        if not body:
+            continue
+        if body_file and body_file != plan_path:
+            continue
+        if not body_file and (getattr(node, "file_path", "") or "") != plan_path:
+            continue
+        ctx = member.build_context(entry, state)
+        if ctx is not None and ctx.get("body"):
+            # Source order is the only faithful ordering — the graph is
+            # a dict keyed by uid, so sort by the parse-time line number
+            # (line_number = 0 falls back to uid order, stable enough).
+            ctx["_line"] = getattr(node, "line_number", 0) or 0
+            bodies.append(ctx)
+    # Group by the top-level namespace (``cpp_sqlite``) — bodies carry
+    # their own ``Class::method`` scope, so only the namespace wrapper
+    # is needed.
+    grouped: dict[str, list[dict]] = {}
+    for ctx in bodies:
+        qn = ctx.get("qualified_name", "") or ""
+        ns = qn.split("::", 1)[0] if "::" in qn else ""
+        grouped.setdefault(ns, []).append(ctx)
+    return [
+        {
+            "name": name,
+            "bodies": sorted(ctxs, key=lambda c: (c.pop("_line", 0), c.get("qualified_name", ""))),
+        }
+        for name, ctxs in sorted(grouped.items())
+    ]
 
 
 def _guard_for(path: str) -> str:

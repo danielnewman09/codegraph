@@ -28,6 +28,20 @@ def build_context(entry, state) -> dict | None:
         for relation_type, target_key, _target_type in entry.references:
             if relation_type != "INCLUDES":
                 continue
+            # Prefer the include spelling captured at parse time (the
+            # INCLUDES edge's metadata — ``include`` = the ``<includes>``
+            # element text, ``local`` = quotes vs angle brackets), falling
+            # back to the target FileNode path.
+            attrs = entry.edge_attrs.get((relation_type, target_key), {})
+            spelling = attrs.get("include") or ""
+            if spelling:
+                if attrs.get("local") and not spelling.startswith('"'):
+                    includes.append(f'"{spelling}"')
+                elif not attrs.get("local") and not spelling.startswith("<"):
+                    includes.append(f"<{spelling}>")
+                else:
+                    includes.append(spelling)
+                continue
             target = state.flat.get(target_key)
             if target is not None:
                 # INCLUDES targets are FileNodes — prefer their path.

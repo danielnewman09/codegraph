@@ -59,7 +59,8 @@ def _build_test(entry, state) -> dict:
         "name": node.name or "",
         "qualified_name": node.qualified_name or "",
         "uid": node.uid or "",
-        "description": (node.description or node.brief_description or ""),
+        "description": (node.description
+                         or getattr(node, "brief_description", "") or ""),
         "steps": steps,
         "assertions": assertions,
         "file_path": node.file_path or "",

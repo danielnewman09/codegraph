@@ -88,13 +88,16 @@ def _role(name: str, parent_name: str) -> str:
 
 
 def _resolve_body(entry, state) -> str | None:
-    """Body text from a HAS_IMPLEMENTATION reference, when resolvable.
+    """Body text for a callable, in priority order:
 
-    Design graphs carry no bodies (D8); as-built bodies live on
-    ImplementationNodes that are usually not loaded into the LayerGraph
-    (implementation_ref is lazy) — so this returns None in practice
-    until the render slice wires the lazy loader.
+    1. the node's own ``body`` property (the implementation export —
+       captured at parse time from the source file's Doxygen body line
+       range, signature line included);
+    2. a HAS_IMPLEMENTATION reference to an ImplementationNode.
     """
+    own = getattr(entry.node, "body", "") or ""
+    if own:
+        return own
     if state is None:
         return None
     for relation_type, target_key, _target_type in entry.references:
@@ -157,7 +160,7 @@ def _build_callable(entry, state, *, parent_name: str = "") -> dict:
         "constexpr": "constexpr" in parts.leading,
         "inline": "inline" in parts.leading,
         "body": body,
-        "has_body": bool(body is not None or (body_start > 0 and body_end > 0)),
+        "has_body": bool(body or (body_start > 0 and body_end > 0)),
         "definition_scoped": definition_scoped,
         "visibility": base.normalize_visibility(node.visibility),
         "brief": node.brief_description or "",
