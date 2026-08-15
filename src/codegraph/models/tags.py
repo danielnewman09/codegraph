@@ -567,6 +567,7 @@ class CodeGraphNode(metaclass=ABCMeta):
                     "relation_type": e.relation_type,
                     "target_uid": e.target_uid,
                     "target_type": e.target_type,
+                    **dict(getattr(e, "attributes", None) or {}),
                 }
                 for e in get_backend().get_all_edges_outgoing(self)
             ]

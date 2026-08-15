@@ -193,7 +193,9 @@ class TestSyncScript:
         golden = tmp_path / "golden.json"
         one_hop = tmp_path / "one_hop.json"
         sister_one_hop = tmp_path / "sister_one_hop.json"
-        for p in (canonical, gen, golden, one_hop, sister_one_hop):
+        impl = tmp_path / "impl.json"
+        sister_impl = tmp_path / "sister_impl.json"
+        for p in (canonical, gen, golden, one_hop, sister_one_hop, impl, sister_impl):
             p.write_text(self._CONTENT, encoding="utf-8")
         sync_module.PIPELINE_COPY = gen
         sync_module.GOLDEN = golden
@@ -201,6 +203,8 @@ class TestSyncScript:
         sync_module.SISTER = tmp_path if with_sister else tmp_path / "no-sister"
         sync_module.ONE_HOP = one_hop
         sync_module.SISTER_ONE_HOP = sister_one_hop
+        sync_module.IMPL = impl
+        sync_module.SISTER_IMPL = sister_impl
         return canonical, gen, golden
 
     def test_check_in_sync(self, sync_module, tmp_path: Path):

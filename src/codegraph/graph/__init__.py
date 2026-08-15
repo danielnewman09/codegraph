@@ -107,13 +107,18 @@ class CompositeEntry:
             target key.  Only COMPOSES edges create entries here.
         references: Non-composition edges from this node.  Each tuple
             is ``(relation_type, target_key, target_type)``.
+        edge_attrs: Optional per-edge metadata keyed by
+            ``(relation_type, target_key)`` (e.g. the include spelling
+            on INCLUDES edges) — carried through serialization and the
+            backends so relationship-level information survives.
     """
 
     node: CodeGraphNode
     children: dict[str, dict[str, "CompositeEntry"]] = field(default_factory=dict)
     references: list[tuple[str, str, str]] = field(default_factory=list)
+    edge_attrs: dict[tuple[str, str], dict] = field(default_factory=dict)
 
-    def serialize(self, fields: str = "llm") -> dict:
+    def serialize(self, fields: str = "llm", *, export_implementation: bool = False) -> dict:
         """Recursively serialize this CompositeEntry and its composed children.
 
         Walks the pre-built ``children`` tree to produce nested output.
@@ -127,18 +132,16 @@ class CompositeEntry:
         and edges, then adds the ``composes`` nesting and uid supplement
         on top.
 
-        Note: For direct nested serialization of a single persisted
-        node, use ``node.serialize(nested=True)`` instead — it walks
-        COMPOSES relationship managers directly.  This method exists
-        because the ``children`` tree may contain only a scoped subset
-        of the full composition hierarchy (e.g. only nodes in a
-        particular tags), which ``walk_composes()`` would not respect.
-
         Args:
             fields: Which property fields to include when serializing
                 each node.  ``"llm"`` (default) — only ``_llm_fields``.
                 ``"all"`` — every defined property.  Passed through to
                 ``CodeGraphNode.serialize()``.
+            export_implementation: When True, MethodNode ``body``
+                text (implementation bodies captured at parse time) is
+                included so codegen can regenerate out-of-line and
+                inline definitions.  Default False — implementation
+                data is opt-in.
 
         Returns:
             A dict representing the entry with nested children.
@@ -168,12 +171,22 @@ class CompositeEntry:
             if (rt, target_key) in seen_targets:
                 continue
             seen_targets.add((rt, target_key))
-            edges.append({
+            edge = {
                 "relation_type": rt,
                 "target_uid": target_key,
                 "target_type": target_type,
-            })
+            }
+            edge.update(self.edge_attrs.get((rt, target_key), {}))
+            edges.append(edge)
         serialized["edges"] = edges
+
+        # Implementation data is opt-in: method bodies are stripped unless
+        # the exporter explicitly asks for them (and even then an empty
+        # body adds no information).
+        if type(self.node).__name__ == "MethodNode":
+            body = serialized.get("body")
+            if not export_implementation or not body:
+                serialized.pop("body", None)
 
         # Ensure uid property is included for roundtrip target resolution.
         # With fields="llm" (default), FileNode's Doxygen refid is omitted since
@@ -189,7 +202,9 @@ class CompositeEntry:
             composes: list[dict] = []
             for type_children in self.children.values():
                 for child_entry in type_children.values():
-                    composes.append(child_entry.serialize(fields=fields))
+                    composes.append(child_entry.serialize(
+                        fields=fields, export_implementation=export_implementation
+                    ))
             serialized["composes"] = composes
 
         return serialized
@@ -404,6 +419,11 @@ class LayerGraph:
                 for ref in other_entry.references:
                     if ref not in existing_refs:
                         existing.references.append(ref)
+                        # Carry edge metadata for newly-added references.
+                        existing.edge_attrs.update(
+                            (k, v) for k, v in other_entry.edge_attrs.items()
+                            if k[1] == ref[1] and k[0] == ref[0]
+                        )
             else:
                 self.entries[key] = other_entry
 
@@ -493,6 +513,15 @@ class LayerGraph:
             source_entry.references.append(
                 (edge["relation_type"], target_key, edge["target_type"])
             )
+            # Relationship-level metadata (e.g. the include spelling on
+            # INCLUDES edges) rides alongside the reference so it survives
+            # deserialize → serialize → backends.
+            attrs = {
+                k: v for k, v in edge.items()
+                if k not in ("relation_type", "target_uid", "target_local_id", "target_type")
+            }
+            if attrs:
+                source_entry.edge_attrs[(edge["relation_type"], target_key)] = attrs
 
         for child_data in data.get("composes", []):
             cls._resolve_nested_references(child_data, key_to_entry, uid_to_key)
@@ -644,6 +673,14 @@ class LayerGraph:
                     source_entry.references.append(
                         (relation_type, target_key, target_type)
                     )
+                    # Relationship-level metadata (e.g. the include
+                    # spelling on INCLUDES edges) rides alongside.
+                    attrs = {
+                        k: v for k, v in edge.items()
+                        if k not in ("relation_type", "target_uid", "target_local_id", "target_type")
+                    }
+                    if attrs:
+                        source_entry.edge_attrs[(relation_type, target_key)] = attrs
 
         # Phase 3: root entries = nodes that were never a COMPOSES target
         root_entries = {
@@ -945,6 +982,10 @@ class LayerGraph:
                     entry.references.append(
                         (edge.relation_type, target_key, edge.target_type)
                     )
+                    if getattr(edge, "attributes", None):
+                        entry.edge_attrs[(edge.relation_type, target_key)] = dict(
+                            edge.attributes
+                        )
 
         for dup_key, canon_key in duplicate_to_canonical.items():
             dup_entry = key_to_entry.get(dup_key)
@@ -979,7 +1020,7 @@ class LayerGraph:
 
     # ── Serialization ──────────────────────────────────────────────────
 
-    def serialize(self, fields: str = "llm") -> list[dict]:
+    def serialize(self, fields: str = "llm", *, export_implementation: bool = False) -> list[dict]:
         """Serialize the graph as a nested list of dicts.
 
         Root entries are serialized recursively.  Composed children
@@ -996,12 +1037,20 @@ class LayerGraph:
                 each node.  ``"llm"`` (default) — only ``_llm_fields``.
                 ``"all"`` — every defined property.  Passed through to
                 ``CodeGraphNode.serialize()``.
+            export_implementation: When True, MethodNode ``body``
+                text (implementation bodies captured at parse time) is
+                included so codegen can regenerate out-of-line and
+                inline definitions.  Default False — implementation
+                data is opt-in and default exports stay lean.
 
         Returns:
             A list of serialized node dicts with nested composition,
             suitable for passing to ``json.dumps()`` externally.
         """
-        return [entry.serialize(fields=fields) for entry in self.entries.values()]
+        return [
+            entry.serialize(fields=fields, export_implementation=export_implementation)
+            for entry in self.entries.values()
+        ]
 
     # ── from_neo4j (compat) ──────────────────────────────────────────
 

@@ -15,6 +15,15 @@ codegen re-emits the 14 cpp-sqlite files at their original
 one-hop dependency (boost / spdlog / sqlite3 — absolute conan-cache
 paths baked into the fixture, emitted as near-empty guards).
 
+``TestImplementationExport`` consumes the **implementation export**
+(``cpp_sqlite_one_hop_impl.json`` — the same graph serialized with
+``export_implementation=True``, so MethodNodes carry their implementation
+``body``/``body_file`` and INCLUDES edges carry the include spelling) and
+asserts codegen reconstructs the 16 cpp-sqlite sources *semantically*
+(Jinja templates populated from the graph) — measuring byte-for-byte
+fidelity against the committed copies under ``cpp_sqlite_impl_src/``
+(the current drift is pinned in ``test_semantic_reconstruction_drift_pinned``).
+
 Counts below are pinned to the committed fixture.  When the sister repo
 regenerates the JSON, ``scripts/sync_codegen_fixtures.py check`` flags
 drift and ``pull`` adopts the new canonical — re-pin the counts then.
@@ -32,6 +41,23 @@ from codegraph.graph import LayerGraph
 FIXTURE = (
     Path(__file__).resolve().parent.parent / "unit_test_data"
     / "cpp_sqlite_one_hop.json"
+)
+
+#: The implementation-bearing export (``export_implementation=True``): the
+#: same as-built graph, with each MethodNode's implementation
+#: ``body``/``body_file`` and the include spelling on INCLUDES edges.  Produced by the sister
+#: repo's ``tests/cpp_sqlite_integration/`` suite with the export flag set.
+IMPL_FIXTURE = (
+    Path(__file__).resolve().parent.parent / "unit_test_data"
+    / "cpp_sqlite_one_hop_impl.json"
+)
+
+#: The original cpp-sqlite source files (committed copies of
+#: ``doxygen-dependency-parser/tests/fixtures/cpp-sqlite/``) the
+#: byte-for-byte suite regenerates and compares against.
+IMPL_SRC = (
+    Path(__file__).resolve().parent.parent / "unit_test_data"
+    / "cpp_sqlite_impl_src"
 )
 
 #: Pinned facts for the committed fixture (74 top-level / 205 nested nodes).
@@ -254,6 +280,146 @@ class TestRenderedContent:
         # The sandboxed tree holds only the project files.
         written = [p for p in tmp_path.rglob("*") if p.is_file()]
         assert len(written) == PROJECT_FILES
+
+
+class TestImplementationExport:
+    """Semantic reconstruction from the implementation export.
+
+    The impl fixture (``cpp_sqlite_one_hop_impl.json``) is the as-built
+    graph exported with ``export_implementation=True``: every MethodNode
+    carries its implementation ``body``/``body_file`` (extracted by the
+    parser from the source's Doxygen body line range) and INCLUDES edges
+    carry the include spelling.  Codegen populates Jinja templates from
+    this graph representation — it does NOT regurgitate file text.
+
+    Byte-for-byte fidelity is the goal being measured toward;
+    ``test_semantic_reconstruction_drift_pinned`` pins the current drift
+    so each fidelity fix is an explicit, failing reminder to tighten the
+    pin.
+    """
+
+    #: Project files the impl export regenerates (the 14 src/utils sources
+    #: + the two gtest files).
+    PROJECT_FILES = sorted({
+        e["path"] for e in json.loads(IMPL_FIXTURE.read_text(encoding="utf-8"))
+        if e["type"] == "FileNode"
+        and e["path"].startswith("tests/fixtures/cpp-sqlite/")
+    })
+
+    @staticmethod
+    def _nested(entries):
+        for e in entries:
+            yield e
+            for c in e.get("composes", []):
+                yield from TestImplementationExport._nested([c])
+
+    def test_fixture_carries_implementation(self):
+        """The impl export carries method bodies (not verbatim file text)
+        and the include spelling on INCLUDES edges."""
+        data = json.loads(IMPL_FIXTURE.read_text(encoding="utf-8"))
+        files = [e for e in data if e["type"] == "FileNode"]
+        project = [e for e in files if e["path"].startswith("tests/fixtures/cpp-sqlite/")]
+        assert len(project) == len(self.PROJECT_FILES) == 16
+        # no FileNode carries raw source text — the implementation lives
+        # on MethodNode.body, the semantic raw material for codegen
+        assert all("source_text" not in e for e in project)
+        methods = [e for e in self._nested(data) if e["type"] == "MethodNode"]
+        with_body = [e for e in methods if e.get("body")]
+        assert len(with_body) > 0
+        assert all(e.get("body_file") for e in with_body)
+        # includes spelling survives on INCLUDES edges
+        spelled = sum(
+            1 for e in project
+            for edge in e.get("edges", [])
+            if edge["relation_type"] == "INCLUDES" and edge.get("include")
+        )
+        assert spelled > 0
+        # the plain one-hop fixture stays lean (no body)
+        plain = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        assert all(
+            "body" not in e
+            for e in self._nested(plain)
+            if e["type"] == "MethodNode"
+        )
+
+    def test_codegen_saves_every_project_file(self):
+        """Every project file is regenerated (completeness), even though
+        the semantic reconstruction is not yet byte-for-byte."""
+        result = generate(_load_impl())
+        assert set(result.files) >= set(self.PROJECT_FILES)
+
+    def test_semantic_reconstruction_drift_pinned(self):
+        """The exposed-issues pin: every project file currently differs
+        from the original (provenance header, guard naming, doc-comment
+        re-wrap, system includes, brace/indent style, …).  Shrink this
+        pin as fidelity gaps are closed."""
+        result = generate(_load_impl())
+        drift = [
+            rel for rel in self.PROJECT_FILES
+            if result.files.get(rel) is None
+            or result.files[rel].encode("utf-8") != (IMPL_SRC / rel).read_bytes()
+        ]
+        assert drift == self.PROJECT_FILES, (
+            f"semantic-reconstruction pin changed — drift is now "
+            f"{len(drift)}/{len(self.PROJECT_FILES)} files (was all "
+            f"{len(self.PROJECT_FILES)}); update this pin:\n{drift}"
+        )
+
+    def test_bodies_reach_cpp_output(self):
+        """Method bodies flow from the graph into the regenerated .cpp
+        (Jinja reconstruction, not verbatim passthrough)."""
+        result = generate(_load_impl())
+        db = result.files[
+            "tests/fixtures/cpp-sqlite/cpp_sqlite/src/cpp_sqlite/DBDatabase.cpp"
+        ]
+        assert "Database::Database(" in db
+        assert "sqlite3_open_v2" in db
+        assert "TODO(codegen): implementation body" not in db
+
+    def test_includes_reconstructed_from_edge_spelling(self):
+        """Includes are reconstructed from the edge spelling: local
+        project headers AND sqlite3.h (a local include with a refid) come
+        back as written.  System includes (std/boost headers with no
+        refid in the index) are dropped — a pinned fidelity gap."""
+        result = generate(_load_impl())
+        dbhpp = result.files[
+            "tests/fixtures/cpp-sqlite/cpp_sqlite/src/cpp_sqlite/DBDatabase.hpp"
+        ]
+        assert '#include "cpp_sqlite/src/cpp_sqlite/DBBaseTransferObject.hpp"' in dbhpp
+        assert '#include "sqlite3.h"' in dbhpp  # local include with a refid
+        # pinned gap: system std headers carry no refid → dropped
+        assert "#include <any>" not in dbhpp
+
+    def test_rendering_is_deterministic(self):
+        a = generate(_load_impl())
+        b = generate(_load_impl())
+        assert a.files == b.files
+
+    def test_saved_output_is_in_sync(self):
+        """The viewable full-fidelity tree (``cpp_sqlite_generated/``) matches
+        fresh codegen output.  It is refreshed by the integration round trip
+        (``tests/codegen/test_cpp_sqlite_impl_roundtrip.py``) — if that suite
+        is skipped (no doxygen-index) or a fixture/codegen change drifts the
+        artifact, this test flags it."""
+        generated_root = (
+            Path(__file__).resolve().parent.parent / "unit_test_data"
+            / "cpp_sqlite_generated"
+        )
+        if not (generated_root / self.PROJECT_FILES[0]).is_file():
+            return  # local artifact not materialized — nothing to pin
+        result = generate(_load_impl())
+        drift = [
+            rel for rel in self.PROJECT_FILES
+            if (generated_root / rel).read_bytes() != result.files.get(rel, "").encode("utf-8")
+        ]
+        assert not drift, (
+            f"saved output drifted for {drift} — run the integration round trip "
+            "(tests/codegen/test_cpp_sqlite_impl_roundtrip.py) to refresh it"
+        )
+
+
+def _load_impl() -> list[dict]:
+    return json.loads(IMPL_FIXTURE.read_text(encoding="utf-8"))
 
 
 class TestCli:

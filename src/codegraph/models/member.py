@@ -139,6 +139,19 @@ class MethodNode(MemberNode):
     is_inline = Property(bool, default=False)
     is_explicit = Property(bool, default=False)
 
+    #: Implementation body text, captured at parse time from the source
+    #: file (Doxygen's ``bodyfile``/``bodystart``/``bodyend`` line range —
+    #: includes the signature line for out-of-line definitions).  The
+    #: structured implementation detail codegen needs to regenerate
+    #: out-of-line and inline definitions.  Deliberately NOT in
+    #: ``_llm_fields`` and stripped by ``serialize()`` unless
+    #: ``export_implementation=True`` — implementation data is opt-in.
+    body = Property(str, default="")
+
+    #: The file the implementation body lives in (``bodyfile``) — the
+    #: planner uses it to route out-of-line definitions to their .cpp.
+    body_file = Property(str, default="")
+
     # Include argsstring in uid so overloads get distinct identities
     _identity_fields = ("qualified_name", "argsstring")
 
