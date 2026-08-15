@@ -10,6 +10,7 @@
           {
             "argsstring": "(double a, double b)",
             "body_end": 0,
+            "body_file": "",
             "body_start": 0,
             "brief_description": "Calculates the sum of two valid numeric operands.",
             "component_id": null,
@@ -42,6 +43,7 @@
           {
             "argsstring": "(string input)",
             "body_end": 0,
+            "body_file": "",
             "body_start": 0,
             "brief_description": "Validates that the inputs are valid numbers.",
             "component_id": null,
@@ -140,6 +142,7 @@
           {
             "argsstring": "",
             "body_end": 0,
+            "body_file": "",
             "body_start": 0,
             "brief_description": "Returns the computed value.",
             "component_id": null,
@@ -226,6 +229,7 @@
           {
             "argsstring": "(Operation op, double a, double b)",
             "body_end": 0,
+            "body_file": "",
             "body_start": 0,
             "brief_description": "Perform a calculation with the given operation and operands.",
             "component_id": null,
@@ -403,6 +407,7 @@
           {
             "argsstring": "",
             "body_end": 0,
+            "body_file": "",
             "body_start": 0,
             "brief_description": "Shows the window on screen.",
             "component_id": null,
