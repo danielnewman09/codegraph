@@ -250,7 +250,7 @@ class SqliteRelOps:
                 conn.execute(
                     sa.text(
                         f"SELECT e.rel_type AS rel_type, t.uid AS tuid, "
-                        f"t.labels AS tlbls "
+                        f"t.labels AS tlbls, e.properties AS eprops "
                         f"FROM edges e {join_sql} WHERE {where_sql}"
                     ),
                     {"sid": node.element_id_property},
@@ -258,7 +258,7 @@ class SqliteRelOps:
             )
         edges: list[EdgeDescriptor] = []
         for row in rows:
-            rel_type, tuid, tlbls = row[0], row[1], row[2]
+            rel_type, tuid, tlbls, eprops = row[0], row[1], row[2], row[3]
             labels = set(json.loads(tlbls) or [])
             target_type = "CodeGraphNode"
             best = best_class_for_labels(labels)
@@ -269,5 +269,6 @@ class SqliteRelOps:
                 target_uid=tuid,
                 target_type=target_type,
                 is_outgoing=outgoing,
+                attributes=json.loads(eprops) if eprops else {},
             ))
         return edges

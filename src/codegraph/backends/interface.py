@@ -10,7 +10,7 @@ All Cypher/SQL is sealed inside the repository implementations.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -33,12 +33,16 @@ class EdgeDescriptor:
         target_uid: uid of the connected node.
         target_type: Class name of the connected node.
         is_outgoing: True for outgoing edges, False for incoming.
+        attributes: Optional relationship-level metadata (e.g. the
+            include spelling on INCLUDES edges), from the backend's
+            edge properties.
     """
 
     relation_type: str
     target_uid: str
     target_type: str
     is_outgoing: bool = True
+    attributes: dict = field(default_factory=dict)
 
 
 @dataclass

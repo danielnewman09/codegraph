@@ -122,12 +122,17 @@ class SqliteBulkOps:
             fts_rows: list[dict] = []
             emb_rows: list[dict] = []
 
-            def _edge(src_id: int, rel_type: str, tgt_id: int) -> None:
+            def _edge(src_id: int, rel_type: str, tgt_id: int, attrs: dict | None = None) -> None:
                 key = (src_id, rel_type, tgt_id)
                 if key in seen_edges:
                     return
                 seen_edges.add(key)
-                edge_rows.append({"sid": src_id, "rt": rel_type, "tid": tgt_id})
+                edge_rows.append({
+                    "sid": src_id,
+                    "rt": rel_type,
+                    "tid": tgt_id,
+                    "props": json.dumps(attrs or {}),
+                })
 
             for entry in entries:
                 src_id = entry.node.element_id_property
@@ -148,7 +153,11 @@ class SqliteBulkOps:
                 for relation_type, target_key, _target_type in entry.references:
                     target_entry = flat.get(target_key) or qname_index.get(target_key)
                     if target_entry is not None:
-                        _edge(src_id, relation_type, target_entry.node.element_id_property)
+                        _edge(
+                            src_id, relation_type,
+                            target_entry.node.element_id_property,
+                            attrs=entry.edge_attrs.get((relation_type, target_key)),
+                        )
 
                 # Derived-store rows collected here so the FTS/embedding
                 # maintenance below is batched (one pass over entries).
@@ -215,8 +224,9 @@ class SqliteBulkOps:
             if edge_rows:
                 conn.execute(
                     sa.text(
-                        "INSERT OR IGNORE INTO edges (source_id, rel_type, target_id) "
-                        "VALUES (:sid, :rt, :tid)"
+                        "INSERT OR IGNORE INTO edges "
+                        "(source_id, rel_type, target_id, properties) "
+                        "VALUES (:sid, :rt, :tid, :props)"
                     ),
                     edge_rows,
                 )

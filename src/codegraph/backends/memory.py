@@ -216,12 +216,15 @@ class InMemoryBackend(Backend):
         source: "CodeGraphNode",
         rel_type: str,
         target: "CodeGraphNode",
+        attributes: dict | None = None,
     ) -> None:
         """Create a relationship between two saved nodes.
 
         Validates that the relationship is declared on the source type
         (same semantics as the Neo4j backend), then tracks the edge in
-        the in-memory adjacency lists.
+        the in-memory adjacency lists.  *attributes* is optional
+        relationship-level metadata (e.g. the include spelling on
+        INCLUDES edges).
         """
         from codegraph.models.descriptors import find_relationship_descriptor
 
@@ -243,6 +246,7 @@ class InMemoryBackend(Backend):
                 target_uid=tgt_uid,
                 target_type=type(target).__name__,
                 is_outgoing=True,
+                attributes=dict(attributes or {}),
             )
             self._edges_out.setdefault(src_uid, []).append(edge)
             in_edge = EdgeDescriptor(
@@ -317,7 +321,10 @@ class InMemoryBackend(Backend):
             for rel_type, target_key, _target_type in entry.references:
                 target_entry = graph.entries.get(target_key)
                 if target_entry is not None:
-                    self.connect(entry.node, rel_type, target_entry.node)
+                    self.connect(
+                        entry.node, rel_type, target_entry.node,
+                        attributes=entry.edge_attrs.get((rel_type, target_key)),
+                    )
             for children in entry.children.values():
                 for child_entry in children.values():
                     _connect_refs(child_entry, graph)

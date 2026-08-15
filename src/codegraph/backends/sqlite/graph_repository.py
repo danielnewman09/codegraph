@@ -537,6 +537,10 @@ class SqliteGraphRepository(GraphRepository):
                     entry.references.append(
                         (relation_type, target_key, edge_info.target_type)
                     )
+                    if edge_info.attributes:
+                        entry.edge_attrs[(relation_type, target_key)] = dict(
+                            edge_info.attributes
+                        )
 
         root_entries = {
             key: entry

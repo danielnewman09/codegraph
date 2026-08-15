@@ -42,6 +42,20 @@ SISTER_CANONICAL = SISTER / "tests/data/design_layergraph.json"
 ONE_HOP = ROOT / "tests/unit_test_data/cpp_sqlite_one_hop.json"
 SISTER_ONE_HOP = SISTER / "tests/unit_test_data/cpp_sqlite_one_hop.json"
 
+#: The implementation-bearing export (``serialize(fields="all",
+#: export_implementation=True)``): MethodNodes carry their implementation
+#: ``body``/``body_file`` and INCLUDES edges carry the include spelling —
+#: the semantic-reconstruction input for
+#: ``tests/codegen/test_cpp_sqlite_one_hop.py::TestImplementationExport``.
+IMPL = ROOT / "tests/unit_test_data/cpp_sqlite_one_hop_impl.json"
+SISTER_IMPL = SISTER / "tests/unit_test_data/cpp_sqlite_one_hop_impl.json"
+
+#: The original cpp-sqlite sources the byte-for-byte suite regenerates
+#: and compares against (committed copies of
+#: ``sister/tests/fixtures/cpp-sqlite/``).
+IMPL_SRC = ROOT / "tests/unit_test_data/cpp_sqlite_impl_src"
+SISTER_FIXTURE_SRC = SISTER / "tests/fixtures/cpp-sqlite"
+
 
 def _sha(path: Path) -> str:
     if not path.exists():
@@ -55,12 +69,38 @@ def _same(a: Path, b: Path) -> bool:
     return a.read_bytes() == b.read_bytes()
 
 
+def _sync_impl_source() -> None:
+    """Sync the committed source copies under ``cpp_sqlite_impl_src`` with
+    the sister repo's fixture directory — the project's source files
+    (``.hpp``/``.cpp`` under ``cpp_sqlite/``) plus the ``.doxygen-index.toml``
+    the round-trip index step needs, mirrored under their
+    ``tests/fixtures/cpp-sqlite/...`` relative paths.  Build artifacts,
+    dotfiles, CMakeLists and test harnesses are not part of the
+    byte-for-byte contract."""
+    for rel in sorted(SISTER_FIXTURE_SRC.rglob("*")):
+        if not rel.is_file():
+            continue
+        if rel.suffix.lower() not in (".hpp", ".cpp"):
+            continue
+        if "cpp_sqlite" not in rel.parts:
+            continue
+        dst = IMPL_SRC / "tests/fixtures/cpp-sqlite" / rel.relative_to(SISTER_FIXTURE_SRC)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(rel, dst)
+    config = SISTER_FIXTURE_SRC / ".doxygen-index.toml"
+    if config.is_file():
+        dst = IMPL_SRC / "tests/fixtures/cpp-sqlite" / ".doxygen-index.toml"
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(config, dst)
+
+
 def check() -> int:
     failures = 0
     print(f"pipeline copy : {PIPELINE_COPY} {_sha(PIPELINE_COPY)}")
     print(f"golden        : {GOLDEN} {_sha(GOLDEN)}")
     print(f"sister repo   : {SISTER_CANONICAL} {_sha(SISTER_CANONICAL)}")
     print(f"one-hop       : {ONE_HOP} {_sha(ONE_HOP)}")
+    print(f"impl export   : {IMPL} {_sha(IMPL)}")
     if SISTER.exists():
         if not _same(PIPELINE_COPY, SISTER_CANONICAL):
             print("DRIFT: pipeline copy != sister repo (generator output not pushed)")
@@ -71,6 +111,9 @@ def check() -> int:
         if not _same(ONE_HOP, SISTER_ONE_HOP):
             print("DRIFT: one-hop != sister repo (run pull)")
             failures += 1
+        if not _same(IMPL, SISTER_IMPL):
+            print("DRIFT: impl export != sister repo (run pull)")
+            failures += 1
     else:
         print(f"note: sister repo not at {SISTER} — skipping cross-repo checks")
     if not GOLDEN.exists():
@@ -78,6 +121,12 @@ def check() -> int:
         failures += 1
     if not ONE_HOP.exists():
         print("DRIFT: one-hop missing")
+        failures += 1
+    if not IMPL.exists():
+        print("DRIFT: impl export missing")
+        failures += 1
+    if not IMPL_SRC.exists():
+        print("DRIFT: impl source copies missing")
         failures += 1
     print("OK" if not failures else f"{failures} drift(s)")
     return 1 if failures else 0
@@ -95,6 +144,12 @@ def push() -> int:
         print(f"note: sister repo not at {SISTER} — skipped cross-repo copy")
     shutil.copy2(PIPELINE_COPY, GOLDEN)
     print(f"pushed → {GOLDEN}")
+    if SISTER_IMPL.exists():
+        shutil.copy2(SISTER_IMPL, IMPL)
+        print(f"pushed → {IMPL}")
+    if SISTER_FIXTURE_SRC.exists():
+        _sync_impl_source()
+        print(f"synced → {IMPL_SRC}")
     return check()
 
 
@@ -113,6 +168,12 @@ def pull() -> int:
     if SISTER_ONE_HOP.exists():
         shutil.copy2(SISTER_ONE_HOP, ONE_HOP)
         print(f"pulled → {ONE_HOP}")
+    if SISTER_IMPL.exists():
+        shutil.copy2(SISTER_IMPL, IMPL)
+        print(f"pulled → {IMPL}")
+    if SISTER_FIXTURE_SRC.exists():
+        _sync_impl_source()
+        print(f"synced → {IMPL_SRC}")
     return 0
 
 
