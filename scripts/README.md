@@ -88,6 +88,28 @@ python scripts/evaluate_design_coverage.py --json codegraph/requirements/generat
 
 ---
 
+## Explorer
+
+### `start_explorer.py`
+
+Starts the **Codegraph Explorer** web app — the interactive namespace →
+class → requirements/tests browser (`codegraph.explorer.server`).
+Defaults to the sister repo's live cpp-sqlite integration database
+(doxygen-index output, schema-identical to the codegraph sqlite
+backend); the `plantuml` CLI must be on PATH to render the zoomable
+class-scoped SVGs (the puml text is served as a fallback).
+
+```bash
+python scripts/start_explorer.py
+python scripts/start_explorer.py --port 9000
+python scripts/start_explorer.py --db /path/to/other.sqlite3 --tag as-built
+python scripts/start_explorer.py --fixture tests/pipelines/unit_test_data/design_layergraph.json
+```
+
+Then open http://localhost:8765 (Ctrl-C to stop).
+
+---
+
 ## Enrichment & Data Management
 
 Pre-existing scripts for loading, enriching, and serializing codegraph data.
