@@ -127,3 +127,97 @@ class TestExplorerApi:
         conds = {a["name"]: a["condition"] for a in test0["assertions"]}
         # derived conditions present (is_true renders as "is true")
         assert any(" is true" in c or " == " in c for c in conds.values())
+
+
+class TestExplorerCode:
+    # codegraph:test-desc test_explorer_api.TestExplorerCode.test_code_class
+    # Verifies the code endpoint renders a single class via the codegen
+    # Jinja templates (one header file, deterministic contents).
+    def test_code_class(self):
+        d = _source().code("cpp_sqlite::MigrationManager")
+        assert d["node"]["kind"] == "ClassNode"
+        assert not d["editable"]  # fixture source has no project_dir
+        paths = [f["path"] for f in d["files"]]
+        assert paths == ["include/cpp_sqlite/MigrationManager.hpp"]
+        text = d["files"][0]["text"]
+        assert "class MigrationManager" in text
+        assert "#ifndef INCLUDE_CPP_SQLITE_MIGRATIONMANAGER_HPP" in text
+
+    # codegraph:test-desc test_explorer_api.TestExplorerCode.test_code_namespace
+    # Verifies a namespace renders its whole subtree (many files).
+    def test_code_namespace(self):
+        d = _source().code("cpp_sqlite")
+        assert d["node"]["kind"] == "NamespaceNode"
+        paths = {f["path"] for f in d["files"]}
+        assert "include/cpp_sqlite/Database.hpp" in paths
+        assert "include/cpp_sqlite/MigrationManager.hpp" in paths
+
+    # codegraph:test-desc test_explorer_api.TestExplorerCode.test_code_test
+    # Verifies a test node renders its own test .cpp via codegen.
+    def test_code_test(self):
+        src = _source()
+        test_qname = None
+        for entry in src.graph._all_entries():
+            if type(entry.node).__name__ == "TestNode":
+                test_qname = entry.node.qualified_name or entry.node.name
+                break
+        d = src.code(test_qname)
+        assert d["node"]["kind"] == "TestNode"
+        assert [f["path"] for f in d["files"]] == [f"tests/{test_qname.rsplit('::', 1)[-1]}.cpp"]
+        assert "TEST_CASE" in d["files"][0]["text"]
+
+    # codegraph:test-desc test_explorer_api.TestExplorerCode.test_code_unknown
+    # Verifies unknown qnames return an empty-file error payload.
+    def test_code_unknown(self):
+        d = _source().code("app::Missing")
+        assert d["files"] == []
+        assert "error" in d
+
+
+class TestExplorerReindex:
+    # codegraph:test-desc test_explorer_api.TestExplorerReindex.test_reindex_read_only
+    # Verifies re-indexing is rejected without a project_dir.
+    def test_reindex_read_only(self):
+        d = _source().reindex([{"path": "x.hpp", "text": "//"}], "cpp_sqlite")
+        assert "error" in d
+        assert "project-dir" in d["error"]
+
+    # codegraph:test-desc test_explorer_api.TestExplorerReindex.test_reindex_writes_and_reloads
+    # Verifies edited files are written under the project dir and the
+    # graph is reloaded after a successful index run.
+    def test_reindex_writes_and_reloads(self, tmp_path, monkeypatch):
+        import json as _json
+        from codegraph.graph import LayerGraph
+
+        fixture = "tests/pipelines/unit_test_data/design_layergraph.json"
+        with open(fixture, encoding="utf-8") as f:
+            graph = LayerGraph.deserialize(_json.load(f))
+
+        reloaded = {"n": 0}
+
+        def _reload():
+            reloaded["n"] += 1
+            with open(fixture, encoding="utf-8") as f:
+                return LayerGraph.deserialize(_json.load(f))
+
+        src = LayerGraphSource(
+            graph,
+            source_name="design_layergraph.json",
+            project_dir=str(tmp_path),
+            reload=_reload,
+        )
+        monkeypatch.setattr(src, "_run_index", lambda root: {"exit_code": 0})
+
+        d = src.reindex(
+            [
+                {"path": "include/cpp_sqlite/Foo.hpp", "text": "// edit"},
+                {"path": "/etc/passwd", "text": "// must be skipped"},
+            ],
+            "cpp_sqlite",
+        )
+        assert d["reloaded"] is True
+        assert reloaded["n"] == 1
+        written = {w["path"]: w for w in d["written"]}
+        assert written["include/cpp_sqlite/Foo.hpp"]["ok"] is True
+        assert written["/etc/passwd"]["ok"] is False
+        assert (tmp_path / "include/cpp_sqlite/Foo.hpp").read_text() == "// edit"

@@ -67,6 +67,12 @@ def main(argv: list[str] | None = None) -> int:
         help="instead of the sqlite db, serve a serialized LayerGraph "
              "JSON fixture (fixture:<path>)",
     )
+    parser.add_argument(
+        "--project-dir",
+        default=None,
+        help="source checkout the generated code maps to; enables the "
+             "edit → doxygen-index → reload loop in the code view",
+    )
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     args = parser.parse_args(argv)
@@ -83,9 +89,10 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         source = f"sqlite:{args.db}:{args.tag}"
 
-    return server_main(
-        ["--source", source, "--host", args.host, "--port", str(args.port)]
-    )
+    argv = ["--source", source, "--host", args.host, "--port", str(args.port)]
+    if args.project_dir:
+        argv += ["--project-dir", args.project_dir]
+    return server_main(argv)
 
 
 if __name__ == "__main__":

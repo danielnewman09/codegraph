@@ -17,7 +17,7 @@
     <aside class="tree-pane">
       <div class="pane-label">Namespaces</div>
       <div id="ns-header" class="ns-header hidden">
-        <span id="ns-up" class="ns-up" title="up a level">↑</span>
+        <button id="ns-up" class="ns-up" title="up a level" aria-label="up a level">↑</button>
         <span id="ns-name" class="ns-name"></span>
       </div>
       <div id="tree" class="tree"></div>
@@ -25,33 +25,53 @@
     </aside>
 
     <section class="view-pane">
-      <div id="breadcrumb" class="breadcrumb"></div>
-      <div id="selection-info" class="selection-info muted"></div>
-
       <div class="split">
         <div class="panel">
           <div class="panel-head">
             <span class="pane-label">Code</span>
-            <span class="zoom-controls">
-              <button id="zoom-out" title="zoom out">−</button>
-              <button id="zoom-in" title="zoom in">+</button>
-              <button id="zoom-reset" title="reset view">reset</button>
+            <span class="panel-tools">
+              <span class="view-toggle" id="view-toggle">
+                <button id="view-diagram" class="toggle active" type="button">Diagram</button>
+                <button id="view-code" class="toggle" type="button">Code</button>
+              </span>
+              <span class="zoom-controls" id="zoom-controls">
+                <button id="zoom-out" title="zoom out">−</button>
+                <button id="zoom-in" title="zoom in">+</button>
+                <button id="zoom-reset" title="reset view">reset</button>
+              </span>
+              <button id="code-save" class="save" type="button" title="write edits and re-index via doxygen-index">Save &amp; re-index</button>
             </span>
           </div>
           <div id="code-canvas" class="canvas">
             <div class="canvas-empty muted">Select a class to see its
               class-scoped diagram (zoomable).</div>
           </div>
+          <div id="code-view" class="code-view hidden">
+            <div id="code-files" class="code-files"></div>
+            <div class="code-editor-wrap">
+              <textarea id="code-editor" class="code-editor" spellcheck="false"
+                placeholder="Generated source will appear here."></textarea>
+            </div>
+            <div id="code-status" class="code-status muted"></div>
+          </div>
         </div>
 
         <div class="panel">
           <div class="panel-head">
             <span class="pane-label">Requirements &amp; tests</span>
+            <span class="tabbar" id="tabbar">
+              <button id="tab-requirements" class="tab active" type="button">Requirements</button>
+              <button id="tab-tests" class="tab" type="button">Tests</button>
+            </span>
           </div>
           <div id="req-body" class="req-body">
             <div class="canvas-empty muted">Select a class to see the
               requirements it pertains to and the tests that validate
               its behaviour.</div>
+          </div>
+          <div id="test-body" class="req-body hidden">
+            <div class="canvas-empty muted">Select a class, then open the
+              Tests tab to browse its tests.</div>
           </div>
         </div>
       </div>

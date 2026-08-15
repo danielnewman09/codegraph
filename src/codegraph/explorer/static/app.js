@@ -1,5 +1,5 @@
-/* Codegraph Explorer — namespace header + dropdown tree, two panels,
-   zoomable SVG. */
+/* Codegraph Explorer — namespace header + dropdown tree, diagram↔code
+   toggle, and a requirements/tests tabbed panel. */
 
 "use strict";
 
@@ -17,10 +17,16 @@ api("/api/meta").then((m) => {
 // ── State ────────────────────────────────────────────────────────────────
 
 const state = {
-  // namespace drill path (root view when empty)
-  nsPath: [],
-  children: {},     // qname -> children payload
-  selected: null,   // selected class qname
+  nsPath: [],          // namespace drill path (root view when empty)
+  children: {},        // qname -> children payload
+  selected: null,      // { qname, kind, name } of the current selection
+  view: "diagram",     // "diagram" | "code"
+  codeFiles: [],       // [{ path, language, text }]
+  activeFile: 0,
+  codeEditable: false,
+  coverage: null,      // last /coverage payload
+  tests: [],           // flattened test list for the Tests tab
+  reqTab: "requirements",
 };
 
 const GLYPHS = {
@@ -34,9 +40,6 @@ function glyphFor(node) {
 }
 function isNamespace(node) {
   return node.kind === "NamespaceNode" || node.kind === "ModuleNode";
-}
-function isRequirement(node) {
-  return node.kind === "HLR" || node.kind === "LLR";
 }
 
 // ── Tree rendering ───────────────────────────────────────────────────────
@@ -81,7 +84,6 @@ function namespaceRow(node) {
 // Pin *node* (a namespace) as the header; load its dropdown + diagram.
 function pinNamespace(node) {
   state.nsPath.push(node.qname);
-  state.selected = null;
   renderLevel(node.qname);
 }
 
@@ -97,7 +99,7 @@ function goUp() {
 }
 
 function renderLevel(nsQname) {
-  showHeader(nsQname, state.nsPath.length > 1);
+  showHeader(nsQname, state.nsPath.length >= 1);
   const tree = $("tree");
   tree.innerHTML = '<div class="muted" style="padding:0.6rem 0.4rem">…</div>';
 
@@ -113,8 +115,7 @@ function renderLevel(nsQname) {
     for (const n of sub) tree.appendChild(namespaceRow(n));
 
     if (classes.length) {
-      const h = sectionLabel("classes");
-      tree.appendChild(h);
+      tree.appendChild(sectionLabel("classes"));
       for (const c of classes) tree.appendChild(classRow(c));
     }
 
@@ -201,37 +202,52 @@ function markSelected(qname) {
 }
 
 function selectNamespace(nsQname) {
+  state.selected = { qname: nsQname, kind: "namespace", name: nsQname };
   markSelected(nsQname);
-  $("breadcrumb").textContent = nsQname;
-  $("selection-info").textContent = "namespace — as-built view";
+  setView("diagram");
   loadScope(nsQname);
+  loadCode(nsQname);
+  clearCoverage();
 }
 
 function selectClass(node) {
-  state.selected = node.qname;
+  state.selected = { qname: node.qname, kind: node.kind, name: node.name };
   markSelected(node.qname);
-  $("breadcrumb").textContent = node.qname;
-  $("selection-info").textContent =
-    node.requirements !== undefined
-      ? `${node.requirements} requirement(s) · ${node.tests} test(s) validate this class`
-      : "";
-  // two windows in parallel
+  setView("diagram");
   loadScope(node.qname);
+  loadCode(node.qname);
   loadCoverage(node.qname);
 }
 
 function selectRequirement(node) {
+  state.selected = { qname: node.qname, kind: node.kind, name: node.name };
   markSelected(node.qname);
-  $("breadcrumb").textContent = node.qname;
-  $("selection-info").textContent =
-    `requirement · ${node.test_count} test(s)`;
+  setTab("requirements");
   $("req-body").innerHTML = "";
   const hint = document.createElement("div");
   hint.className = "canvas-empty muted";
   hint.textContent =
     `Select a class beneath this requirement to see its tests in detail.`;
   $("req-body").appendChild(hint);
+  $("test-body").innerHTML =
+    '<div class="canvas-empty muted">Select a class to browse its tests.</div>';
 }
+
+// ── Diagram / code toggle ────────────────────────────────────────────────
+
+function setView(view) {
+  state.view = view;
+  $("view-diagram").classList.toggle("active", view === "diagram");
+  $("view-code").classList.toggle("active", view === "code");
+  $("zoom-controls").style.display = view === "diagram" ? "" : "none";
+  $("code-save").classList.toggle("hidden", view !== "code" || !state.codeEditable);
+  $("code-canvas").classList.toggle("hidden", view !== "diagram");
+  $("code-view").classList.toggle("hidden", view !== "code");
+  if (view === "code") renderCodeFiles();
+}
+
+$("view-diagram").addEventListener("click", () => setView("diagram"));
+$("view-code").addEventListener("click", () => setView("code"));
 
 // ── Code window: zoomable SVG ────────────────────────────────────────────
 
@@ -332,21 +348,169 @@ function attachZoom(holder, svg) {
   return { reset: () => { dirty = false; fit(); } };
 }
 
-// ── Requirements & tests window ──────────────────────────────────────────
+// ── Code window: editable codegen view ───────────────────────────────────
+
+function loadCode(qname) {
+  state.codeFiles = [];
+  state.activeFile = 0;
+  api(`/api/node/${encodeURIComponent(qname)}/code`).then((data) => {
+    state.codeFiles = data.files || [];
+    state.codeEditable = !!data.editable;
+    if (data.error) {
+      state.codeFiles = [];
+      $("code-status").textContent = data.error;
+    } else {
+      $("code-status").textContent = "";
+    }
+    renderCodeFiles();
+  });
+}
+
+function renderCodeFiles() {
+  if (state.view !== "code") return;
+  const list = $("code-files");
+  list.innerHTML = "";
+  const files = state.codeFiles;
+  if (!state.selected) {
+    $("code-editor").value = "";
+    $("code-status").textContent = "Select a class or namespace first.";
+    $("code-save").classList.add("hidden");
+    return;
+  }
+  if (!files.length) {
+    $("code-editor").value = "";
+    $("code-status").textContent =
+      state.codeStatus || "No generated source for this node.";
+    return;
+  }
+  if (state.activeFile >= files.length) state.activeFile = 0;
+  if (files.length > 1) {
+    files.forEach((f, i) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "file-tab" + (i === state.activeFile ? " active" : "");
+      btn.textContent = f.path.split("/").pop();
+      btn.title = f.path;
+      btn.addEventListener("click", () => { state.activeFile = i; renderCodeFiles(); });
+      list.appendChild(btn);
+    });
+  }
+  const f = files[state.activeFile];
+  $("code-editor").value = f.text;
+  $("code-status").textContent =
+    `${f.path}${files.length > 1 ? ` · ${files.length} file(s)` : ""}` +
+    (state.codeEditable ? "" : " · read-only (start with --project-dir)");
+  $("code-save").classList.toggle("hidden", !state.codeEditable);
+}
+
+$("code-save").addEventListener("click", () => {
+  if (!state.selected) return;
+  // persist the current editor buffer before sending
+  if (state.codeFiles[state.activeFile]) {
+    state.codeFiles[state.activeFile].text = $("code-editor").value;
+  }
+  const files = state.codeFiles.map((f) => ({ path: f.path, text: f.text }));
+  $("code-status").textContent = "re-indexing…";
+  fetch(`/api/node/${encodeURIComponent(state.selected.qname)}/code`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ files }),
+  })
+    .then((r) => r.json())
+    .then((res) => {
+      if (res.error) {
+        $("code-status").textContent = res.error;
+        return;
+      }
+      const written = (res.written || []).filter((x) => x.ok);
+      const total = (res.written || []).length;
+      const idx = res.index || {};
+      let msg = `wrote ${written.length}/${total} file(s)`;
+      if (res.reloaded) msg += " · graph re-parsed & reloaded";
+      else if (idx.exit_code && idx.exit_code !== 0) msg += " · re-index failed";
+      if (idx.error) msg += ` · ${idx.error}`;
+      $("code-status").textContent = msg;
+      if (res.reloaded) {
+        loadScope(state.selected.qname);
+        loadCode(state.selected.qname);
+      }
+    });
+});
+
+// ── Requirements & tests panel ───────────────────────────────────────────
+
+function setTab(tab) {
+  state.reqTab = tab;
+  $("tab-requirements").classList.toggle("active", tab === "requirements");
+  $("tab-tests").classList.toggle("active", tab === "tests");
+  $("req-body").classList.toggle("hidden", tab !== "requirements");
+  $("test-body").classList.toggle("hidden", tab !== "tests");
+  if (tab === "tests") renderTestsTab();
+}
+
+$("tab-requirements").addEventListener("click", () => setTab("requirements"));
+$("tab-tests").addEventListener("click", () => setTab("tests"));
+
+function clearCoverage() {
+  state.coverage = null;
+  state.tests = [];
+  $("req-body").innerHTML =
+    '<div class="canvas-empty muted">Namespaces have no requirement or test scope.</div>';
+  $("test-body").innerHTML =
+    '<div class="canvas-empty muted">Namespaces have no test scope.</div>';
+}
 
 function loadCoverage(qname) {
   api(`/api/node/${encodeURIComponent(qname)}/coverage`).then((data) => {
-    const body = $("req-body");
-    body.innerHTML = "";
-    if (!data.requirements.length) {
-      body.innerHTML = `<div class="canvas-empty muted">No requirements or
-        tests found for this class in the graph.</div>`;
-      return;
-    }
-    for (const req of data.requirements) {
-      body.appendChild(requirementCard(req));
-    }
+    state.coverage = data;
+    state.tests = flattenTests(data);
+    renderRequirements(data);
+    renderTestsTab();
   });
+}
+
+function flattenTests(data) {
+  const seen = new Set();
+  const out = [];
+  for (const req of data.requirements || []) {
+    for (const t of req.tests || []) {
+      if (t.qname && seen.has(t.qname)) continue;
+      if (t.qname) seen.add(t.qname);
+      out.push(t);
+    }
+  }
+  return out;
+}
+
+function renderRequirements(data) {
+  const body = $("req-body");
+  body.innerHTML = "";
+  if (!data.requirements.length) {
+    body.innerHTML = `<div class="canvas-empty muted">No requirements or
+      tests found for this class in the graph.</div>`;
+    return;
+  }
+  for (const req of data.requirements) {
+    body.appendChild(requirementCard(req));
+  }
+}
+
+function renderTestsTab() {
+  const body = $("test-body");
+  body.innerHTML = "";
+  if (!state.selected || state.selected.kind === "namespace") {
+    body.innerHTML =
+      '<div class="canvas-empty muted">Select a class to browse its tests.</div>';
+    return;
+  }
+  if (!state.tests.length) {
+    body.innerHTML =
+      '<div class="canvas-empty muted">No tests found for this class.</div>';
+    return;
+  }
+  for (const test of state.tests) {
+    body.appendChild(testCard(test));
+  }
 }
 
 function requirementCard(req) {
@@ -363,6 +527,65 @@ function requirementCard(req) {
   for (const test of req.tests) {
     card.appendChild(testBlock(test));
   }
+  return card;
+}
+
+function testCard(test) {
+  const card = document.createElement("div");
+  card.className = "test-card";
+
+  const head = document.createElement("div");
+  head.className = "test-card-head";
+  const name = document.createElement("span");
+  name.className = "test-card-name";
+  name.textContent = test.name;
+  head.appendChild(name);
+
+  const toggle = document.createElement("span");
+  toggle.className = "mini-toggle";
+  const bDesc = document.createElement("button");
+  bDesc.type = "button";
+  bDesc.className = "toggle active";
+  bDesc.textContent = "Description";
+  const bCode = document.createElement("button");
+  bCode.type = "button";
+  bCode.className = "toggle";
+  bCode.textContent = "Code";
+  toggle.append(bDesc, bCode);
+  head.appendChild(toggle);
+  card.appendChild(head);
+
+  const body = document.createElement("div");
+  body.className = "test-card-body";
+  const desc = document.createElement("div");
+  desc.className = "test-detail-desc";
+  desc.appendChild(testBlock(test));
+  const code = document.createElement("div");
+  code.className = "test-detail-code hidden";
+  const pre = document.createElement("pre");
+  pre.className = "code-pre";
+  pre.textContent = "loading generated test source…";
+  code.appendChild(pre);
+  body.append(desc, code);
+  card.appendChild(body);
+
+  bDesc.addEventListener("click", () => {
+    bDesc.classList.add("active"); bCode.classList.remove("active");
+    desc.classList.remove("hidden"); code.classList.add("hidden");
+  });
+  bCode.addEventListener("click", () => {
+    bDesc.classList.remove("active"); bCode.classList.add("active");
+    desc.classList.add("hidden"); code.classList.remove("hidden");
+    if (!code.dataset.loaded) {
+      code.dataset.loaded = "1";
+      api(`/api/node/${encodeURIComponent(test.qname)}/code`).then((d) => {
+        const files = d.files || [];
+        pre.textContent = files.map((f) => f.text).join("\n")
+          || (d.error || "(no generated source)");
+      });
+    }
+  });
+
   return card;
 }
 

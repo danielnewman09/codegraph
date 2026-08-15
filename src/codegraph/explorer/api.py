@@ -15,6 +15,7 @@ scoped SVG, and the coverage narration can never disagree.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -59,16 +60,40 @@ class GraphSource(Protocol):
         """Verification scope for *qname*: requirements + tests +
         derived conditions (``{"requirements": [...], "counts": {...}}``)."""
 
+    def code(self, qname: str) -> dict:
+        """Codegen-rendered source for *qname* (class/namespace/test).
+        Returns ``{node, files: [{path, language, text}], editable}``."""
+
+    def reindex(self, files: list[dict], qname: str) -> dict:
+        """Write edited code files and re-index via doxygen-index."""
+
 
 # ── LayerGraph-backed source (fixture / live backend load) ─────────────────
 
 
+def _tail(text: str, limit: int = 8000) -> str:
+    """Trim long CLI output for JSON payloads (keep the tail)."""
+    if len(text) <= limit:
+        return text
+    return "…(truncated head)…\n" + text[-limit:]
+
+
 @dataclass
 class LayerGraphSource:
-    """A :class:`GraphSource` over an in-memory :class:`LayerGraph`."""
+    """A :class:`GraphSource` over an in-memory :class:`LayerGraph`.
+
+    Editing/re-indexing is opt-in: when ``project_dir`` is set the
+    explorer can write code edits back to a source checkout and re-run
+    doxygen-index, then reload the graph via ``reload`` (a callable
+    returning a fresh :class:`LayerGraph`).
+    """
 
     graph: LayerGraph
     source_name: str = "LayerGraph"
+    project_dir: str | None = None
+    reload: Callable[[], LayerGraph] | None = None
+    index_format: str = "json"
+    index_env: dict[str, str] | None = None
 
     # ---- helpers -----------------------------------------------------
 
@@ -239,7 +264,8 @@ class LayerGraphSource:
         in the requirements & tests panel) for classes, namespace-scoped
         as-built view for namespaces."""
         from codegraph.export.plantuml import (
-            GraphView, export_plantuml,
+            GraphView,
+            export_plantuml,
         )
         entry = self._entry(qname)
         if entry is None:
@@ -360,3 +386,126 @@ class LayerGraphSource:
             "steps": steps,
             "assertions": assertions,
         }
+
+    # ---- codegen + edit/re-index ------------------------------------
+
+    def code(self, qname: str) -> dict:
+        """Codegen-rendered source for *qname*.
+
+        Scopes a fresh LayerGraph to *qname*'s composition subtree and
+        runs the codegen Jinja templates, so the diagram window's code
+        view and the tests tab's code backend are driven by the exact
+        same template contract as ``codegraph-codegen``.
+        """
+        from codegraph.codegen import generate_from_layer_graph
+
+        entry = self._entry(qname)
+        if entry is None:
+            return {
+                "node": {
+                    "qname": qname,
+                    "name": qname.rsplit("::", 1)[-1],
+                    "kind": "",
+                },
+                "files": [],
+                "project_dir": self.project_dir,
+                "editable": bool(self.project_dir),
+                "error": f"{qname!r} not found in graph",
+            }
+        node = entry.node
+        sub = LayerGraph(
+            tags=self.graph.tags,
+            entries={self.graph._node_key(node): entry},
+        )
+        result = generate_from_layer_graph(sub, language="cpp")
+        files = [
+            {"path": path, "language": "cpp", "text": text}
+            for path, text in sorted(result.files.items())
+        ]
+        return {
+            "node": {
+                "qname": qname,
+                "name": getattr(node, "name", "") or qname,
+                "kind": type(node).__name__,
+            },
+            "files": files,
+            "project_dir": self.project_dir,
+            "editable": bool(self.project_dir),
+        }
+
+    def reindex(self, files: list[dict], qname: str) -> dict:
+        """Write edited files back to ``project_dir`` and re-index.
+
+        Without a ``project_dir`` the served graph is read-only and this
+        returns a descriptive error rather than silently dropping edits.
+        """
+        from pathlib import Path
+
+        if not self.project_dir:            return {
+                "error": (
+                    "re-indexing is disabled: start the explorer with "
+                    "--project-dir <source checkout> to enable editing "
+                    "and re-parsing."
+                )
+            }
+        root = Path(self.project_dir).resolve()
+        written: list[dict] = []
+        for f in files:
+            rel = (f.get("path") or "").strip()
+            if not rel:
+                continue
+            dest = (root / rel).resolve()
+            if not dest.is_relative_to(root):
+                written.append({"path": rel, "ok": False,
+                                "error": "outside project root"})
+                continue
+            try:
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_text(f.get("text", ""), encoding="utf-8")
+                written.append({"path": rel, "ok": True})
+            except OSError as exc:
+                written.append({"path": rel, "ok": False, "error": str(exc)})
+
+        index = self._run_index(root)
+
+        reloaded = False
+        if index.get("exit_code") == 0 and self.reload is not None:
+            try:
+                self.graph = self.reload()
+                self.__dict__.pop("_scopes_cache", None)
+                reloaded = True
+            except Exception as exc:  # noqa: BLE001 — reload must not 500
+                index["reload_error"] = str(exc)
+        return {"written": written, "index": index, "reloaded": reloaded}
+
+    def _run_index(self, root) -> dict:
+        """Invoke doxygen-index as a subprocess (``python -m …``)."""
+        import os
+        import subprocess
+        import sys
+
+        args = ["project", str(root), "--format", self.index_format]
+        env = {**os.environ}
+        if self.index_env:
+            env.update(self.index_env)
+        try:
+            cp = subprocess.run(
+                [sys.executable, "-m", "doxygen_index.cli", *args],
+                cwd=str(root), capture_output=True, text=True,
+                timeout=600, env=env, check=False,
+            )
+            return {
+                "command": " ".join(cp.args),
+                "exit_code": cp.returncode,
+                "stdout": _tail(cp.stdout or ""),
+                "stderr": _tail(cp.stderr or ""),
+            }
+        except FileNotFoundError as exc:
+            return {"exit_code": -1,
+                    "error": f"doxygen_index not importable: {exc}"}
+        except subprocess.TimeoutExpired as exc:
+            return {"exit_code": -1, "error": "timed out",
+                    "stdout": _tail(exc.stdout or ""),
+                    "stderr": _tail(exc.stderr or "")}
+        except Exception as exc:  # noqa: BLE001 — surface, don't crash
+            return {"exit_code": -1, "error": str(exc)}

@@ -13,6 +13,8 @@ API (all JSON except static files):
     GET /api/node/<qname>/scope        # {puml, svg} — svg rendered via
                                        #   plantuml CLI and cached
     GET /api/node/<qname>/coverage
+    GET /api/node/<qname>/code         # codegen-rendered source files
+    POST /api/node/<qname>/code        # write edits + doxygen-index reparse
 
 Sources: ``fixture:<path-to-layer-graph-json>`` (a serialized
 LayerGraph) is the demo source; a live-backend source is a later step.
@@ -30,46 +32,75 @@ import tempfile
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from codegraph.explorer.api import GraphSource, LayerGraphSource
+
+if TYPE_CHECKING:
+    from codegraph.graph import LayerGraph
 
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 
-def load_source(spec: str) -> GraphSource:
+def load_source(spec: str, project_dir: str | None = None) -> GraphSource:
     """Parse a ``--source`` spec into a GraphSource.
 
     Specs: ``fixture:<path>`` (serialized LayerGraph JSON) or
     ``sqlite:<path>:<tag>`` (a live codegraph sqlite database, loaded
     via the sqlite backend — e.g. a doxygen-index output).
+
+    ``project_dir`` enables the edit → doxygen-index → reload loop: it is
+    the source checkout that generated files are written back into.
     """
     kind, _, value = spec.partition(":")
     if kind == "fixture":
         from codegraph.graph import LayerGraph
         with open(value, encoding="utf-8") as f:
             graph = LayerGraph.deserialize(json.load(f))
-        return LayerGraphSource(graph, source_name=Path(value).name)
+        return LayerGraphSource(
+            graph, source_name=Path(value).name, project_dir=project_dir,
+        )
     if kind == "sqlite":
         path, _, tag = value.rpartition(":")
         if not path or not tag:
             raise ValueError(
                 f"sqlite source needs sqlite:<path>:<tag>, got {spec!r}"
             )
-        from codegraph.backends.sqlite import SqliteBackend, SqliteConfig
-        from codegraph.graph import LayerGraph
-        backend = SqliteBackend(SqliteConfig(path=path))
-        backend.initialize(SqliteConfig(path=path))
-        try:
-            graph = LayerGraph.from_backend(backend, tag)
-        finally:
-            backend.close()
+        sqlite_path = str(Path(path).resolve())
+
+        def _reload() -> LayerGraph:
+            return _load_sqlite_graph(sqlite_path, tag)
+
+        graph = _reload()
         return LayerGraphSource(
-            graph, source_name=f"{Path(path).name}:{tag}"
+            graph,
+            source_name=f"{Path(path).name}:{tag}",
+            project_dir=project_dir,
+            reload=_reload,
+            # ``neo4j`` here means "ingest into the active codegraph
+            # backend" — which is SQLite when CODEGRAPH_BACKEND=sqlite.
+            index_format="neo4j",
+            index_env={
+                "CODEGRAPH_BACKEND": "sqlite",
+                "SQLITE_PATH": sqlite_path,
+            },
         )
     raise ValueError(
         f"unknown source {spec!r} "
         "(expected fixture:<path> or sqlite:<path>:<tag>)"
     )
+
+
+def _load_sqlite_graph(path: str, tag: str) -> LayerGraph:
+    """Load a LayerGraph from a codegraph sqlite database + tag."""
+    from codegraph.backends.sqlite import SqliteBackend, SqliteConfig
+    from codegraph.graph import LayerGraph
+    backend = SqliteBackend(SqliteConfig(path=path))
+    backend.initialize(SqliteConfig(path=path))
+    try:
+        return LayerGraph.from_backend(backend, tag)
+    finally:
+        backend.close()
 
 
 class _Renderer:
@@ -166,10 +197,10 @@ class ExplorerHandler(BaseHTTPRequestHandler):
         node_path = "/api/node/"
         if path.startswith(node_path):
             rest = path[len(node_path):]
-            # <qname>/children | <qname>/scope | <qname>/coverage
+            # <qname>/children | <qname>/scope | <qname>/coverage | <qname>/code
             qname, _, action = rest.rpartition("/")
             qname = urllib.parse.unquote(qname)
-            if not qname or action not in ("children", "scope", "coverage"):
+            if not qname or action not in ("children", "scope", "coverage", "code"):
                 self._json({"error": f"bad node path {path!r}"}, 400)
                 return
             if action == "children":
@@ -184,7 +215,36 @@ class ExplorerHandler(BaseHTTPRequestHandler):
             if action == "coverage":
                 self._json(self.source.coverage(qname))
                 return
+            if action == "code":
+                self._json(self.source.code(qname))
+                return
         self._json({"error": f"not found: {path}"}, 404)
+
+    def do_POST(self) -> None:
+        """``POST /api/node/<qname>/code`` — write edits + re-index."""
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+        if not path.startswith("/api/node/") or not path.endswith("/code"):
+            self._json({"error": f"not found: {path}"}, 404)
+            return
+        rest = path[len("/api/node/"):]
+        qname, _, action = rest.rpartition("/")
+        qname = urllib.parse.unquote(qname)
+        if action != "code" or not qname:
+            self._json({"error": f"bad node path {path!r}"}, 400)
+            return
+        try:
+            length = int(self.headers.get("Content-Length", "0") or "0")
+            raw = self.rfile.read(length) if length else b""
+            payload = json.loads(raw.decode("utf-8") or "{}")
+        except (ValueError, UnicodeDecodeError) as exc:
+            self._json({"error": f"bad request body: {exc}"}, 400)
+            return
+        files = payload.get("files") if isinstance(payload, dict) else None
+        if not isinstance(files, list):
+            self._json({"error": "expected {\"files\": [{path, text}]}"}, 400)
+            return
+        self._json(self.source.reindex(files, qname))
 
 
 def make_handler(source: GraphSource):
@@ -203,11 +263,16 @@ def main(argv: list[str] | None = None) -> int:
         "--source", required=True,
         help="Graph source: fixture:<path-to-layer-graph-json>",
     )
+    parser.add_argument(
+        "--project-dir", default=None,
+        help="Source checkout the generated code maps to. Enables the "
+             "edit → doxygen-index → reload loop in the code view.",
+    )
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--host", default="127.0.0.1")
     args = parser.parse_args(argv)
 
-    source = load_source(args.source)
+    source = load_source(args.source, project_dir=args.project_dir)
     handler = make_handler(source)
     httpd = ThreadingHTTPServer((args.host, args.port), handler)
     print(f"Codegraph Explorer: http://{args.host}:{args.port}")
