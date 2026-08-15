@@ -98,7 +98,14 @@ def test_has_parameters_roundtrip(node_cls):
 
 
 def test_parameter_position_ordering_semantics():
-    """Position is the source of truth for order; the builder sorts."""
+    """Position is the source of truth for order; the builder sorts.
+
+    The relationship manager does not promise traversal order (edges
+    come back in backend/insertion order) — the codegen context builder
+    sorts by ``ParameterNode.position``.  Both parameters must be
+    reachable, and the position-sorted order must be the declaration
+    order.
+    """
     member, (p0, p1) = _make_member_and_params(
         MethodNode,
         "rollback",
@@ -111,8 +118,9 @@ def test_parameter_position_ordering_semantics():
     member.has_parameters.connect(p0)
 
     resolved = member.has_parameters.all()
-    assert [p.position for p in resolved] == [0, 1]
+    assert {p.position for p in resolved} == {0, 1}  # both reachable
     # The manager does not promise order; sorting by position is the
-    # context builder's responsibility.
+    # context builder's responsibility (codegen/context/member.py).
     ordered = sorted(resolved, key=lambda p: p.position)
+    assert [p.position for p in ordered] == [0, 1]
     assert [p.name for p in ordered] == ["target_version", "dry_run"]
