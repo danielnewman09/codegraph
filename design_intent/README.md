@@ -45,10 +45,12 @@ The system should help prevent:
 9. [Feature lifecycle and drift detection](09-feature-lifecycle-and-drift.md)
 10. [Integrated indexing subsystem](11-integrated-indexing-subsystem.md)
 11. [Transparent canonical identity](12-transparent-canonical-identity.md)
+12. [Deprecation and agent modernization](13-deprecation-and-agent-modernization.md)
 
 ## Current-state assessments
 
 - [2026-08-15 gap assessment and cpp-sqlite validation path](10-current-state-gap-assessment.md)
+- [2026-08-15 prioritized work roadmap](14-prioritized-work-roadmap.md)
 
 ## Statement identifiers
 

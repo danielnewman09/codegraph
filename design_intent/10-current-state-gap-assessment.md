@@ -215,6 +215,38 @@ the encoding alone is insufficient; the migration must also settle the
 semantics of project scope, provenance, overload identity, and cross-view
 correspondence.
 
+### `GAP-013` — Superseded HTML export remains a public subsystem
+
+The static Cytoscape HTML exporter remains exposed through the public Python
+API, `codegraph-html`, `python -m codegraph viz`, configuration parsing,
+documentation, examples, a Jinja template, and a substantial dedicated test
+suite. The newer explorer is explicitly a separate implementation and does not
+need this exporter. Continued maintenance therefore duplicates visualization
+surface without serving the intended dashboard architecture.
+
+Removal of the HTML exporter is approved. PlantUML, Markdown, JSON, graph
+transformation that has a proven non-HTML consumer, and the explorer are not
+included merely because they also support visualization.
+
+### `GAP-014` — Agent architecture is split across generations
+
+`codegraph_agents` provides the LangGraph-based target framework and implemented
+design and requirements-lint agents. However, the new design agent still imports
+legacy `codegraph_design` dispatchers, prompt helpers, reconciliation, and
+persistence functions. Its constructor is also defined twice, indicating an
+incomplete port. New decompose and feedback agent packages are placeholders.
+
+The legacy `codegraph_design` decompose/design loops and
+`codegraph_feedback` agent call `llm_caller` directly. `codegraph_enrich` and
+`codegraph_mine` also use that library for completions and tool loops. The
+project consequently has two orchestration models and multiple model invocation
+paths, including a LangGraph base that converts LangChain messages but invokes
+the OpenAI client directly.
+
+Removal must follow capability migration: first stabilize the target runtime
+and extract reusable non-agent domain services, then move each live workflow,
+then remove legacy entry points and the `llm-caller` optional dependency.
+
 ## Recommended golden-example test ladder
 
 The safest next step is to add capability in layers so failures identify one
