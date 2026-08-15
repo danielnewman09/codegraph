@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Codegraph Explorer</title>
+  <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+  <header>
+    <div class="brand">codegraph&nbsp;<span class="brand-accent">explorer</span></div>
+    <input id="search" type="search" placeholder="Search namespaces…" autocomplete="off">
+    <div id="meta" class="meta"></div>
+  </header>
+
+  <main>
+    <aside class="tree-pane">
+      <div class="pane-label">Namespaces</div>
+      <div id="ns-header" class="ns-header hidden">
+        <span id="ns-up" class="ns-up" title="up a level">↑</span>
+        <span id="ns-name" class="ns-name"></span>
+      </div>
+      <div id="tree" class="tree"></div>
+      <div id="tree-empty" class="tree-empty muted">No namespaces.</div>
+    </aside>
+
+    <section class="view-pane">
+      <div id="breadcrumb" class="breadcrumb"></div>
+      <div id="selection-info" class="selection-info muted"></div>
+
+      <div class="split">
+        <div class="panel">
+          <div class="panel-head">
+            <span class="pane-label">Code</span>
+            <span class="zoom-controls">
+              <button id="zoom-out" title="zoom out">−</button>
+              <button id="zoom-in" title="zoom in">+</button>
+              <button id="zoom-reset" title="reset view">reset</button>
+            </span>
+          </div>
+          <div id="code-canvas" class="canvas">
+            <div class="canvas-empty muted">Select a class to see its
+              class-scoped diagram (zoomable).</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <span class="pane-label">Requirements &amp; tests</span>
+          </div>
+          <div id="req-body" class="req-body">
+            <div class="canvas-empty muted">Select a class to see the
+              requirements it pertains to and the tests that validate
+              its behaviour.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span id="footer-source"></span>
+  </footer>
+
+  <script src="static/app.js"></script>
+</body>
+</html>
