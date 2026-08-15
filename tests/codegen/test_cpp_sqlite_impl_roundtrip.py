@@ -15,12 +15,11 @@ must exercise):
    ``export_implementation=True`` and ``generate(output_dir=...)`` SAVES
    the generated tree to a directory (mirrored to the viewable
    ``cpp_sqlite_generated/`` artifact);
-3. **match the existing code** — every saved file is compared against
-   the original source.  This is the *semantic* reconstruction: codegen
-   populates Jinja templates from the CodeGraphNode representation, not
-   from verbatim file text.  Byte-for-byte fidelity is the goal the
-   suite measures toward; ``test_byte_fidelity_gaps_pinned`` pins the
-   current drift so any regression (or improvement) is explicit.
+3. **match the existing code** — the 14 production files in the declared
+   manifest are canonicalized with pinned clang-format 17 configuration
+   and compared against the original source.  The two GoogleTest files
+   remain available as the later behavioral oracle but are outside the
+   Priority 1 source-generation contract.
 
 Skipped when ``doxygen-index`` is unavailable or the source copies are
 not materialized (``unit_test_data/`` is gitignored — synced from the
@@ -38,6 +37,7 @@ from pathlib import Path
 import pytest
 
 from codegraph.codegen import generate
+from codegraph.codegen.fidelity import compare_manifest
 from codegraph.graph import LayerGraph
 
 _HERE = Path(__file__).resolve().parent.parent / "unit_test_data"
@@ -52,7 +52,39 @@ PROJECT_DIR = "tests/fixtures/cpp-sqlite"
 #: The viewable regenerated tree (gitignored local artifact).
 ARTIFACT = _HERE / "cpp_sqlite_generated"
 
+MANIFEST_FILE = Path(__file__).with_name("cpp_sqlite_roundtrip_manifest.txt")
+FORMAT_CONFIG = Path(__file__).with_name("cpp_sqlite.clang-format")
+CLANG_FORMAT_MAJOR = 17
+
+
+def _load_manifest() -> tuple[str, ...]:
+    return tuple(
+        line.strip()
+        for line in MANIFEST_FILE.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    )
+
+
+PRODUCTION_FILES = _load_manifest()
+
 _DOXYGEN_INDEX = shutil.which("doxygen-index")
+
+
+def _find_clang_format() -> str | None:
+    override = os.environ.get("CLANG_FORMAT")
+    if override:
+        return override
+    on_path = shutil.which("clang-format")
+    if on_path:
+        return on_path
+    xcode = Path(
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/"
+        "XcodeDefault.xctoolchain/usr/bin/clang-format"
+    )
+    return str(xcode) if xcode.is_file() else None
+
+
+_CLANG_FORMAT = _find_clang_format()
 
 pytestmark = [
     pytest.mark.integration,
@@ -66,7 +98,32 @@ pytestmark = [
         not (IMPL_SRC / PROJECT_DIR / ".doxygen-index.toml").is_file(),
         reason="cpp-sqlite index config missing from source copies",
     ),
+    pytest.mark.skipif(
+        _CLANG_FORMAT is None,
+        reason="clang-format 17 is required for the byte-fidelity contract",
+    ),
 ]
+
+
+def _canonical_cpp(path: Path, content: bytes) -> bytes:
+    proc = subprocess.run(
+        [
+            _CLANG_FORMAT,
+            f"--style=file:{FORMAT_CONFIG}",
+            f"--assume-filename={path}",
+        ],
+        input=content,
+        capture_output=True,
+        timeout=30,
+    )
+    assert proc.returncode == 0, (
+        f"clang-format failed for {path}:\n"
+        f"{proc.stderr.decode(errors='replace')}"
+    )
+    # Canonical source policy: LF with exactly one final newline. clang-format
+    # preserves the input's missing final newline, so make this boundary rule
+    # explicit rather than treating it as a semantic model element.
+    return proc.stdout.rstrip(b"\n") + b"\n"
 
 
 def _project_rels(graph) -> list[str]:
@@ -114,6 +171,40 @@ def impl_graph(tmp_path_factory):
 
 
 class TestImplRoundtrip:
+    def test_fidelity_environment_is_pinned(self):
+        version = subprocess.run(
+            [_CLANG_FORMAT, "--version"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        assert f"version {CLANG_FORMAT_MAJOR}." in version, (
+            f"Priority 1 requires clang-format {CLANG_FORMAT_MAJOR}; got {version}"
+        )
+        assert len(PRODUCTION_FILES) == 14
+
+    def test_manifest_is_the_complete_production_tree(self):
+        source_root = IMPL_SRC / PROJECT_DIR / "cpp_sqlite" / "src"
+        discovered = {
+            path.relative_to(IMPL_SRC).as_posix()
+            for path in source_root.rglob("*")
+            if path.is_file() and path.suffix.lower() in {".cpp", ".hpp"}
+        }
+        assert set(PRODUCTION_FILES) == discovered
+
+    @pytest.mark.xfail(
+        reason="cpp-sqlite golden source is not yet fully canonicalized",
+        strict=True,
+    )
+    def test_golden_source_is_canonically_formatted(self):
+        drift = []
+        for relative in PRODUCTION_FILES:
+            path = IMPL_SRC / relative
+            original = path.read_bytes()
+            if _canonical_cpp(path, original) != original:
+                drift.append(relative)
+        assert not drift, "golden source requires clang-format:\n" + "\n".join(drift)
+
     def test_indexing_captures_implementation(self, impl_graph):
         """Step 1 proof: the index extracts method bodies (the semantic
         implementation data), not verbatim file text, and the export flag
@@ -149,10 +240,9 @@ class TestImplRoundtrip:
         save_dir = tmp_path_factory.mktemp("impl-generated")
         data = impl_graph.serialize(fields="all", export_implementation=True)
         result = generate(data, output_dir=save_dir)
-        rels = _project_rels(impl_graph)
-        missing = [rel for rel in rels if not (save_dir / rel).is_file()]
+        missing = [rel for rel in PRODUCTION_FILES if not (save_dir / rel).is_file()]
         assert not missing, f"codegen did not save:\n{missing}"
-        assert len(result.files) >= len(rels)
+        assert len(result.files) >= len(PRODUCTION_FILES)
 
     def test_codegen_uses_semantic_bodies(self, impl_graph, tmp_path_factory):
         """The generated .cpp files are populated from the graph's method
@@ -166,28 +256,23 @@ class TestImplRoundtrip:
         assert "sqlite3_open_v2" in text      # body content, not a stub
         assert "TODO(codegen): implementation body" not in text
 
-    def test_byte_fidelity_gaps_pinned(self, impl_graph, tmp_path_factory):
-        """Step 3 — byte-compare against the original sources.
-
-        This is the *exposed-issues* pin: the semantic reconstruction is
-        not yet byte-for-byte.  Every project file currently differs
-        (provenance header, guard naming, doc-comment re-wrap, system
-        includes, brace/indent style, …).  As those gaps are fixed, this
-        assertion must be tightened — the drift set should shrink, and
-        this test will fail to remind us to update the pin.
-        """
+    @pytest.mark.xfail(
+        reason="Priority 1: indexed model does not yet carry every C++ construct",
+        strict=True,
+    )
+    def test_canonical_byte_identity(self, impl_graph, tmp_path_factory):
+        """The Priority 1 gate: every production file is byte-identical
+        after applying the pinned canonical formatter to both boundaries."""
         save_dir = tmp_path_factory.mktemp("impl-drift")
         data = impl_graph.serialize(fields="all", export_implementation=True)
         generate(data, output_dir=save_dir)
-        rels = _project_rels(impl_graph)
-        drift = [
-            rel for rel in rels
-            if (save_dir / rel).read_bytes() != (IMPL_SRC / rel).read_bytes()
-        ]
-        assert drift == rels, (
-            f"byte-fidelity pin changed — drift is now {len(drift)}/{len(rels)} "
-            f"files (was all {len(rels)}); update this pin:\n{drift}"
+        report = compare_manifest(
+            IMPL_SRC,
+            save_dir,
+            PRODUCTION_FILES,
+            normalize=_canonical_cpp,
         )
+        assert report.is_identical, report.describe()
 
     def test_viewable_artifact_refreshed(self, impl_graph, tmp_path_factory):
         """The viewable ``cpp_sqlite_generated/`` tree is mirrored from

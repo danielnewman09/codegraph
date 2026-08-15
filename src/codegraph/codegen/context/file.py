@@ -23,8 +23,8 @@ def build_context(entry, state) -> dict | None:
     """Build the file-level scalar context dict for *entry*."""
     node = entry.node
     path = node.path or ""
-    includes: list[str] = []
-    if state is not None:
+    includes: list[str] = list(getattr(node, "include_directives", []) or [])
+    if not includes and state is not None:
         for relation_type, target_key, _target_type in entry.references:
             if relation_type != "INCLUDES":
                 continue
@@ -57,9 +57,18 @@ def build_context(entry, state) -> dict | None:
     return {
         "type": "FileNode",
         "path": path,
-        "guard": signature.compute_guard(path) if path else "",
+        "guard": (
+            getattr(node, "include_guard", "")
+            or (signature.compute_guard(path) if path else "")
+        ),
         "language": normalize_language(node.language or "cpp") or "cpp",
         "includes": includes,
+        "namespace_leading_blank_lines": (
+            getattr(node, "namespace_leading_blank_lines", 0) or 0
+        ),
+        "namespace_trailing_blank_lines": (
+            getattr(node, "namespace_trailing_blank_lines", 0) or 0
+        ),
         "forward_decls": [],
         "namespaces": [],
         "blocks": [],

@@ -34,6 +34,7 @@ def _method(
     type_signature: str = "void",
     argsstring: str = "()",
     uid: str | None = None,
+    body_start: int = 0,
 ) -> dict:
     data = {
         "type": "MethodNode", "name": name, "qualified_name": qname,
@@ -47,6 +48,8 @@ def _method(
         data["body_file"] = body_file
     if line_number:
         data["line_number"] = line_number
+    if body_start:
+        data["body_start"] = body_start
     if uid:
         data["uid"] = uid
     return data
@@ -216,13 +219,13 @@ class TestCodegenSemanticBodies:
         assert "C::f" not in result.files["src/f.cpp"]
 
     def test_bodies_ordered_by_source_line(self):
-        """Bodies render in source order (line_number), not graph dict order."""
+        """Implementation body_start wins over header declaration order."""
         g = LayerGraph.deserialize([
             _file("f.cpp", "src/f.cpp"),
             _method("b", "ns::C::b", body="void C::b() {}\n",
-                    body_file="src/f.cpp", line_number=20),
+                    body_file="src/f.cpp", line_number=10, body_start=20),
             _method("a", "ns::C::a", body="void C::a() {}\n",
-                    body_file="src/f.cpp", line_number=10),
+                    body_file="src/f.cpp", line_number=20, body_start=10),
         ])
         result = generate(g.serialize(fields="all", export_implementation=True))
         text = result.files["src/f.cpp"]

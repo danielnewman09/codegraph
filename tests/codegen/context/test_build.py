@@ -207,6 +207,7 @@ class TestBuildAsBuilt:
         out = CodegenContextBuilder().build(graph)
         assert set(out.files) == {"cpp_sqlite/src/cpp_sqlite/Migration.hpp"}
         ctx = out.files["cpp_sqlite/src/cpp_sqlite/Migration.hpp"]
+        assert ctx["generated_banner"] is False
         assert ctx["language"] == "cpp"
         assert ctx["guard"] == "CPP_SQLITE_SRC_CPP_SQLITE_MIGRATION_HPP"
         assert ctx["namespaces"][0]["name"] == "cpp_sqlite"
@@ -269,4 +270,3 @@ class TestNamespaceNesting:
         ]
         assert _scope_parts("a::b::c") == ["a", "b", "c"]
         assert _scope_parts("solo") == ["solo"]
-

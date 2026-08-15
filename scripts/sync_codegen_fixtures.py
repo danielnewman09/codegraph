@@ -28,7 +28,9 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SISTER = ROOT.parent / "doxygen-dependency-parser"
+# The actual workspace repository.  Keep this spelling explicit: macOS may
+# resolve a differently-cased path while tooling and provenance records do not.
+SISTER = ROOT.parent / "Doxygen-Dependency-Parser"
 
 PIPELINE_COPY = ROOT / "tests/pipelines/unit_test_data/design_layergraph.json"
 GOLDEN = ROOT / "tests/codegen/golden/design_layergraph.json"

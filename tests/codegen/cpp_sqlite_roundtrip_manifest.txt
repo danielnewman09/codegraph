@@ -1,0 +1,15 @@
+# Priority 1 byte-fidelity scope: production C++ only.
+tests/fixtures/cpp-sqlite/cpp_sqlite/src/cpp_sqlite/DBBaseTransferObject.hpp
+tests/fixtures/cpp-sqlite/cpp_sqlite/src/cpp_sqlite/DBDAOBase.hpp
+tests/fixtures/cpp-sqlite/cpp_sqlite/src/cpp_sqlite/DBDataAccessObject.cpp
+tests/fixtures/cpp-sqlite/cpp_sqlite/src/cpp_sqlite/DBDataAccessObject.hpp
+tests/fixtures/cpp-sqlite/cpp_sqlite/src/cpp_sqlite/DBDatabase.cpp
+tests/fixtures/cpp-sqlite/cpp_sqlite/src/cpp_sqlite/DBDatabase.hpp
+tests/fixtures/cpp-sqlite/cpp_sqlite/src/cpp_sqlite/DBForeignKey.hpp
+tests/fixtures/cpp-sqlite/cpp_sqlite/src/cpp_sqlite/DBRepeatedFieldTransferObject.hpp
+tests/fixtures/cpp-sqlite/cpp_sqlite/src/cpp_sqlite/DBTraits.hpp
+tests/fixtures/cpp-sqlite/cpp_sqlite/src/cpp_sqlite/DBTransaction.cpp
+tests/fixtures/cpp-sqlite/cpp_sqlite/src/cpp_sqlite/DBTransaction.hpp
+tests/fixtures/cpp-sqlite/cpp_sqlite/src/utils/Logger.cpp
+tests/fixtures/cpp-sqlite/cpp_sqlite/src/utils/Logger.hpp
+tests/fixtures/cpp-sqlite/cpp_sqlite/src/utils/StringUtils.hpp

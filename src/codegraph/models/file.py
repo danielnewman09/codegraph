@@ -29,6 +29,15 @@ class FileNode(CodeGraphNode):
             (e.g. ``"/src/widget.h"``) — used as the identity-field input.
         language: The programming language of the file as a lowercase string
             (e.g. ``"cpp"``, ``"python"``, ``"java"``).
+        include_guard: Exact macro used by a C/C++ header's conventional
+            ``#ifndef`` / ``#define`` guard. Empty for files without one.
+        include_directives: Ordered include spellings as written after
+            ``#include`` (for example ``<vector>`` or ``"widget.hpp"``).
+            An empty string is an explicit group separator.
+        namespace_leading_blank_lines: Blank lines between a top-level C++
+            namespace open and its first definition.
+        namespace_trailing_blank_lines: Blank lines between the final
+            definition and the corresponding namespace close.
         source: Name of the project this file belongs to
             (e.g. ``"codegraph"``, ``"llvm"``). Inherited from CodeGraphNode.
     """
@@ -50,6 +59,10 @@ class FileNode(CodeGraphNode):
     )
     path = Property(str, default="")
     language = Property(str, default="")
+    include_guard = Property(str, default="")
+    include_directives = Property(list, default=[])
+    namespace_leading_blank_lines = Property(int, default=0)
+    namespace_trailing_blank_lines = Property(int, default=0)
     tags = Property(list, default=[])
     kind = Property(str, default="file")
 

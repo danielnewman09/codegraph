@@ -261,8 +261,18 @@ class TemplatePack:
                 node={"name": ns["name"]}, pack=self
             ).strip()
             parts.append(textwrap.indent(open_text, " " * pad))
-            for body in ns["bodies"]:
-                parts.append(self.render_node(body, indent=pad + 4, variant="defn"))
+            for _ in range(int(ctx.get("namespace_leading_blank_lines", 0))):
+                parts.append("")
+            for index, body in enumerate(ns["bodies"]):
+                # Keep one blank line between out-of-line definitions.
+                # clang-format preserves this separation but does not create
+                # it for us; the final body directly precedes namespace close.
+                parts.append(
+                    self.render_node(body, indent=pad + 4, variant="defn")
+                    + ("\n" if index < len(ns["bodies"]) - 1 else "")
+                )
+            for _ in range(int(ctx.get("namespace_trailing_blank_lines", 0))):
+                parts.append("")
             parts.append(textwrap.indent(close_text, " " * pad))
 
         for ns in ctx.get("source_bodies", []):

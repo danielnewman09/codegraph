@@ -95,9 +95,15 @@ def _build_class_like(entry, state) -> dict:
         "visibility": base.normalize_visibility(node.visibility),
         "brief": node.brief_description or "",
         "detailed": node.detailed_description or "",
+        "source_documentation": getattr(node, "source_documentation", "") or "",
         "is_final": bool(getattr(node, "is_final", False)),
         "is_abstract": bool(getattr(node, "is_abstract", False)),
-        "template_params": _template_params(entry, state) or (spec["params"] if spec else []),
+        "template_params": (
+            [{"declaration": declaration} for declaration in
+             (getattr(node, "template_declarations", []) or [])]
+            or _template_params(entry, state)
+            or (spec["params"] if spec else [])
+        ),
         "template_args": spec["args"] if spec else "",
         "bases": _bases(entry, state),
         "interfaces": _interfaces(entry, state),

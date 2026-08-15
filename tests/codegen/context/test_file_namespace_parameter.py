@@ -13,15 +13,21 @@ class TestFileNode:
             "type": "FileNode",
             "name": "DataAccessObject.hpp",
             "path": "include/cpp_sqlite/DataAccessObject.hpp",
+            "include_guard": "DATA_ACCESS_OBJECT_HPP",
+            "include_directives": ["<vector>", '"Widget.hpp"'],
+            "namespace_leading_blank_lines": 1,
+            "namespace_trailing_blank_lines": 1,
             "language": "C++",  # legacy Doxygen casing — must normalize
             "source": "test",
             "tags": ["as-built"],
         }])
         ctx = file_builder.build_context(find_entry(graph, type_name="FileNode"), state)
         assert ctx["path"] == "include/cpp_sqlite/DataAccessObject.hpp"
-        assert ctx["guard"] == "INCLUDE_CPP_SQLITE_DATAACCESSOBJECT_HPP"
+        assert ctx["guard"] == "DATA_ACCESS_OBJECT_HPP"
         assert ctx["language"] == "cpp"  # normalize_language('C++') → cpp
-        assert ctx["includes"] == []
+        assert ctx["includes"] == ["<vector>", '"Widget.hpp"']
+        assert ctx["namespace_leading_blank_lines"] == 1
+        assert ctx["namespace_trailing_blank_lines"] == 1
         assert ctx["forward_decls"] == []
 
     def test_includes_from_references(self, make_state, find_entry):

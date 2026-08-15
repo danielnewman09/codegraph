@@ -3,7 +3,7 @@
    Whitespace convention: every output line ends with a literal newline;
    macros end with {% endmacro %} (no dash) so trailing newlines survive. #}
 
-{% macro doc_block(node) %}{% if node.brief or node.detailed %}{% for line in (node.brief | wrap_lines) %}/// {{ line }}
+{% macro doc_block(node) %}{% if node.source_documentation %}{{ node.source_documentation }}{% elif node.brief or node.detailed %}{% for line in (node.brief | wrap_lines) %}/// {{ line }}
 {% endfor %}{% if node.detailed %}///
 {% for line in (node.detailed | wrap_lines) %}/// {{ line }}
 {% endfor %}{% endif %}{% endif %}{% endmacro %}
@@ -45,7 +45,7 @@
 {# ── Compounds ────────────────────────────────────────────────────── #}
 
 {% macro cg_class(node, keyword=None) %}{% for f in node.forward_decls %}{{ 'struct' if f.kind == 'struct' else 'class' }} {{ f.name }};
-{% endfor %}{{ doc_block(node) }}{{ provenance(node) }}{% if node.template_params %}template<{% for p in node.template_params %}{{ p.kind }} {{ p.name }}{% if not loop.last %}, {% endif %}{% endfor %}>
+{% endfor %}{{ doc_block(node) }}{{ provenance(node) }}{% if node.template_params %}template<{% for p in node.template_params %}{{ p.declaration if p.declaration else p.kind ~ ' ' ~ p.name }}{% if not loop.last %}, {% endif %}{% endfor %}>
 {% endif %}{{ keyword or ('struct' if node.kind == 'struct' else 'class') }} {{ node.name }}{% if node.template_args %}{{ node.template_args }}{% endif %}{% if node.bases %} : {% for b in node.bases %}{{ b.access }} {{ b.name }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %} {
 {% for section in node.sections %}{{ section.access }}:
 {% for m in section.members %}{{ render_node(m, indent=4) }}

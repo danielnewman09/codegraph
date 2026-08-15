@@ -198,20 +198,33 @@ class CodegenContextBuilder:
                 top_contexts.append(ctx)
 
         includes: list[str] = []
+        indexed_file_ctx: dict = {}
         if plan.file_key:
             file_entry = state.flat.get(plan.file_key)
             if file_entry is not None:
-                file_ctx = file.build_context(file_entry, state) or {}
-                includes = list(file_ctx.get("includes", []))
+                indexed_file_ctx = file.build_context(file_entry, state) or {}
+                includes = list(indexed_file_ctx.get("includes", []))
         includes = list(dict.fromkeys([*plan.includes, *includes]))
 
         file_ctx = {
             "type": "FileNode",
             "kind": plan.kind,
             "path": plan.path,
-            "guard": _guard_for(plan.path),
+            # Design/test synthesis creates generated artifacts. As-built
+            # reconstruction must not inject a banner absent from the index.
+            "generated_banner": plan.file_key is None,
+            "guard": (
+                indexed_file_ctx.get("guard", "")
+                if plan.file_key else _guard_for(plan.path)
+            ),
             "language": plan.language or "cpp",
             "includes": includes,
+            "namespace_leading_blank_lines": indexed_file_ctx.get(
+                "namespace_leading_blank_lines", 0
+            ),
+            "namespace_trailing_blank_lines": indexed_file_ctx.get(
+                "namespace_trailing_blank_lines", 0
+            ),
             "forward_decls": [],
             "namespaces": _nest_by_namespace(top_contexts),
             "blocks": _top_level_blocks(top_contexts) + test_blocks,
@@ -246,10 +259,14 @@ def _collect_source_bodies(graph, state, plan_path: str) -> list[dict]:
             continue
         ctx = member.build_context(entry, state)
         if ctx is not None and ctx.get("body"):
-            # Source order is the only faithful ordering — the graph is
-            # a dict keyed by uid, so sort by the parse-time line number
-            # (line_number = 0 falls back to uid order, stable enough).
-            ctx["_line"] = getattr(node, "line_number", 0) or 0
+            # Source order is the only faithful ordering. For out-of-line
+            # definitions, body_start belongs to the implementation file;
+            # line_number often points at the header declaration instead.
+            ctx["_line"] = (
+                getattr(node, "body_start", 0)
+                or getattr(node, "line_number", 0)
+                or 0
+            )
             bodies.append(ctx)
     # Group by the top-level namespace (``cpp_sqlite``) — bodies carry
     # their own ``Class::method`` scope, so only the namespace wrapper
