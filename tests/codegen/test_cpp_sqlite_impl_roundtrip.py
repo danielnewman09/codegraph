@@ -67,7 +67,10 @@ def _load_manifest() -> tuple[str, ...]:
 
 PRODUCTION_FILES = _load_manifest()
 
-_DOXYGEN_INDEX = shutil.which("doxygen-index")
+_LOCAL_DOXYGEN_INDEX = Path(__file__).resolve().parents[2] / ".venv" / "bin" / "doxygen-index"
+_DOXYGEN_INDEX = shutil.which("doxygen-index") or (
+    str(_LOCAL_DOXYGEN_INDEX) if _LOCAL_DOXYGEN_INDEX.is_file() else None
+)
 
 
 def _find_clang_format() -> str | None:
@@ -192,10 +195,6 @@ class TestImplRoundtrip:
         }
         assert set(PRODUCTION_FILES) == discovered
 
-    @pytest.mark.xfail(
-        reason="cpp-sqlite golden source is not yet fully canonicalized",
-        strict=True,
-    )
     def test_golden_source_is_canonically_formatted(self):
         drift = []
         for relative in PRODUCTION_FILES:
@@ -234,6 +233,24 @@ class TestImplRoundtrip:
 
         assert all("body" not in m for m in walk(plain) if m["type"] == "MethodNode")
 
+    def test_indexing_preserves_file_layout_metadata(self, impl_graph):
+        """The as-built graph retains source layout needed for byte fidelity."""
+        file_node = next(
+            entry.node
+            for entry in impl_graph._all_entries()
+            if type(entry.node).__name__ == "FileNode"
+            and getattr(entry.node, "path", "").endswith(
+                "DBRepeatedFieldTransferObject.hpp"
+            )
+        )
+        assert file_node.include_directives == [
+            "<vector>", "", "<boost/describe.hpp>",
+            "<boost/describe/class.hpp>", "",
+            '"cpp_sqlite/src/cpp_sqlite/DBTraits.hpp"',
+        ]
+        assert file_node.namespace_leading_blank_lines == 1
+        assert file_node.namespace_trailing_blank_lines == 2
+
     def test_codegen_saves_every_project_file(self, impl_graph, tmp_path_factory):
         """Step 2 — export with implementation, codegen SAVES the tree to
         the output directory (every project file is written)."""
@@ -256,10 +273,6 @@ class TestImplRoundtrip:
         assert "sqlite3_open_v2" in text      # body content, not a stub
         assert "TODO(codegen): implementation body" not in text
 
-    @pytest.mark.xfail(
-        reason="Priority 1: indexed model does not yet carry every C++ construct",
-        strict=True,
-    )
     def test_canonical_byte_identity(self, impl_graph, tmp_path_factory):
         """The Priority 1 gate: every production file is byte-identical
         after applying the pinned canonical formatter to both boundaries."""
