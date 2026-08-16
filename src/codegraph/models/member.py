@@ -199,6 +199,10 @@ class AttributeNode(MemberNode):
 
     kind = Property(str, default="attribute")
     type_signature = Property(str, default="")
+    initializer = Property(
+        str, default="",
+        help_text="Explicit source initializer for this attribute, including its leading =.",
+    )
     is_static = Property(bool, default=False)
     is_const = Property(bool, default=False)
 

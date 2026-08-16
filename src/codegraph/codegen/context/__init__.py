@@ -230,6 +230,9 @@ class CodegenContextBuilder:
             "namespace_trailing_blank_lines": indexed_file_ctx.get(
                 "namespace_trailing_blank_lines", 0
             ),
+            "guard_leading_blank_lines": indexed_file_ctx.get(
+                "guard_leading_blank_lines", 0
+            ),
             "forward_decls": [],
             "namespaces": _nest_by_namespace(top_contexts),
             "blocks": _top_level_blocks(top_contexts) + test_blocks,

@@ -8,6 +8,7 @@ from codegraph.models.member import (
     MethodNode, AttributeNode, EnumValueNode, FunctionNode, DefineNode,
 )
 from codegraph.models.implementation import ImplementationNode
+from codegraph.models.source_fragment import SourceFragmentNode
 from codegraph.models.namespace import NamespaceNode
 from codegraph.models.file import FileNode
 from codegraph.models.parameter import ParameterNode
@@ -32,6 +33,7 @@ __all__ = [
     "DefineNode",
     # Implementation
     "ImplementationNode",
+    "SourceFragmentNode",
     # Tests
     "TestNode",
     "AssertionNode",

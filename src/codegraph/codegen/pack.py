@@ -335,7 +335,21 @@ class TemplatePack:
             "test": "file_test.j2",
         }.get(kind, "file_header.j2")
         text = self.environment.get_template(template_name).render(node=ctx, pack=self)
-        return _normalize(text)
+        text = _normalize(text)
+        # ``_normalize`` intentionally caps arbitrary blank runs for stable
+        # synthesized output.  Restore only the indexed top-level namespace
+        # spacing that an as-built file explicitly records.
+        trailing = int(ctx.get("namespace_trailing_blank_lines", 0))
+        namespaces = ctx.get("namespaces", [])
+        if not ctx.get("generated_banner", True) and trailing > _MAX_BLANK_LINES and namespaces:
+            name = namespaces[-1].get("name", "")
+            close = f"}} // namespace {name}" if name else "}"
+            prefix = "\n" * (_MAX_BLANK_LINES + 1)
+            replacement = "\n" * (trailing + 1)
+            position = text.rfind(prefix + close)
+            if position >= 0:
+                text = text[:position] + replacement + text[position + len(prefix):]
+        return text
 
 
 #: Context ``type`` values that carry sections (class-like compounds).

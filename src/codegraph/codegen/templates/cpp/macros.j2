@@ -28,7 +28,7 @@
 
 {# ── Attributes / typedefs ────────────────────────────────────────── #}
 
-{% macro cg_attribute(node) %}{{ doc_block(node) }}{{ provenance(node) }}{% if node.is_static %}static {% endif %}{% if node.is_const %}const {% endif %}{{ node.type_signature }} {{ node.name }};
+{% macro cg_attribute(node) %}{{ doc_block(node) }}{{ provenance(node) }}{% if node.is_static %}static {% endif %}{% if node.is_const %}const {% endif %}{{ node.type_signature }} {{ node.name }}{{ node.initializer }};
 {% endmacro %}
 
 {% macro cg_typedef(node) %}{{ doc_block(node) }}{{ provenance(node) }}{{ node.declaration }};

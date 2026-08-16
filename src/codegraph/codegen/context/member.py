@@ -269,6 +269,7 @@ def _build_attribute(entry, state, *, parent_qname: str = "") -> dict:
             typeref.normalize_type(node.type_signature or "")
             if (node.type_signature or "").strip() else ""
         )
+        ctx["initializer"] = getattr(node, "initializer", "") or ""
     return ctx
 
 

@@ -9,11 +9,12 @@
 {% if inc %}
 #include {{ inc }}
 {% else %}
-{{ '\n\n' }}
+{{ '\n' }}
 {% endif %}
 {% endfor %}
 
 {{ render_document(node) }}
 {% if node.guard %}
+{{ '\n' * node.guard_leading_blank_lines }}
 #endif // {{ node.guard }}
 {% endif %}

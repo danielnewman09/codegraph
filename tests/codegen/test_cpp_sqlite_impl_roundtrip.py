@@ -250,6 +250,18 @@ class TestImplRoundtrip:
         ]
         assert file_node.namespace_leading_blank_lines == 1
         assert file_node.namespace_trailing_blank_lines == 2
+        from codegraph.codegen.context import CodegenContextBuilder
+
+        context = CodegenContextBuilder().build(impl_graph).files[file_node.path]
+        assert context["namespace_leading_blank_lines"] == 1
+        assert context["namespace_trailing_blank_lines"] == 2
+        from codegraph.codegen.pack import TemplatePack
+
+        pack = TemplatePack(language="cpp")
+        document = pack.render_document(context)
+        assert "};\n\n\n} // namespace cpp_sqlite" in document
+        rendered = pack.render_file(context)
+        assert "};\n\n\n} // namespace cpp_sqlite" in rendered
 
     def test_codegen_saves_every_project_file(self, impl_graph, tmp_path_factory):
         """Step 2 — export with implementation, codegen SAVES the tree to

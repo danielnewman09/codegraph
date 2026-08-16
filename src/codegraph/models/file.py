@@ -38,6 +38,8 @@ class FileNode(CodeGraphNode):
             namespace open and its first definition.
         namespace_trailing_blank_lines: Blank lines between the final
             definition and the corresponding namespace close.
+        guard_leading_blank_lines: Blank lines between the final declaration
+            or namespace close and a closing ``#endif``.
         source: Name of the project this file belongs to
             (e.g. ``"codegraph"``, ``"llvm"``). Inherited from CodeGraphNode.
     """
@@ -63,6 +65,7 @@ class FileNode(CodeGraphNode):
     include_directives = Property(list, default=[])
     namespace_leading_blank_lines = Property(int, default=0)
     namespace_trailing_blank_lines = Property(int, default=0)
+    guard_leading_blank_lines = Property(int, default=0)
     tags = Property(list, default=[])
     kind = Property(str, default="file")
 

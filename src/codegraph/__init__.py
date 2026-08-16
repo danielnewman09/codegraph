@@ -55,6 +55,7 @@ from codegraph.models import (
     FileNode,
     ParameterNode,
     ImplementationNode,
+    SourceFragmentNode,
 )
 
 __all__ = [
@@ -74,6 +75,7 @@ __all__ = [
     "FileNode",
     "ParameterNode",
     "ImplementationNode",
+    "SourceFragmentNode",
     # Graph container
     "LayerGraph",
     "CompositeEntry",

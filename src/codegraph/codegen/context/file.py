@@ -69,6 +69,9 @@ def build_context(entry, state) -> dict | None:
         "namespace_trailing_blank_lines": (
             getattr(node, "namespace_trailing_blank_lines", 0) or 0
         ),
+        "guard_leading_blank_lines": (
+            getattr(node, "guard_leading_blank_lines", 0) or 0
+        ),
         "forward_decls": [],
         "namespaces": [],
         "blocks": [],
