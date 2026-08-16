@@ -32,6 +32,7 @@
             "qualified_name": "calc::CalculatorEngine::add",
             "refid": "",
             "source": "calculator",
+            "source_documentation": "",
             "tags": [
               "design"
             ],
@@ -65,6 +66,7 @@
             "qualified_name": "calc::CalculatorEngine::validateInput",
             "refid": "",
             "source": "calculator",
+            "source_documentation": "",
             "tags": [
               "design"
             ],
@@ -92,6 +94,7 @@
             "qualified_name": "calc::CalculatorEngine::precision",
             "refid": "",
             "source": "calculator",
+            "source_documentation": "",
             "tags": [
               "design"
             ],
@@ -126,10 +129,12 @@
         "qualified_name": "calc::CalculatorEngine",
         "refid": "",
         "source": "calculator",
+        "source_documentation": "",
         "source_type": "",
         "tags": [
           "design"
         ],
+        "template_declarations": [],
         "type": "ClassNode",
         "uid": "93aeaa5ee440aac253b156ccf2f15227aa11e0ac",
         "visibility": ""
@@ -164,6 +169,7 @@
             "qualified_name": "calc::CalculatorResult::get_value",
             "refid": "",
             "source": "calculator",
+            "source_documentation": "",
             "tags": [
               "design"
             ],
@@ -191,6 +197,7 @@
             "qualified_name": "calc::CalculatorResult::value",
             "refid": "",
             "source": "calculator",
+            "source_documentation": "",
             "tags": [
               "design"
             ],
@@ -214,10 +221,12 @@
         "qualified_name": "calc::CalculatorResult",
         "refid": "",
         "source": "calculator",
+        "source_documentation": "",
         "source_type": "",
         "tags": [
           "design"
         ],
+        "template_declarations": [],
         "type": "ClassNode",
         "uid": "3beaa98236596366493cf23e0ab33dad2bec8398",
         "visibility": ""
@@ -251,6 +260,7 @@
             "qualified_name": "calc::ICalculator::calculate",
             "refid": "",
             "source": "calculator",
+            "source_documentation": "",
             "tags": [
               "design"
             ],
@@ -273,10 +283,12 @@
         "qualified_name": "calc::ICalculator",
         "refid": "",
         "source": "calculator",
+        "source_documentation": "",
         "source_type": "",
         "tags": [
           "design"
         ],
+        "template_declarations": [],
         "type": "InterfaceNode",
         "uid": "c91c124590ac1b9feace1652a940c88ddcf38f3c",
         "visibility": ""
@@ -303,6 +315,7 @@
             "qualified_name": "calc::Operation::ADD",
             "refid": "",
             "source": "calculator",
+            "source_documentation": "",
             "tags": [
               "design"
             ],
@@ -328,6 +341,7 @@
             "qualified_name": "calc::Operation::SUBTRACT",
             "refid": "",
             "source": "calculator",
+            "source_documentation": "",
             "tags": [
               "design"
             ],
@@ -348,10 +362,12 @@
         "qualified_name": "calc::Operation",
         "refid": "",
         "source": "calculator",
+        "source_documentation": "",
         "source_type": "",
         "tags": [
           "design"
         ],
+        "template_declarations": [],
         "type": "EnumNode",
         "uid": "535a4bf2ad71c02172d3ebe363501e38da388059",
         "visibility": ""
@@ -374,6 +390,7 @@
         "qualified_name": "calc::formatResult",
         "refid": "",
         "source": "calculator",
+        "source_documentation": "",
         "tags": [
           "design"
         ],
@@ -429,6 +446,7 @@
             "qualified_name": "ui::BaseWindow::show",
             "refid": "",
             "source": "calculator",
+            "source_documentation": "",
             "tags": [
               "design"
             ],
@@ -452,10 +470,12 @@
         "qualified_name": "ui::BaseWindow",
         "refid": "",
         "source": "calculator",
+        "source_documentation": "",
         "source_type": "",
         "tags": [
           "design"
         ],
+        "template_declarations": [],
         "type": "ClassNode",
         "uid": "be5ed6c102db4247732c36442e610248058b2cc8",
         "visibility": ""
@@ -490,6 +510,7 @@
             "qualified_name": "ui::CalculatorWindow::handleEquals",
             "refid": "",
             "source": "calculator",
+            "source_documentation": "",
             "tags": [
               "design"
             ],
@@ -517,6 +538,7 @@
             "qualified_name": "ui::CalculatorWindow::display",
             "refid": "",
             "source": "calculator",
+            "source_documentation": "",
             "tags": [
               "design"
             ],
@@ -544,6 +566,7 @@
             "qualified_name": "ui::CalculatorWindow::currentInput",
             "refid": "",
             "source": "calculator",
+            "source_documentation": "",
             "tags": [
               "design"
             ],
@@ -578,10 +601,12 @@
         "qualified_name": "ui::CalculatorWindow",
         "refid": "",
         "source": "calculator",
+        "source_documentation": "",
         "source_type": "",
         "tags": [
           "design"
         ],
+        "template_declarations": [],
         "type": "ClassNode",
         "uid": "a7088a313f75ecdafea536ec62f8d93de39f2c33",
         "visibility": ""
