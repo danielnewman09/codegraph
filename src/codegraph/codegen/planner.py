@@ -43,6 +43,7 @@ _SOURCE_EXTS = (".cpp", ".cc", ".cxx", ".c++")
 _PLANNABLE_COMPOUNDS = frozenset(
     {"ClassNode", "InterfaceNode", "EnumNode", "UnionNode", "ConceptNode", "ModuleNode"}
 )
+_PLANNABLE_FILE_NODES = _PLANNABLE_COMPOUNDS | frozenset({"SourceFragmentNode"})
 
 
 @dataclass
@@ -201,7 +202,7 @@ class FilePlanner:
                 continue
             keys: list[str] = []
             for entry in graph._all_entries():
-                if type(entry.node).__name__ not in _PLANNABLE_COMPOUNDS:
+                if type(entry.node).__name__ not in _PLANNABLE_FILE_NODES:
                     continue
                 key = graph._node_key(entry.node)
                 if key in seen:

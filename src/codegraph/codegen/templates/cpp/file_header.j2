@@ -15,6 +15,6 @@
 
 {{ render_document(node) }}
 {% if node.guard %}
-{{ '\n' * node.guard_leading_blank_lines }}
+{{ '\n' * (node.guard_leading_blank_lines | default(0)) }}
 #endif // {{ node.guard }}
 {% endif %}

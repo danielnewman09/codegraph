@@ -31,6 +31,7 @@ from codegraph.codegen.context import (
     parameter,
     project,
     requirements,
+    source_fragment,
     test,
 )
 from codegraph.codegen import typeref
@@ -47,7 +48,7 @@ SKIP_REASONS: dict[str, str] = {}
 
 _MODULES = (
     compound, member, file, namespace, parameter, implementation,
-    literal, test, requirements, project,
+    literal, test, requirements, project, source_fragment,
 )
 
 for _module in _MODULES:
@@ -190,6 +191,8 @@ class CodegenContextBuilder:
                 # (never namespace-nested — test qnames carry design-
                 # pipeline namespaces like ``vm::``).
                 ctx = test.build_context(entry, state)
+            elif node_type == "SourceFragmentNode":
+                ctx = source_fragment.build_context(entry, state)
             if ctx is None:
                 continue
             if node_type == "TestNode":
@@ -281,7 +284,7 @@ def _collect_source_bodies(graph, state, plan_path: str) -> list[dict]:
     # is needed.
     grouped: dict[str, list[dict]] = {}
     for ctx in bodies:
-        qn = ctx.get("qualified_name", "") or ""
+        qn = ctx.get("placement", "") or ctx.get("qualified_name", "") or ""
         ns = qn.split("::", 1)[0] if "::" in qn else ""
         grouped.setdefault(ns, []).append(ctx)
     return [
