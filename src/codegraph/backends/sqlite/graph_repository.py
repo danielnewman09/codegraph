@@ -34,7 +34,13 @@ from codegraph.models.member import (
 )
 from codegraph.models.namespace import NamespaceNode
 from codegraph.models.tags import CodeGraphNode
-from codegraph.persistence.repository import GraphRepository
+from codegraph.persistence.repository import (
+    GraphRepository,
+    namespace_row,
+    related_row,
+    slim_compound_row,
+    slim_member_row,
+)
 
 _COMPOUND_TYPES = [ClassNode, InterfaceNode, EnumNode, UnionNode, ModuleNode]
 _MEMBER_TYPES = [MethodNode, AttributeNode, EnumValueNode, FunctionNode, DefineNode]
@@ -462,6 +468,299 @@ class SqliteGraphRepository(GraphRepository):
         with self._conn.connect() as conn:
             row = conn.execute(sa.text(sql + " WHERE " + " AND ".join(where)), params).first()
         return row[0] if row else 0
+
+    # ── Discovery queries (backend-agnostic read API) ──────────────
+
+    @override
+    def search_compounds(
+        self,
+        query: str,
+        *,
+        source: str | None = None,
+        kind: str | None = None,
+        limit: int = 30,
+    ) -> list[dict]:
+        sql = (
+            "SELECT n.qualified_name AS qualified_name, "
+            "json_extract(n.properties, '$.name') AS name, "
+            "n.kind AS kind, n.source AS source, "
+            "json_extract(n.properties, '$.brief_description') AS brief_description "
+            "FROM nodes n "
+            "JOIN node_labels nl ON nl.node_id = n.id "
+            "WHERE nl.label = 'CompoundNode' "
+            "AND instr(lower(n.qualified_name), lower(:query)) > 0 "
+        )
+        params: dict[str, Any] = {"query": query, "limit": limit}
+        if source:
+            sql += "AND n.source = :source "
+            params["source"] = source
+        if kind:
+            sql += "AND n.kind = :kind "
+            params["kind"] = kind
+        sql += "ORDER BY n.qualified_name LIMIT :limit"
+        with self._conn.connect() as conn:
+            rows = list(conn.execute(sa.text(sql), params).mappings())
+        return [slim_compound_row(dict(r)) for r in rows]
+
+    @override
+    def get_compound(self, qualified_name: str) -> dict | None:
+        with self._conn.connect() as conn:
+            row = conn.execute(
+                sa.text(
+                    "SELECT n.qualified_name AS qualified_name, "
+                    "json_extract(n.properties, '$.name') AS name, "
+                    "n.kind AS kind, n.source AS source, "
+                    "json_extract(n.properties, '$.brief_description') AS brief_description "
+                    "FROM nodes n JOIN node_labels nl ON nl.node_id = n.id "
+                    "WHERE nl.label = 'CompoundNode' AND n.qualified_name = :qn "
+                    "LIMIT 1"
+                ),
+                {"qn": qualified_name},
+            ).mappings().first()
+            if row is None:
+                return None
+            compound = slim_compound_row(dict(row))
+            members_rows = conn.execute(
+                sa.text(
+                    "SELECT m.qualified_name AS qualified_name, "
+                    "json_extract(m.properties, '$.name') AS name, "
+                    "m.kind AS kind, "
+                    "json_extract(m.properties, '$.visibility') AS visibility, "
+                    "json_extract(m.properties, '$.type_signature') AS type_signature, "
+                    "json_extract(m.properties, '$.argsstring') AS argsstring, "
+                    "json_extract(m.properties, '$.brief_description') AS brief_description "
+                    "FROM edges e "
+                    "JOIN nodes p ON p.id = e.source_id AND p.qualified_name = :qn "
+                    "JOIN nodes m ON m.id = e.target_id "
+                    "JOIN node_labels ml ON ml.node_id = m.id AND ml.label = 'MemberNode' "
+                    "WHERE e.rel_type = 'COMPOSES' "
+                    "ORDER BY m.kind, json_extract(m.properties, '$.name')"
+                ),
+                {"qn": qualified_name},
+            ).mappings()
+            compound["members"] = [slim_member_row(dict(r)) for r in members_rows]
+            compound["member_count"] = len(compound["members"])
+            return compound
+
+    @override
+    def get_member(self, qualified_name: str) -> dict | None:
+        with self._conn.connect() as conn:
+            row = conn.execute(
+                sa.text(
+                    "SELECT m.qualified_name AS qualified_name, "
+                    "json_extract(m.properties, '$.name') AS name, "
+                    "m.kind AS kind, "
+                    "json_extract(m.properties, '$.visibility') AS visibility, "
+                    "json_extract(m.properties, '$.type_signature') AS type_signature, "
+                    "json_extract(m.properties, '$.argsstring') AS argsstring, "
+                    "json_extract(m.properties, '$.brief_description') AS brief_description "
+                    "FROM nodes m JOIN node_labels nl ON nl.node_id = m.id "
+                    "WHERE nl.label = 'MemberNode' AND m.qualified_name = :qn "
+                    "LIMIT 1"
+                ),
+                {"qn": qualified_name},
+            ).mappings().first()
+        if row is None:
+            return None
+        return slim_member_row(dict(row))
+
+    @override
+    def browse_namespace(self, namespace: str, limit: int = 50) -> list[dict]:
+        base = namespace.rstrip(":.")
+        with self._conn.connect() as conn:
+            rows = conn.execute(
+                sa.text(
+                    "SELECT n.qualified_name AS qualified_name, "
+                    "json_extract(n.properties, '$.name') AS name, "
+                    "n.kind AS kind, n.source AS source, "
+                    "json_extract(n.properties, '$.brief_description') AS brief_description "
+                    "FROM nodes n JOIN node_labels nl ON nl.node_id = n.id "
+                    "WHERE nl.label = 'CompoundNode' "
+                    "AND (n.qualified_name = :base "
+                    "     OR instr(n.qualified_name, :dcolon) = 1 "
+                    "     OR instr(n.qualified_name, :dot) = 1) "
+                    "ORDER BY n.qualified_name LIMIT :limit"
+                ),
+                {"base": base, "dcolon": base + "::", "dot": base + ".", "limit": limit},
+            ).mappings()
+            result = [slim_compound_row(dict(r)) for r in rows]
+        return result
+
+    @override
+    def list_namespaces(self) -> list[dict]:
+        with self._conn.connect() as conn:
+            rows = conn.execute(
+                sa.text(
+                    "SELECT n.qualified_name AS qualified_name, "
+                    "json_extract(n.properties, '$.name') AS name, "
+                    "COUNT(DISTINCT CASE WHEN c.kind IN "
+                    "('class','interface','enum','union','struct','concept',"
+                    "'module','function','namespace') THEN c.id END) AS entity_count, "
+                    "COUNT(DISTINCT CASE WHEN sl.label = 'NamespaceNode' "
+                    "THEN c.id END) AS sub_namespace_count "
+                    "FROM nodes n "
+                    "JOIN node_labels nl ON nl.node_id = n.id AND nl.label = 'NamespaceNode' "
+                    "LEFT JOIN edges e ON e.source_id = n.id AND e.rel_type = 'COMPOSES' "
+                    "LEFT JOIN nodes c ON c.id = e.target_id "
+                    "LEFT JOIN node_labels sl ON sl.node_id = c.id AND sl.label = 'NamespaceNode' "
+                    "GROUP BY n.id "
+                    "ORDER BY entity_count DESC"
+                )
+            ).mappings()
+            result = [namespace_row(dict(r)) for r in rows]
+        return result
+
+    @override
+    def find_inheritance(self, qualified_name: str) -> dict:
+        with self._conn.connect() as conn:
+            parents_rows = conn.execute(
+                sa.text(
+                    "SELECT t.qualified_name AS qualified_name, t.kind AS kind "
+                    "FROM edges e "
+                    "JOIN nodes s ON s.id = e.source_id AND s.qualified_name = :qn "
+                    "JOIN nodes t ON t.id = e.target_id "
+                    "WHERE e.rel_type IN ('INHERITS_FROM','REALIZES')"
+                ),
+                {"qn": qualified_name},
+            ).mappings()
+            children_rows = conn.execute(
+                sa.text(
+                    "SELECT s.qualified_name AS qualified_name, s.kind AS kind "
+                    "FROM edges e "
+                    "JOIN nodes t ON t.id = e.target_id AND t.qualified_name = :qn "
+                    "JOIN nodes s ON s.id = e.source_id "
+                    "WHERE e.rel_type IN ('INHERITS_FROM','REALIZES')"
+                ),
+                {"qn": qualified_name},
+            ).mappings()
+            parents = [related_row(dict(r)) for r in parents_rows]
+            children = [related_row(dict(r)) for r in children_rows]
+        return {"parents": parents, "children": children}
+
+    @override
+    def find_callers_callees(self, qualified_name: str) -> dict:
+        with self._conn.connect() as conn:
+            callees_rows = conn.execute(
+                sa.text(
+                    "SELECT t.qualified_name AS qualified_name, t.kind AS kind "
+                    "FROM edges e "
+                    "JOIN nodes s ON s.id = e.source_id AND s.qualified_name = :qn "
+                    "JOIN nodes t ON t.id = e.target_id "
+                    "WHERE e.rel_type = 'INVOKES'"
+                ),
+                {"qn": qualified_name},
+            ).mappings()
+            callers_rows = conn.execute(
+                sa.text(
+                    "SELECT s.qualified_name AS qualified_name, s.kind AS kind "
+                    "FROM edges e "
+                    "JOIN nodes t ON t.id = e.target_id AND t.qualified_name = :qn "
+                    "JOIN nodes s ON s.id = e.source_id "
+                    "WHERE e.rel_type = 'INVOKES'"
+                ),
+                {"qn": qualified_name},
+            ).mappings()
+            callees = [related_row(dict(r)) for r in callees_rows]
+            callers = [related_row(dict(r)) for r in callers_rows]
+        return {"callees": callees, "callers": callers}
+
+    @override
+    def find_compounds_by_qualified_names(
+        self, names: list[str]
+    ) -> list[dict]:
+        if not names:
+            return []
+        binds = ", ".join(f":n{i}" for i in range(len(names)))
+        params = {f"n{i}": n for i, n in enumerate(names)}
+        with self._conn.connect() as conn:
+            rows = conn.execute(
+                sa.text(
+                    "SELECT n.qualified_name AS qualified_name, "
+                    "json_extract(n.properties, '$.name') AS name, "
+                    "n.kind AS kind, n.source AS source, "
+                    "json_extract(n.properties, '$.brief_description') AS brief_description "
+                    "FROM nodes n JOIN node_labels nl ON nl.node_id = n.id "
+                    f"WHERE nl.label = 'CompoundNode' AND n.qualified_name IN ({binds}) "
+                    "ORDER BY n.qualified_name"
+                ),
+                params,
+            ).mappings()
+            result = [slim_compound_row(dict(r)) for r in rows]
+        return result
+
+    @override
+    def find_members(
+        self,
+        *,
+        source: str | None = None,
+        kind: str | None = None,
+        limit: int = 1000,
+    ) -> list[dict]:
+        where = ["nl.label = 'MemberNode'"]
+        params: dict[str, Any] = {"limit": limit}
+        if source:
+            where.append("m.source = :source")
+            params["source"] = source
+        if kind:
+            where.append("m.kind = :kind")
+            params["kind"] = kind
+        with self._conn.connect() as conn:
+            rows = conn.execute(
+                sa.text(
+                    "SELECT m.qualified_name AS qualified_name, "
+                    "json_extract(m.properties, '$.name') AS name, "
+                    "m.kind AS kind, "
+                    "json_extract(m.properties, '$.visibility') AS visibility, "
+                    "json_extract(m.properties, '$.type_signature') AS type_signature, "
+                    "json_extract(m.properties, '$.argsstring') AS argsstring, "
+                    "json_extract(m.properties, '$.brief_description') AS brief_description "
+                    "FROM nodes m JOIN node_labels nl ON nl.node_id = m.id "
+                    f"WHERE {' AND '.join(where)} "
+                    "ORDER BY m.qualified_name LIMIT :limit"
+                ),
+                params,
+            ).mappings()
+            result = [slim_member_row(dict(r)) for r in rows]
+        return result
+
+    @override
+    def list_dependency_compounds(
+        self,
+        *,
+        source: str = "all",
+        kind: str | None = None,
+        query: str = "",
+        limit: int = 50,
+    ) -> list[dict]:
+        where = [
+            "nl.label = 'CompoundNode'",
+            "n.source IN ('cppreference', 'boost')",
+        ]
+        params: dict[str, Any] = {"limit": limit}
+        if kind and kind != "all":
+            where.append("n.kind = :kind")
+            params["kind"] = kind
+        if source and source != "all":
+            where.append("n.source = :source")
+            params["source"] = source
+        if query:
+            where.append("instr(lower(n.qualified_name), lower(:query)) > 0")
+            params["query"] = query
+        with self._conn.connect() as conn:
+            rows = conn.execute(
+                sa.text(
+                    "SELECT n.qualified_name AS qualified_name, "
+                    "json_extract(n.properties, '$.name') AS name, "
+                    "n.kind AS kind, n.source AS source, "
+                    "json_extract(n.properties, '$.brief_description') AS brief_description "
+                    "FROM nodes n JOIN node_labels nl ON nl.node_id = n.id "
+                    f"WHERE {' AND '.join(where)} "
+                    "ORDER BY n.qualified_name LIMIT :limit"
+                ),
+                params,
+            ).mappings()
+            result = [slim_compound_row(dict(r)) for r in rows]
+        return result
 
     # ── Private helpers ───────────────────────────────────────────
 

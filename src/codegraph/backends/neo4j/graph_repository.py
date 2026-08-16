@@ -13,7 +13,13 @@ from typing import TYPE_CHECKING, override
 from codegraph.backends.neo4j.connection import Neo4jConnection
 from codegraph.backends.neo4j.node_ops import Neo4jNodeOps
 from codegraph.backends.neo4j.rel_ops import Neo4jRelOps
-from codegraph.persistence.repository import GraphRepository
+from codegraph.persistence.repository import (
+    GraphRepository,
+    namespace_row,
+    related_row,
+    slim_compound_row,
+    slim_member_row,
+)
 from codegraph.models.descriptors import PropertyRegistry
 from codegraph.constants import Tag
 from codegraph.graph import LayerGraph, CompositeEntry
@@ -472,6 +478,231 @@ class Neo4jGraphRepository(GraphRepository):
             f"MATCH {src_clause}-[r]->{tgt_clause} WHERE {where_clause} RETURN count(r) AS c"
         )
         return rows[0]["c"]
+
+    # ── Discovery queries (backend-agnostic read API) ──────────────
+
+    @override
+    def search_compounds(
+        self,
+        query: str,
+        *,
+        source: str | None = None,
+        kind: str | None = None,
+        limit: int = 30,
+    ) -> list[dict]:
+        cypher = (
+            "MATCH (n:CompoundNode) "
+            "WHERE toLower(n.qualified_name) CONTAINS toLower($query) "
+        )
+        params: dict = {"query": query, "limit": limit}
+        if source:
+            cypher += "AND n.source = $source "
+            params["source"] = source
+        if kind:
+            cypher += "AND n.kind = $kind "
+            params["kind"] = kind
+        cypher += (
+            "RETURN n.qualified_name AS qualified_name, n.name AS name, "
+            "n.kind AS kind, n.source AS source, "
+            "n.brief_description AS brief_description "
+            "ORDER BY n.qualified_name "
+            "LIMIT $limit"
+        )
+        rows, _ = self._conn.execute_raw(cypher, params)
+        return [slim_compound_row(r) for r in rows]
+
+    @override
+    def get_compound(self, qualified_name: str) -> dict | None:
+        rows, _ = self._conn.execute_raw(
+            "MATCH (n:CompoundNode {qualified_name: $qname}) "
+            "RETURN n.qualified_name AS qualified_name, n.name AS name, "
+            "n.kind AS kind, n.source AS source, "
+            "n.brief_description AS brief_description",
+            {"qname": qualified_name},
+        )
+        if not rows:
+            return None
+        compound = slim_compound_row(rows[0])
+
+        members_rows, _ = self._conn.execute_raw(
+            "MATCH (p:CompoundNode {qualified_name: $qname})"
+            "-[:COMPOSES]->(m:MemberNode) "
+            "RETURN m.qualified_name AS qualified_name, m.name AS name, "
+            "m.kind AS kind, m.visibility AS visibility, "
+            "m.type_signature AS type_signature, m.argsstring AS argsstring, "
+            "m.brief_description AS brief_description "
+            "ORDER BY m.kind, m.name",
+            {"qname": qualified_name},
+        )
+        compound["members"] = [slim_member_row(r) for r in members_rows]
+        compound["member_count"] = len(compound["members"])
+        return compound
+
+    @override
+    def get_member(self, qualified_name: str) -> dict | None:
+        rows, _ = self._conn.execute_raw(
+            "MATCH (m:MemberNode {qualified_name: $qname}) "
+            "RETURN m.qualified_name AS qualified_name, m.name AS name, "
+            "m.kind AS kind, m.visibility AS visibility, "
+            "m.type_signature AS type_signature, m.argsstring AS argsstring, "
+            "m.brief_description AS brief_description",
+            {"qname": qualified_name},
+        )
+        if not rows:
+            return None
+        return slim_member_row(rows[0])
+
+    @override
+    def browse_namespace(self, namespace: str, limit: int = 50) -> list[dict]:
+        base = namespace.rstrip(":.")
+        rows, _ = self._conn.execute_raw(
+            "MATCH (n:CompoundNode) "
+            "WHERE n.qualified_name = $base "
+            "   OR n.qualified_name STARTS WITH $dcolon "
+            "   OR n.qualified_name STARTS WITH $dot "
+            "RETURN n.qualified_name AS qualified_name, n.name AS name, "
+            "n.kind AS kind, n.source AS source, "
+            "n.brief_description AS brief_description "
+            "ORDER BY n.qualified_name "
+            "LIMIT $limit",
+            {
+                "base": base,
+                "dcolon": base + "::",
+                "dot": base + ".",
+                "limit": limit,
+            },
+        )
+        return [slim_compound_row(r) for r in rows]
+
+    @override
+    def list_namespaces(self) -> list[dict]:
+        rows, _ = self._conn.execute_raw(
+            "MATCH (n:NamespaceNode) "
+            "OPTIONAL MATCH (n)-[:COMPOSES]->(c) "
+            "WHERE c.kind IN ['class','interface','enum','union','struct',"
+            "'concept','module','function','namespace'] "
+            "WITH n, count(c) AS entity_count "
+            "OPTIONAL MATCH (n)-[:COMPOSES]->(s:NamespaceNode) "
+            "RETURN n.qualified_name AS qualified_name, n.name AS name, "
+            "entity_count, count(s) AS sub_namespace_count "
+            "ORDER BY entity_count DESC"
+        )
+        return [namespace_row(r) for r in rows]
+
+    @override
+    def find_inheritance(self, qualified_name: str) -> dict:
+        parents_rows, _ = self._conn.execute_raw(
+            "MATCH (n:CompoundNode {qualified_name: $qname})"
+            "-[:INHERITS_FROM|REALIZES]->(p:CompoundNode) "
+            "RETURN p.qualified_name AS qualified_name, p.kind AS kind",
+            {"qname": qualified_name},
+        )
+        children_rows, _ = self._conn.execute_raw(
+            "MATCH (c:CompoundNode)-[:INHERITS_FROM|REALIZES]->"
+            "(n:CompoundNode {qualified_name: $qname}) "
+            "RETURN c.qualified_name AS qualified_name, c.kind AS kind",
+            {"qname": qualified_name},
+        )
+        return {
+            "parents": [related_row(r) for r in parents_rows],
+            "children": [related_row(r) for r in children_rows],
+        }
+
+    @override
+    def find_callers_callees(self, qualified_name: str) -> dict:
+        callees_rows, _ = self._conn.execute_raw(
+            "MATCH (m:MemberNode {qualified_name: $qname})"
+            "-[:INVOKES]->(c:MemberNode) "
+            "RETURN c.qualified_name AS qualified_name, c.kind AS kind",
+            {"qname": qualified_name},
+        )
+        callers_rows, _ = self._conn.execute_raw(
+            "MATCH (c:MemberNode)-[:INVOKES]->"
+            "(m:MemberNode {qualified_name: $qname}) "
+            "RETURN c.qualified_name AS qualified_name, c.kind AS kind",
+            {"qname": qualified_name},
+        )
+        return {
+            "callees": [related_row(r) for r in callees_rows],
+            "callers": [related_row(r) for r in callers_rows],
+        }
+
+    @override
+    def find_compounds_by_qualified_names(
+        self, names: list[str]
+    ) -> list[dict]:
+        if not names:
+            return []
+        rows, _ = self._conn.execute_raw(
+            "MATCH (n:CompoundNode) WHERE n.qualified_name IN $names "
+            "RETURN n.qualified_name AS qualified_name, n.name AS name, "
+            "n.kind AS kind, n.source AS source, "
+            "n.brief_description AS brief_description "
+            "ORDER BY n.qualified_name",
+            {"names": names},
+        )
+        return [slim_compound_row(r) for r in rows]
+
+    @override
+    def find_members(
+        self,
+        *,
+        source: str | None = None,
+        kind: str | None = None,
+        limit: int = 1000,
+    ) -> list[dict]:
+        cypher = "MATCH (m:MemberNode) "
+        where: list[str] = []
+        params: dict = {"limit": limit}
+        if source:
+            where.append("m.source = $source")
+            params["source"] = source
+        if kind:
+            where.append("m.kind = $kind")
+            params["kind"] = kind
+        if where:
+            cypher += "WHERE " + " AND ".join(where) + " "
+        cypher += (
+            "RETURN m.qualified_name AS qualified_name, m.name AS name, "
+            "m.kind AS kind, m.visibility AS visibility, "
+            "m.type_signature AS type_signature, m.argsstring AS argsstring, "
+            "m.brief_description AS brief_description "
+            "ORDER BY m.qualified_name LIMIT $limit"
+        )
+        rows, _ = self._conn.execute_raw(cypher, params)
+        return [slim_member_row(r) for r in rows]
+
+    @override
+    def list_dependency_compounds(
+        self,
+        *,
+        source: str = "all",
+        kind: str | None = None,
+        query: str = "",
+        limit: int = 50,
+    ) -> list[dict]:
+        cypher = (
+            "MATCH (n:CompoundNode) "
+            "WHERE n.source IN ['cppreference', 'boost'] "
+        )
+        params: dict = {"limit": limit}
+        if kind and kind != "all":
+            cypher += "AND n.kind = $kind "
+            params["kind"] = kind
+        if source and source != "all":
+            cypher += "AND n.source = $source "
+            params["source"] = source
+        if query:
+            cypher += "AND toLower(n.qualified_name) CONTAINS toLower($query) "
+            params["query"] = query
+        cypher += (
+            "RETURN n.qualified_name AS qualified_name, n.name AS name, "
+            "n.kind AS kind, n.source AS source, "
+            "n.brief_description AS brief_description "
+            "ORDER BY n.qualified_name LIMIT $limit"
+        )
+        rows, _ = self._conn.execute_raw(cypher, params)
+        return [slim_compound_row(r) for r in rows]
 
     # ── Private helpers ───────────────────────────────────────────
 
