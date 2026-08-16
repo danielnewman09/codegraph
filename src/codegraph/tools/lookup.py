@@ -13,8 +13,6 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from codegraph.tools.dispatcher import CodeGraphDispatcher
 
-from codegraph.backends import get_backend
-
 log = logging.getLogger(__name__)
 
 # Curated qualified names for standard containers used as mechanism values.
@@ -159,59 +157,46 @@ DEPENDENCY_LIST_SCHEMA = {
 # ── Internal helpers ──────────────────────────────────────────────────────
 
 def _query_container_nodes(ctx, container_qnames: list[str]) -> list[dict]:
-    """Query Neo4j for container nodes and return bare-name→qn mappings."""
-    lookup: dict[str, str] = {}
+    """Query the backend for container nodes and return class-info dicts."""
     infos: list[dict] = []
 
     try:
-        rows, _ = get_backend().execute_raw(
-            "MATCH (n:CompoundNode) "
-            "WHERE n.qualified_name IN $names "
-            "RETURN n.qualified_name AS qn, n.name AS name, "
-            "n.kind AS kind, n.source AS source, "
-            "n.brief_description AS brief",
-            {"names": container_qnames},
-        )
+        rows = ctx.repo.find_compounds_by_qualified_names(container_qnames)
         for record in rows:
-                qn = record["qn"]
-                bare = record["name"] or qn.rsplit("::", 1)[-1]
-                # Populate the lookup: both bare → qn and qn → qn
-                lookup[bare] = qn
-                lookup[qn] = qn
-                infos.append({
-                    "qualified_name": qn,
-                    "name": bare,
-                    "kind": record["kind"] or "class",
-                    "source": record["source"] or "cppreference",
-                    "description": record["brief"] or f"Standard library type: {qn}",
-                })
+            qn = record["qualified_name"]
+            bare = record["name"] or qn.rsplit("::", 1)[-1]
+            infos.append({
+                "qualified_name": qn,
+                "name": bare,
+                "kind": record["kind"] or "class",
+                "source": record["source"] or "cppreference",
+                "description": record["brief_description"]
+                or f"Standard library type: {qn}",
+            })
     except Exception:
-        log.warning("Failed to query Neo4j for container lookup", exc_info=True)
+        log.warning("Failed to query backend for container lookup", exc_info=True)
 
     return infos
 
 
 def _query_alias_nodes(ctx) -> dict[str, str]:
-    """Query Neo4j for type_alias members and return alias → target map."""
+    """Query the backend for type_alias members and return alias→target map."""
     alias_map: dict[str, str] = dict(_STD_ALIAS_MAP)
 
     try:
-        rows, _ = get_backend().execute_raw(
-            "MATCH (m:MemberNode {source: 'cppreference', kind: 'typedef'}) "
-            "RETURN m.qualified_name AS qn, m.name AS name"
-        )
+        rows = ctx.repo.find_members(source="cppreference", kind="typedef")
         for record in rows:
-                qn = record["qn"]
-                name = record["name"]
-                if qn and name:
-                    if "::" in qn:
-                        parent = qn.rsplit("::", 1)[0]
-                        alias_name = f"{parent}::{name}"
-                    else:
-                        alias_name = name
-                    alias_map[alias_name] = qn
+            qn = record["qualified_name"]
+            name = record["name"]
+            if qn and name:
+                if "::" in qn:
+                    parent = qn.rsplit("::", 1)[0]
+                    alias_name = f"{parent}::{name}"
+                else:
+                    alias_name = name
+                alias_map[alias_name] = qn
     except Exception:
-        log.warning("Failed to query Neo4j for type aliases", exc_info=True)
+        log.warning("Failed to query backend for type aliases", exc_info=True)
 
     return alias_map
 
@@ -266,7 +251,7 @@ def handle_get_container_info(ctx: CodeGraphDispatcher, tool_input: dict) -> str
 
 
 def handle_dependency_list(ctx: CodeGraphDispatcher, tool_input: dict) -> str:
-    """List available dependency-API classes from Neo4j."""
+    """List available dependency-API classes from the active backend."""
     source = tool_input.get("source", "all")
     kind = tool_input.get("kind")
     query = tool_input.get("query")
@@ -274,41 +259,18 @@ def handle_dependency_list(ctx: CodeGraphDispatcher, tool_input: dict) -> str:
 
     results: list[dict] = []
 
-    cypher = (
-        "MATCH (n:CompoundNode) "
-        "WHERE n.source IN ['cppreference', 'boost'] "
-    )
-    params: dict = {}
-
-    if kind and kind != "all":
-        cypher += "AND n.kind = $kind "
-        params["kind"] = kind
-
-    if source and source != "all":
-        cypher += "AND n.source = $source "
-        params["source"] = source
-
-    if query:
-        cypher += "AND toLower(n.qualified_name) CONTAINS toLower($query) "
-        params["query"] = query
-
-    cypher += (
-        "RETURN n.qualified_name AS qn, n.name AS name, "
-        "n.kind AS kind, n.source AS source, n.brief_description AS brief "
-        "ORDER BY n.qualified_name "
-        "LIMIT $limit"
-    )
-    params["limit"] = limit
-
     try:
-        rows, _ = get_backend().execute_raw(cypher, params)
+        rows = ctx.repo.list_dependency_compounds(
+            source=source, kind=kind, query=query or "", limit=limit
+        )
         for record in rows:
             results.append({
-                "qualified_name": record["qn"],
-                "name": record["name"] or record["qn"].rsplit("::", 1)[-1],
+                "qualified_name": record["qualified_name"],
+                "name": record["name"]
+                or record["qualified_name"].rsplit("::", 1)[-1],
                 "kind": record["kind"] or "class",
                 "source": record["source"] or "",
-                "description": record["brief"] or "",
+                "description": record["brief_description"] or "",
             })
     except Exception:
         log.warning("dependency_list: query failed", exc_info=True)

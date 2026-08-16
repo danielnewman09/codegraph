@@ -15,8 +15,6 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from codegraph.tools.dispatcher import CodeGraphDispatcher
 
-from codegraph.backends import get_backend
-
 log = logging.getLogger(__name__)
 
 # ── Tool schemas ──────────────────────────────────────────────────────────
@@ -230,20 +228,17 @@ GET_HLR_SUBTREE_SCHEMA = {
 
 # ── Handlers ──────────────────────────────────────────────────────────────
 
-def _slim_compound(record: dict) -> dict:
-    """Strip heavyweight fields from compound results.
-
-    The discovery agent only needs signatures and brief descriptions.
-    """
-    drop = {"detailed", "member_refid", "member_brief",
-            "_element_id", "_id", "_labels", "_properties"}
-    return {k: v for k, v in record.items() if k not in drop}
+def _display_name(record: dict) -> str:
+    """Short-name fallback: ``name`` or the last qualified-name segment."""
+    name = record.get("name")
+    if name:
+        return name
+    return str(record["qualified_name"]).rsplit("::", 1)[-1]
 
 
-def _slim_member(record: dict) -> dict:
-    """Strip detailed_description from member results."""
-    drop = {"detailed", "_element_id", "_id", "_labels", "_properties"}
-    return {k: v for k, v in record.items() if k not in drop}
+def _with_display_name(record: dict) -> dict:
+    record["name"] = _display_name(record)
+    return record
 
 
 def handle_search_symbols(ctx: CodeGraphDispatcher, tool_input: dict) -> str:
@@ -253,42 +248,15 @@ def handle_search_symbols(ctx: CodeGraphDispatcher, tool_input: dict) -> str:
     kind = tool_input.get("kind")
     limit = int(tool_input.get("limit", 30))
 
-    cypher = (
-        "MATCH (n:CompoundNode) "
-        "WHERE toLower(n.qualified_name) CONTAINS toLower($query) "
-    )
-    params: dict = {"query": query, "limit": limit}
-
-    if source:
-        cypher += "AND n.source = $source "
-        params["source"] = source
-    if kind:
-        cypher += "AND n.kind = $kind "
-        params["kind"] = kind
-
-    cypher += (
-        "RETURN n.qualified_name AS qn, n.name AS name, "
-        "n.kind AS kind, n.source AS source, "
-        "n.brief_description AS brief "
-        "ORDER BY n.qualified_name "
-        "LIMIT $limit"
-    )
-
-    results: list[dict] = []
     try:
-        rows, _ = get_backend().execute_raw(cypher, params)
-        for record in rows:
-            results.append(_slim_compound({
-                "qualified_name": record["qn"],
-                "name": record["name"] or record["qn"].rsplit("::", 1)[-1],
-                "kind": record["kind"],
-                "source": record["source"],
-                "brief_description": record["brief"],
-            }))
+        rows = ctx.repo.search_compounds(
+            query, source=source, kind=kind, limit=limit
+        )
+        results = [_with_display_name(r) for r in rows]
+        return json.dumps({"results": results, "count": len(results)})
     except Exception:
         log.warning("search_symbols: query failed", exc_info=True)
-
-    return json.dumps({"results": results, "count": len(results)})
+        return json.dumps({"results": [], "count": 0})
 
 
 def handle_get_compound(ctx: CodeGraphDispatcher, tool_input: dict) -> str:
@@ -298,50 +266,16 @@ def handle_get_compound(ctx: CodeGraphDispatcher, tool_input: dict) -> str:
         return json.dumps({"error": "qualified_name is required"})
 
     try:
-        # Fetch the compound node
-        rows, _ = get_backend().execute_raw(
-            "MATCH (n:CompoundNode {qualified_name: $qname}) "
-            "RETURN n.qualified_name AS qn, n.name AS name, "
-            "n.kind AS kind, n.source AS source, "
-            "n.brief_description AS brief", {"qname": qname},
-        )
-        record = rows[0] if rows else None
-        if not record:
+        compound = ctx.repo.get_compound(qname)
+        if compound is None:
             return json.dumps({"error": f"Compound not found: {qname}"})
-
-        compound = _slim_compound({
-            "qualified_name": record["qn"],
-            "name": record["name"] or record["qn"].rsplit("::", 1)[-1],
-            "kind": record["kind"],
-            "source": record["source"],
-            "brief_description": record["brief"],
-        })
-
-        # Fetch member children
-        members_rows, _ = get_backend().execute_raw(
-            "MATCH (p:CompoundNode {qualified_name: $qname})"
-            "-[:COMPOSES]->(m:MemberNode) "
-            "RETURN m.qualified_name AS qn, m.name AS name, "
-            "m.kind AS kind, m.visibility AS visibility, "
-            "m.type_signature AS type_sig, m.brief_description AS brief "
-            "ORDER BY m.kind, m.name", {"qname": qname},
-        )
-        members: list[dict] = []
-        for m in member_rows:
-            members.append(_slim_member({
-                "qualified_name": m["qn"],
-                "name": m["name"],
-                "kind": m["kind"],
-                "visibility": m["visibility"],
-                "type_signature": m["type_sig"],
-                "brief_description": m["brief"],
-            }))
-        compound["members"] = members
-        compound["member_count"] = len(members)
-
+        _with_display_name(compound)
+        compound["members"] = [
+            _with_display_name(m) for m in compound.get("members", [])
+        ]
         return json.dumps(compound)
     except Exception:
-        log.warning("get_compound: Neo4j query failed", exc_info=True)
+        log.warning("get_compound: query failed", exc_info=True)
         return json.dumps({"error": f"Query failed for {qname}"})
 
 
@@ -352,26 +286,10 @@ def handle_get_member(ctx: CodeGraphDispatcher, tool_input: dict) -> str:
         return json.dumps({"error": "qualified_name is required"})
 
     try:
-        rows, _ = get_backend().execute_raw(
-            "MATCH (m:MemberNode {qualified_name: $qname}) "
-            "RETURN m.qualified_name AS qn, m.name AS name, "
-            "m.kind AS kind, m.visibility AS visibility, "
-            "m.type_signature AS type_sig, m.argsstring AS args, "
-            "m.brief_description AS brief", {"qname": qname},
-        )
-        record = rows[0] if rows else None
-        if not record:
+        member = ctx.repo.get_member(qname)
+        if member is None:
             return json.dumps({"error": f"Member not found: {qname}"})
-
-        return json.dumps(_slim_member({
-            "qualified_name": record["qn"],
-            "name": record["name"],
-            "kind": record["kind"],
-            "visibility": record["visibility"],
-            "type_signature": record["type_sig"],
-            "argsstring": record["args"],
-            "brief_description": record["brief"],
-        }))
+        return json.dumps(_with_display_name(member))
     except Exception:
         log.warning("get_member: query failed", exc_info=True)
         return json.dumps({"error": f"Query failed for {qname}"})
@@ -384,30 +302,9 @@ def handle_browse_namespace(ctx: CodeGraphDispatcher, tool_input: dict) -> str:
         return json.dumps({"error": "namespace is required"})
     limit = int(tool_input.get("limit", 50))
 
-    # Match namespace prefix — e.g., 'std' matches 'std::vector', 'std::chrono::...'
     try:
-        rows, _ = get_backend().execute_raw(
-            "MATCH (n:CompoundNode) "
-            "WHERE n.qualified_name STARTS WITH $ns "
-            "RETURN n.qualified_name AS qn, n.name AS name, "
-            "n.kind AS kind, n.source AS source, "
-            "n.brief_description AS brief "
-            "ORDER BY n.qualified_name "
-            "LIMIT $limit",
-            {
-                "ns": namespace + "::" if "::" not in namespace else namespace,
-                "limit": limit,
-            },
-        )
-        results: list[dict] = []
-        for record in rows:
-            results.append(_slim_compound({
-                "qualified_name": record["qn"],
-                "name": record["name"] or record["qn"].rsplit("::", 1)[-1],
-                "kind": record["kind"],
-                "source": record["source"],
-                "brief_description": record["brief"],
-            }))
+        rows = ctx.repo.browse_namespace(namespace, limit=limit)
+        results = [_with_display_name(r) for r in rows]
         return json.dumps({"results": results, "count": len(results)})
     except Exception:
         log.warning("browse_namespace: query failed", exc_info=True)
@@ -417,7 +314,7 @@ def handle_browse_namespace(ctx: CodeGraphDispatcher, tool_input: dict) -> str:
 def handle_list_sources(ctx: CodeGraphDispatcher, _tool_input: dict) -> str:
     """List all source projects with node counts."""
     try:
-        rows = get_backend().graph.list_sources()
+        rows = ctx.repo.list_sources()
         sources: dict[str, int] = {row["source"]: row["count"] for row in rows}
         return json.dumps({"sources": sources})
     except Exception:
@@ -428,25 +325,8 @@ def handle_list_sources(ctx: CodeGraphDispatcher, _tool_input: dict) -> str:
 def handle_list_namespaces(ctx: CodeGraphDispatcher, _tool_input: dict) -> str:
     """List all namespace nodes with entity counts."""
     try:
-        rows, _ = get_backend().execute_raw(
-            "MATCH (n:NamespaceNode) "
-            "OPTIONAL MATCH (n)-[:COMPOSES]->(c) "
-            "WHERE c.kind IN ['class','interface','enum','union','struct','concept','module','function','namespace'] "
-            "WITH n, count(c) AS entity_count "
-            "OPTIONAL MATCH (n)-[:COMPOSES]->(s:NamespaceNode) "
-            "RETURN n.qualified_name AS qualified_name, n.name AS name, "
-            "entity_count, count(s) AS sub_namespace_count "
-            "ORDER BY entity_count DESC"
-        )
-        results: list[dict] = []
-        for record in rows:
-            results.append({
-                "qualified_name": record["qualified_name"],
-                "name": record["name"],
-                "entity_count": record["entity_count"],
-                "sub_namespace_count": record["sub_namespace_count"],
-            })
-        return json.dumps({"results": results, "count": len(results)})
+        rows = ctx.repo.list_namespaces()
+        return json.dumps({"results": rows, "count": len(rows)})
     except Exception:
         log.warning("list_namespaces: query failed", exc_info=True)
         return json.dumps({"error": "Failed to list namespaces"})
@@ -459,35 +339,11 @@ def handle_find_inheritance(ctx: CodeGraphDispatcher, tool_input: dict) -> str:
         return json.dumps({"error": "qualified_name is required"})
 
     try:
-        # Parents (what this compound inherits from / realizes)
-        parents_rows, _ = get_backend().execute_raw(
-            "MATCH (n:CompoundNode {qualified_name: $qname})"
-            "-[:INHERITS_FROM|REALIZES]->(p:CompoundNode) "
-            "RETURN p.qualified_name AS qn, p.kind AS kind", {"qname": qname},
-        )
-        parents = [
-            {"qualified_name": r["qn"], "kind": r["kind"]}
-            for r in parents_rows
-        ]
-
-        # Children (what inherits from this)
-        children_rows, _ = get_backend().execute_raw(
-            "MATCH (c:CompoundNode)-[:INHERITS_FROM|REALIZES]->"
-            "(n:CompoundNode {qualified_name: $qname}) "
-            "RETURN c.qualified_name AS qn, c.kind AS kind", {"qname": qname},
-        )
-        children = [
-            {"qualified_name": r["qn"], "kind": r["kind"]}
-            for r in children_rows
-        ]
-
-        return json.dumps({
-            "qualified_name": qname,
-            "parents": parents,
-            "children": children,
-        })
+        result = ctx.repo.find_inheritance(qname)
+        result["qualified_name"] = qname
+        return json.dumps(result)
     except Exception:
-        log.warning("find_inheritance: Neo4j query failed", exc_info=True)
+        log.warning("find_inheritance: query failed", exc_info=True)
         return json.dumps({"error": f"Inheritance lookup failed for {qname}"})
 
 
@@ -498,35 +354,11 @@ def handle_find_callers_callees(ctx: CodeGraphDispatcher, tool_input: dict) -> s
         return json.dumps({"error": "qualified_name is required"})
 
     try:
-        # Callees — what this member calls
-        callees_rows, _ = get_backend().execute_raw(
-            "MATCH (m:MemberNode {qualified_name: $qname})"
-            "-[:INVOKES]->(c:MemberNode) "
-            "RETURN c.qualified_name AS qn, c.kind AS kind", {"qname": qname},
-        )
-        callees = [
-            {"qualified_name": r["qn"], "kind": r["kind"]}
-            for r in callees_rows
-        ]
-
-        # Callers — what calls this member
-        callers_rows, _ = get_backend().execute_raw(
-            "MATCH (c:MemberNode)-[:INVOKES]->"
-            "(m:MemberNode {qualified_name: $qname}) "
-            "RETURN c.qualified_name AS qn, c.kind AS kind", {"qname": qname},
-        )
-        callers = [
-            {"qualified_name": r["qn"], "kind": r["kind"]}
-            for r in callers_rows
-        ]
-
-        return json.dumps({
-            "qualified_name": qname,
-            "callees": callees,
-            "callers": callers,
-        })
+        result = ctx.repo.find_callers_callees(qname)
+        result["qualified_name"] = qname
+        return json.dumps(result)
     except Exception:
-        log.warning("find_callers_and_callees: Neo4j query failed", exc_info=True)
+        log.warning("find_callers_and_callees: query failed", exc_info=True)
         return json.dumps({"error": f"Caller/callee lookup failed for {qname}"})
 
 

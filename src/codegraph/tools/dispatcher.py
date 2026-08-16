@@ -66,6 +66,7 @@ class CodeGraphDispatcher(ToolDispatcher):
         super().__init__()
         self.repo = repo or get_backend().graph
         self.current_graph: LayerGraph | None = None
+        self.dependency_lookup: dict[str, str] = {}
 
         self._register_all()
 

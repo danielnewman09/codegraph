@@ -418,3 +418,184 @@ class GraphRepository(ABC):
         labels, target node labels, or a target node tag value.
         """
         ...
+
+    # ── Discovery queries (backend-agnostic read API) ──────────────
+    #
+    # The discovery tools (search / compound / member / namespace /
+    # inheritance / callers-callees) used to issue raw Cypher through
+    # ``Backend.execute_raw`` — which only works on the Neo4j backend.
+    # These methods are the backend-agnostic equivalents: each backend
+    # implements them natively (Cypher for Neo4j, SQL for SQLite) and
+    # the tool layer never sees a query string.
+
+    @abstractmethod
+    def search_compounds(
+        self,
+        query: str,
+        *,
+        source: str | None = None,
+        kind: str | None = None,
+        limit: int = 30,
+    ) -> list[dict]:
+        """Search compounds by case-insensitive qualified_name substring.
+
+        Returns slim dicts with keys ``qualified_name``, ``name``,
+        ``kind``, ``source``, and ``brief_description``, ordered by
+        ``qualified_name`` ascending.
+        """
+        ...
+
+    @abstractmethod
+    def get_compound(self, qualified_name: str) -> dict | None:
+        """Fetch a compound by qualified_name plus its member children.
+
+        Returns ``None`` when the compound is not found.  Otherwise a
+        slim compound dict (``qualified_name``, ``name``, ``kind``,
+        ``source``, ``brief_description``) extended with ``members``
+        (a list of slim member dicts) and ``member_count``.
+        """
+        ...
+
+    @abstractmethod
+    def get_member(self, qualified_name: str) -> dict | None:
+        """Fetch a single member by qualified_name.
+
+        Returns ``None`` when not found.  Otherwise a slim member dict
+        with keys ``qualified_name``, ``name``, ``kind``, ``visibility``,
+        ``type_signature``, ``argsstring``, and ``brief_description``.
+        """
+        ...
+
+    @abstractmethod
+    def browse_namespace(
+        self, namespace: str, limit: int = 50
+    ) -> list[dict]:
+        """List compounds whose qualified_name starts with *namespace*.
+
+        Returns slim compound dicts ordered by qualified_name ascending.
+        """
+        ...
+
+    @abstractmethod
+    def list_namespaces(self) -> list[dict]:
+        """List namespace nodes with entity + sub-namespace counts.
+
+        Returns dicts with keys ``qualified_name``, ``name``,
+        ``entity_count``, and ``sub_namespace_count``, ordered by
+        ``entity_count`` descending.
+        """
+        ...
+
+    @abstractmethod
+    def find_inheritance(self, qualified_name: str) -> dict:
+        """Return the inheritance hierarchy for a compound.
+
+        Returns ``{"parents": [...], "children": [...]}`` where each
+        entry is ``{"qualified_name": str, "kind": str}``.  Parents are
+        reached via outgoing ``INHERITS_FROM`` / ``REALIZES`` edges;
+        children via the inverse.
+        """
+        ...
+
+    @abstractmethod
+    def find_callers_callees(self, qualified_name: str) -> dict:
+        """Return callers and callees for a member.
+
+        Returns ``{"callers": [...], "callees": [...]}`` where each
+        entry is ``{"qualified_name": str, "kind": str}``.  Callees are
+        reached via outgoing ``INVOKES`` edges; callers via the inverse.
+        """
+        ...
+
+    @abstractmethod
+    def find_compounds_by_qualified_names(
+        self, names: list[str]
+    ) -> list[dict]:
+        """Return slim compound dicts whose qualified_name is in *names*.
+
+        Preserves no particular order (backends may return in natural
+        qualified_name order).  Used for container/type seeding.
+        """
+        ...
+
+    @abstractmethod
+    def find_members(
+        self,
+        *,
+        source: str | None = None,
+        kind: str | None = None,
+        limit: int = 1000,
+    ) -> list[dict]:
+        """Return slim member dicts filtered by ``source`` and/or ``kind``.
+
+        Either filter may be omitted (``None``) to match all members.
+        """
+        ...
+
+    @abstractmethod
+    def list_dependency_compounds(
+        self,
+        *,
+        source: str = "all",
+        kind: str | None = None,
+        query: str = "",
+        limit: int = 50,
+    ) -> list[dict]:
+        """List dependency-API compounds (``cppreference`` / ``boost``).
+
+        ``source`` may be ``"all"`` (both cppreference and boost), a
+        single source name, or any other value.  ``query`` is an
+        optional case-insensitive qualified_name substring; ``kind``
+        optionally narrows the node kind.  Returns slim compound dicts
+        ordered by qualified_name ascending.
+        """
+        ...
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Discovery row shapers — shared slim-dict shapes for the backend-agnostic
+# discovery read methods.  The ``name`` fallback to the last qualified-name
+# segment is applied in the tool layer, not here.
+# ══════════════════════════════════════════════════════════════════════════
+
+
+def slim_compound_row(record: dict) -> dict:
+    """Shape a backend row into the slim compound dict."""
+    return {
+        "qualified_name": record["qualified_name"],
+        "name": record.get("name"),
+        "kind": record["kind"],
+        "source": record.get("source"),
+        "brief_description": record.get("brief_description"),
+    }
+
+
+def slim_member_row(record: dict) -> dict:
+    """Shape a backend row into the slim member dict."""
+    return {
+        "qualified_name": record["qualified_name"],
+        "name": record.get("name"),
+        "kind": record["kind"],
+        "visibility": record.get("visibility"),
+        "type_signature": record.get("type_signature"),
+        "argsstring": record.get("argsstring"),
+        "brief_description": record.get("brief_description"),
+    }
+
+
+def namespace_row(record: dict) -> dict:
+    """Shape a backend row into the namespace summary dict."""
+    return {
+        "qualified_name": record["qualified_name"],
+        "name": record.get("name"),
+        "entity_count": record["entity_count"],
+        "sub_namespace_count": record["sub_namespace_count"],
+    }
+
+
+def related_row(record: dict) -> dict:
+    """Shape a backend row into a related-node entry (parents/children)."""
+    return {
+        "qualified_name": record["qualified_name"],
+        "kind": record["kind"],
+    }
