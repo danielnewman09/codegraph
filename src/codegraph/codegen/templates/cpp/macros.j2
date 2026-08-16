@@ -47,7 +47,8 @@
 {% macro cg_class(node, keyword=None) %}{% for f in node.forward_decls %}{{ 'struct' if f.kind == 'struct' else 'class' }} {{ f.name }};
 {% endfor %}{{ doc_block(node) }}{{ provenance(node) }}{% if node.template_params %}template<{% for p in node.template_params %}{{ p.declaration if p.declaration else p.kind ~ ' ' ~ p.name }}{% if not loop.last %}, {% endif %}{% endfor %}>
 {% endif %}{{ keyword or ('struct' if node.kind == 'struct' else 'class') }} {{ node.name }}{% if node.template_args %}{{ node.template_args }}{% endif %}{% if node.bases %} : {% for b in node.bases %}{{ b.access }} {{ b.name }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %} {
-{% for section in node.sections %}{{ section.access }}:
+{% for section in node.sections %}{% if not (node.kind == 'struct' and section.access == 'public') %}{{ section.access }}:
+{% endif %}
 {% for m in section.members %}{{ render_node(m, indent=4) }}
 {% endfor %}{% endfor %}};
 {% endmacro %}

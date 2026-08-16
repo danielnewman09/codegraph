@@ -286,7 +286,6 @@ class LayerGraphSource:
                 self.graph,
                 view="full",
                 scope_class=qname,
-                include_verification=False,
             )
         except ValueError:
             return {"puml": "", "error": f"scope class {qname!r} not found"}

@@ -207,7 +207,14 @@ class TemplatePack:
             text = textwrap.indent(text, " " * indent)
         return _normalize(text).rstrip("\n")
 
-    def render_namespace(self, ns: dict, *, indent: int = 0) -> str:
+    def render_namespace(
+        self,
+        ns: dict,
+        *,
+        indent: int = 0,
+        leading_blank_lines: int = 0,
+        trailing_blank_lines: int = 0,
+    ) -> str:
         """Render one namespace block (open, blocks, nested, close).
 
         Uses the NamespaceNode/namespace_open.j2 + namespace_close.j2
@@ -223,18 +230,34 @@ class TemplatePack:
         ).strip()
         pad = " " * indent
         lines = [textwrap.indent(open_text, pad)]
+        lines.extend("" for _ in range(leading_blank_lines))
         for block in ns.get("blocks", []):
             lines.append(self.render_node(block, indent=indent + 4))
         for child in ns.get("namespaces", []):
             lines.append(self.render_namespace(child, indent=indent + 4))
+        lines.extend("" for _ in range(trailing_blank_lines))
         lines.append(textwrap.indent(close_text, pad))
         return "\n".join(lines)
 
     def render_document(self, ctx: dict, *, indent: int = 0) -> str:
         """Render a FileContext's namespaces + top-level blocks (header)."""
         parts: list[str] = []
-        for ns in ctx.get("namespaces", []):
-            parts.append(self.render_namespace(ns, indent=indent))
+        namespaces = ctx.get("namespaces", [])
+        for index, ns in enumerate(namespaces):
+            # File-level layout applies only to the top-level namespace in
+            # an as-built file; nested namespaces retain their own structure.
+            parts.append(self.render_namespace(
+                ns,
+                indent=indent,
+                leading_blank_lines=(
+                    int(ctx.get("namespace_leading_blank_lines", 0))
+                    if index == 0 else 0
+                ),
+                trailing_blank_lines=(
+                    int(ctx.get("namespace_trailing_blank_lines", 0))
+                    if index == len(namespaces) - 1 else 0
+                ),
+            ))
         for block in ctx.get("blocks", []):
             parts.append(self.render_node(block, indent=indent))
         return "\n".join(parts)

@@ -36,6 +36,11 @@ class CompoundNode(CodeGraphNode):
         file_path: Source file path where declared.
         line_number: Source line number where declared.
         definition: Source code definition text (class/struct declaration).
+        template_declarations: Ordered source declarations for template
+            parameters (for example ``"ValidTransferObject T"``).
+        source_documentation: Original documentation block immediately
+            preceding the compound declaration, retained for lossless
+            as-built generation.
         doc_embedding: Vector embedding of documentation text.
     """
 
@@ -71,6 +76,8 @@ class CompoundNode(CodeGraphNode):
 
     # --- Definition ---
     definition = Property(str, default="")
+    template_declarations = Property(list, default=[])
+    source_documentation = Property(str, default="")
 
     # --- Vector embeddings ---
     doc_embedding = Property(list, default=[],
@@ -351,4 +358,3 @@ class ModuleNode(CompoundNode):
     # Incoming composition (parent namespace)
     parent_namespace = Relationship('COMPOSES', direction='INCOMING',
                                     target_class='codegraph.models.namespace.NamespaceNode')
-

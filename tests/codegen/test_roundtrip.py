@@ -44,7 +44,10 @@ GOLDEN_SPLIT = Path(__file__).resolve().parent / "golden" / "design_layergraph.j
 CONFIG = '[project]\nname = "codegen-rt"\ninput_paths = ["include"]\noutput_dir = "."\n'
 
 _DOXYGEN = shutil.which("doxygen")
-_DOXYGEN_INDEX = shutil.which("doxygen-index")
+_LOCAL_DOXYGEN_INDEX = Path(__file__).resolve().parents[2] / ".venv" / "bin" / "doxygen-index"
+_DOXYGEN_INDEX = shutil.which("doxygen-index") or (
+    str(_LOCAL_DOXYGEN_INDEX) if _LOCAL_DOXYGEN_INDEX.is_file() else None
+)
 
 pytestmark = [
     pytest.mark.integration,

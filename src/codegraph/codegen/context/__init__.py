@@ -204,7 +204,12 @@ class CodegenContextBuilder:
             if file_entry is not None:
                 indexed_file_ctx = file.build_context(file_entry, state) or {}
                 includes = list(indexed_file_ctx.get("includes", []))
-        includes = list(dict.fromkeys([*plan.includes, *includes]))
+        # The indexed source sequence is authoritative for as-built files.
+        # In particular, an empty item denotes a deliberate include-group
+        # separator; merging it with the planner's edge-derived list moves
+        # that separator to the end and loses its source position.
+        if not includes:
+            includes = list(dict.fromkeys(plan.includes))
 
         file_ctx = {
             "type": "FileNode",

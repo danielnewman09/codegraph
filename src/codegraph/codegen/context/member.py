@@ -165,6 +165,7 @@ def _build_callable(entry, state, *, parent_name: str = "") -> dict:
         "visibility": base.normalize_visibility(node.visibility),
         "brief": node.brief_description or "",
         "detailed": node.detailed_description or "",
+        "source_documentation": getattr(node, "source_documentation", "") or "",
         "file_path": node.file_path or "",
         "line_number": node.line_number or 0,
     }
@@ -238,6 +239,7 @@ def _build_attribute(entry, state, *, parent_qname: str = "") -> dict:
         "visibility": base.normalize_visibility(node.visibility),
         "brief": node.brief_description or "",
         "detailed": node.detailed_description or "",
+        "source_documentation": getattr(node, "source_documentation", "") or "",
         "file_path": node.file_path or "",
         "line_number": node.line_number or 0,
         "is_static": bool(getattr(node, "is_static", False)),

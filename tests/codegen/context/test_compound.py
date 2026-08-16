@@ -26,6 +26,16 @@ def _class(name="MigrationManager", qn="cpp_sqlite::MigrationManager", **overrid
 
 
 class TestClassLike:
+    def test_source_template_declarations_preserve_constraints(self, make_state, find_entry):
+        graph, state = make_state([_class(
+            name="RepeatedFieldTransferObject",
+            qn="cpp_sqlite::RepeatedFieldTransferObject",
+            kind="struct",
+            template_declarations=["ValidTransferObject T"],
+        )])
+        ctx = compound.build_context(find_entry(graph, type_name="ClassNode"), state)
+        assert ctx["template_params"] == [{"declaration": "ValidTransferObject T"}]
+
     def test_sections_grouped_by_visibility(self, make_state, find_entry):
         graph, state = make_state([_class(composes=[
             {

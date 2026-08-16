@@ -71,6 +71,7 @@ class MemberNode(CodeGraphNode):
     # --- Documentation ---
     brief_description = Property(str, default="")
     detailed_description = Property(str, default="")
+    source_documentation = Property(str, default="")
 
     # --- Location ---
     file_path = Property(str, default="")
@@ -286,4 +287,3 @@ class DefineNode(MemberNode):
     kind = Property(str, default="define")
 
     _llm_fields = {"qualified_name", "name", "kind", "tags", "brief_description", "visibility"}
-
