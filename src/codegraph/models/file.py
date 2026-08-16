@@ -34,6 +34,8 @@ class FileNode(CodeGraphNode):
         include_directives: Ordered include spellings as written after
             ``#include`` (for example ``<vector>`` or ``"widget.hpp"``).
             An empty string is an explicit group separator.
+        start_line: First line of the inclusive owned source span (1).
+        end_line: Last line of the inclusive owned source span (line count).
         namespace_leading_blank_lines: Blank lines between a top-level C++
             namespace open and its first definition.
         namespace_trailing_blank_lines: Blank lines between the final
@@ -66,6 +68,16 @@ class FileNode(CodeGraphNode):
     namespace_leading_blank_lines = Property(int, default=0)
     namespace_trailing_blank_lines = Property(int, default=0)
     guard_leading_blank_lines = Property(int, default=0)
+    start_line = Property(
+        int, default=0,
+        help_text="First line of the inclusive source span this file owns "
+                  "(always 1 for a read file), 1-based.",
+    )
+    end_line = Property(
+        int, default=0,
+        help_text="Last line of the inclusive source span this file owns "
+                  "(total line count), 1-based. 0 when the file is unreadable.",
+    )
     tags = Property(list, default=[])
     kind = Property(str, default="file")
 

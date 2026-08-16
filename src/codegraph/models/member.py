@@ -36,6 +36,10 @@ class MemberNode(CodeGraphNode):
         line_number: Source line number where declared.
         body_start: Start line of implementation body (from Doxygen bodystart).
         body_end: End line of implementation body (from Doxygen bodyend).
+        start_line: First line of the inclusive owned source span (doc comment
+            through declaration), 1-based.
+        end_line: Last line of the inclusive owned source span (declaration end,
+            or body end when the body is in the same file), 1-based.
         definition: Source code definition text (signature only).
         doc_embedding: Vector embedding of documentation text.
     """
@@ -85,6 +89,17 @@ class MemberNode(CodeGraphNode):
         int, default=0,
         help_text="End line of the implementation body (from Doxygen bodyend). "
                   "0 or negative means no implementation body available.",
+    )
+    start_line = Property(
+        int, default=0,
+        help_text="First line of the inclusive source span this member owns "
+                  "(doc comment through declaration), 1-based. 0 when unknown.",
+    )
+    end_line = Property(
+        int, default=0,
+        help_text="Last line of the inclusive source span this member owns "
+                  "(declaration end, or body end when the body is in the same "
+                  "file), 1-based. 0 when unknown.",
     )
 
     # --- Definition ---

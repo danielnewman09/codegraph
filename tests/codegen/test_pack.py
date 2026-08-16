@@ -129,6 +129,14 @@ class TestRenderNode:
 
 
 class TestDeterminism:
+    def test_source_fragment_renders_verbatim_inside_namespace(self, pack):
+        fragment = {
+            "type": "SourceFragmentNode",
+            "kind": "unassigned_source_fragment",
+            "text": "#pragma clang diagnostic push\n",
+        }
+        assert pack.render_node(fragment) == "#pragma clang diagnostic push"
+
     def test_render_is_byte_stable(self, pack):
         ctx = {
             "type": "ClassNode",

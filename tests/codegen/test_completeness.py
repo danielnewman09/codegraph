@@ -35,6 +35,7 @@ from codegraph.codegen.context import (
     parameter,
     project,
     requirements,
+    source_fragment,
     test,
 )
 from codegraph.codegen.pack import PACK_SKIPPED, builtin_pack_dir
@@ -42,7 +43,7 @@ from codegraph.models.tags import CodeGraphNode
 
 BUILDER_MODULES = (
     compound, member, file, namespace, parameter, implementation,
-    literal, test, requirements, project,
+    literal, test, requirements, project, source_fragment,
 )
 
 

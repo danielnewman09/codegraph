@@ -34,6 +34,22 @@ class NamespaceNode(CodeGraphNode):
     component_id = Property(int)
     description = Property(str, default="")
 
+    # --- Source ownership (as-built) ---
+    file_path = Property(
+        str, default="",
+        help_text="Source file that declares this namespace (Doxygen location).",
+    )
+    start_line = Property(
+        int, default=0,
+        help_text="First line of the inclusive source span this namespace owns "
+                  "(declaration through closing brace), 1-based. 0 when unknown.",
+    )
+    end_line = Property(
+        int, default=0,
+        help_text="Last line of the inclusive source span this namespace owns "
+                  "(closing brace line), 1-based. 0 when unknown.",
+    )
+
     # --- Serialization contract ---
     _llm_fields: set[str] = {"qualified_name", "name", "kind", "tags", "description"}
 

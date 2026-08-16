@@ -1,0 +1,5 @@
+[project]
+name = "cpp-fragments"
+input_paths = ["include", "src"]
+file_patterns = "*.h *.hpp *.cpp"
+exclude_patterns = "*/build/* */.git/*"

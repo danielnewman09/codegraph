@@ -34,7 +34,10 @@ class CompoundNode(CodeGraphNode):
         brief_description: Short human-readable description.
         detailed_description: Full human-readable description.
         file_path: Source file path where declared.
-        line_number: Source line number where declared.
+        line_number: Source line number where declared (Doxygen location).
+        start_line: First line of the inclusive owned source span (doc comment
+            through declaration/body), 1-based.
+        end_line: Last line of the inclusive owned source span, 1-based.
         definition: Source code definition text (class/struct declaration).
         template_declarations: Ordered source declarations for template
             parameters (for example ``"ValidTransferObject T"``).
@@ -73,6 +76,16 @@ class CompoundNode(CodeGraphNode):
     # --- Location ---
     file_path = Property(str, default="")
     line_number = Property(int)
+    start_line = Property(
+        int, default=0,
+        help_text="First line of the inclusive source span this compound owns "
+                  "(doc comment through declaration/body), 1-based. 0 when unknown.",
+    )
+    end_line = Property(
+        int, default=0,
+        help_text="Last line of the inclusive source span this compound owns, "
+                  "1-based. 0 when unknown.",
+    )
 
     # --- Definition ---
     definition = Property(str, default="")
