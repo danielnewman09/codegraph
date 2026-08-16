@@ -193,6 +193,10 @@ class FilePlanner:
     def _plan_as_built(self, graph) -> list[FilePlan]:
         plans: list[FilePlan] = []
         seen: set[str] = set()
+        # Nested compounds (compound_refid set — class-scoped enums/structs)
+        # render inside their owning compound and must never be planned as
+        # separate top-level file entries (D9 nested-wins, as-built mode).
+        nested_keys = self._compound_nested_keys(graph)
         for root_entry in graph.entries.values():
             if type(root_entry.node).__name__ != "FileNode":
                 continue
@@ -205,7 +209,7 @@ class FilePlanner:
                 if type(entry.node).__name__ not in _PLANNABLE_FILE_NODES:
                     continue
                 key = graph._node_key(entry.node)
-                if key in seen:
+                if key in seen or key in nested_keys:
                     continue
                 if (getattr(entry.node, "file_path", "") or "") == path:
                     keys.append(key)

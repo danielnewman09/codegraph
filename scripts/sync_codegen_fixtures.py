@@ -58,6 +58,86 @@ SISTER_IMPL = SISTER / "tests/unit_test_data/cpp_sqlite_one_hop_impl.json"
 IMPL_SRC = ROOT / "tests/unit_test_data/cpp_sqlite_impl_src"
 SISTER_FIXTURE_SRC = SISTER / "tests/fixtures/cpp-sqlite"
 
+#: The 14-file production manifest + the provenance record pinning the
+#: golden source-copy hashes (``check`` verifies, ``pull`` re-records).
+MANIFEST = ROOT / "tests/codegen/cpp_sqlite_roundtrip_manifest.txt"
+PROVENANCE = ROOT / "tests/codegen/cpp_sqlite_roundtrip_provenance.md"
+
+#: The two test files stay outside source byte-fidelity (constraint 3).
+TEST_FILES = frozenset({
+    "tests/fixtures/cpp-sqlite/cpp_sqlite/test/testDatabase.cpp",
+    "tests/fixtures/cpp-sqlite/cpp_sqlite/test/testDatabase.hpp",
+})
+
+
+def _production_relpaths() -> list[str]:
+    """The 14 production paths from the manifest (relative to IMPL_SRC)."""
+    return [
+        line.strip()
+        for line in MANIFEST.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+
+
+def _provenance_hashes() -> dict[str, str]:
+    """Parse the golden source-copy hashes recorded in the provenance file."""
+    if not PROVENANCE.is_file():
+        return {}
+    hashes: dict[str, str] = {}
+    in_block = False
+    for line in PROVENANCE.read_text(encoding="utf-8").splitlines():
+        if line.strip() == "```":
+            in_block = not in_block
+            continue
+        if not in_block:
+            continue
+        parts = line.split(None, 1)
+        if len(parts) == 2 and len(parts[0]) == 64:
+            hashes[parts[1].strip()] = parts[0]
+    return hashes
+
+
+def _write_provenance_hashes(hashes: dict[str, str]) -> None:
+    """Rewrite the provenance hash block (check never calls this; pull does
+    after refreshing the source copies)."""
+    lines = PROVENANCE.read_text(encoding="utf-8").splitlines()
+    start = end = None
+    for idx, line in enumerate(lines):
+        if line.strip() == "```" and start is None:
+            start = idx
+        elif line.strip() == "```" and start is not None:
+            end = idx
+            break
+    if start is None or end is None:
+        raise SystemExit(f"provenance hash block not found: {PROVENANCE}")
+    block = ["```"]
+    for rel in _production_relpaths():
+        block.append(f"{hashes[rel]}  {rel}")
+    block.append("```")
+    lines[start:end + 1] = block
+    PROVENANCE.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _check_source_hashes() -> list[str]:
+    """Compare the committed source copies against the provenance record."""
+    recorded = _provenance_hashes()
+    problems: list[str] = []
+    for rel in _production_relpaths():
+        path = IMPL_SRC / rel
+        if not path.is_file():
+            problems.append(f"missing source copy: {rel}")
+            continue
+        actual = hashlib.sha256(path.read_bytes()).hexdigest()
+        expected = recorded.get(rel)
+        if expected is None:
+            problems.append(f"no provenance hash recorded for {rel}")
+        elif actual != expected:
+            problems.append(
+                f"DRIFT: {rel} differs from the recorded provenance hash "
+                f"(refresh via scripts/sync_codegen_fixtures.py pull)"
+            )
+    return problems
+
 
 def _sha(path: Path) -> str:
     if not path.exists():
@@ -130,6 +210,12 @@ def check() -> int:
     if not IMPL_SRC.exists():
         print("DRIFT: impl source copies missing")
         failures += 1
+    source_problems = _check_source_hashes()
+    for problem in source_problems:
+        print(problem)
+        failures += 1
+    if not source_problems:
+        print("source copies: provenance hashes match")
     print("OK" if not failures else f"{failures} drift(s)")
     return 1 if failures else 0
 
@@ -176,6 +262,15 @@ def pull() -> int:
     if SISTER_FIXTURE_SRC.exists():
         _sync_impl_source()
         print(f"synced → {IMPL_SRC}")
+    # Re-record the golden source-copy hashes after the refresh so ``check``
+    # verifies against the newly adopted bytes (explicit refresh only).
+    hashes = {
+        rel: hashlib.sha256((IMPL_SRC / rel).read_bytes()).hexdigest()
+        for rel in _production_relpaths()
+        if (IMPL_SRC / rel).is_file()
+    }
+    _write_provenance_hashes(hashes)
+    print(f"provenance re-recorded → {PROVENANCE}")
     return 0
 
 

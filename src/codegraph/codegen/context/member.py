@@ -137,6 +137,14 @@ def _build_callable(entry, state, *, parent_name: str = "") -> dict:
     body = _resolve_body(entry, state)
     body_start = getattr(node, "body_start", 0) or 0
     body_end = getattr(node, "body_end", 0) or 0
+    end_line = getattr(node, "end_line", 0) or 0
+    decl_file = getattr(node, "file_path", "") or ""
+    body_file = getattr(node, "body_file", "") or ""
+    # An in-class body is contiguous with its declaration: the body lives in
+    # the declaration file and its owned span already covers it (the parser
+    # only extends ``end_line`` to ``body_end`` for contiguous bodies).
+    # Such bodies render inside the class, not as an out-of-line definition.
+    body_inline = bool(body) and body_file in ("", decl_file) and body_end <= end_line
     definition = getattr(node, "definition", "") or ""
     definition_scoped = ""
     if body_start > 0 and body_end > 0 and definition:
@@ -153,14 +161,20 @@ def _build_callable(entry, state, *, parent_name: str = "") -> dict:
         "declaration": declaration,
         "return_type": parts.return_type,
         "params": _build_params(entry, state, declaration),
+        "template_declarations": list(
+            getattr(node, "template_declarations", []) or []
+        ),
         "const": "const" in parts.qualifiers,
         "static": "static" in parts.leading,
         "virtual": "virtual" in parts.leading,
         "explicit": "explicit" in parts.leading,
         "constexpr": "constexpr" in parts.leading,
         "inline": "inline" in parts.leading,
+        "nodiscard": bool(getattr(node, "is_nodiscard", False)),
         "body": body,
+        "body_inline": body_inline,
         "has_body": bool(body or (body_start > 0 and body_end > 0)),
+        "body_file": body_file,
         "definition_scoped": definition_scoped,
         "visibility": base.normalize_visibility(node.visibility),
         "brief": node.brief_description or "",
@@ -168,6 +182,8 @@ def _build_callable(entry, state, *, parent_name: str = "") -> dict:
         "source_documentation": getattr(node, "source_documentation", "") or "",
         "file_path": node.file_path or "",
         "line_number": node.line_number or 0,
+        "start_line": getattr(node, "start_line", 0) or 0,
+        "end_line": end_line,
     }
 
 
@@ -242,8 +258,12 @@ def _build_attribute(entry, state, *, parent_qname: str = "") -> dict:
         "source_documentation": getattr(node, "source_documentation", "") or "",
         "file_path": node.file_path or "",
         "line_number": node.line_number or 0,
+        "start_line": getattr(node, "start_line", 0) or 0,
+        "end_line": getattr(node, "end_line", 0) or 0,
         "is_static": bool(getattr(node, "is_static", False)),
         "is_const": bool(getattr(node, "is_const", False)),
+        "is_constexpr": bool(getattr(node, "is_constexpr", False)),
+        "nodiscard": bool(getattr(node, "is_nodiscard", False)),
     }
     if kind == "typedef":
         definition = (node.definition or "").strip()
@@ -261,6 +281,12 @@ def _build_attribute(entry, state, *, parent_qname: str = "") -> dict:
         )
         ctx["type_signature"] = node.type_signature or ""
     else:
+        # The verbatim source declaration (when captured) is the faithful
+        # spelling — doxygen drops specifiers like ``inline`` on static
+        # members.  Falls back to the structured reconstruction.
+        verbatim = (node.declaration or "").strip()
+        if verbatim:
+            ctx["declaration"] = verbatim
         # ``type`` stays the node-type discriminator; the C++ type lives
         # under ``type_signature`` (mirrors the model field — avoids the
         # ParameterNode discriminator-clobbering bug).  Phase 2

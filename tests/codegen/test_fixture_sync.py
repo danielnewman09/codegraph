@@ -108,7 +108,7 @@ class TestGoldensExistAndDeserialize:
         )
 
     def test_split_golden_size(self):
-        assert _total_nodes(_load(GOLDEN_SPLIT)) == 181
+        assert _total_nodes(_load(GOLDEN_SPLIT)) == 179
 
     def test_full_decl_golden_size(self):
         assert _total_nodes(_load(GOLDEN_FULL_DECL)) == 155
@@ -118,26 +118,24 @@ class TestEncodingContract:
     """The two goldens exercise both encodings the R3 rule must handle."""
 
     def test_split_encoding_is_declaration_minus_virtual(self):
-        """The split golden is full-declaration minus leading qualifiers /
-        pure-virtual markers (R3 must still emit it verbatim)."""
+        """The split golden encodes members as return-type-only or
+        declaration-minus-qualifiers (R3 rule 1/2 must render verbatim)."""
         methods = _method_nodes(_load(GOLDEN_SPLIT))
         get_version = next(
             m for m in methods if m.get("name") == "getVersion"
         )
-        assert get_version["type_signature"] == "int getVersion() const"
-        assert "virtual" not in get_version["type_signature"]
-        assert "= 0" not in get_version["type_signature"]
+        assert get_version["type_signature"] == "int"
         assert get_version["argsstring"] == "()"
 
     def test_split_encoding_params_are_typed(self):
-        """D6 invariant: composed members carry types in type_signature."""
+        """D6 invariant: composed members carry types in type_signature
+        (the return type); parameter types live in argsstring."""
         methods = _method_nodes(_load(GOLDEN_SPLIT))
         register = next(
             m for m in methods if m.get("name") == "register_migration"
         )
-        assert "std::unique_ptr<Migration>" in register["type_signature"]
-        # Composed attributes are typed (orphaned top-level stubs are not —
-        # D10: they carry empty type_signature and render nothing).
+        assert register["type_signature"] == "MigrationResult"
+        assert "std::unique_ptr<Migration>" in register["argsstring"]
         attrs = []
 
         def walk(items, parent_type):
@@ -205,6 +203,24 @@ class TestSyncScript:
         sync_module.SISTER_ONE_HOP = sister_one_hop
         sync_module.IMPL = impl
         sync_module.SISTER_IMPL = sister_impl
+        # Priority-1 provenance sandbox: a fake manifest + source copies +
+        # provenance record under tmp_path (never the real fixture).
+        sync_module.MANIFEST = tmp_path / "manifest.txt"
+        sync_module.PROVENANCE = tmp_path / "provenance.md"
+        sync_module.IMPL_SRC = tmp_path / "impl_src"
+        rel = "tests/fixtures/cpp-sqlite/cpp_sqlite/src/cpp_sqlite/A.hpp"
+        sync_module.MANIFEST.write_text(f"{rel}\n", encoding="utf-8")
+        src = sync_module.IMPL_SRC / rel
+        src.parent.mkdir(parents=True, exist_ok=True)
+        src.write_text("int golden;\n", encoding="utf-8")
+        import hashlib
+        digest = hashlib.sha256(src.read_bytes()).hexdigest()
+        sync_module.PROVENANCE.write_text(
+            "# Provenance\n\n```\n"
+            f"{digest}  {rel}\n"
+            "```\n",
+            encoding="utf-8",
+        )
         return canonical, gen, golden
 
     def test_check_in_sync(self, sync_module, tmp_path: Path):
@@ -233,3 +249,52 @@ class TestSyncScript:
         canonical.write_text(self._OTHER, encoding="utf-8")
         assert sync_module.pull() == 0
         assert golden.read_bytes() == canonical.read_bytes()
+
+    # ── Priority-1 provenance (WP5) ──────────────────────────────────────
+
+    def test_check_verifies_source_copy_hashes(self, sync_module, tmp_path: Path):
+        """``check`` compares the committed source copies against the
+        provenance record and never modifies anything."""
+        _, _, _ = self._setup(sync_module, tmp_path)
+        assert sync_module.check() == 0
+        # the provenance file is untouched by check
+        provenance_before = sync_module.PROVENANCE.read_bytes()
+        assert sync_module.check() == 0
+        assert sync_module.PROVENANCE.read_bytes() == provenance_before
+
+    def test_check_detects_source_copy_drift(self, sync_module, tmp_path: Path):
+        _, _, _ = self._setup(sync_module, tmp_path)
+        rel = sync_module.MANIFEST.read_text().strip()
+        (sync_module.IMPL_SRC / rel).write_text("int changed;\n", encoding="utf-8")
+        assert sync_module.check() == 1
+
+    def test_pull_rerecords_provenance_hashes(self, sync_module, tmp_path: Path):
+        """Refreshing is explicit (``pull``) and re-records the golden
+        hashes so the newly adopted bytes become the verified baseline."""
+        _, _, _ = self._setup(sync_module, tmp_path)
+        # simulate the sister fixture having different source bytes — the
+        # sister fixture root mirrors ``tests/fixtures/cpp-sqlite``, so the
+        # production file sits at ``cpp_sqlite/src/...`` under it
+        rel = sync_module.MANIFEST.read_text().strip()
+        inner = rel[len("tests/fixtures/cpp-sqlite/"):]
+        sister_src = tmp_path / "sister_fixture" / inner
+        sister_src.parent.mkdir(parents=True, exist_ok=True)
+        sister_src.write_text("int refreshed;\n", encoding="utf-8")
+        sync_module.SISTER_FIXTURE_SRC = tmp_path / "sister_fixture"
+        assert sync_module.pull() == 0
+        # the source copy was refreshed and the hash re-recorded
+        assert (sync_module.IMPL_SRC / rel).read_text() == "int refreshed;\n"
+        assert sync_module.check() == 0
+
+    def test_pull_prints_every_changed_target(self, sync_module, tmp_path: Path, capsys):
+        _, _, _ = self._setup(sync_module, tmp_path)
+        rel = sync_module.MANIFEST.read_text().strip()
+        inner = rel[len("tests/fixtures/cpp-sqlite/"):]
+        sister_src = tmp_path / "sister_fixture" / inner
+        sister_src.parent.mkdir(parents=True, exist_ok=True)
+        sister_src.write_text("int refreshed;\n", encoding="utf-8")
+        sync_module.SISTER_FIXTURE_SRC = tmp_path / "sister_fixture"
+        sync_module.pull()
+        out = capsys.readouterr().out
+        assert f"synced → {sync_module.IMPL_SRC}" in out
+        assert "provenance re-recorded" in out

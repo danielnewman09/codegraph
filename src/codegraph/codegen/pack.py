@@ -66,8 +66,13 @@ PACK_SKIPPED: frozenset[str] = frozenset({
 
 _MAX_BLANK_LINES = 1
 
+#: clang-format's MaxEmptyLinesToKeep — the canonical boundary for as-built
+#: files: source blank runs up to this width survive canonical formatting, so
+#: as-built normalization must not cap them tighter than the formatter does.
+_MAX_BLANK_LINES_AS_BUILT = 2
 
-def _normalize(text: str) -> str:
+
+def _normalize(text: str, *, max_blank_lines: int = _MAX_BLANK_LINES) -> str:
     """Deterministic output normalization (snapshot-stable bytes)."""
     lines = [line.rstrip() for line in text.splitlines()]
     out: list[str] = []
@@ -75,7 +80,7 @@ def _normalize(text: str) -> str:
     for line in lines:
         if not line:
             blank += 1
-            if blank > _MAX_BLANK_LINES:
+            if blank > max_blank_lines:
                 continue
         else:
             blank = 0
@@ -113,6 +118,7 @@ class TemplatePack:
         directory: str | Path | None = None,
         *,
         emit_markers: bool = False,
+        as_built: bool = False,
     ) -> None:
         self.language = language
         self.directory = (
@@ -121,7 +127,15 @@ class TemplatePack:
         if not self.directory.is_dir():
             raise FileNotFoundError(f"template pack not found: {self.directory}")
         self.emit_markers = emit_markers
+        # As-built reconstruction preserves source blank runs up to
+        # clang-format's MaxEmptyLinesToKeep (2); synthesized output is
+        # capped to one blank line for byte-stable snapshots.
+        self.as_built = as_built
         self._environment: Environment | None = None
+
+    @property
+    def _max_blank_lines(self) -> int:
+        return _MAX_BLANK_LINES_AS_BUILT if self.as_built else _MAX_BLANK_LINES
 
     # ── Environment ────────────────────────────────────────────────
 
@@ -205,7 +219,12 @@ class TemplatePack:
         )
         if indent:
             text = textwrap.indent(text, " " * indent)
-        return _normalize(text).rstrip("\n")
+        if ctx.get("body_inline"):
+            # Verbatim in-class body: the text is source, not template
+            # output — normalization would cap the source's intentional
+            # blank lines (e.g. two blank lines before a return).
+            return text.rstrip("\n")
+        return _normalize(text, max_blank_lines=self._max_blank_lines).rstrip("\n")
 
     def render_namespace(
         self,
@@ -219,6 +238,11 @@ class TemplatePack:
 
         Uses the NamespaceNode/namespace_open.j2 + namespace_close.j2
         templates; blocks are rendered via per-type dispatch.
+
+        SourceFragmentNode blocks are verbatim source: their text carries
+        its own line endings (including intentional trailing blank lines),
+        so they are concatenated raw rather than normalized and joined — a
+        fragment's trailing blank line is layout, not noise.
         """
         name = ns.get("name", "")
         env = self.environment
@@ -229,18 +253,51 @@ class TemplatePack:
             node={"name": name}, pack=self
         ).strip()
         pad = " " * indent
-        lines = [textwrap.indent(open_text, pad)]
-        lines.extend("" for _ in range(leading_blank_lines))
-        for block in ns.get("blocks", []):
-            lines.append(self.render_node(block, indent=indent + 4))
+        parts: list[str] = []
+        parts.append(textwrap.indent(open_text, pad))
+        parts.extend("" for _ in range(leading_blank_lines))
+        blocks = ns.get("blocks", [])
+        prev_end = 0
+        for index, block in enumerate(blocks):
+            if block.get("type") == "SourceFragmentNode":
+                text = block.get("text", "") or ""
+                # Defer exactly one final newline to the join: the fragment's
+                # internal line endings (including intentional trailing blank
+                # lines) are preserved, and the join supplies the boundary
+                # newline to the next part (namespace close or next block).
+                if text.endswith("\n"):
+                    text = text[:-1]
+                parts.append(text)
+                prev_end = int(block.get("end_line", 0) or 0)
+            else:
+                start = int(block.get("start_line", 0) or 0)
+                # Blank line separators between adjacent structured blocks
+                # are derived from the indexed span gap (clang-format keeps
+                # up to MaxEmptyLinesToKeep=2; fragments carry their own
+                # spacing and are never double-counted here).
+                gap = start - prev_end if prev_end else 0
+                if prev_end and gap > 1:
+                    parts.extend("" for _ in range(min(gap - 1, 2)))
+                # Structured parts defer their newline to the join exactly
+                # like fragments (no double newline between adjacent parts).
+                # A block may carry its own render variant (e.g. out-of-line
+                # definitions render via their ``_defn`` template).
+                parts.append(self.render_node(
+                    block,
+                    indent=indent + 4,
+                    variant=block.get("variant"),
+                ))
+                prev_end = int(block.get("end_line", 0) or 0)
         for child in ns.get("namespaces", []):
-            lines.append(self.render_namespace(child, indent=indent + 4))
-        lines.extend("" for _ in range(trailing_blank_lines))
-        lines.append(textwrap.indent(close_text, pad))
-        return "\n".join(lines)
+            parts.append(self.render_namespace(child, indent=indent + 4))
+        parts.extend("" for _ in range(trailing_blank_lines))
+        parts.append(textwrap.indent(close_text, pad))
+        return "\n".join(parts)
 
     def render_document(self, ctx: dict, *, indent: int = 0) -> str:
         """Render a FileContext's namespaces + top-level blocks (header)."""
+        if ctx.get("layout"):
+            return self.render_layout(ctx.get("layout"), indent=indent)
         parts: list[str] = []
         namespaces = ctx.get("namespaces", [])
         for index, ns in enumerate(namespaces):
@@ -260,6 +317,44 @@ class TemplatePack:
             ))
         for block in ctx.get("blocks", []):
             parts.append(self.render_node(block, indent=indent))
+        return "\n".join(parts)
+
+    def render_layout(self, items: list, *, indent: int = 0) -> str:
+        """Render a source-ordered file body layout (complex as-built files).
+
+        Items are emitted in line order; blank-line gaps between consecutive
+        items are derived from their source positions (clang-format keeps up
+        to MaxEmptyLinesToKeep=2, so wider source gaps are capped).  Namespace
+        regions render through ``render_namespace`` with their per-region
+        blank layout; residuals are verbatim (one trailing newline deferred
+        to the join); mid-file includes render at their source position.
+        """
+        parts: list[str] = []
+        prev_line = 0
+        for item in items:
+            line = int(item.get("line") or item.get("start_line") or 0)
+            gap = (line - prev_line - 1) if prev_line else 0
+            if 0 < gap <= 2:
+                parts.extend("" for _ in range(gap))
+            elif gap > 2:
+                parts.extend("" for _ in range(2))
+            if item.get("kind") == "region":
+                parts.append(self.render_namespace(
+                    item,
+                    indent=indent,
+                    leading_blank_lines=int(item.get("leading_blank_lines") or 0),
+                    trailing_blank_lines=int(item.get("trailing_blank_lines") or 0),
+                ))
+                prev_line = int(item.get("close_line") or 0)
+            elif item.get("kind") == "residual":
+                text = (item.get("ctx") or {}).get("text", "") or ""
+                if text.endswith("\n"):
+                    text = text[:-1]
+                parts.append(text)
+                prev_line = int(item.get("end_line") or 0)
+            elif item.get("kind") == "include":
+                parts.append(f'#include {item.get("spelling", "")}')
+                prev_line = line
         return "\n".join(parts)
 
     def render_source_units(self, ctx: dict, *, indent: int = 0) -> str:
@@ -320,6 +415,22 @@ class TemplatePack:
         for block in ctx.get("blocks", []):
             if block.get("type") in _COMPOUND_CTX_TYPES:
                 walk_compound(block, indent)
+        # A top-level namespace with no body content at all (an empty
+        # ``.cpp`` namespace shell, or a file whose classes only declare)
+        # still renders its open/close with the indexed blank layout — an
+        # empty namespace region is layout, not noise.  Files with
+        # implementation-export bodies already render their wrappers via
+        # ``source_bodies`` and must not get a second shell.
+        if not ctx.get("source_bodies"):
+            for ns in ctx.get("namespaces", []):
+                if _namespace_has_defns(ns):
+                    continue
+                parts.append(self.render_namespace(
+                    ns,
+                    indent=indent,
+                    leading_blank_lines=int(ctx.get("namespace_leading_blank_lines", 0)),
+                    trailing_blank_lines=int(ctx.get("namespace_trailing_blank_lines", 0)),
+                ))
         return "\n".join(parts)
 
     def render_file(self, ctx: dict, *, kind: str | None = None) -> str:
@@ -335,16 +446,21 @@ class TemplatePack:
             "test": "file_test.j2",
         }.get(kind, "file_header.j2")
         text = self.environment.get_template(template_name).render(node=ctx, pack=self)
-        text = _normalize(text)
+        # Synthesized output is capped to a single blank run for byte-stable
+        # snapshots.  As-built reconstruction preserves what clang-format
+        # would keep (MaxEmptyLinesToKeep) so source blank layout survives.
+        text = _normalize(text, max_blank_lines=self._max_blank_lines)
         # ``_normalize`` intentionally caps arbitrary blank runs for stable
         # synthesized output.  Restore only the indexed top-level namespace
-        # spacing that an as-built file explicitly records.
+        # spacing that an as-built file explicitly records (runs wider than
+        # the as-built cap survive for as-built files already).
         trailing = int(ctx.get("namespace_trailing_blank_lines", 0))
         namespaces = ctx.get("namespaces", [])
-        if not ctx.get("generated_banner", True) and trailing > _MAX_BLANK_LINES and namespaces:
+        cap = self._max_blank_lines
+        if trailing > cap and namespaces:
             name = namespaces[-1].get("name", "")
             close = f"}} // namespace {name}" if name else "}"
-            prefix = "\n" * (_MAX_BLANK_LINES + 1)
+            prefix = "\n" * (cap + 1)
             replacement = "\n" * (trailing + 1)
             position = text.rfind(prefix + close)
             if position >= 0:
@@ -356,6 +472,18 @@ class TemplatePack:
 _COMPOUND_CTX_TYPES = frozenset({
     "ClassNode", "InterfaceNode", "UnionNode", "CompoundNode",
 })
+
+
+def _namespace_has_defns(ns: dict) -> bool:
+    """True when *ns* (or a nested namespace) contains any body-carrying
+    member that renders as an out-of-line definition."""
+    for block in ns.get("blocks", []):
+        if block.get("type") not in _COMPOUND_CTX_TYPES:
+            continue
+        for section in block.get("sections", []):
+            if any(m.get("has_body") for m in section.get("members", [])):
+                return True
+    return any(_namespace_has_defns(child) for child in ns.get("namespaces", []))
 
 
 def _indent_filter(text: str, width: int = 4) -> str:

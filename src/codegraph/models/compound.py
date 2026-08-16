@@ -55,6 +55,12 @@ class CompoundNode(CodeGraphNode):
                   "the unique key is `uid`.",
     )
     kind = Property(str, required=True)
+    compound_refid = Property(
+        str, default="",
+        help_text="Reference ID of the parent compound when this compound is \n"
+                  "nested inside another (e.g. a class-scoped enum).  Empty \n"
+                  "for top-level compounds composed by a namespace.",
+    )
 
     # --- Identity fields for uid computation ---
     _identity_fields: tuple[str, ...] = ("qualified_name",)
@@ -167,6 +173,14 @@ class ClassNode(CompoundNode):
     kind = Property(str, default="class")
     module = Property(str, default="")
     base_classes = Property(list, default=[])
+    base_specifiers = Property(
+        list, default=[],
+        help_text="Ordered, source-spelled base declarations (for example \n"
+                  "\"public std::runtime_error\") as written in the class \n"
+                  "declaration, including access and virtual qualifiers where \n"
+                  "present.  Retained so unresolved/external bases survive \n"
+                  "as-built generation even without an indexed edge target.\n",
+    )
     is_final = Property(bool, default=False)
     is_abstract = Property(bool, default=False)
 
@@ -282,6 +296,16 @@ class EnumNode(CompoundNode):
 
     kind = Property(str, default="enum")
     module = Property(str, default="")
+    underlying_type = Property(
+        str, default="",
+        help_text="The enum's underlying type as written in source \n"
+                  "(``uint8_t`` for ``enum class X : uint8_t``).  Empty when \n"
+                  "the enum relies on the implicit int underlying type.\n",
+    )
+    enum_class = Property(
+        bool, default=False,
+        help_text="True for scoped enums (``enum class``/``enum struct``).",
+    )
 
     _llm_fields = {"qualified_name", "name", "kind", "tags", "brief_description", "visibility"}
 

@@ -85,13 +85,15 @@ class TestSplitGoldenRender:
         assert "// @codegraph uid:" in text
 
     def test_forward_decls_rendered_before_class(self):
-        """DEPENDS_ON class targets forward-declared inside the namespace;
-        std:: refs and nested dup structs (defined in this header) are not."""
+        """DEPENDS_ON class targets forward-declared inside the namespace
+        (kind-aware: struct targets forward-declare as structs); std:: refs
+        and nested dup structs (defined in this header) are not."""
         result = generate(SPLIT)
         text = result.files["include/cpp_sqlite/MigrationManager.hpp"]
         decl = text.index("class MigrationManager")
-        for name in ("Database", "Migration", "SchemaVersion"):
-            assert text.index(f"class {name};") < decl, f"missing forward decl {name}"
+        for name in ("Database", "Migration"):
+            assert text.index(f"class {name};", 0, decl) < decl, f"missing forward decl {name}"
+        assert text.index("struct SchemaVersion;", 0, decl) < decl
         # std:: is never synthesized as a file → never forward-declared
         assert "class std::" not in text
         assert "class vector;" not in text

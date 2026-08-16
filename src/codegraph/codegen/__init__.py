@@ -80,16 +80,21 @@ def generate_from_layer_graph(graph, language: str = "cpp", **kwargs):
     lang = normalize_language(language) or "cpp"
 
     emit_markers = bool(kwargs.get("emit_markers", False))
+    as_built = bool(kwargs.get("as_built", False))
     pack = kwargs.get("pack")
     if pack is None:
-        pack = TemplatePack(language=lang, emit_markers=emit_markers)
+        pack = TemplatePack(language=lang, emit_markers=emit_markers, as_built=as_built)
     elif isinstance(pack, (str, os.PathLike)):
-        pack = TemplatePack(language=lang, directory=pack, emit_markers=emit_markers)
+        pack = TemplatePack(
+            language=lang, directory=pack, emit_markers=emit_markers, as_built=as_built
+        )
     else:
         pack.emit_markers = emit_markers
+        pack.as_built = as_built
 
     builder = kwargs.get("builder") or CodegenContextBuilder()
     output = builder.build(graph, planner=kwargs.get("planner"))
+    pack.as_built = output.as_built
 
     files: dict[str, str] = {}
     for path, ctx in output.files.items():

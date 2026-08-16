@@ -65,8 +65,36 @@ class FileNode(CodeGraphNode):
     language = Property(str, default="")
     include_guard = Property(str, default="")
     include_directives = Property(list, default=[])
+    include_directive_lines = Property(
+        list, default=[],
+        help_text="1-based source line of each ``include_directives`` entry \n"
+                  "(0 for a separator).  Mid-file includes (e.g. a header \n"
+                  "that includes a dependency after its class body) render at \n"
+                  "their source position instead of being hoisted to the top.\n",
+    )
+    leading_blank_lines = Property(
+        int, default=0,
+        help_text="Blank lines before the first non-blank line of the file \n"
+                  "(e.g. a blank line before the include guard).  Retained \n"
+                  "because clang-format does not create it.\n",
+    )
+    namespace_regions = Property(
+        list, default=[],
+        help_text="Ordered top-level namespace regions of the file: \n"
+                  "``[{name, open_line, close_line, leading_blank_lines, \n"
+                  "trailing_blank_lines}]``.  A file may re-open the same \n"
+                  "namespace after file-level content (mid-file includes, \n"
+                  "comments) — each region keeps its own blank layout.\n",
+    )
     namespace_leading_blank_lines = Property(int, default=0)
     namespace_trailing_blank_lines = Property(int, default=0)
+    namespace_name = Property(
+        str, default="",
+        help_text="Name of the file's top-level namespace shell (e.g. \"cpp_sqlite\").\n"
+                  "Set even when the namespace contains no indexed compounds, so\n"
+                  "an otherwise-empty namespace region survives as-built\n"
+                  "generation instead of disappearing.\n",
+    )
     guard_leading_blank_lines = Property(int, default=0)
     start_line = Property(
         int, default=0,

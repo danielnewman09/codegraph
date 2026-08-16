@@ -72,12 +72,28 @@ class BuildState:
         flat: node_key → CompositeEntry index (built once, shared).
         skipped: node_type → count of filtered nodes.
         warnings: Human-readable notes (orphans, duplicates, gaps).
+        as_built: True when the input graph carries the ``as-built`` tag —
+            as-built generation must render exactly what was indexed
+            (no synthesized forward declarations, includes, or docs).
     """
 
     graph: object | None = None
     flat: dict = field(default_factory=dict)
     skipped: dict[str, int] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        # As-built mode mirrors the planner's provenance detection: a graph
+        # with FileNode roots is an indexed source tree (render what was
+        # indexed — never synthesize forward declarations, includes, or
+        # docs).  The ``as-built`` tag alone is not sufficient: design
+        # goldens can carry both tags (e.g. 'as-built' + 'design').
+        self.as_built = False
+        if self.graph is not None:
+            self.as_built = any(
+                type(entry.node).__name__ == "FileNode"
+                for entry in getattr(self.graph, "entries", {}).values()
+            )
 
     def count_skip(self, node_type: str) -> None:
         self.skipped[node_type] = self.skipped.get(node_type, 0) + 1
@@ -92,12 +108,15 @@ class BuildOutput:
         skipped: node_type → count of filtered nodes.
         warnings: Human-readable notes.
         graph_tags: Tags of the input LayerGraph.
+        as_built: True when the input graph is FileNode-rooted (as-built
+            mode) — the pack uses this to preserve source blank layout.
     """
 
     files: dict[str, dict] = field(default_factory=dict)
     skipped: dict[str, int] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
     graph_tags: frozenset[str] = frozenset()
+    as_built: bool = False
 
 
 class CodegenContextBuilder:
@@ -166,6 +185,7 @@ class CodegenContextBuilder:
             skipped=state.skipped,
             warnings=state.warnings,
             graph_tags=graph.tags,
+            as_built=state.as_built,
         )
 
     # ── File-context assembly ──────────────────────────────────────
@@ -236,10 +256,21 @@ class CodegenContextBuilder:
             "guard_leading_blank_lines": indexed_file_ctx.get(
                 "guard_leading_blank_lines", 0
             ),
+            "leading_blank_lines": indexed_file_ctx.get("leading_blank_lines", 0),
             "forward_decls": [],
             "namespaces": _nest_by_namespace(top_contexts),
             "blocks": _top_level_blocks(top_contexts) + test_blocks,
         }
+        # Preserve an otherwise-empty top-level namespace shell (e.g. a
+        # ``.cpp`` whose namespace holds only blank lines): the FileNode
+        # records the namespace name and the renderer emits open/close with
+        # the indexed blank layout instead of dropping the region entirely.
+        if not file_ctx["namespaces"] and indexed_file_ctx.get("namespace_name"):
+            file_ctx["namespaces"] = [{
+                "name": indexed_file_ctx["namespace_name"],
+                "blocks": [],
+                "namespaces": [],
+            }]
         # Source files (.cpp) are rebuilt from the implementation export:
         # every method whose body lives in this file is routed here and
         # rendered inside its top-level namespace (the out-of-line
@@ -248,7 +279,141 @@ class CodegenContextBuilder:
             file_ctx["source_bodies"] = _collect_source_bodies(
                 graph, state, plan.path
             )
+        else:
+            # Headers may carry structural complexity that the simple
+            # namespace-tree path cannot express: re-opened namespace
+            # regions, mid-file includes, or out-of-line definitions that
+            # live in the header itself.  When present, the body is
+            # rendered as a source-ordered layout instead.
+            layout = _build_layout(
+                file_ctx, top_contexts, graph, state, plan, indexed_file_ctx
+            )
+            if layout is not None:
+                file_ctx["layout"] = layout
         return file_ctx
+
+
+def _build_layout(file_ctx, top_contexts, graph, state, plan, indexed_file_ctx) -> list | None:
+    """Source-ordered body layout for a structurally complex as-built header.
+
+    Returns None for simple files (single namespace region, no mid-file
+    include, no header-resident out-of-line definitions) — those keep the
+    plain ``namespaces``/``blocks`` rendering.  When present, ``layout`` is
+    a list of ordered items:
+
+    - ``{"kind": "region", name, open_line, close_line,
+       leading_blank_lines, trailing_blank_lines, blocks}`` — one namespace
+       region with its source-ordered blocks (compounds, residuals, and
+       header-resident out-of-line bodies);
+    - ``{"kind": "residual", line, ctx}`` — a file-level residual;
+    - ``{"kind": "include", line, spelling}`` — a mid-file include.
+    """
+    regions = list(indexed_file_ctx.get("namespace_regions") or [])
+    if not regions:
+        return None
+    first_region_open = regions[0]["open_line"]
+
+    # Split includes: top-of-file includes render in the header template;
+    # mid-file includes (source line at/after the first namespace open)
+    # become layout items at their source position.
+    inc_lines = list(indexed_file_ctx.get("include_directive_lines") or [])
+    includes = list(file_ctx.get("includes") or [])
+    top_includes: list[str] = []
+    mid_includes: list[dict] = []
+    has_mid_include = False
+    for i, inc in enumerate(includes):
+        line = inc_lines[i] if i < len(inc_lines) else 0
+        if line and line >= first_region_open:
+            mid_includes.append({"kind": "include", "line": line, "spelling": inc})
+            has_mid_include = True
+        else:
+            top_includes.append(inc)
+    if top_includes and has_mid_include:
+        while top_includes and top_includes[-1] == "":
+            top_includes.pop()  # the group separator belongs to the mid include
+    file_ctx["includes"] = top_includes
+
+    # Header-resident out-of-line bodies (same file, non-contiguous with
+    # their declaration) render at their source position in the header.
+    header_bodies = _collect_flat_bodies(graph, state, plan.path)
+    for body in header_bodies:
+        body["variant"] = "defn"
+
+    # Assign every namespace-anchored block (compound, placed residual,
+    # header body) to the region containing its start line; file-level
+    # residuals (placement "") become file units.
+    region_blocks: list[list[dict]] = [[] for _ in regions]
+    file_units: list[dict] = []
+    for ctx in top_contexts:
+        start = int(ctx.get("start_line") or 0)
+        if ctx.get("type") == "SourceFragmentNode" and not ctx.get("placement"):
+            file_units.append({"kind": "residual", "line": start, "ctx": ctx,
+                               "end_line": int(ctx.get("end_line") or 0)})
+            continue
+        placed = False
+        for index, region in enumerate(regions):
+            if region["open_line"] <= start <= region["close_line"]:
+                region_blocks[index].append(ctx)
+                placed = True
+                break
+        if not placed:
+            file_units.append({"kind": "residual", "line": start, "ctx": ctx,
+                               "end_line": int(ctx.get("end_line") or 0)})
+    for body in header_bodies:
+        line = int(body.get("_line") or body.get("start_line") or 0)
+        for index, region in enumerate(regions):
+            if region["open_line"] <= line <= region["close_line"]:
+                region_blocks[index].append(body)
+                break
+
+    items: list[dict] = []
+    for index, region in enumerate(regions):
+        items.append({
+            "kind": "region",
+            "name": region["name"],
+            "start_line": region["open_line"],
+            "close_line": region["close_line"],
+            "leading_blank_lines": int(region.get("leading_blank_lines") or 0),
+            "trailing_blank_lines": int(region.get("trailing_blank_lines") or 0),
+            "blocks": sorted(region_blocks[index], key=_source_order_key),
+        })
+    items.extend(file_units)
+    items.extend(mid_includes)
+    return sorted(items, key=lambda item: (
+        int(item.get("line") or item.get("start_line") or 0),
+        item.get("kind", ""),
+    ))
+
+
+def _collect_flat_bodies(graph, state, plan_path: str) -> list[dict]:
+    """Flat member contexts for out-of-line bodies living in *plan_path*.
+
+    Unlike ``_collect_source_bodies`` (grouped for the .cpp renderer), this
+    returns individual contexts so the layout can interleave them with
+    residuals at their exact source lines.  Bodies are verbatim source and
+    render via the ``_defn`` variant.
+    """
+    bodies: list[dict] = []
+    for entry in state.flat.values():
+        node = entry.node
+        if type(node).__name__ not in ("MethodNode", "FunctionNode"):
+            continue
+        body = getattr(node, "body", "") or ""
+        body_file = getattr(node, "body_file", "") or ""
+        if not body:
+            continue
+        if body_file != plan_path:
+            continue
+        ctx = member.build_context(entry, state)
+        if ctx is None or not ctx.get("body") or ctx.get("body_inline"):
+            continue
+        ctx["_line"] = (
+            getattr(node, "body_start", 0)
+            or getattr(node, "line_number", 0)
+            or 0
+        )
+        bodies.append(ctx)
+    return bodies
 
 
 def _collect_source_bodies(graph, state, plan_path: str) -> list[dict]:
@@ -314,6 +479,11 @@ def _nest_by_namespace(top_contexts: list[dict]) -> list[dict]:
     previous implementation stored them as sibling keys of the parent
     node, so any qname with three or more top-level ``::`` parts (or
     ``::`` inside template args) silently dropped its compound.
+
+    Blocks are ordered by source position (``start_line``) so that
+    structured declarations and residual fragments interleave exactly as
+    they appear in the indexed source — fragments are never appended by
+    node type.
     """
     root = {"blocks": [], "namespaces": {}}
 
@@ -332,7 +502,9 @@ def _nest_by_namespace(top_contexts: list[dict]) -> list[dict]:
     def render(node: dict, name: str) -> dict:
         return {
             "name": name,
-            "blocks": node["blocks"],
+            "blocks": sorted(
+                node["blocks"], key=_source_order_key
+            ),
             "namespaces": [
                 render(child, child_name)
                 for child_name, child in node["namespaces"].items()
@@ -342,13 +514,31 @@ def _nest_by_namespace(top_contexts: list[dict]) -> list[dict]:
     return [render(node, name) for name, node in root["namespaces"].items()]
 
 
+def _source_order_key(ctx: dict) -> tuple[int, str]:
+    """Sort key placing contexts by their first owned source line.
+
+    Out-of-line body contexts carry ``_line`` (the body's source position in
+    its implementation file); compounds/residuals use ``start_line``.  Falls
+    back to ``line_number`` for contexts that predate the span fields, then
+    to the qualified name for determinism.
+    """
+    line = (
+        int(ctx.get("_line") or 0)
+        or int(ctx.get("start_line") or 0)
+        or int(ctx.get("line_number") or 0)
+        or 0
+    )
+    return (line, ctx.get("qualified_name") or ctx.get("name") or "")
+
+
 def _top_level_blocks(top_contexts: list[dict]) -> list[dict]:
     """Contexts with no namespace anchor (bare qnames, as-built files)."""
-    return [
+    blocks = [
         ctx
         for ctx in top_contexts
         if "::" not in (ctx.get("qualified_name", "") or "")
     ]
+    return sorted(blocks, key=_source_order_key)
 
 
 __all__ = [

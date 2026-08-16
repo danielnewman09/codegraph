@@ -84,6 +84,14 @@ def _build_class_like(entry, state) -> dict:
             )
             if ctx is not None:
                 members.append(ctx)
+        # Declaration order, not node-type bucket order: members are
+        # interleaved exactly as they appear in the indexed source.
+        members.sort(
+            key=lambda m: (
+                int(m.get("start_line") or m.get("line_number") or 0),
+                m.get("qualified_name") or m.get("name") or "",
+            )
+        )
         sections.append({"access": visibility, "members": members})
 
     return {
@@ -107,10 +115,14 @@ def _build_class_like(entry, state) -> dict:
         "template_args": spec["args"] if spec else "",
         "bases": _bases(entry, state),
         "interfaces": _interfaces(entry, state),
-        "forward_decls": _forward_decls(entry, state),
+        "forward_decls": (
+            [] if getattr(state, "as_built", False) else _forward_decls(entry, state)
+        ),
         "sections": sections,
         "file_path": node.file_path or "",
         "line_number": node.line_number or 0,
+        "start_line": getattr(node, "start_line", 0) or 0,
+        "end_line": getattr(node, "end_line", 0) or 0,
     }
 
 
@@ -230,9 +242,18 @@ def _template_params(entry, state) -> list[dict]:
 def _bases(entry, state) -> list[dict]:
     """INHERITS_FROM references → base list.
 
-    Phase 1 default: ``access: "public"``, ``virtual: False`` — edge
-    properties are Phase 2 (spec gap 4).
+    As-built nodes carry the ordered, source-spelled base declarations
+    (``base_specifiers``) — including unresolved/external bases such as
+    ``std::runtime_error`` with their access/virtual qualifiers — so they
+    are the preferred source of truth.  Design graphs fall back to edge
+    targets (Phase 1 default: ``access: "public"``, ``virtual: False``).
     """
+    spelled = list(getattr(entry.node, "base_specifiers", []) or [])
+    if spelled:
+        return [
+            {"name": spec, "access": "", "virtual": False, "spelling": spec}
+            for spec in spelled
+        ]
     bases: list[dict] = []
     for relation_type, target_key, _target_type in entry.references:
         if relation_type != "INHERITS_FROM":
@@ -272,11 +293,16 @@ def _build_enum(entry, state) -> dict:
         "visibility": base.normalize_visibility(node.visibility),
         "brief": node.brief_description or "",
         "detailed": node.detailed_description or "",
+        "source_documentation": getattr(node, "source_documentation", "") or "",
+        "enum_class": bool(getattr(node, "enum_class", False)),
+        "underlying_type": getattr(node, "underlying_type", "") or "",
         # ``enumerators`` (not ``values``) — ``node.values`` would resolve
         # to ``dict.values`` in Jinja2 templates.
         "enumerators": values,
         "file_path": node.file_path or "",
         "line_number": node.line_number or 0,
+        "start_line": getattr(node, "start_line", 0) or 0,
+        "end_line": getattr(node, "end_line", 0) or 0,
     }
 
 
@@ -306,7 +332,13 @@ def _build_concept(entry, state) -> dict:
         "visibility": base.normalize_visibility(node.visibility),
         "brief": node.brief_description or "",
         "detailed": node.detailed_description or "",
+        "source_documentation": getattr(node, "source_documentation", "") or "",
+        "template_declarations": list(
+            getattr(node, "template_declarations", []) or []
+        ),
         "initializer": initializer,
         "file_path": node.file_path or "",
         "line_number": node.line_number or 0,
+        "start_line": getattr(node, "start_line", 0) or 0,
+        "end_line": getattr(node, "end_line", 0) or 0,
     }

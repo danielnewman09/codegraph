@@ -154,6 +154,19 @@ class MethodNode(MemberNode):
     is_virtual = Property(bool, default=False)
     is_inline = Property(bool, default=False)
     is_explicit = Property(bool, default=False)
+    is_nodiscard = Property(
+        bool, default=False,
+        help_text="True when the declaration carries [[nodiscard]] (Doxygen \n"
+                  "nodiscard=\"yes\" on the memberdef).  Retained source-\n"
+                  "spelled so as-built generation can reproduce the attribute.\n",
+    )
+    template_declarations = Property(
+        list, default=[],
+        help_text="Ordered source declarations for template parameters of a \n"
+                  "member function (for example \"ValidTransferObject T\"), \n"
+                  "mirroring CompoundNode.template_declarations.  Rendered \n"
+                  "above the member declaration.",
+    )
 
     #: Implementation body text, captured at parse time from the source
     #: file (Doxygen's ``bodyfile``/``bodystart``/``bodyend`` line range —
@@ -218,8 +231,22 @@ class AttributeNode(MemberNode):
         str, default="",
         help_text="Explicit source initializer for this attribute, including its leading =.",
     )
+    declaration = Property(
+        str, default="",
+        help_text="Verbatim source declaration for this attribute (captured at \n"
+                  "parse time from the declaration file).  Preferred over the \n"
+                  "reconstructed specifiers when present: doxygen drops \n"
+                  "keywords such as ``inline`` on static members, and the \n"
+                  "source spelling is the only faithful record.\n",
+    )
     is_static = Property(bool, default=False)
     is_const = Property(bool, default=False)
+    is_constexpr = Property(
+        bool, default=False,
+        help_text="True when the declaration carries constexpr (Doxygen \n"
+                  "constexpr=\"yes\" on the memberdef).",
+    )
+    is_nodiscard = Property(bool, default=False)
 
     _llm_fields = {
         "qualified_name", "name", "kind", "tags", "brief_description",

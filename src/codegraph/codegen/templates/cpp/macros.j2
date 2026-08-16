@@ -13,8 +13,10 @@
 
 {# ── Callable members ─────────────────────────────────────────────── #}
 
-{% macro cg_method_decl(node) %}{{ doc_block(node) }}{{ provenance(node) }}{{ node.declaration }};
-{% endmacro %}
+{% macro cg_method_decl(node) %}{{ doc_block(node) }}{{ provenance(node) }}{% if node.body_inline %}{% if node.template_declarations %}template<{% for p in node.template_declarations %}{{ p }}{% if not loop.last %}, {% endif %}{% endfor %}>
+{% endif %}{{ node.body }}{% else %}{% if node.nodiscard %}[[nodiscard]] {% endif %}{% if node.template_declarations %}template<{% for p in node.template_declarations %}{{ p }}{% if not loop.last %}, {% endif %}{% endfor %}>
+{% endif %}{{ node.declaration }};
+{% endif %}{% endmacro %}
 
 {% macro cg_method_defn(node) %}{% if node.body %}{{ node.body }}{% else %}{{ doc_block(node) }}{{ provenance(node) }}{{ node.definition_scoped or node.declaration }}
 {
@@ -28,15 +30,15 @@
 
 {# ── Attributes / typedefs ────────────────────────────────────────── #}
 
-{% macro cg_attribute(node) %}{{ doc_block(node) }}{{ provenance(node) }}{% if node.is_static %}static {% endif %}{% if node.is_const %}const {% endif %}{{ node.type_signature }} {{ node.name }}{{ node.initializer }};
-{% endmacro %}
+{% macro cg_attribute(node) %}{{ doc_block(node) }}{{ provenance(node) }}{% if node.declaration %}{{ node.declaration }}{% else %}{% if node.nodiscard %}[[nodiscard]] {% endif %}{% if node.is_static %}static {% endif %}{% if node.is_constexpr %}constexpr {% endif %}{% if node.is_const %}const {% endif %}{{ node.type_signature }} {{ node.name }}{{ node.initializer }};
+{% endif %}{% endmacro %}
 
 {% macro cg_typedef(node) %}{{ doc_block(node) }}{{ provenance(node) }}{{ node.declaration }};
 {% endmacro %}
 
 {# ── Enums ────────────────────────────────────────────────────────── #}
 
-{% macro cg_enum(node, enum_class=False) %}{{ doc_block(node) }}{{ provenance(node) }}{{ 'enum class' if enum_class else 'enum' }} {{ node.name }} {
+{% macro cg_enum(node, enum_class=False) %}{{ doc_block(node) }}{{ provenance(node) }}{{ 'enum class' if (enum_class or node.enum_class) else 'enum' }} {{ node.name }}{% if node.underlying_type %} : {{ node.underlying_type }}{% endif %} {
 {% for v in node.enumerators %}    {{ cg_enum_value(v) }}{% if not loop.last %},{% endif %}{{ '\n' }}{% endfor %}};
 {% endmacro %}
 
@@ -46,10 +48,10 @@
 
 {% macro cg_class(node, keyword=None) %}{% for f in node.forward_decls %}{{ 'struct' if f.kind == 'struct' else 'class' }} {{ f.name }};
 {% endfor %}{{ doc_block(node) }}{{ provenance(node) }}{% if node.template_params %}template<{% for p in node.template_params %}{{ p.declaration if p.declaration else p.kind ~ ' ' ~ p.name }}{% if not loop.last %}, {% endif %}{% endfor %}>
-{% endif %}{{ keyword or ('struct' if node.kind == 'struct' else 'class') }} {{ node.name }}{% if node.template_args %}{{ node.template_args }}{% endif %}{% if node.bases %} : {% for b in node.bases %}{{ b.access }} {{ b.name }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %} {
+{% endif %}{{ keyword or ('struct' if node.kind == 'struct' else 'class') }} {{ node.name }}{% if node.template_args %}{{ node.template_args }}{% endif %}{% if node.bases %} : {% for b in node.bases %}{{ b.spelling if b.spelling else (('virtual ' if b.virtual else '') ~ b.access ~ ' ' ~ b.name) }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %} {
 {% for section in node.sections %}{% if not (node.kind == 'struct' and section.access == 'public') %}{{ section.access }}:
 {% endif %}
-{% for m in section.members %}{{ render_node(m, indent=4) }}
+{% for m in section.members %}{% if not loop.first %}{% set _prev = loop.previtem %}{% set _gap = (m.start_line | default(0)) - (_prev.end_line | default(0)) %}{% if _gap > 1 %}{% set _blanks = _gap - 1 %}{% if _blanks > 2 %}{% set _blanks = 2 %}{% endif %}{{ '\n' * _blanks }}{% endif %}{% endif %}{{ render_node(m, indent=4) }}
 {% endfor %}{% endfor %}};
 {% endmacro %}
 
@@ -57,8 +59,9 @@
 
 {# ── Concepts / defines / bodies / params ─────────────────────────── #}
 
-{% macro cg_concept(node) %}{{ doc_block(node) }}{{ provenance(node) }}{% if '//' in node.initializer %} // TODO(codegen): concept {{ node.name }} initializer contains embedded comments — not emitted (design data defect, D6)
-{% else %}{{ node.initializer }}{% if not node.initializer.endswith(';') %};{% endif %}
+{% macro cg_concept(node) %}{{ doc_block(node) }}{{ provenance(node) }}{% if node.template_declarations %}template<{% for p in node.template_declarations %}{{ p }}{% if not loop.last %}, {% endif %}{% endfor %}>
+{% endif %}{% if '//' in node.initializer and '\n' not in node.initializer %} // TODO(codegen): concept {{ node.name }} initializer contains embedded comments — not emitted (design data defect, D6)
+{% else %}{{ node.initializer }}{% if not node.initializer.rstrip().endswith(';') %};{% endif %}
 {% endif %}{% endmacro %}
 
 {% macro cg_define(node) %}{{ doc_block(node) }}{{ provenance(node) }}{{ node.definition }}
