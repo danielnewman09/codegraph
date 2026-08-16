@@ -4,6 +4,7 @@
     "composes": [
       {
         "base_classes": [],
+        "base_specifiers": [],
         "brief_description": "The core calculator engine class that performs arithmetic operations.",
         "component_id": null,
         "composes": [
@@ -19,11 +20,13 @@
             "detailed_description": "",
             "doc_embedding": [],
             "edges": [],
+            "end_line": 0,
             "file_path": "",
             "is_const": false,
             "is_constexpr": false,
             "is_explicit": false,
             "is_inline": false,
+            "is_nodiscard": false,
             "is_static": false,
             "is_virtual": false,
             "kind": "method",
@@ -33,9 +36,11 @@
             "refid": "",
             "source": "markdown-import",
             "source_documentation": "",
+            "start_line": 0,
             "tags": [
               "design"
             ],
+            "template_declarations": [],
             "type": "MethodNode",
             "type_signature": "CalculatorResult",
             "uid": "0b69696d218cc6dc1fc9b7427a420512d9adefb5",
@@ -53,11 +58,13 @@
             "detailed_description": "",
             "doc_embedding": [],
             "edges": [],
+            "end_line": 0,
             "file_path": "",
             "is_const": false,
             "is_constexpr": false,
             "is_explicit": false,
             "is_inline": false,
+            "is_nodiscard": false,
             "is_static": false,
             "is_virtual": false,
             "kind": "method",
@@ -67,9 +74,11 @@
             "refid": "",
             "source": "markdown-import",
             "source_documentation": "",
+            "start_line": 0,
             "tags": [
               "design"
             ],
+            "template_declarations": [],
             "type": "MethodNode",
             "type_signature": "bool",
             "uid": "0816226e5e9ad392c362d11753abd3a39b503038",
@@ -81,12 +90,17 @@
             "brief_description": "The number of decimal places for result precision.",
             "component_id": null,
             "compound_refid": "",
+            "declaration": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
             "edges": [],
+            "end_line": 0,
             "file_path": "",
+            "initializer": "",
             "is_const": false,
+            "is_constexpr": false,
+            "is_nodiscard": false,
             "is_static": false,
             "kind": "attribute",
             "line_number": null,
@@ -95,6 +109,7 @@
             "refid": "",
             "source": "markdown-import",
             "source_documentation": "",
+            "start_line": 0,
             "tags": [
               "design"
             ],
@@ -104,6 +119,7 @@
             "visibility": "public"
           }
         ],
+        "compound_refid": "",
         "definition": "",
         "detailed_description": "",
         "doc_embedding": [],
@@ -119,6 +135,7 @@
             "target_uid": "calc::CalculatorResult"
           }
         ],
+        "end_line": 0,
         "file_path": "",
         "is_abstract": false,
         "is_final": false,
@@ -131,6 +148,7 @@
         "source": "markdown-import",
         "source_documentation": "",
         "source_type": "",
+        "start_line": 0,
         "tags": [
           "design"
         ],
@@ -141,6 +159,7 @@
       },
       {
         "base_classes": [],
+        "base_specifiers": [],
         "brief_description": "A result wrapper class that holds the outcome of a calculator operation.",
         "component_id": null,
         "composes": [
@@ -156,11 +175,13 @@
             "detailed_description": "",
             "doc_embedding": [],
             "edges": [],
+            "end_line": 0,
             "file_path": "",
             "is_const": false,
             "is_constexpr": false,
             "is_explicit": false,
             "is_inline": false,
+            "is_nodiscard": false,
             "is_static": false,
             "is_virtual": false,
             "kind": "method",
@@ -170,9 +191,11 @@
             "refid": "",
             "source": "markdown-import",
             "source_documentation": "",
+            "start_line": 0,
             "tags": [
               "design"
             ],
+            "template_declarations": [],
             "type": "MethodNode",
             "type_signature": "",
             "uid": "c35d6ff11f978c878d1c3a7dae048d35b6aa20e6",
@@ -184,12 +207,17 @@
             "brief_description": "The computed numeric result.",
             "component_id": null,
             "compound_refid": "",
+            "declaration": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
             "edges": [],
+            "end_line": 0,
             "file_path": "",
+            "initializer": "",
             "is_const": false,
+            "is_constexpr": false,
+            "is_nodiscard": false,
             "is_static": false,
             "kind": "attribute",
             "line_number": null,
@@ -198,6 +226,7 @@
             "refid": "",
             "source": "markdown-import",
             "source_documentation": "",
+            "start_line": 0,
             "tags": [
               "design"
             ],
@@ -207,10 +236,12 @@
             "visibility": "public"
           }
         ],
+        "compound_refid": "",
         "definition": "",
         "detailed_description": "",
         "doc_embedding": [],
         "edges": [],
+        "end_line": 0,
         "file_path": "",
         "is_abstract": false,
         "is_final": false,
@@ -223,6 +254,7 @@
         "source": "markdown-import",
         "source_documentation": "",
         "source_type": "",
+        "start_line": 0,
         "tags": [
           "design"
         ],
@@ -247,11 +279,13 @@
             "detailed_description": "",
             "doc_embedding": [],
             "edges": [],
+            "end_line": 0,
             "file_path": "",
             "is_const": false,
             "is_constexpr": false,
             "is_explicit": false,
             "is_inline": false,
+            "is_nodiscard": false,
             "is_static": false,
             "is_virtual": false,
             "kind": "method",
@@ -261,19 +295,23 @@
             "refid": "",
             "source": "markdown-import",
             "source_documentation": "",
+            "start_line": 0,
             "tags": [
               "design"
             ],
+            "template_declarations": [],
             "type": "MethodNode",
             "type_signature": "CalculatorResult",
             "uid": "982cbd0edc30e03e63d379bb79e891aec96f32c9",
             "visibility": "public"
           }
         ],
+        "compound_refid": "",
         "definition": "",
         "detailed_description": "",
         "doc_embedding": [],
         "edges": [],
+        "end_line": 0,
         "file_path": "",
         "is_abstract": true,
         "kind": "interface",
@@ -285,6 +323,7 @@
         "source": "markdown-import",
         "source_documentation": "",
         "source_type": "",
+        "start_line": 0,
         "tags": [
           "design"
         ],
@@ -307,6 +346,7 @@
             "detailed_description": "",
             "doc_embedding": [],
             "edges": [],
+            "end_line": 0,
             "file_path": "",
             "initializer": "",
             "kind": "enumvalue",
@@ -316,6 +356,7 @@
             "refid": "",
             "source": "markdown-import",
             "source_documentation": "",
+            "start_line": 0,
             "tags": [
               "design"
             ],
@@ -333,6 +374,7 @@
             "detailed_description": "",
             "doc_embedding": [],
             "edges": [],
+            "end_line": 0,
             "file_path": "",
             "initializer": "",
             "kind": "enumvalue",
@@ -342,6 +384,7 @@
             "refid": "",
             "source": "markdown-import",
             "source_documentation": "",
+            "start_line": 0,
             "tags": [
               "design"
             ],
@@ -350,10 +393,13 @@
             "visibility": ""
           }
         ],
+        "compound_refid": "",
         "definition": "",
         "detailed_description": "",
         "doc_embedding": [],
         "edges": [],
+        "end_line": 0,
+        "enum_class": false,
         "file_path": "",
         "kind": "enum",
         "line_number": null,
@@ -364,12 +410,14 @@
         "source": "markdown-import",
         "source_documentation": "",
         "source_type": "",
+        "start_line": 0,
         "tags": [
           "design"
         ],
         "template_declarations": [],
         "type": "EnumNode",
         "uid": "91fd735f5a9a24337a675fbc3d13f54f8394f96d",
+        "underlying_type": "",
         "visibility": ""
       },
       {
@@ -383,6 +431,7 @@
         "detailed_description": "",
         "doc_embedding": [],
         "edges": [],
+        "end_line": 0,
         "file_path": "",
         "kind": "function",
         "line_number": null,
@@ -391,6 +440,7 @@
         "refid": "",
         "source": "markdown-import",
         "source_documentation": "",
+        "start_line": 0,
         "tags": [
           "design"
         ],
@@ -402,11 +452,14 @@
     ],
     "description": "Calculation engine module",
     "edges": [],
+    "end_line": 0,
+    "file_path": "",
     "kind": "namespace",
     "name": "calc",
     "qualified_name": "calc",
     "refid": "",
     "source": "markdown-import",
+    "start_line": 0,
     "tags": [
       "design"
     ],
@@ -418,6 +471,7 @@
     "composes": [
       {
         "base_classes": [],
+        "base_specifiers": [],
         "brief_description": "Abstract base window class providing common window operations.",
         "component_id": null,
         "composes": [
@@ -433,11 +487,13 @@
             "detailed_description": "",
             "doc_embedding": [],
             "edges": [],
+            "end_line": 0,
             "file_path": "",
             "is_const": false,
             "is_constexpr": false,
             "is_explicit": false,
             "is_inline": false,
+            "is_nodiscard": false,
             "is_static": false,
             "is_virtual": false,
             "kind": "method",
@@ -447,19 +503,23 @@
             "refid": "",
             "source": "markdown-import",
             "source_documentation": "",
+            "start_line": 0,
             "tags": [
               "design"
             ],
+            "template_declarations": [],
             "type": "MethodNode",
             "type_signature": "",
             "uid": "8b391cd8a5d8f4fca66c23f89ab6b2e21fc56f0a",
             "visibility": "public"
           }
         ],
+        "compound_refid": "",
         "definition": "",
         "detailed_description": "",
         "doc_embedding": [],
         "edges": [],
+        "end_line": 0,
         "file_path": "",
         "is_abstract": false,
         "is_final": false,
@@ -472,6 +532,7 @@
         "source": "markdown-import",
         "source_documentation": "",
         "source_type": "",
+        "start_line": 0,
         "tags": [
           "design"
         ],
@@ -482,8 +543,10 @@
       },
       {
         "base_classes": [],
+        "base_specifiers": [],
         "brief_description": "The main application window for the calculator.",
         "component_id": null,
+        "compound_refid": "",
         "definition": "",
         "detailed_description": "",
         "doc_embedding": [],
@@ -499,6 +562,7 @@
             "target_uid": "calc::CalculatorEngine"
           }
         ],
+        "end_line": 0,
         "file_path": "",
         "is_abstract": false,
         "is_final": false,
@@ -511,6 +575,7 @@
         "source": "markdown-import",
         "source_documentation": "",
         "source_type": "",
+        "start_line": 0,
         "tags": [
           "design"
         ],
@@ -522,11 +587,14 @@
     ],
     "description": "User interface module",
     "edges": [],
+    "end_line": 0,
+    "file_path": "",
     "kind": "namespace",
     "name": "ui",
     "qualified_name": "ui",
     "refid": "",
     "source": "markdown-import",
+    "start_line": 0,
     "tags": [
       "design"
     ],
@@ -535,17 +603,24 @@
   },
   {
     "edges": [],
+    "end_line": 0,
+    "guard_leading_blank_lines": 0,
+    "include_directive_lines": [],
     "include_directives": [],
     "include_guard": "",
     "kind": "file",
     "language": "",
+    "leading_blank_lines": 0,
     "name": "calculator_engine.h",
     "namespace_leading_blank_lines": 0,
+    "namespace_name": "",
+    "namespace_regions": [],
     "namespace_trailing_blank_lines": 0,
     "path": "calculator_engine.h",
     "qualified_name": "calculator_engine.h",
     "refid": "",
     "source": "markdown-import",
+    "start_line": 0,
     "tags": [
       "design"
     ],
@@ -554,17 +629,24 @@
   },
   {
     "edges": [],
+    "end_line": 0,
+    "guard_leading_blank_lines": 0,
+    "include_directive_lines": [],
     "include_directives": [],
     "include_guard": "",
     "kind": "file",
     "language": "",
+    "leading_blank_lines": 0,
     "name": "icalculator.h",
     "namespace_leading_blank_lines": 0,
+    "namespace_name": "",
+    "namespace_regions": [],
     "namespace_trailing_blank_lines": 0,
     "path": "icalculator.h",
     "qualified_name": "icalculator.h",
     "refid": "",
     "source": "markdown-import",
+    "start_line": 0,
     "tags": [
       "design"
     ],
@@ -573,17 +655,24 @@
   },
   {
     "edges": [],
+    "end_line": 0,
+    "guard_leading_blank_lines": 0,
+    "include_directive_lines": [],
     "include_directives": [],
     "include_guard": "",
     "kind": "file",
     "language": "",
+    "leading_blank_lines": 0,
     "name": "operation.h",
     "namespace_leading_blank_lines": 0,
+    "namespace_name": "",
+    "namespace_regions": [],
     "namespace_trailing_blank_lines": 0,
     "path": "operation.h",
     "qualified_name": "operation.h",
     "refid": "",
     "source": "markdown-import",
+    "start_line": 0,
     "tags": [
       "design"
     ],
@@ -592,17 +681,24 @@
   },
   {
     "edges": [],
+    "end_line": 0,
+    "guard_leading_blank_lines": 0,
+    "include_directive_lines": [],
     "include_directives": [],
     "include_guard": "",
     "kind": "file",
     "language": "",
+    "leading_blank_lines": 0,
     "name": "calculator_result.h",
     "namespace_leading_blank_lines": 0,
+    "namespace_name": "",
+    "namespace_regions": [],
     "namespace_trailing_blank_lines": 0,
     "path": "calculator_result.h",
     "qualified_name": "calculator_result.h",
     "refid": "",
     "source": "markdown-import",
+    "start_line": 0,
     "tags": [
       "design"
     ],
@@ -611,17 +707,24 @@
   },
   {
     "edges": [],
+    "end_line": 0,
+    "guard_leading_blank_lines": 0,
+    "include_directive_lines": [],
     "include_directives": [],
     "include_guard": "",
     "kind": "file",
     "language": "",
+    "leading_blank_lines": 0,
     "name": "base_window.h",
     "namespace_leading_blank_lines": 0,
+    "namespace_name": "",
+    "namespace_regions": [],
     "namespace_trailing_blank_lines": 0,
     "path": "base_window.h",
     "qualified_name": "base_window.h",
     "refid": "",
     "source": "markdown-import",
+    "start_line": 0,
     "tags": [
       "design"
     ],
@@ -630,17 +733,24 @@
   },
   {
     "edges": [],
+    "end_line": 0,
+    "guard_leading_blank_lines": 0,
+    "include_directive_lines": [],
     "include_directives": [],
     "include_guard": "",
     "kind": "file",
     "language": "",
+    "leading_blank_lines": 0,
     "name": "calculator_window.h",
     "namespace_leading_blank_lines": 0,
+    "namespace_name": "",
+    "namespace_regions": [],
     "namespace_trailing_blank_lines": 0,
     "path": "calculator_window.h",
     "qualified_name": "calculator_window.h",
     "refid": "",
     "source": "markdown-import",
+    "start_line": 0,
     "tags": [
       "design"
     ],

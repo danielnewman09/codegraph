@@ -4,6 +4,7 @@
     "composes": [
       {
         "base_classes": [],
+        "base_specifiers": [],
         "brief_description": "",
         "component_id": null,
         "composes": [
@@ -19,11 +20,13 @@
             "detailed_description": "",
             "doc_embedding": [],
             "edges": [],
+            "end_line": 0,
             "file_path": "",
             "is_const": false,
             "is_constexpr": false,
             "is_explicit": false,
             "is_inline": false,
+            "is_nodiscard": false,
             "is_static": false,
             "is_virtual": false,
             "kind": "method",
@@ -33,9 +36,11 @@
             "refid": "",
             "source": "calculator",
             "source_documentation": "",
+            "start_line": 0,
             "tags": [
               "design"
             ],
+            "template_declarations": [],
             "type": "MethodNode",
             "type_signature": "CalculatorResult",
             "uid": "f03506a446d2e754452e774955c83c7ccd7bf8c6",
@@ -53,11 +58,13 @@
             "detailed_description": "",
             "doc_embedding": [],
             "edges": [],
+            "end_line": 0,
             "file_path": "",
             "is_const": false,
             "is_constexpr": false,
             "is_explicit": false,
             "is_inline": false,
+            "is_nodiscard": false,
             "is_static": false,
             "is_virtual": false,
             "kind": "method",
@@ -67,9 +74,11 @@
             "refid": "",
             "source": "calculator",
             "source_documentation": "",
+            "start_line": 0,
             "tags": [
               "design"
             ],
+            "template_declarations": [],
             "type": "MethodNode",
             "type_signature": "bool",
             "uid": "546620476ca16b2f3db46b316f9e8b9aa6d925f1",
@@ -81,12 +90,17 @@
             "brief_description": "",
             "component_id": null,
             "compound_refid": "",
+            "declaration": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
             "edges": [],
+            "end_line": 0,
             "file_path": "",
+            "initializer": "",
             "is_const": false,
+            "is_constexpr": false,
+            "is_nodiscard": false,
             "is_static": false,
             "kind": "attribute",
             "line_number": null,
@@ -95,6 +109,7 @@
             "refid": "",
             "source": "calculator",
             "source_documentation": "",
+            "start_line": 0,
             "tags": [
               "design"
             ],
@@ -104,6 +119,7 @@
             "visibility": "public"
           }
         ],
+        "compound_refid": "",
         "definition": "",
         "detailed_description": "",
         "doc_embedding": [],
@@ -119,6 +135,7 @@
             "target_uid": "calc::ICalculator"
           }
         ],
+        "end_line": 0,
         "file_path": "",
         "is_abstract": false,
         "is_final": false,
@@ -131,6 +148,7 @@
         "source": "calculator",
         "source_documentation": "",
         "source_type": "",
+        "start_line": 0,
         "tags": [
           "design"
         ],
@@ -141,6 +159,7 @@
       },
       {
         "base_classes": [],
+        "base_specifiers": [],
         "brief_description": "",
         "component_id": null,
         "composes": [
@@ -156,11 +175,13 @@
             "detailed_description": "",
             "doc_embedding": [],
             "edges": [],
+            "end_line": 0,
             "file_path": "",
             "is_const": false,
             "is_constexpr": false,
             "is_explicit": false,
             "is_inline": false,
+            "is_nodiscard": false,
             "is_static": false,
             "is_virtual": false,
             "kind": "method",
@@ -170,9 +191,11 @@
             "refid": "",
             "source": "calculator",
             "source_documentation": "",
+            "start_line": 0,
             "tags": [
               "design"
             ],
+            "template_declarations": [],
             "type": "MethodNode",
             "type_signature": "double",
             "uid": "29590eee47c8aaca1eeb2f993d7ed9830353bf26",
@@ -184,12 +207,17 @@
             "brief_description": "",
             "component_id": null,
             "compound_refid": "",
+            "declaration": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
             "edges": [],
+            "end_line": 0,
             "file_path": "",
+            "initializer": "",
             "is_const": false,
+            "is_constexpr": false,
+            "is_nodiscard": false,
             "is_static": false,
             "kind": "attribute",
             "line_number": null,
@@ -198,6 +226,7 @@
             "refid": "",
             "source": "calculator",
             "source_documentation": "",
+            "start_line": 0,
             "tags": [
               "design"
             ],
@@ -207,10 +236,12 @@
             "visibility": "public"
           }
         ],
+        "compound_refid": "",
         "definition": "",
         "detailed_description": "",
         "doc_embedding": [],
         "edges": [],
+        "end_line": 0,
         "file_path": "",
         "is_abstract": false,
         "is_final": false,
@@ -223,6 +254,7 @@
         "source": "calculator",
         "source_documentation": "",
         "source_type": "",
+        "start_line": 0,
         "tags": [
           "design"
         ],
@@ -247,11 +279,13 @@
             "detailed_description": "",
             "doc_embedding": [],
             "edges": [],
+            "end_line": 0,
             "file_path": "",
             "is_const": false,
             "is_constexpr": false,
             "is_explicit": false,
             "is_inline": false,
+            "is_nodiscard": false,
             "is_static": false,
             "is_virtual": false,
             "kind": "method",
@@ -261,19 +295,23 @@
             "refid": "",
             "source": "calculator",
             "source_documentation": "",
+            "start_line": 0,
             "tags": [
               "design"
             ],
+            "template_declarations": [],
             "type": "MethodNode",
             "type_signature": "CalculatorResult",
             "uid": "ae91bd9b059d2cbd18c3c6f0e5b6cbcd9a10bc58",
             "visibility": "public"
           }
         ],
+        "compound_refid": "",
         "definition": "",
         "detailed_description": "",
         "doc_embedding": [],
         "edges": [],
+        "end_line": 0,
         "file_path": "",
         "is_abstract": true,
         "kind": "interface",
@@ -285,6 +323,7 @@
         "source": "calculator",
         "source_documentation": "",
         "source_type": "",
+        "start_line": 0,
         "tags": [
           "design"
         ],
@@ -307,6 +346,7 @@
             "detailed_description": "",
             "doc_embedding": [],
             "edges": [],
+            "end_line": 0,
             "file_path": "",
             "initializer": "",
             "kind": "enumvalue",
@@ -316,6 +356,7 @@
             "refid": "",
             "source": "calculator",
             "source_documentation": "",
+            "start_line": 0,
             "tags": [
               "design"
             ],
@@ -333,6 +374,7 @@
             "detailed_description": "",
             "doc_embedding": [],
             "edges": [],
+            "end_line": 0,
             "file_path": "",
             "initializer": "",
             "kind": "enumvalue",
@@ -342,6 +384,7 @@
             "refid": "",
             "source": "calculator",
             "source_documentation": "",
+            "start_line": 0,
             "tags": [
               "design"
             ],
@@ -350,10 +393,13 @@
             "visibility": ""
           }
         ],
+        "compound_refid": "",
         "definition": "",
         "detailed_description": "",
         "doc_embedding": [],
         "edges": [],
+        "end_line": 0,
+        "enum_class": false,
         "file_path": "",
         "kind": "enum",
         "line_number": null,
@@ -364,12 +410,14 @@
         "source": "calculator",
         "source_documentation": "",
         "source_type": "",
+        "start_line": 0,
         "tags": [
           "design"
         ],
         "template_declarations": [],
         "type": "EnumNode",
         "uid": "535a4bf2ad71c02172d3ebe363501e38da388059",
+        "underlying_type": "",
         "visibility": ""
       },
       {
@@ -383,6 +431,7 @@
         "detailed_description": "",
         "doc_embedding": [],
         "edges": [],
+        "end_line": 0,
         "file_path": "",
         "kind": "function",
         "line_number": null,
@@ -391,6 +440,7 @@
         "refid": "",
         "source": "calculator",
         "source_documentation": "",
+        "start_line": 0,
         "tags": [
           "design"
         ],
@@ -402,11 +452,14 @@
     ],
     "description": "",
     "edges": [],
+    "end_line": 0,
+    "file_path": "",
     "kind": "namespace",
     "name": "calc",
     "qualified_name": "calc",
     "refid": "",
     "source": "calculator",
+    "start_line": 0,
     "tags": [
       "design"
     ],
@@ -418,6 +471,7 @@
     "composes": [
       {
         "base_classes": [],
+        "base_specifiers": [],
         "brief_description": "",
         "component_id": null,
         "composes": [
@@ -433,11 +487,13 @@
             "detailed_description": "",
             "doc_embedding": [],
             "edges": [],
+            "end_line": 0,
             "file_path": "",
             "is_const": false,
             "is_constexpr": false,
             "is_explicit": false,
             "is_inline": false,
+            "is_nodiscard": false,
             "is_static": false,
             "is_virtual": false,
             "kind": "method",
@@ -447,19 +503,23 @@
             "refid": "",
             "source": "calculator",
             "source_documentation": "",
+            "start_line": 0,
             "tags": [
               "design"
             ],
+            "template_declarations": [],
             "type": "MethodNode",
             "type_signature": "void",
             "uid": "867d9f104a197c667c9a73c02d24f77960718dce",
             "visibility": "public"
           }
         ],
+        "compound_refid": "",
         "definition": "",
         "detailed_description": "",
         "doc_embedding": [],
         "edges": [],
+        "end_line": 0,
         "file_path": "",
         "is_abstract": false,
         "is_final": false,
@@ -472,6 +532,7 @@
         "source": "calculator",
         "source_documentation": "",
         "source_type": "",
+        "start_line": 0,
         "tags": [
           "design"
         ],
@@ -482,6 +543,7 @@
       },
       {
         "base_classes": [],
+        "base_specifiers": [],
         "brief_description": "",
         "component_id": null,
         "composes": [
@@ -497,11 +559,13 @@
             "detailed_description": "",
             "doc_embedding": [],
             "edges": [],
+            "end_line": 0,
             "file_path": "",
             "is_const": false,
             "is_constexpr": false,
             "is_explicit": false,
             "is_inline": false,
+            "is_nodiscard": false,
             "is_static": false,
             "is_virtual": false,
             "kind": "method",
@@ -511,9 +575,11 @@
             "refid": "",
             "source": "calculator",
             "source_documentation": "",
+            "start_line": 0,
             "tags": [
               "design"
             ],
+            "template_declarations": [],
             "type": "MethodNode",
             "type_signature": "void",
             "uid": "77a4b93934e021ded536b57f90c7ed400086c47d",
@@ -525,12 +591,17 @@
             "brief_description": "",
             "component_id": null,
             "compound_refid": "",
+            "declaration": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
             "edges": [],
+            "end_line": 0,
             "file_path": "",
+            "initializer": "",
             "is_const": false,
+            "is_constexpr": false,
+            "is_nodiscard": false,
             "is_static": false,
             "kind": "attribute",
             "line_number": null,
@@ -539,6 +610,7 @@
             "refid": "",
             "source": "calculator",
             "source_documentation": "",
+            "start_line": 0,
             "tags": [
               "design"
             ],
@@ -553,12 +625,17 @@
             "brief_description": "",
             "component_id": null,
             "compound_refid": "",
+            "declaration": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
             "edges": [],
+            "end_line": 0,
             "file_path": "",
+            "initializer": "",
             "is_const": false,
+            "is_constexpr": false,
+            "is_nodiscard": false,
             "is_static": false,
             "kind": "attribute",
             "line_number": null,
@@ -567,6 +644,7 @@
             "refid": "",
             "source": "calculator",
             "source_documentation": "",
+            "start_line": 0,
             "tags": [
               "design"
             ],
@@ -576,6 +654,7 @@
             "visibility": "private"
           }
         ],
+        "compound_refid": "",
         "definition": "",
         "detailed_description": "",
         "doc_embedding": [],
@@ -591,6 +670,7 @@
             "target_uid": "ui::BaseWindow"
           }
         ],
+        "end_line": 0,
         "file_path": "",
         "is_abstract": false,
         "is_final": false,
@@ -603,6 +683,7 @@
         "source": "calculator",
         "source_documentation": "",
         "source_type": "",
+        "start_line": 0,
         "tags": [
           "design"
         ],
@@ -614,11 +695,14 @@
     ],
     "description": "",
     "edges": [],
+    "end_line": 0,
+    "file_path": "",
     "kind": "namespace",
     "name": "ui",
     "qualified_name": "ui",
     "refid": "",
     "source": "calculator",
+    "start_line": 0,
     "tags": [
       "design"
     ],
