@@ -719,6 +719,23 @@ class PlantUMLExporter:
                                           "DefineNode"):
                         self._allowed_classes.add(display)
 
+    # ── Scoped class lookup ───────────────────────────────────────────
+
+    def scoped_allowed_classes(self) -> set[str]:
+        """Compute and return the class qnames in scope: the scoped
+        class plus its 1-hop neighbours (bases, dependencies, referenced
+        types).  Used by sibling exporters (e.g. coverage Markdown) that
+        need the same test→class matching without emitting PlantUML.
+
+        Raises:
+            ValueError: When ``scope_class`` is not set or not found in
+                the graph.
+        """
+        if not self.scope_class:
+            raise ValueError("scope_class is required")
+        self._compute_scope()
+        return self._allowed_classes
+
     # ── export() ─────────────────────────────────────────────────────
 
     def _arrow_endpoints_emitted(self, line: str) -> bool:
@@ -1961,7 +1978,8 @@ def _extract_name(text: str) -> tuple[str, str]:
 
 
 def export_plantuml(graph: LayerGraph, fields: str = "llm",
-                    view: GraphView = GraphView.FULL) -> str:
+                    view: GraphView = GraphView.FULL,
+                    scope_class: str | None = None) -> str:
     """Export a :class:`LayerGraph` to PlantUML class-diagram syntax.
 
     Args:
@@ -1976,11 +1994,15 @@ def export_plantuml(graph: LayerGraph, fields: str = "llm",
             * ``PUBLIC_API`` — like COLLAPSED but also hides private
               members, concept nodes, and file nodes.  Shows only the
               public-facing API surface.
+        scope_class: When set (fully-qualified class name), emit only
+            that class and its 1-hop neighbours.
 
     Returns:
         A complete PlantUML class-diagram string.
     """
-    return PlantUMLExporter(graph, fields, view=view).export()
+    return PlantUMLExporter(
+        graph, fields, view=view, scope_class=scope_class,
+    ).export()
 
 
 def import_plantuml(text: str, tags: frozenset[str] | None = None,
