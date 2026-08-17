@@ -5,8 +5,10 @@ serialized as-built LayerGraph the sister repo
 (``doxygen-dependency-parser``) exports from its cpp-sqlite fixture
 project (``tests/cpp_sqlite_integration/`` → ``LayerGraph.from_backend(
 "as-built")`` → ``serialize(fields="all")``).  It is **nested format**:
-74 top-level entries, 205 nodes including composed children (concepts,
-methods, attributes), with provenance tag ``as-built``.
+133 top-level entries, 474 flat nodes including composed children
+(concepts, methods, attributes, and the P1 residual
+``SourceFragmentNode``s), with provenance tags ``as-built`` and
+``dependency``.
 
 This suite is the as-built "regenerate in place" proof (spec D5) on a
 real one-hop graph: the planner keeps ``FileNode.path`` verbatim, so
@@ -60,9 +62,11 @@ IMPL_SRC = (
     / "cpp_sqlite_impl_src"
 )
 
-#: Pinned facts for the committed fixture (74 top-level / 205 nested nodes).
-TOP_LEVEL = 108
-NESTED_TOTAL = 449
+#: Pinned facts for the regenerated fixture (2026-08-16, P1
+#: residual-fragment work): 133 top-level entries, 474 flat nodes
+#: (including 25 SourceFragmentNodes), 100 as-built + 33 dependency roots.
+TOP_LEVEL = 133
+NESTED_TOTAL = 474
 PROJECT_FILES = 14
 EXTERNAL_FILES = 6
 #: Node kinds orphaned at root (no COMPOSES parent in the one-hop export).
@@ -115,7 +119,7 @@ class TestFixture:
         # namespaces, and their members) carry ``dependency``.
         tags = {tag for entry in data for tag in entry["tags"]}
         assert tags == {"as-built", "dependency"}
-        assert sum("as-built" in e["tags"] for e in data) == TOP_LEVEL - 33
+        assert sum("as-built" in e["tags"] for e in data) == 100
         assert sum("dependency" in e["tags"] for e in data) == 33
 
     def test_deserializes_to_as_built_layer_graph(self):
@@ -242,9 +246,10 @@ class TestRenderedContent:
         assert "unset FK (id = 0)" in fk
         assert "\\brief Construct from an ID" in fk
         assert "\\brief Check if this FK is set (non-zero ID)" in fk
-        # attribute brief — the one-hop fixture predates the verbatim doc
-        # capture, so it renders as the normalized ``///`` reflow
-        assert "/// The ID of the referenced object." in fk
+        # attribute doc — the regenerated fixture carries the verbatim
+        # ``//!`` source documentation (P1 plain-comment attachment), so
+        # it renders verbatim rather than as a normalized ``///`` reflow
+        assert "//! The ID of the referenced object" in fk
 
     def test_no_provenance_markers_by_default(self):
         """R7 markers are opt-in; default output is byte-clean of

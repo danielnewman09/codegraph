@@ -11,13 +11,38 @@ from codegraph.models.file import FileNode
 from codegraph.models.member import AttributeNode, EnumValueNode, MethodNode
 from codegraph.models.namespace import NamespaceNode
 from codegraph.models.tags import CodeGraphNode
-from codegraph.uid import compute_uid, normalize_argsstring
+_FIXTURE_DATA = json.loads(
+    (Path(__file__).resolve().parent / "data" / "design_graph.json").read_text()
+)
 
-def _uid(qname: str, argsstring: str | None = None) -> str:
-    """Compute the deterministic uid for a fixture node from its identity."""
-    if argsstring is not None:
-        return compute_uid("calculator", qname, normalize_argsstring(argsstring))
-    return compute_uid("calculator", qname)
+
+def _walk_fixture(items):
+    for entry in items:
+        yield entry
+        yield from _walk_fixture(entry.get("composes", []))
+
+
+def _key(qname: str, argsstring: str | None = None,
+         cls: type | None = None) -> str:
+    """Canonical key for *qname*: from the fixture when present, else
+    computed from a type probe under a fixed repository scope."""
+    from codegraph.identity import IdentityScope, resolve_identity_for
+
+    for entry in _walk_fixture(_FIXTURE_DATA):
+        if entry.get("qualified_name") == qname:
+            return entry["canonical_key"]
+    scope = IdentityScope.repository("codegraph-suite", "calculator")
+    probe_cls = cls or MethodNode if argsstring is not None else (
+        cls or ClassNode
+    )
+    probe = probe_cls(
+        qualified_name=qname,
+        name=qname.rsplit("::", 1)[-1],
+        source="calculator",
+        path=qname,
+        argsstring=argsstring or (),
+    )
+    return resolve_identity_for(probe, scope).key()
 
 FIXTURE = Path(__file__).resolve().parent / "data" / "design_graph.json"
 FIXTURE_DIR = Path(__file__).resolve().parent / "unit_test_data"
@@ -34,217 +59,36 @@ def _find_entry(graph: LayerGraph, key: str) -> CompositeEntry | None:
     return None
 
 class TestNodeKey:
-    """Tests for LayerGraph._node_key()."""
+    """Canonical-only ``_node_key`` behavior (WP B)."""
 
-    # codegraph:test-desc test_layer_graph.TestNodeKey.test_file_node_dict_uses_uid
-    # Verifies that the `_node_key` method in `LayerGraph` returns a unique identifier
-    # for a file node dictionary, ensuring correct node key generation for layer graph
-    # operations.
-    def test_file_node_dict_uses_uid(self):
-        # codegraph:test-desc test_layer_graph.TestNodeKey.test_file_node_dict_uses_uid::step_0
-        # Sets up the test by initializing a LayerGraph and preparing the conditions
-        # needed to verify that the _node_key method returns the expected UID-based key
-        # for a file node.
-        result = LayerGraph._node_key({"type": "FileNode", "uid": "abc123", "refid": "file-main", "path": "/src/main.h", "name": "main.h"})
-        # codegraph:test-desc test_layer_graph.TestNodeKey.test_file_node_dict_uses_uid::post_0
-        # Verifies that the _node_key method returns the correct UID-based key
-        # ('abc123') for a file node, ensuring the graph correctly identifies file nodes
-        # by their unique identifiers.
-        assert result == "abc123"
+    def test_returns_canonical_key_for_instance(self):
+        from codegraph.identity import IdentityScope, identity_scope
 
-    def test_file_node_dict_computes_uid_from_path(self):
-        """When uid/refid is absent but path (identity field) is present,
-        _node_key deserializes and returns the deterministic uid hash."""
-        # codegraph:test-desc test_layer_graph.TestNodeKey.test_file_node_dict_computes_uid_from_path::step_0
-        # Sets up the test environment by creating a file node dictionary for the path
-        # '/src/main.h' and calls the _node_key method to compute the uid.
-        result = LayerGraph._node_key({"type": "FileNode", "path": "/src/main.h", "name": "main.h", "source": "calculator"})
-        # codegraph:test-desc test_layer_graph.TestNodeKey.test_file_node_dict_computes_uid_from_path::post_0
-        # Verifies that the computed uid from the _node_key method matches the expected
-        # output of compute_uid('/src/main.h'), ensuring correct fallback behavior when
-        # uid/refid is absent.
-        assert result == compute_uid("calculator", "/src/main.h")
+        scope = IdentityScope.repository("codegraph-suite", "calculator")
+        with identity_scope(scope):
+            node = ClassNode(name="Widget", kind="class",
+                             qualified_name="ns::Widget", source="test")
+            node.save()
+        assert LayerGraph._node_key(node) == node.canonical_key
+        assert LayerGraph._node_key(node).startswith("cg:v1:")
 
-    # codegraph:test-desc test_layer_graph.TestNodeKey.test_class_node_dict_uses_uid
-    # Verifies that the _node_key method correctly constructs a dictionary key for a
-    # class node using its unique ID (UID), ensuring consistent and collision-free keys
-    # for node storage and retrieval in LayerGraph.
-    def test_class_node_dict_uses_uid(self):
-        # codegraph:test-desc test_layer_graph.TestNodeKey.test_class_node_dict_uses_uid::step_0
-        # This step sets up the test by initializing the LayerGraph with the required
-        # configuration, preparing the environment for the subsequent assertion on node
-        # key behavior.
-        result = LayerGraph._node_key({"type": "ClassNode", "uid": "def456", "qualified_name": "ns::Widget", "name": "Widget"})
-        # codegraph:test-desc test_layer_graph.TestNodeKey.test_class_node_dict_uses_uid::post_0
-        # This assertion verifies that the graph's internal dictionary uses the unique
-        # ID 'def456' as the node key, confirming that the '_node_key' method correctly
-        # distinguishes nodes by UID rather than by class name.
-        assert result == "def456"
-
-    def test_raises_when_both_source_and_qname_missing(self):
-        """Without source AND qualified_name, _node_key cannot derive a
-        stable key — name alone is not unique.  Must raise ValueError."""
-        with pytest.raises(ValueError, match="missing.*source"):
-            LayerGraph._node_key({"type": "ClassNode", "name": "Widget"})
-
-    # codegraph:test-desc test_layer_graph.TestNodeKey.test_method_node_dict_uses_uid
-    # Verifies that the method node dictionary uses the unique identifier (UID) for
-    # indexing and lookup, ensuring that each method node is uniquely and consistently
-    # referenced within the LayerGraph.
-    def test_method_node_dict_uses_uid(self):
-        # codegraph:test-desc test_layer_graph.TestNodeKey.test_method_node_dict_uses_uid::step_0
-        # This step sets up a `LayerGraph` instance and prepares the test environment by
-        # creating a `MethodNode` with a specific unique identifier, which is the
-        # prerequisite for verifying the `_node_key` method's behavior.
-        result = LayerGraph._node_key({"type": "MethodNode", "uid": "ghi789", "qualified_name": "ns::Widget::draw", "name": "draw"})
-        # codegraph:test-desc test_layer_graph.TestNodeKey.test_method_node_dict_uses_uid::post_0
-        # Verifies that the dictionary returned by `_node_key` equals `'ghi789'`,
-        # ensuring that the method correctly uses a unique identifier (UID) as the key
-        # rather than any other attribute, which is critical for consistent node lookups
-        # and graph integrity.
-        assert result == "ghi789"
-
-    # codegraph:test-desc test_layer_graph.TestNodeKey.test_namespace_node_dict_uses_uid
-    # This test ensures that the `_node_key` method of `LayerGraph` uses unique
-    # identifiers when creating namespace node dictionaries, which is critical for
-    # correctly managing distinct nodes within the same namespace in the graph.
-    def test_namespace_node_dict_uses_uid(self):
-        # codegraph:test-desc test_layer_graph.TestNodeKey.test_namespace_node_dict_uses_uid::step_0
-        # Sets up the test by constructing the `LayerGraph` object and triggering the
-        # internal method that generates the node key dictionary, preparing the `result`
-        # for assertion.
-        result = LayerGraph._node_key({"type": "NamespaceNode", "uid": "jkl012", "qualified_name": "calc", "name": "calc"})
-        # codegraph:test-desc test_layer_graph.TestNodeKey.test_namespace_node_dict_uses_uid::post_0
-        # Verifies that the node key dictionary returns the expected value `'jkl012'`,
-        # ensuring that `LayerGraph._node_key` correctly maps namespace nodes to their
-        # UID-based keys, which is critical for maintaining consistent graph structure
-        # and lookup integrity.
-        assert result == "jkl012"
-
-    def test_raises_without_source_in_dict(self):
-        """_node_key must raise ValueError when 'source' and explicit
-        'uid' are both absent.  Callers are responsible for injecting
-        source before deserialization."""
+    def test_returns_canonical_key_for_dict(self):
         data = {
             "type": "ClassNode",
-            "name": "MigrationManager",
-            "qualified_name": "cpp_sqlite::MigrationManager",
+            "name": "Widget",
+            "qualified_name": "ns::Widget",
             "kind": "class",
+            "source": "test",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:"
+                             "class:qualified_name=ns%3A%3AWidget",
         }
-        with pytest.raises(ValueError, match="missing.*source"):
-            LayerGraph._node_key(data)
+        assert LayerGraph._node_key(data) == data["canonical_key"]
 
-    def test_deterministic_with_source_present(self):
-        """_node_key MUST return the same key for the same dict when
-        source IS present (uid computed from source + identity fields)."""
-        data = {
-            "type": "ClassNode",
-            "name": "MigrationManager",
-            "qualified_name": "cpp_sqlite::MigrationManager",
-            "kind": "class",
-            "source": "cpp_sqlite",
-        }
-        key1 = LayerGraph._node_key(data)
-        key2 = LayerGraph._node_key(data)
-        key3 = LayerGraph._node_key(data)
-        assert key1 == key2 == key3, (
-            f"_node_key is non-deterministic: {key1} != {key2} != {key3}"
-        )
-        # When source is present, the key should be the deterministic
-        # SHA-1 uid (40 hex chars), not a random UUID (32 hex chars).
-        assert len(key1) == 40
-
-    def test_raises_when_both_source_and_uid_absent(self):
-        """Without source or explicit uid, _node_key cannot derive a
-        stable key and must raise ValueError."""
-        data = {"type": "ClassNode", "name": "Widget", "kind": "class"}
-        with pytest.raises(ValueError, match="missing.*source"):
-            LayerGraph._node_key(data)
-
-    def test_deserialize_succeeds_with_source(self):
-        """Full deserialize of a design with source injected works."""
-        data = [
-            {
-                "type": "ClassNode",
-                "name": "Migration",
-                "qualified_name": "cpp_sqlite::Migration",
-                "kind": "class",
-                "source": "cpp_sqlite",
-                "brief_description": "Abstract base class for migrations",
-                "composes": [
-                    {
-                        "type": "MethodNode",
-                        "name": "up",
-                        "qualified_name": "cpp_sqlite::Migration::up",
-                        "kind": "method",
-                        "visibility": "public",
-                        "source": "cpp_sqlite",
-                        "brief_description": "Apply migration",
-                        "argsstring": "(Database &db)",
-                        "type_signature": "virtual void",
-                    },
-                ],
-            },
-        ]
-        graph = LayerGraph.deserialize(data)
-        assert len(graph.entries) == 1
-        # The root key is the deterministic SHA-1 uid
-        key = list(graph.entries.keys())[0]
-        assert len(key) == 40  # SHA-1 hex hash
-
-    def test_file_node_instance_uses_uid(self):
-        """Unsaved FileNode: uid is deterministic (source + path), _node_key returns it."""
-        # codegraph:test-desc test_layer_graph.TestNodeKey.test_file_node_instance_uses_uid::step_0
-        # Sets up the test by creating the unsaved FileNode and the LayerGraph
-        # containing it, preparing the objects needed to retrieve and inspect the node's
-        # key.
-        node = FileNode(name="test.h", path="/src/test.h", refid="file-test-h", source="test")
-        result = LayerGraph._node_key(node)
-        # uid is the deterministic SHA-1 hash — non-empty string
-        # codegraph:test-desc test_layer_graph.TestNodeKey.test_file_node_instance_uses_uid::post_0
-        # Verifies that the _node_key result is a string, ensuring the method returns
-        # the expected data type for an unsaved FileNode.
-        assert isinstance(result, str)
-        # codegraph:test-desc test_layer_graph.TestNodeKey.test_file_node_instance_uses_uid::post_1
-        # Verifies that the _node_key result is not empty, confirming the deterministic
-        # uid is valid and meaningful for an unsaved FileNode.
-        assert len(result) > 0
-
-    def test_class_node_instance_uses_uid(self):
-        """Unsaved ClassNode: uid is deterministic (source + qname), _node_key returns it."""
-        # codegraph:test-desc test_layer_graph.TestNodeKey.test_class_node_instance_uses_uid::step_0
-        # Executes the setup by adding the unsaved ClassNode to the LayerGraph and
-        # retrieving its _node_key result, preparing the value that will be checked by
-        # the subsequent assertions.
-        node = ClassNode(name="Widget", kind="class", qualified_name="ns::Widget", source="test")
-        result = LayerGraph._node_key(node)
-        # codegraph:test-desc test_layer_graph.TestNodeKey.test_class_node_instance_uses_uid::post_0
-        # Verifies that the node key returned by _node_key for the unsaved ClassNode is
-        # a string, confirming that the method returns the expected type regardless of
-        # the node's persistence state.
-        assert isinstance(result, str)
-        # codegraph:test-desc test_layer_graph.TestNodeKey.test_class_node_instance_uses_uid::post_1
-        # Verifies that the resulting node key is not empty, ensuring that the
-        # deterministic uid produced a non-zero-length string and that the key
-        # generation logic does not fail for unsaved nodes.
-        assert len(result) > 0
-
-    def test_parameter_node_uses_uid(self):
-        """ParameterNode now has uid UniqueIdProperty, so _node_key returns uid."""
-        # codegraph:test-desc test_layer_graph.TestNodeKey.test_parameter_node_uses_uid::step_0
-        # Sets up the test by creating the ParameterNode with a UID and adding it to the
-        # LayerGraph, then invokes _node_key to get the key for this node.
-        from codegraph.models.parameter import ParameterNode
-        node = ParameterNode(name="argc", position=0, type="int", source="test")
-        result = LayerGraph._node_key(node)
-        # codegraph:test-desc test_layer_graph.TestNodeKey.test_parameter_node_uses_uid::post_0
-        # Verifies that the result of _node_key is a string, ensuring the method returns
-        # a valid string type as required for a node key.
-        assert isinstance(result, str)
-        # codegraph:test-desc test_layer_graph.TestNodeKey.test_parameter_node_uses_uid::post_1
-        # Verifies that the returned string is non-empty, confirming that the UID is
-        # correctly used as the node key and not an empty value.
-        assert len(result) > 0
+    def test_raises_without_canonical_key(self):
+        """WP B: uid-bearing legacy dicts are rejected — no uid fallback."""
+        with pytest.raises(ValueError, match="canonical_key"):
+            LayerGraph._node_key({"type": "ClassNode", "uid": "abc123",
+                                  "qualified_name": "ns::Widget"})
 
 class TestTagValidation:
     """Tests for Tag validation — only 'design', 'as-built', 'dependency' allowed."""
@@ -340,9 +184,9 @@ class TestDeserialize:
             data = json.load(f)
         graph = LayerGraph.deserialize(data)
         # codegraph:test-desc test_layer_graph.TestDeserialize.test_creates_nodes_from_fixture::post_0
-        # Verifies that the total number of entries in the graph matches the input data
-        # length, ensuring deserialization correctly processes all provided items.
-        assert _count_all_entries(graph) == len(data)
+        # Verifies that every fixture node (roots + nested children, counted
+        # across the whole tree) survives deserialization.
+        assert _count_all_entries(graph) == len(list(_walk_fixture(data)))
         # codegraph:test-desc test_layer_graph.TestDeserialize.test_creates_nodes_from_fixture::post_1
         # Confirms that the graph's tags attribute has been set to exactly the expected
         # set {'design'}, validating proper metadata assignment during deserialization.
@@ -360,7 +204,7 @@ class TestDeserialize:
             data = json.load(f)
         graph = LayerGraph.deserialize(data)
         # Spot-check some nodes by finding them in the tree
-        engine = _find_entry(graph, _uid("calc::CalculatorEngine"))
+        engine = _find_entry(graph, _key("calc::CalculatorEngine"))
         # codegraph:test-desc test_layer_graph.TestDeserialize.test_node_types_are_correct::post_0
         # Verifies that the 'engine' entry obtained from the deserialized graph is not
         # None, ensuring that the node corresponding to the 'engine' identifier was
@@ -376,7 +220,7 @@ class TestDeserialize:
         # Calls the deserialize method on the LayerGraph instance with the prepared
         # data, executing the core logic that transforms the serialized representation
         # into live node objects.
-        file_entry = _find_entry(graph, compute_uid("calculator", "/src/calc/calculator_engine.h"))
+        file_entry = _find_entry(graph, _key("/src/calc/calculator_engine.h", cls=FileNode))
         # codegraph:test-desc test_layer_graph.TestDeserialize.test_node_types_are_correct::post_2
         # Ensures that the 'file_entry' reference is not None, validating that the
         # file-level node was properly deserialized and is accessible for further type
@@ -389,10 +233,10 @@ class TestDeserialize:
         assert type(file_entry.node).__name__ == "FileNode"
 
         # codegraph:test-desc test_layer_graph.TestDeserialize.test_node_types_are_correct::step_2
-        # Computes unique identifiers for the deserialized nodes using the compute_uid
+        # Looks up fixture nodes by their canonical keys
         # function, ensuring that each node has a consistent and retrievable UID needed
         # for later lookups and validation.
-        icalc = _find_entry(graph, _uid("calc::ICalculator"))
+        icalc = _find_entry(graph, _key("calc::ICalculator"))
         # codegraph:test-desc test_layer_graph.TestDeserialize.test_node_types_are_correct::post_4
         # Confirms that the icalc entry is not None, guaranteeing that an interface node
         # was successfully reconstructed as part of the deserialized graph.
@@ -408,7 +252,7 @@ class TestDeserialize:
         # deserialized graph by their computed UIDs, retrieving references such as
         # 'engine', 'file_entry', 'icalc', and 'add_entry' to be verified in the
         # assertions.
-        add_entry = _find_entry(graph, _uid("calc::CalculatorEngine::add", "(double a, double b)"))
+        add_entry = _find_entry(graph, _key("calc::CalculatorEngine::add", "(double a, double b)"))
         # codegraph:test-desc test_layer_graph.TestDeserialize.test_node_types_are_correct::post_6
         # Checks that the 'add_entry' reference is not None, verifying that a method
         # node was properly deserialized and exists in the graph.
@@ -429,7 +273,7 @@ class TestDeserialize:
             data = json.load(f)
         graph = LayerGraph.deserialize(data)
 
-        engine = _find_entry(graph, _uid("calc::CalculatorEngine"))
+        engine = _find_entry(graph, _key("calc::CalculatorEngine"))
         # codegraph:test-desc test_layer_graph.TestDeserialize.test_composes_children_nested::post_0
         # Ensures that the deserialization produced a non-null LayerGraph engine,
         # confirming the basic success of the deserialization operation before
@@ -445,7 +289,7 @@ class TestDeserialize:
         # Verifies that the specific MethodNode 'add' with its signature is nested under
         # the parent 'CalculatorEngine' via COMPOSES edges, confirming that method child
         # relationships are correctly reconstructed during deserialization.
-        assert _uid("calc::CalculatorEngine::add", "(double a, double b)") in engine.children["MethodNode"]
+        assert _key("calc::CalculatorEngine::add", "(double a, double b)") in engine.children["MethodNode"]
         # CalculatorEngine COMPOSES AttributeNode (precision)
         # codegraph:test-desc test_layer_graph.TestDeserialize.test_composes_children_nested::post_3
         # Verifies that a string identifier for a child node is present as a key in the
@@ -457,7 +301,7 @@ class TestDeserialize:
         # Checks that the specific AttributeNode 'precision' is nested under the parent
         # 'CalculatorEngine' via COMPOSES edges, verifying that the deserialized graph
         # correctly preserves attribute child relationships.
-        assert _uid("calc::CalculatorEngine::precision") in engine.children["AttributeNode"]
+        assert _key("calc::CalculatorEngine::precision") in engine.children["AttributeNode"]
 
     def test_non_composes_edges_as_references(self):
         """Non-COMPOSES edges should be stored as references, not children."""
@@ -469,7 +313,7 @@ class TestDeserialize:
             data = json.load(f)
         graph = LayerGraph.deserialize(data)
 
-        engine = _find_entry(graph, _uid("calc::CalculatorEngine"))
+        engine = _find_entry(graph, _key("calc::CalculatorEngine"))
         # codegraph:test-desc test_layer_graph.TestDeserialize.test_non_composes_edges_as_references::post_0
         # Verifies that the deserialized graph has an associated engine object,
         # confirming that the deserialization process successfully created the internal
@@ -515,17 +359,17 @@ class TestDeserialize:
         # codegraph:test-desc test_layer_graph.TestDeserialize.test_composed_nodes_not_at_root::post_0
         # Verifies that another composed node is absent from root nodes, confirming that
         # no composite child is incorrectly treated as a top-level layer.
-        assert _uid("calc::CalculatorEngine::add", "(double a, double b)") not in graph.entries
+        assert _key("calc::CalculatorEngine::add", "(double a, double b)") not in graph.entries
         # codegraph:test-desc test_layer_graph.TestDeserialize.test_composed_nodes_not_at_root::post_1
         # Verifies that the first expected composed node does not appear in the root
         # nodes list, ensuring it is correctly excluded from top-level entries.
-        assert _uid("calc::CalculatorEngine::precision") not in graph.entries
+        assert _key("calc::CalculatorEngine::precision") not in graph.entries
         # NamespaceNode "calc" should be a root entry
         # codegraph:test-desc test_layer_graph.TestDeserialize.test_composed_nodes_not_at_root::post_2
         # Checks that a known root node (not composed by another) is present in the root
         # nodes list, validating that the deserialization preserves legitimate root
         # entries.
-        assert _uid("calc") in graph.entries
+        assert _key("calc") in graph.entries
 
     def test_entries_are_composite_entries(self):
         """Root entries should be CompositeEntry instances."""
@@ -551,7 +395,9 @@ class TestDeserialize:
         # Sets up the test environment by preparing or loading the data that will be
         # used to infer tags on the graph during deserialization.
         data = [
-            {"type": "ClassNode", "name": "MyClass", "qualified_name": "test::MyClass", "kind": "class", "source": "test", "tags": ["as-built"]},
+            {"type": "ClassNode", "name": "MyClass", "qualified_name": "test::MyClass",
+             "kind": "class", "source": "test", "tags": ["as-built"],
+             "canonical_key": _key("test::MyClass", cls=ClassNode)},
         ]
         graph = LayerGraph.deserialize(data)
         # codegraph:test-desc test_layer_graph.TestDeserialize.test_tags_inference_from_data::post_0
@@ -567,7 +413,9 @@ class TestDeserialize:
         # This step sets up the test by invoking the deserialize method on the
         # LayerGraph fixture, preparing it for verification of default tags.
         data = [
-            {"type": "ClassNode", "name": "MyClass", "qualified_name": "test::MyClass", "kind": "class", "source": "test"},
+            {"type": "ClassNode", "name": "MyClass", "qualified_name": "test::MyClass",
+             "kind": "class", "source": "test",
+             "canonical_key": _key("test::MyClass", cls=ClassNode)},
         ]
         graph = LayerGraph.deserialize(data)
         # codegraph:test-desc test_layer_graph.TestDeserialize.test_tags_default_to_design::post_0
@@ -582,7 +430,9 @@ class TestDeserialize:
         # Sets up the test by initializing the graph object and performing the
         # deserialization of sample data that includes the legacy 'layer' field.
         data = [
-            {"type": "ClassNode", "name": "MyClass", "qualified_name": "test::MyClass", "kind": "class", "source": "test", "layer": "as-built"},
+            {"type": "ClassNode", "name": "MyClass", "qualified_name": "test::MyClass",
+             "kind": "class", "source": "test", "layer": "as-built",
+             "canonical_key": _key("test::MyClass", cls=ClassNode)},
         ]
         graph = LayerGraph.deserialize(data)
         # codegraph:test-desc test_layer_graph.TestDeserialize.test_backward_compat_layer_field::post_0
@@ -721,17 +571,17 @@ class TestRoundtrip:
             saved = entry.node
             for edge in node_data.get("edges", []):
                 total_fixture_edges += 1
-                target_entry = flat.get(edge["target_local_id"])
+                target_entry = flat.get(edge.get("target_key") or edge["target_local_id"])
                 # codegraph:test-desc test_layer_graph.TestRoundtrip.test_edge_persistence::post_1
                 # Verifies that every target entry referenced by an edge exists in the
                 # deserialized graph, ensuring that edge targets are not lost during the
                 # round-trip.
-                assert target_entry is not None, f"Missing target {edge['target_local_id']}"
+                assert target_entry is not None, f"Missing target {edge.get('target_key') or edge['target_local_id']}"
                 target = target_entry.node
                 found = [
                     e for e in saved.serialize()["edges"]
                     if e["relation_type"] == edge["relation_type"]
-                    and e["target_uid"] == target._uid_value()
+                    and e["target_key"] == target.canonical_key
                 ]
                 # codegraph:test-desc test_layer_graph.TestRoundtrip.test_edge_persistence::post_2
                 # Confirms that the expected edge between a source entry and a target
@@ -739,7 +589,7 @@ class TestRoundtrip:
                 # validating edge structure preservation.
                 assert len(found) >= 1, (
                     f"Missing edge: {type(saved).__name__} -[:{edge['relation_type']}]-> "
-                    f"{edge['target_type']} {edge['target_local_id']}"
+                    f"{edge['target_type']} {edge.get('target_key') or edge['target_local_id']}"
                 )
 
         # codegraph:test-desc test_layer_graph.TestRoundtrip.test_edge_persistence::step_1
@@ -765,12 +615,12 @@ class TestSerializeFields:
         data = [
             {"type": "ClassNode", "name": "Engine", "kind": "class",
              "qualified_name": "ns::Engine", "tags": ["design"],
-             "uid": _uid("ns::Engine")},
+             "canonical_key": _key("ns::Engine")},
             {"type": "MethodNode", "name": "run", "kind": "method",
              "qualified_name": "ns::Engine::run", "tags": ["design"],
-             "uid": _uid("ns::Engine::run", ""),
+             "canonical_key": _key("ns::Engine::run", ""),
              "edges": [{"relation_type": "COMPOSES", "target_type": "MethodNode",
-                         "target_local_id": _uid("ns::Engine::run", "")}]},
+                         "target_local_id": _key("ns::Engine::run", "")}]},
         ]
         graph = LayerGraph.deserialize(data)
         output = graph.serialize()
@@ -810,7 +660,8 @@ class TestSerializeFields:
         data = [
             {"type": "ClassNode", "name": "Engine", "kind": "class",
              "qualified_name": "ns::Engine", "source": "calculator",
-             "tags": ["design"], "module": "mymod", "is_abstract": True},
+             "tags": ["design"], "module": "mymod", "is_abstract": True,
+             "canonical_key": _key("ns::Engine", cls=ClassNode)},
         ]
         graph = LayerGraph.deserialize(data)
         llm_output = graph.serialize()
@@ -848,29 +699,23 @@ class TestSerializeFields:
         # fields.
         assert "tags" in all_engine
 
-    def test_all_fields_includes_uid_property(self):
-        """serialize(fields='all') includes FileNode's refid (uid).
-
-        With fields='llm', FileNode.refid is not in _llm_fields so it's
-        omitted from the node output (CompositeEntry adds it back for
-        edge resolution, but only if needed).
-        """
+    def test_all_fields_includes_canonical_key(self):
+        """serialize() always includes canonical_key (WP B)."""
+        import codegraph.identity as identity_mod
+        _ = identity_mod  # (doc references resolved via _key below)
         # codegraph:test-desc test_layer_graph.TestSerializeFields.test_all_fields_includes_uid_property::step_0
         # Calls the serialize method with fields='all' on the prepared LayerGraph to
         # obtain the full serialized output that will be checked for the presence of the
         # refid property.
         data = [
             {"type": "FileNode", "name": "main.h", "path": "/src/main.h",
-             "refid": "file-main", "source": "calculator"},
+             "refid": "file-main", "source": "calculator",
+             "canonical_key": _key("/src/main.h", cls=FileNode)},
         ]
         graph = LayerGraph.deserialize(data)
         all_output = graph.serialize(fields="all")
         file_entry = next(e for e in all_output if e["type"] == "FileNode")
-        # codegraph:test-desc test_layer_graph.TestSerializeFields.test_all_fields_includes_uid_property::post_0
-        # Asserts that the 'refid' key exists in the serialized file entry, confirming
-        # that the uid property of a FileNode is included when fields='all' is
-        # requested.
-        assert "refid" in file_entry
+        assert file_entry["canonical_key"].startswith("cg:v1:")
 
     def test_fields_propagates_to_nested_children(self):
         """fields parameter propagates through composes children."""
@@ -880,11 +725,12 @@ class TestSerializeFields:
         # (widget_llm) before any serialization round-trip.
         data = [
             {"type": "NamespaceNode", "name": "ns", "kind": "namespace",
-             "qualified_name": "ns", "uid": _uid("ns"),
+             "qualified_name": "ns", "canonical_key": _key("ns", cls=NamespaceNode),
              "edges": [{"relation_type": "COMPOSES", "target_type": "ClassNode",
-                         "target_local_id": _uid("ns::Widget")}]},
+                         "target_local_id": _key("ns::Widget")}]},
             {"type": "ClassNode", "name": "Widget", "kind": "class",
-             "qualified_name": "ns::Widget", "module": "mymod", "uid": _uid("ns::Widget")},
+             "qualified_name": "ns::Widget", "module": "mymod",
+             "canonical_key": _key("ns::Widget", cls=ClassNode)},
         ]
         graph = LayerGraph.deserialize(data)
 
@@ -923,6 +769,7 @@ class TestSerializeFields:
         # test toward verification of field inclusion or exclusion.
         node = ClassNode(name="Widget", kind="class", qualified_name="ns::Widget",
                          source="test", module="mymod", is_abstract=True)
+        node.canonical_key = _key("ns::Widget", cls=ClassNode)
         entry = CompositeEntry(node=node)
 
         llm_result = entry.serialize()
@@ -1038,7 +885,7 @@ class TestFromNeo4j:
         result = LayerGraph.from_neo4j("design")
         # Methods should be nested under their parent ClassNode,
         # not appear as root entries
-        add_entry = _find_entry(result, _uid("calc::CalculatorEngine::add", "(double a, double b)"))
+        add_entry = _find_entry(result, _key("calc::CalculatorEngine::add", "(double a, double b)"))
         # codegraph:test-desc test_layer_graph.TestFromNeo4j.test_incoming_composes_nests_child_under_parent::post_0
         # Verifies that the parent layer entry (add_entry) exists in the result,
         # confirming it was correctly reconstructed from Neo4j.
@@ -1052,7 +899,7 @@ class TestFromNeo4j:
         # codegraph:test-desc test_layer_graph.TestFromNeo4j.test_incoming_composes_nests_child_under_parent::step_1
         # Calls `from_neo4j` to reconstruct the LayerGraph from the Neo4j database,
         # ensuring that children are correctly nested under their parent layers.
-        engine_entry = _find_entry(result, _uid("calc::CalculatorEngine"))
+        engine_entry = _find_entry(result, _key("calc::CalculatorEngine"))
         # codegraph:test-desc test_layer_graph.TestFromNeo4j.test_incoming_composes_nests_child_under_parent::post_2
         # Checks that the child layer entry (engine_entry) is present in the result,
         # validating that child nodes are properly included in the reconstruction.
@@ -1238,7 +1085,7 @@ class TestDeserializeNested:
         nested = graph.serialize()
 
         restored = LayerGraph.deserialize(nested)
-        engine = _find_entry(restored, _uid("calc::CalculatorEngine"))
+        engine = _find_entry(restored, _key("calc::CalculatorEngine"))
         # codegraph:test-desc test_layer_graph.TestDeserializeNested.test_composes_children_nested::post_0
         # Confirms that the deserialization process returned a valid LayerGraph object
         # rather than None, which is essential before further assertions can be trusted.
@@ -1266,7 +1113,7 @@ class TestDeserializeNested:
         nested = graph.serialize()
 
         restored = LayerGraph.deserialize(nested)
-        engine = _find_entry(restored, _uid("calc::CalculatorEngine"))
+        engine = _find_entry(restored, _key("calc::CalculatorEngine"))
         # codegraph:test-desc test_layer_graph.TestDeserializeNested.test_references_preserved::post_0
         # Verifies that the deserialization engine was successfully created (not None),
         # ensuring that no error occurred during the deserialization process that would

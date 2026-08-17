@@ -6,6 +6,11 @@ resolves notional verification stubs to qualified design names.
 Uses :class:`DesignToolDispatcher` (design + codegraph tools) and
 :class:`VerificationDispatcher` (verification resolution) together.
 
+Migration-only legacy entry point. Its current consumer is the design CLI and
+pipeline tests; the replacement target is ``codegraph_agents.design`` plus
+the shared model service. Remove this module after parity and downstream
+migration are verified. Do not add new orchestration behavior here.
+
 Usage::
 
     from codegraph_design.agents.design_oo import design_and_persist_hlr
@@ -528,7 +533,7 @@ def _update_scaffold_to_design(scaffold_node, design_dict: dict) -> bool:
     re-keys the uid when it changes) and labels are migrated via
     ``get_labels`` / ``remove_labels`` / ``add_labels``.
     """
-    from codegraph.uid import compute_uid, normalize_argsstring
+    from codegraph.identity import IdentityScope, resolve_identity_for
 
     dqn = design_dict.get("qualified_name", "")
     if not dqn:
@@ -541,20 +546,39 @@ def _update_scaffold_to_design(scaffold_node, design_dict: dict) -> bool:
     dvis = design_dict.get("visibility", "")
     dbd = design_dict.get("brief_description", "")
 
-    if dtype == "MethodNode":
-        argsstring = design_dict.get("argsstring", "") or dts
-        new_uid = compute_uid(dqn, normalize_argsstring(argsstring))
-    else:
-        new_uid = compute_uid(dqn)
+    # Canonical key for the design node: build a lightweight instance of
+    # the target type and resolve its identity under the active scope.
+    from codegraph.models.tags import CodeGraphNode
+    from codegraph.identity.context import get_identity_scope
+
+    scope = get_identity_scope()
+    if scope is None:
+        log.warning("Scaffold %s: no active identity scope — cannot re-key", dqn)
+        return False
+    target_cls = CodeGraphNode._registry.get(dtype) if dtype else type(scaffold_node)
+    probe = target_cls(
+        qualified_name=dqn,
+        name=dname,
+        source=scaffold_node.source,
+        kind=dkind,
+        type_signature=dts,
+        visibility=dvis,
+        argsstring=design_dict.get("argsstring", "") or dts,
+    )
+    try:
+        new_key = resolve_identity_for(probe, scope).key()
+    except Exception:
+        log.warning("Scaffold %s: cannot resolve canonical identity", dqn)
+        return False
 
     backend = get_backend()
-    old_uid = scaffold_node._uid_value()
-    if not old_uid:
-        log.warning("Scaffold %s has no uid — cannot migrate", dqn)
+    old_key = scaffold_node.canonical_key
+    if not old_key:
+        log.warning("Scaffold %s has no canonical key — cannot migrate", dqn)
         return False
 
     # Capture actual DB labels before any re-keying.
-    old_labels = set(backend.graph.get_labels(old_uid)) or {type(scaffold_node).__name__}
+    old_labels = set(backend.graph.get_labels(old_key)) or {type(scaffold_node).__name__}
     target_cls = CodeGraphNode._registry.get(dtype) if dtype else None
     new_labels = (
         set(getattr(target_cls, "inherited_labels", lambda: [dtype])())
@@ -568,7 +592,7 @@ def _update_scaffold_to_design(scaffold_node, design_dict: dict) -> bool:
         "name": dname,
         "kind": dkind,
         "tags": ["design"],
-        "uid": new_uid,
+        "canonical_key": new_key,
     }
     # Update parent_qualified_name — the test queries MethodNode.nodes.all()
     # grouped by parent_qualified_name.  Without this, scaffold→design
@@ -585,16 +609,16 @@ def _update_scaffold_to_design(scaffold_node, design_dict: dict) -> bool:
         props["brief_description"] = dbd
 
     try:
-        updated = backend.graph.update_properties(old_uid, props)
+        updated = backend.graph.update_properties(old_key, props)
         if not updated:
-            log.warning("Scaffold %s not found by uid — cannot migrate", old_uid)
+            log.warning("Scaffold %s not found by key — cannot migrate", old_key)
             return False
-        # After re-keying, the node lives at new_uid.
-        live_uid = new_uid or old_uid
+        # After re-keying, the node lives at new_key.
+        live_key = new_key or old_key
         if stale:
-            backend.graph.remove_labels(live_uid, sorted(stale))
+            backend.graph.remove_labels(live_key, sorted(stale))
         if missing:
-            backend.graph.update_properties(live_uid, {}, add_labels=sorted(missing))
+            backend.graph.update_properties(live_key, {}, add_labels=sorted(missing))
         log.info("Updated scaffold %s → %s (labels %s → %s)",
                  getattr(scaffold_node, "qualified_name", "?"), dqn,
                  sorted(old_labels), sorted(new_labels))

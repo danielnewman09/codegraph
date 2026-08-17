@@ -94,9 +94,9 @@ class Neo4jRelOps:
 
     def merge_relationship(
         self,
-        source_uid: str,
+        source_key: str,
         rel_type: str,
-        target_uid: str,
+        target_key: str,
         *,
         edge_properties: dict[str, object] | None = None,
     ) -> int:
@@ -107,7 +107,7 @@ class Neo4jRelOps:
         """
         parts = [
             f"MATCH (s), (t) ",
-            f"WHERE s.uid = $suid AND t.uid = $tuid ",
+            f"WHERE s.canonical_key = $skey AND t.canonical_key = $tkey ",
             f"MERGE (s)-[r:{rel_type}]->(t) ",
         ]
         if edge_properties:
@@ -118,11 +118,44 @@ class Neo4jRelOps:
             parts.append(f"ON MATCH SET {props_clause} ")
         parts.append("RETURN count(t) AS cnt")
 
-        params: dict = {"suid": source_uid, "tuid": target_uid}
+        params: dict = {"suid": source_key, "tuid": target_key}
         if edge_properties:
             for k, v in edge_properties.items():
                 params[f"ep_{k}"] = v
 
+        results, _ = db.cypher_query(" ".join(parts), params)
+        return results[0][0] if results else 0
+
+    def merge_relationship_by_key(
+        self,
+        source_key: str,
+        rel_type: str,
+        target_key: str,
+        *,
+        edge_properties: dict[str, object] | None = None,
+    ) -> int:
+        """Idempotently create a relationship by canonical keys (WP3.3).
+
+        Matches both endpoints through the common ``CanonicalEntity``
+        label; returns 1 if both resolve, 0 otherwise.
+        """
+        parts = [
+            f"MATCH (s:CanonicalEntity), (t:CanonicalEntity) ",
+            f"WHERE s.canonical_key = $skey AND t.canonical_key = $tkey ",
+            f"MERGE (s)-[r:{rel_type}]->(t) ",
+        ]
+        if edge_properties:
+            props_clause = ", ".join(
+                f"r.{k} = $ep_{k}" for k in edge_properties
+            )
+            parts.append(f"ON CREATE SET {props_clause} ")
+            parts.append(f"ON MATCH SET {props_clause} ")
+        parts.append("RETURN count(t) AS cnt")
+
+        params: dict = {"skey": source_key, "tkey": target_key}
+        if edge_properties:
+            for k, v in edge_properties.items():
+                params[f"ep_{k}"] = v
         results, _ = db.cypher_query(" ".join(parts), params)
         return results[0][0] if results else 0
 
@@ -137,8 +170,8 @@ class Neo4jRelOps:
         """
         results, _ = db.cypher_query(
             f"MATCH (target)<-[:COMPOSES*1..{max_depth}]-(ancestor) "
-            "WHERE target.uid = $uid "
-            "RETURN ancestor.uid AS uid, labels(ancestor) AS labels",
+            "WHERE target.canonical_key = $key "
+            "RETURN ancestor.canonical_key AS uid, labels(ancestor) AS labels",
             {"uid": uid},
         )
         return [
@@ -155,8 +188,8 @@ class Neo4jRelOps:
         """
         results, _ = db.cypher_query(
             f"MATCH (parent)-[:COMPOSES*1..{max_depth}]->(descendant) "
-            "WHERE parent.uid = $uid "
-            "RETURN descendant.uid AS uid, labels(descendant) AS labels",
+            "WHERE parent.canonical_key = $key "
+            "RETURN descendant.canonical_key AS uid, labels(descendant) AS labels",
             {"uid": uid},
         )
         return [
@@ -234,8 +267,8 @@ class Neo4jRelOps:
         node_ops = Neo4jNodeOps(self._conn)
         children_by_parent: dict[str, list["CodeGraphNode"]] = {u: [] for u in uids}
         results, _ = db.cypher_query(
-            "MATCH (n)-[:COMPOSES]->(c) WHERE n.uid IN $uids "
-            "RETURN n.uid AS src, c",
+            "MATCH (n)-[:COMPOSES]->(c) WHERE n.canonical_key IN $keys "
+            "RETURN n.canonical_key AS src, c",
             {"uids": uids},
         )
         for row in results:
@@ -253,10 +286,10 @@ class Neo4jRelOps:
     ) -> dict[str, list[EdgeDescriptor]]:
         """Fetch incoming + outgoing edges for many source nodes by uid.
 
-        Two queries total (outgoing, incoming) using ``uid IN $uids`` —
+        Two queries total (outgoing, incoming) using ``uid IN $keys`` —
         the batched counterpart of :meth:`get_all_edges`, used by
         ``bulk_load_by_tag`` so 1-hop retrieval stays O(batches) instead
-        of O(nodes) round trips.  Returns ``{source_uid: [EdgeDescriptor]}
+        of O(nodes) round trips.  Returns ``{source_key: [EdgeDescriptor]}
         ``.
         """
         if not uids:
@@ -265,19 +298,19 @@ class Neo4jRelOps:
         for outgoing in (True, False):
             if outgoing:
                 cypher = (
-                    "MATCH (n)-[r]->(t) WHERE n.uid IN $uids "
-                    "RETURN n.uid AS src, type(r) AS rel_type, "
-                    "t.uid AS tuid, labels(t) AS tlbls"
+                    "MATCH (n)-[r]->(t) WHERE n.canonical_key IN $keys "
+                    "RETURN n.canonical_key AS src, type(r) AS rel_type, "
+                    "t.canonical_key AS tuid, labels(t) AS tlbls"
                 )
             else:
                 cypher = (
-                    "MATCH (t)-[r]->(n) WHERE n.uid IN $uids "
-                    "RETURN n.uid AS src, type(r) AS rel_type, "
-                    "t.uid AS tuid, labels(t) AS tlbls"
+                    "MATCH (t)-[r]->(n) WHERE n.canonical_key IN $keys "
+                    "RETURN n.canonical_key AS src, type(r) AS rel_type, "
+                    "t.canonical_key AS tkey, labels(t) AS tlbls"
                 )
             results, _ = db.cypher_query(cypher, {"uids": uids})
             for row in results:
-                src, rel_type, tuid, tlbls = row[0], row[1], row[2], row[3]
+                src, rel_type, tkey, tlbls = row[0], row[1], row[2], row[3]
                 labels = set(tlbls or set())
                 from codegraph.backends.neo4j.node_ops import best_class_for_labels
 
@@ -285,7 +318,7 @@ class Neo4jRelOps:
                 target_type = best.__name__ if best is not None else "CodeGraphNode"
                 edges_by_src.setdefault(src, []).append(EdgeDescriptor(
                     relation_type=rel_type,
-                    target_uid=tuid,
+                    target_key=tkey,
                     target_type=target_type,
                     is_outgoing=outgoing,
                 ))
@@ -330,7 +363,7 @@ class Neo4jRelOps:
                 for target in manager.all():
                     edges.append(EdgeDescriptor(
                         relation_type=val.definition["relation_type"],
-                        target_uid=target._uid_value(),
+                        target_key=target.canonical_key,
                         target_type=type(target).__name__,
                         is_outgoing=is_outgoing,
                     ))
@@ -376,7 +409,7 @@ class Neo4jRelOps:
                 for target in connected:
                     edges.append(EdgeDescriptor(
                         relation_type=val.definition["relation_type"],
-                        target_uid=target._uid_value(),
+                        target_key=target.canonical_key,
                         target_type=type(target).__name__,
                         is_outgoing=True,
                     ))
@@ -405,17 +438,17 @@ class Neo4jRelOps:
         if outgoing:
             cypher = (
                 f"MATCH (n)-[r]->(t) WHERE elementId(n)=$eid "
-                "RETURN type(r) AS rel_type, t.uid AS tuid, labels(t) AS tlbls"
+                "RETURN type(r) AS rel_type, t.canonical_key AS tkey, labels(t) AS tlbls"
             )
         else:
             cypher = (
                 f"MATCH (t)-[r]->(n) WHERE elementId(n)=$eid "
-                "RETURN type(r) AS rel_type, t.uid AS tuid, labels(t) AS tlbls"
+                "RETURN type(r) AS rel_type, t.canonical_key AS tkey, labels(t) AS tlbls"
             )
         results, _ = db.cypher_query(cypher, {"eid": node.element_id})
         edges: list[EdgeDescriptor] = []
         for row in results:
-            rel_type, tuid, tlbls = row[0], row[1], row[2]
+            rel_type, tkey, tlbls = row[0], row[1], row[2]
             # Determine the most specific registered class from labels
             target_type = "CodeGraphNode"
             labels = set(tlbls or set())
@@ -426,7 +459,7 @@ class Neo4jRelOps:
                 target_type = best.__name__
             edges.append(EdgeDescriptor(
                 relation_type=rel_type,
-                target_uid=tuid,
+                target_key=tkey,
                 target_type=target_type,
                 is_outgoing=outgoing,
             ))
@@ -477,7 +510,7 @@ class Neo4jRelOps:
                 continue
             edges.append(EdgeDescriptor(
                 relation_type=rel_type,
-                target_uid=target._uid_value(),
+                target_key=target.canonical_key,
                 target_type=type(target).__name__,
                 is_outgoing=is_outgoing,
             ))
@@ -526,8 +559,8 @@ class Neo4jRelOps:
         """Walk COMPOSES edges upward from uid."""
         results, _ = db.cypher_query(
             f"MATCH (target)<-[:COMPOSES*1..{max_depth}]-(ancestor) "
-            "WHERE target.uid = $uid "
-            "RETURN ancestor.uid AS uid, labels(ancestor) AS labels",
+            "WHERE target.canonical_key = $key "
+            "RETURN ancestor.canonical_key AS uid, labels(ancestor) AS labels",
             {"uid": uid},
         )
         return [{"uid": r[0], "labels": r[1]} for r in results]
@@ -538,8 +571,8 @@ class Neo4jRelOps:
         """Walk COMPOSES edges downward from uid."""
         results, _ = db.cypher_query(
             f"MATCH (parent)-[:COMPOSES*1..{max_depth}]->(descendant) "
-            "WHERE parent.uid = $uid "
-            "RETURN descendant.uid AS uid, labels(descendant) AS labels",
+            "WHERE parent.canonical_key = $key "
+            "RETURN descendant.canonical_key AS uid, labels(descendant) AS labels",
             {"uid": uid},
         )
         return [{"uid": r[0], "labels": r[1]} for r in results]

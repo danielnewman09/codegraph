@@ -84,7 +84,7 @@ class TestDriftDetection:
         )
         original_conf = original.confidence
 
-        count = confidence_decay(cls.uid, decay_factor=0.5)
+        count = confidence_decay(cls.canonical_key, decay_factor=0.5)
         assert count >= 1
 
         # Verify confidence was reduced

@@ -26,11 +26,11 @@ log = __import__("logging").getLogger(__name__)
 
 @dataclass
 class EdgeDescriptor:
-    """Portable description of a relationship.
+    """Portable description of a relationship (canonical-only, WP B).
 
     Attributes:
         relation_type: Relationship label (e.g. "COMPOSES", "INHERITS_FROM").
-        target_uid: uid of the connected node.
+        target_key: Canonical key (``cg:v1:...``) of the connected node.
         target_type: Class name of the connected node.
         is_outgoing: True for outgoing edges, False for incoming.
         attributes: Optional relationship-level metadata (e.g. the
@@ -39,7 +39,7 @@ class EdgeDescriptor:
     """
 
     relation_type: str
-    target_uid: str
+    target_key: str
     target_type: str
     is_outgoing: bool = True
     attributes: dict = field(default_factory=dict)
@@ -225,7 +225,7 @@ class Backend(ABC):
         self,
         nodes: list["CodeGraphNode"],
     ) -> dict[str, list[EdgeDescriptor]]:
-        """All edges (incoming + outgoing) keyed by source-node uid.
+        """All edges (incoming + outgoing) keyed by source canonical key.
 
         Default implementation loops per node via :meth:`get_all_edges`;
         backends override with batched implementations for large graphs
@@ -233,16 +233,16 @@ class Backend(ABC):
         """
         out: dict[str, list[EdgeDescriptor]] = {}
         for node in nodes:
-            uid = node._uid_value()
-            if uid:
-                out[uid] = self.get_all_edges(node)
+            key = node.canonical_key
+            if key:
+                out[key] = self.get_all_edges(node)
         return out
 
     def get_composed_children_bulk(
         self,
         nodes: list["CodeGraphNode"],
     ) -> dict[str, list["CodeGraphNode"]]:
-        """Outgoing COMPOSES children keyed by parent-node uid.
+        """Outgoing COMPOSES children keyed by parent canonical key.
 
         Default implementation loops per node via
         :meth:`get_composed_children`; backends override with batched
@@ -250,9 +250,9 @@ class Backend(ABC):
         """
         out: dict[str, list["CodeGraphNode"]] = {}
         for node in nodes:
-            uid = node._uid_value()
-            if uid:
-                out[uid] = self.get_composed_children(node)
+            key = node.canonical_key
+            if key:
+                out[key] = self.get_composed_children(node)
         return out
 
     @abstractmethod

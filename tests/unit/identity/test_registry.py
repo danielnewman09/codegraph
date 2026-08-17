@@ -19,11 +19,13 @@ from codegraph.identity import (
     IdentityError,
     IdentityScope,
     audit_registry,
+    missing_parents,
+    parent_relative_fields,
     resolve_identity_for,
     short_label,
     spec_for,
 )
-from codegraph.identity.encoding import KeyFormatError
+from codegraph.identity.encoding import KeyFormatError, parse_key
 from codegraph.identity.registry import (
     EXEMPT_ABSTRACT,
     _build_specs,
@@ -475,3 +477,254 @@ class TestCallableSignature:
         assert "canonical_signature" in computed_providers
         sig = canonical_signature(_method(argsstring="(int)"))
         assert sig == "lang:cpp|(int)"
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# WP 1.4 — computed parent identities
+# ══════════════════════════════════════════════════════════════════════════
+
+
+class TestParentIdentities:
+    """Child keys incorporate their parent's canonical key without any
+    backend query — the parser/result model carries the parent."""
+
+    SCOPE = IdentityScope.repository("cpp-suite", "cpp-sqlite")
+
+    def _method(self, **kw) -> object:
+        from codegraph.models import MethodNode
+
+        defaults = dict(name="selectCacheById",
+                        qualified_name="cpp_sqlite::DataAccessObject::selectCacheById",
+                        argsstring="(T id)", type_signature="std::optional<T>",
+                        source="cpp-sqlite")
+        defaults.update(kw)
+        return MethodNode(**defaults)
+
+    def test_parameter_key_uses_parent_callable_and_position(self) -> None:
+        from codegraph.models import ParameterNode
+
+        method = self._method()
+        method_key = resolve_identity_for(method, self.SCOPE).key()
+        p0 = ParameterNode(name="id", position=0, member_refid="m1",
+                           type_signature="T", source="cpp-sqlite")
+        p1 = ParameterNode(name="other", position=1, member_refid="m1",
+                           type_signature="T", source="cpp-sqlite")
+        k0 = resolve_identity_for(p0, self.SCOPE,
+                                  parents={"parent_callable_key": method}).key()
+        k1 = resolve_identity_for(p1, self.SCOPE,
+                                  parents={"parent_callable_key": method}).key()
+        assert k0 != k1  # ordinal distinguishes parameters
+        parsed = parse_key(k0)
+        assert dict(parsed.fields)["parent_callable_key"] == method_key
+
+    def test_same_position_under_different_parents_distinct(self) -> None:
+        from codegraph.models import ParameterNode
+
+        m1 = self._method(name="a", qualified_name="ns::A::f", argsstring="(T id)")
+        m2 = self._method(name="b", qualified_name="ns::B::f", argsstring="(T id)")
+        p = ParameterNode(name="id", position=0, member_refid="x",
+                          type_signature="T", source="cpp-sqlite")
+        k1 = resolve_identity_for(p, self.SCOPE, parents={"parent_callable_key": m1}).key()
+        k2 = resolve_identity_for(p, self.SCOPE, parents={"parent_callable_key": m2}).key()
+        assert k1 != k2
+
+    def test_parameter_key_distinct_across_repositories(self) -> None:
+        from codegraph.models import ParameterNode
+
+        p = ParameterNode(name="id", position=0, member_refid="x",
+                          type_signature="T", source="s")
+        a = resolve_identity_for(p, IdentityScope.repository("p", "repo-a"),
+                                 parents={"parent_callable_key": self._method()}).key()
+        b = resolve_identity_for(p, IdentityScope.repository("p", "repo-b"),
+                                 parents={"parent_callable_key": self._method()}).key()
+        assert a != b
+
+    def test_implementation_key_uses_parent_callable_and_kind(self) -> None:
+        from codegraph.models import ImplementationNode
+
+        method = self._method()
+        body = ImplementationNode(name="selectCacheById",
+                                  qualified_name="cpp_sqlite::DataAccessObject::selectCacheById",
+                                  kind="method-body", source="cpp-sqlite")
+        decl = ImplementationNode(name="selectCacheById",
+                                  qualified_name="cpp_sqlite::DataAccessObject::selectCacheById",
+                                  kind="declaration", source="cpp-sqlite")
+        kb = resolve_identity_for(body, self.SCOPE,
+                                  parents={"parent_callable_key": method}).key()
+        kd = resolve_identity_for(decl, self.SCOPE,
+                                  parents={"parent_callable_key": method}).key()
+        assert kb != kd  # kind distinguishes implementations
+
+    def test_fragment_key_uses_file_key_and_span(self) -> None:
+        from codegraph.models import FileNode, SourceFragmentNode
+
+        f = FileNode(name="util.hpp", path="src/lib/util.hpp",
+                     language="C++", source="cpp-sqlite")
+        file_key = resolve_identity_for(f, self.SCOPE).key()
+        frag_a = SourceFragmentNode(name="r1", qualified_name="r1",
+                                    file_path="src/lib/util.hpp",
+                                    start_line=10, end_line=20, source="cpp-sqlite")
+        frag_b = SourceFragmentNode(name="r2", qualified_name="r2",
+                                    file_path="src/lib/util.hpp",
+                                    start_line=30, end_line=40, source="cpp-sqlite")
+        ka = resolve_identity_for(frag_a, self.SCOPE, parents={"file_key": f}).key()
+        kb = resolve_identity_for(frag_b, self.SCOPE, parents={"file_key": f}).key()
+        assert ka != kb  # span distinguishes fragments
+        parsed = parse_key(ka)
+        assert dict(parsed.fields)["file_key"] == file_key
+        assert dict(parsed.fields)["start_line"] == "10"
+
+    def test_llr_key_uses_parent_hlr(self) -> None:
+        from codegraph_requirements.models.requirement import HLR, LLR
+
+        scope = IdentityScope.project("codegraph-suite")
+        hlr = HLR(name="HLR-1", qualified_name="Architecture Diagram Generator",
+                  source="codegraph")
+        llr = LLR(name="LLR-1.1", qualified_name="Architecture Diagram Generator::1.1",
+                  source="codegraph")
+        hlr_key = resolve_identity_for(hlr, scope).key()
+        llr_key = resolve_identity_for(llr, scope, parents={"parent_hlr_key": hlr}).key()
+        assert dict(parse_key(llr_key).field_map())["parent_hlr_key"] == hlr_key
+
+    def test_test_chain_with_precomputed_parent_key(self) -> None:
+        """TestStep -> TestNode -> HLR: the TestNode key itself depends on
+        its HLR parent, so the caller precomputes it and passes the key
+        string (the chain form)."""
+        from codegraph.models.test import AssertionNode, TestNode, TestStepNode
+        from codegraph_requirements.models.requirement import HLR
+
+        scope = IdentityScope.project("codegraph-suite")
+        hlr = HLR(name="HLR-1", qualified_name="Architecture Diagram Generator",
+                  source="codegraph")
+        test = TestNode(name="CreateInMemoryDatabase",
+                        qualified_name="DatabaseTest::CreateInMemoryDatabase",
+                        source="codegraph")
+        step = TestStepNode(name="s1",
+                            qualified_name="DatabaseTest::CreateInMemoryDatabase::s1",
+                            source="codegraph")
+        assertion = AssertionNode(name="a1",
+                                  qualified_name="DatabaseTest::CreateInMemoryDatabase::s1::a1",
+                                  source="codegraph")
+
+        hlr_key = resolve_identity_for(hlr, scope).key()
+        test_key = resolve_identity_for(test, scope, parents={"parent_key": hlr}).key()
+        # chain form: parent KEY string instead of node
+        step_key = resolve_identity_for(step, scope, parents={"parent_key": test_key}).key()
+        assertion_key = resolve_identity_for(
+            assertion, scope, parents={"parent_key": step_key}).key()
+
+        keys = [hlr_key, test_key, step_key, assertion_key]
+        assert len(set(keys)) == 4
+        assert dict(parse_key(test_key).field_map())["parent_key"] == hlr_key
+        assert dict(parse_key(step_key).field_map())["parent_key"] == test_key
+
+    def test_missing_parents_introspection(self) -> None:
+        from codegraph.models import ParameterNode
+
+        p = ParameterNode(name="id", position=0, member_refid="x",
+                          type_signature="T", source="s")
+        assert missing_parents(p) == ("parent_callable_key",)
+        assert missing_parents(p, {"parent_callable_key": self._method()}) == ()
+        with pytest.raises(IdentityError, match="requires a parent"):
+            resolve_identity_for(p, self.SCOPE)
+
+    def test_parent_relative_fields_introspection(self) -> None:
+        from codegraph.models import (
+            FileNode,
+            ImplementationNode,
+            MethodNode,
+            ParameterNode,
+            SourceFragmentNode,
+        )
+
+        assert parent_relative_fields(MethodNode) == ()
+        assert parent_relative_fields(FileNode) == ()
+        assert parent_relative_fields(ParameterNode) == ("parent_callable_key",)
+        assert parent_relative_fields(ImplementationNode) == ("parent_callable_key",)
+        assert parent_relative_fields(SourceFragmentNode) == ("file_key",)
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# WP 1.3 completion — real as-built fixture validation
+# ══════════════════════════════════════════════════════════════════════════
+
+
+@pytest.fixture(scope="module")
+def as_built_callables():
+    """All MethodNode/FunctionNode dicts from the cpp-sqlite one-hop fixture."""
+    import json
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[3] / "tests" / "unit_test_data" / "cpp_sqlite_one_hop.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    nodes: list[dict] = []
+
+    def walk(entries):
+        for e in entries:
+            if e.get("type") in ("MethodNode", "FunctionNode"):
+                nodes.append(e)
+            for child in e.get("composes", []):
+                walk([child])
+
+    walk(data)
+    return nodes
+
+
+class TestRealFixtureSignatures:
+    def test_all_callables_resolve_with_distinct_keys(
+        self, as_built_callables
+    ) -> None:
+        """Collision-freedom across the whole real fixture: no two distinct
+        methods/functions collapse to the same canonical key."""
+        from codegraph.models.tags import CodeGraphNode
+
+        scope = IdentityScope.repository("codegraph-suite", "cpp-sqlite")
+        keys: list[str] = []
+        for entry in as_built_callables:
+            node = CodeGraphNode.deserialize(entry)
+            ident = resolve_identity_for(node, scope)
+            assert ident.category in ("method", "function")
+            keys.append(ident.key())
+        assert len(keys) == len(as_built_callables)
+        assert len(set(keys)) == len(keys), "canonical key collision in fixture"
+
+    def test_signatures_are_deterministic(self, as_built_callables) -> None:
+        from codegraph.identity.signature import build_callable_signature
+        from codegraph.models.tags import CodeGraphNode
+
+        for entry in as_built_callables:
+            node = CodeGraphNode.deserialize(entry)
+            s1 = build_callable_signature(node).canonical()
+            s2 = build_callable_signature(node).canonical()
+            assert s1 == s2
+
+    def test_representative_signatures(self) -> None:
+        """Known as-built argstrings normalize to the documented forms."""
+        from codegraph.models import MethodNode
+
+        cases = [
+            (MethodNode(name="getTableName", qualified_name="ns::X::getTableName",
+                        argsstring="() const override", type_signature="std::string",
+                        source="s"), "lang:cpp|()|const"),
+            (MethodNode(name="getDAO", qualified_name="ns::X::getDAO",
+                        argsstring="(T &data)", type_signature="DataAccessObject<T>&",
+                        source="s"), "lang:cpp|(T&)"),
+            (MethodNode(name="Logger", qualified_name="ns::Logger::Logger",
+                        argsstring="(const Logger&) = delete", type_signature="",
+                        source="s"), "lang:cpp|constructor|(const Logger&)"),
+        ]
+        for node, expected in cases:
+            assert build_callable_signature(node).canonical() == expected
+
+    def test_every_fixture_key_strictly_decodes(
+        self, as_built_callables
+    ) -> None:
+        from codegraph.models.tags import CodeGraphNode
+
+        scope = IdentityScope.repository("codegraph-suite", "cpp-sqlite")
+        for entry in as_built_callables:
+            node = CodeGraphNode.deserialize(entry)
+            key = resolve_identity_for(node, scope).key()
+            roundtripped = CanonicalIdentity.from_key(key)
+            assert roundtripped.key() == key
+            assert roundtripped.category in ("method", "function")

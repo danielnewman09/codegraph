@@ -103,22 +103,66 @@ class SqliteRelOps:
             tgt_id = self._uid_to_id(conn, target_uid)
             if src_id is None or tgt_id is None:
                 return 0
-            props_json = json.dumps(edge_properties or {})
-            conn.execute(
-                sa.text(
-                    "INSERT INTO edges (source_id, rel_type, target_id, properties) "
-                    "VALUES (:sid, :rt, :tid, :props) "
-                    "ON CONFLICT(source_id, rel_type, target_id) DO UPDATE SET "
-                    "properties = excluded.properties"
-                ),
-                {"sid": src_id, "rt": rel_type, "tid": tgt_id, "props": props_json},
+            return self._insert_edge(
+                conn, src_id, rel_type, tgt_id, edge_properties
             )
+
+    def merge_relationship_by_key(
+        self,
+        source_key: str,
+        rel_type: str,
+        target_key: str,
+        *,
+        edge_properties: dict[str, object] | None = None,
+    ) -> int:
+        """Idempotently create a relationship by canonical keys (WP3.2).
+
+        Both endpoints must already exist as keyed nodes.  Returns 1 if
+        both resolve, 0 otherwise.  Edge rows are keyed by integer node
+        ids, so nothing about the edges table changes.
+        """
+        with self._conn.session() as conn:
+            src_id = self._key_to_id(conn, source_key)
+            tgt_id = self._key_to_id(conn, target_key)
+            if src_id is None or tgt_id is None:
+                return 0
+            return self._insert_edge(
+                conn, src_id, rel_type, tgt_id, edge_properties
+            )
+
+    def _insert_edge(
+        self,
+        conn,
+        src_id: int,
+        rel_type: str,
+        tgt_id: int,
+        edge_properties: dict[str, object] | None = None,
+    ) -> int:
+        """Idempotently insert one edge row; returns 1."""
+        props_json = json.dumps(edge_properties or {})
+        conn.execute(
+            sa.text(
+                "INSERT INTO edges (source_id, rel_type, target_id, properties) "
+                "VALUES (:sid, :rt, :tid, :props) "
+                "ON CONFLICT(source_id, rel_type, target_id) DO UPDATE SET "
+                "properties = excluded.properties"
+            ),
+            {"sid": src_id, "rt": rel_type, "tid": tgt_id, "props": props_json},
+        )
         return 1
 
     def _uid_to_id(self, conn, uid: str) -> int | None:
+        """Compatibility shim (WP C): a canonical key IS the storage key."""
         row = conn.execute(
-            sa.text("SELECT id FROM nodes WHERE uid = :uid"),
-            {"uid": uid},
+            sa.text("SELECT id FROM nodes WHERE canonical_key = :key"),
+            {"key": uid},
+        ).first()
+        return row[0] if row else None
+
+    def _key_to_id(self, conn, key: str) -> int | None:
+        row = conn.execute(
+            sa.text("SELECT id FROM nodes WHERE canonical_key = :key"),
+            {"key": key},
         ).first()
         return row[0] if row else None
 
@@ -139,17 +183,17 @@ class SqliteRelOps:
                         "anc(anc_id, depth) AS ( "
                         "  SELECT e.source_id, 1 FROM edges e "
                         "  JOIN nodes n ON n.id = e.target_id "
-                        "  WHERE n.uid = :uid AND e.rel_type = 'COMPOSES' "
+                        "  WHERE n.canonical_key = :key AND e.rel_type = 'COMPOSES' "
                         "  UNION ALL "
                         "  SELECT e.source_id, a.depth + 1 FROM edges e "
                         "  JOIN anc a ON e.target_id = a.anc_id "
                         "  WHERE e.rel_type = 'COMPOSES' AND a.depth < :maxd "
                         ") "
-                        "SELECT n.uid AS uid, n.labels AS labels "
+                        "SELECT n.canonical_key AS uid, n.labels AS labels "
                         "FROM anc JOIN nodes n ON n.id = anc.anc_id "
-                        "GROUP BY n.uid"
+                        "GROUP BY n.canonical_key"
                     ),
-                    {"uid": uid, "maxd": max_depth},
+                    {"key": uid, "maxd": max_depth},
                 )
             )
         return [
@@ -172,17 +216,17 @@ class SqliteRelOps:
                         "desc(desc_id, depth) AS ( "
                         "  SELECT e.target_id, 1 FROM edges e "
                         "  JOIN nodes n ON n.id = e.source_id "
-                        "  WHERE n.uid = :uid AND e.rel_type = 'COMPOSES' "
+                        "  WHERE n.canonical_key = :key AND e.rel_type = 'COMPOSES' "
                         "  UNION ALL "
                         "  SELECT e.target_id, d.depth + 1 FROM edges e "
                         "  JOIN desc d ON e.source_id = d.desc_id "
                         "  WHERE e.rel_type = 'COMPOSES' AND d.depth < :maxd "
                         ") "
-                        "SELECT n.uid AS uid, n.labels AS labels "
+                        "SELECT n.canonical_key AS uid, n.labels AS labels "
                         "FROM desc JOIN nodes n ON n.id = desc.desc_id "
-                        "GROUP BY n.uid"
+                        "GROUP BY n.canonical_key"
                     ),
-                    {"uid": uid, "maxd": max_depth},
+                    {"key": uid, "maxd": max_depth},
                 )
             )
         return [
@@ -203,7 +247,7 @@ class SqliteRelOps:
             rows = list(
                 conn.execute(
                     sa.text(
-                        "SELECT t.id, t.uid, t.labels, t.properties "
+                        "SELECT t.id, t.canonical_key, t.labels, t.properties "
                         "FROM edges e "
                         "JOIN nodes t ON t.id = e.target_id "
                         "WHERE e.source_id = :sid AND e.rel_type = 'COMPOSES'"
@@ -249,7 +293,7 @@ class SqliteRelOps:
             rows = list(
                 conn.execute(
                     sa.text(
-                        f"SELECT e.rel_type AS rel_type, t.uid AS tuid, "
+                        f"SELECT e.rel_type AS rel_type, t.canonical_key AS tkey, "
                         f"t.labels AS tlbls, e.properties AS eprops "
                         f"FROM edges e {join_sql} WHERE {where_sql}"
                     ),
@@ -258,7 +302,7 @@ class SqliteRelOps:
             )
         edges: list[EdgeDescriptor] = []
         for row in rows:
-            rel_type, tuid, tlbls, eprops = row[0], row[1], row[2], row[3]
+            rel_type, tkey, tlbls, eprops = row[0], row[1], row[2], row[3]
             labels = set(json.loads(tlbls) or [])
             target_type = "CodeGraphNode"
             best = best_class_for_labels(labels)
@@ -266,7 +310,7 @@ class SqliteRelOps:
                 target_type = best.__name__
             edges.append(EdgeDescriptor(
                 relation_type=rel_type,
-                target_uid=tuid,
+                target_key=tkey,
                 target_type=target_type,
                 is_outgoing=outgoing,
                 attributes=json.loads(eprops) if eprops else {},

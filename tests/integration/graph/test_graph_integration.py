@@ -153,7 +153,7 @@ def test_graph_integration():
         saved = entry.node
         for edge in original.get("edges", []):
             total_fixture_edges += 1
-            target_entry = flat.get(edge["target_local_id"])
+            target_entry = flat.get(edge["target_key"])
             # codegraph:test-desc test_graph_integration.test_graph_integration::post_7
             # Asserts that the target entry for each edge exists in the graph. This
             # ensures that every relationship points to a valid node, confirming graph
@@ -163,7 +163,7 @@ def test_graph_integration():
             found = [
                 e for e in saved.serialize()["edges"]
                 if e["relation_type"] == edge["relation_type"]
-                and e["target_uid"] == target._uid_value()
+                and e["target_key"] == target.canonical_key
             ]
             # codegraph:test-desc test_graph_integration.test_graph_integration::post_8
             # Asserts that at least one matching edge entry is found for each expected

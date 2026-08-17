@@ -65,10 +65,10 @@ class SqliteBulkOps:
                 qname_index[qname] = entry
 
         with self._conn.session() as conn:
-            # ── Phase 1: nodes ────────────────────────────────────
+            # ── Phase 1: nodes (upsert by canonical key) ──────────
             node_rows = [
                 {
-                    "uid": _prep_uid(entry.node),
+                    "canonical_key": entry.node.canonical_key,
                     "labels": json.dumps(_node_labels(type(entry.node))),
                     "properties": json.dumps(_serialize_props(entry.node)),
                 }
@@ -76,43 +76,38 @@ class SqliteBulkOps:
             ]
             conn.execute(
                 sa.text(
-                    "INSERT INTO nodes (uid, labels, properties) "
-                    "VALUES (:uid, :labels, :properties) "
-                    "ON CONFLICT(uid) DO UPDATE SET "
-                    # Merge (Neo4j ``SET n += $props``): new keys win,
-                    # existing keys not re-ingested are preserved; labels
-                    # are only mutated via set_labels().
+                    "INSERT INTO nodes (canonical_key, labels, properties) "
+                    "VALUES (:canonical_key, :labels, :properties) "
+                    "ON CONFLICT(canonical_key) DO UPDATE SET "
+                    # Properties merge via json_patch (new keys win).
                     "properties = json_patch(nodes.properties, excluded.properties)"
                 ),
                 node_rows,
             )
 
-            # Resolve uid → id and stamp element_id_property, capturing
+            # Resolve key → id and stamp element_id_property, capturing
             # the STORED labels + merged properties for the mirror tables.
-            uids = [r["uid"] for r in node_rows]
-            binds = ", ".join(f":u{i}" for i in range(len(uids)))
+            keys = [r["canonical_key"] for r in node_rows]
+            binds = ", ".join(f":u{i}" for i in range(len(keys)))
             id_rows = list(
                 conn.execute(
                     sa.text(
-                        f"SELECT id, uid, labels, properties FROM nodes "
-                        f"WHERE uid IN ({binds})"
+                        f"SELECT id, canonical_key, labels, properties FROM nodes "
+                        f"WHERE canonical_key IN ({binds})"
                     ),
-                    {f"u{i}": u for i, u in enumerate(uids)},
+                    {f"u{i}": u for i, u in enumerate(keys)},
                 )
             )
-            uid_to_id: dict[str, int] = {}
+            key_to_id: dict[str, int] = {}
             stored: dict[int, dict] = {}
             for r in id_rows:
-                uid_to_id[r[1]] = r[0]
+                key_to_id[r[1]] = r[0]
                 stored[r[0]] = {
                     "labels": json.loads(r[2]) or [],
                     "props": json.loads(r[3] or "{}"),
                 }
-            # Stamp every entry by its (possibly colliding) uid — entries
-            # sharing a uid MERGE to the same DB row, mirroring Neo4j's
-            # MERGE-on-uid save semantics.
             for entry in entries:
-                entry.node.element_id_property = uid_to_id[entry.node.uid]
+                entry.node.element_id_property = key_to_id[entry.node.canonical_key]
 
             # ── Phase 2: relationships ────────────────────────────
             edge_rows: list[dict] = []
@@ -164,7 +159,7 @@ class SqliteBulkOps:
                 props = node_data["props"]
                 fts_rows.append(
                     {
-                        "uid": entry.node.uid,
+                        "canonical_key": entry.node.canonical_key,
                         "content": " ".join(
                             str(props[p])
                             for p in _SEARCHABLE_TEXT_PROPS
@@ -236,23 +231,23 @@ class SqliteBulkOps:
             # re-ingested nodes keep preserved fields.
             #
             # Batched (was per-node): a per-node ``DELETE FROM fts_nodes
-            # WHERE uid = :uid`` forces a full FTS5 index scan per row —
+            # WHERE canonical_key = :key`` forces a full FTS5 index scan per row —
             # FTS5 virtual tables cannot seek on a non-rowid column —
             # i.e. O(n²) index visits and minutes at 57k nodes.  Chunked
             # IN-deletes keep the identical per-node semantics at O(n)
             # index visits.
-            fts_uids = [r["uid"] for r in fts_rows]
+            fts_uids = [r["canonical_key"] for r in fts_rows]
             for chunk in _chunks(fts_uids, _DELETE_CHUNK):
                 binds = ", ".join(f":u{i}" for i in range(len(chunk)))
                 conn.execute(
-                    sa.text(f"DELETE FROM fts_nodes WHERE uid IN ({binds})"),
+                    sa.text(f"DELETE FROM fts_nodes WHERE canonical_key IN ({binds})"),
                     {f"u{i}": u for i, u in enumerate(chunk)},
                 )
             if fts_rows:
                 conn.execute(
                     sa.text(
-                        "INSERT INTO fts_nodes (uid, content, qualified_name, tags) "
-                        "VALUES (:uid, :content, :qname, :tags)"
+                        "INSERT INTO fts_nodes (canonical_key, content, qualified_name, tags) "
+                        "VALUES (:canonical_key, :content, :qname, :tags)"
                     ),
                     fts_rows,
                 )
@@ -280,7 +275,6 @@ class SqliteBulkOps:
         ``LayerGraph.from_backend()``.
         """
         nodes: dict[str, CodeGraphNode] = {}
-        uid_to_key: dict[str, str] = {}
         seen_uids: set[str] = set()
 
         matched_nodes = self._node_ops.find_all_by_tag(tag)
@@ -288,27 +282,25 @@ class SqliteBulkOps:
         for node in matched_nodes:
             key = LayerGraph._node_key(node)
             nodes[key] = node
-            uid = node._uid_value()
-            if uid:
-                uid_to_key[uid] = key
-                seen_uids.add(uid)
+            seen_uids.add(key)
 
         # Expand to first-level neighbors.
         for node in matched_nodes:
             for edge in self._rel_ops.get_all_edges(node):
                 if edge.relation_type == "HAS_IMPLEMENTATION":
                     continue
-                target_uid = edge.target_uid
+                target_key = edge.target_key
                 target_type = edge.target_type
-                if target_uid not in seen_uids:
-                    seen_uids.add(target_uid)
+                if target_key not in seen_uids:
+                    seen_uids.add(target_key)
                     target_cls = CodeGraphNode._registry.get(target_type)
                     if target_cls:
-                        neighbor = self._node_ops.get(target_cls, uid=target_uid)
+                        neighbor = self._node_ops.get(
+                            target_cls, canonical_key=target_key
+                        )
                         if neighbor:
                             neighbor_key = LayerGraph._node_key(neighbor)
                             nodes[neighbor_key] = neighbor
-                            uid_to_key[target_uid] = neighbor_key
 
         # Second pass: pull in namespace parents of non-project 1-hop
         # neighbours.  ONLY ``NamespaceNode`` parents qualify — arbitrary
@@ -316,27 +308,28 @@ class SqliteBulkOps:
         # unrelated requirements/scaffold trees into e.g. a design
         # export, breaking the design-closure invariant (every node
         # design-tagged or 1-hop from a design-tagged node).
-        initial_uids = {n._uid_value() for n in matched_nodes}
+        initial_keys = {n.canonical_key for n in matched_nodes}
         for node in list(nodes.values()):
-            if node._uid_value() in initial_uids:
+            if node.canonical_key in initial_keys:
                 continue
             for edge in self._rel_ops.get_all_edges(node):
                 if edge.relation_type != "COMPOSES":
                     continue
                 if edge.is_outgoing:
                     continue  # only interested in incoming (parent→ns)
-                target_uid = edge.target_uid
+                target_key = edge.target_key
                 target_type = edge.target_type
                 target_cls = CodeGraphNode._registry.get(target_type)
                 if target_cls is None or not issubclass(target_cls, NamespaceNode):
                     continue
-                if target_uid not in seen_uids:
-                    seen_uids.add(target_uid)
-                    parent_ns = self._node_ops.get(target_cls, uid=target_uid)
+                if target_key not in seen_uids:
+                    seen_uids.add(target_key)
+                    parent_ns = self._node_ops.get(
+                        target_cls, canonical_key=target_key
+                    )
                     if parent_ns:
                         ns_key = LayerGraph._node_key(parent_ns)
                         nodes[ns_key] = parent_ns
-                        uid_to_key[target_uid] = ns_key
 
         return list(nodes.values())
 
@@ -354,14 +347,4 @@ def _chunks(items: list, size: int) -> list[list]:
 _DELETE_CHUNK = 5000
 
 
-def _prep_uid(node: CodeGraphNode) -> str:
-    """Compute and stamp the uid before batching the row."""
-    node_type = type(node)
-    from codegraph.models.descriptors import PropertyRegistry
 
-    if (PropertyRegistry.has_property(node_type, "qualified_name")
-            and not getattr(node, "qualified_name", "")):
-        node.qualified_name = node._compute_qualified_name()
-    computed = node._compute_uid()
-    node.uid = computed
-    return computed

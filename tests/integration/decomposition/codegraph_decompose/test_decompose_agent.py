@@ -34,7 +34,6 @@ from codegraph_design.agents.decompose_hlr import (
 from codegraph_requirements.schemas import DecomposedRequirementSchema
 from codegraph_requirements.models.requirement import HLR, LLR  # register types for deserialize  # noqa: F401
 from codegraph.graph import LayerGraph
-from codegraph.uid import compute_uid
 
 # ── Path to actual decompose output from the last run ──────────────────────
 
@@ -45,6 +44,55 @@ DECOMPOSE_RESPONSE = DATA_DIR / "decompose_response.json"
 # ════════════════════════════════════════════════════════════════════════════
 # Helpers — build minimal valid/invalid node lists
 # ════════════════════════════════════════════════════════════════════════════
+
+
+def _composes_parent(nodes, child_qname, parent_type):
+    """Return the qname of the *parent_type* node that COMPOSES child_qname."""
+    child_type = ""
+    for n in nodes:
+        if (n.get("qualified_name", "") or n.get("name", "")) == child_qname:
+            child_type = n.get("type", "")
+            break
+    for n in nodes:
+        if n.get("type") != parent_type:
+            continue
+        for e in n.get("edges", []):
+            if (
+                e.get("relation_type") == "COMPOSES"
+                and e.get("target_type") == child_type
+                and (e.get("target_uid") or "") == child_qname
+            ):
+                return n.get("qualified_name", "") or n.get("name", "")
+    return ""
+
+
+def _enrich_canonical_keys(nodes):
+    """WP A/B: canonical keys for a decompose node list — shared with the
+    persistence layer (``codegraph_requirements.persistence
+    .key_decomposition_nodes``), so tests exercise the same code path the
+    decompose agent runs."""
+    from codegraph_requirements.persistence import key_decomposition_nodes
+    from codegraph.identity import IdentityScope
+
+    HLR_KEY = (
+        "cg:v1:repository:codegraph-suite%2Fcodegraph:requirement-hlr:"
+        "qualified_name=Architecture%20Diagram%20Generator"
+    )
+    return key_decomposition_nodes(
+        nodes,
+        parent_hlr_key=HLR_KEY,
+        scope=IdentityScope.repository("codegraph-suite", "codegraph"),
+    )
+
+
+def _ref_qname(nodes, e):
+    """Resolve an edge's target reference (target_key/target_uid) to the
+    target node's qualified name, falling back to the raw reference."""
+    ref = e.get("target_key") or e.get("target_uid") or ""
+    for n in nodes:
+        if n.get("canonical_key") == ref:
+            return n.get("qualified_name", "") or n.get("name", "")
+    return ref
 
 
 def _make_llr(name="Test LLR", test_ids=None):
@@ -110,6 +158,20 @@ def _make_step(qname, description="Invoke operation", callee="Foo::do_thing"):
 
 
 def _make_complete_subtree(llr_name="Test LLR", test_qname="vm::test::test_foo"):
+    """Return a minimal complete node list: 1 LLR + 1 Test + 2 Assertions + 1 Step."""
+    return [
+        _make_llr(llr_name, test_ids=[test_qname]),
+        _make_test(test_qname),
+        _make_assertion(f"cond::pre::{test_qname}", phase="pre"),
+        _make_assertion(f"cond::post::{test_qname}", phase="post"),
+        _make_step(f"step::{test_qname}"),
+    ]
+
+
+def _make_keyed_complete_subtree(llr_name="Test LLR", test_qname="vm::test::test_foo"):
+    """Like _make_complete_subtree, but with canonical keys assigned
+    (WP A/B) so the list can be deserialized by LayerGraph."""
+    return _enrich_canonical_keys(_make_complete_subtree(llr_name, test_qname))
     """Return a minimal complete node list: 1 LLR + 1 Test + 2 Assertions + 1 Step."""
     return [
         _make_llr(llr_name, test_ids=[test_qname]),
@@ -345,14 +407,14 @@ class TestLayerGraphFromDecomposeNodes:
 
     def test_llr_becomes_root_entry(self):
         """LLR nodes in the flat list become root entries in the LayerGraph."""
-        nodes = _make_complete_subtree()
+        nodes = _make_keyed_complete_subtree()
         graph = LayerGraph.deserialize(nodes, create_missing=True)
         root_keys = list(graph.entries.keys())
         assert len(root_keys) >= 1, f"Expected root entries, got {root_keys}"
 
     def test_test_node_nests_under_llr(self):
         """TestNode children of an LLR nest under it via COMPOSES."""
-        nodes = _make_complete_subtree()
+        nodes = _make_keyed_complete_subtree()
         graph = LayerGraph.deserialize(nodes, create_missing=True)
 
         llr_entry = _find_llr_entry(graph)
@@ -367,7 +429,7 @@ class TestLayerGraphFromDecomposeNodes:
 
     def test_assertion_and_step_nest_under_test(self):
         """AssertionNode and TestStepNode children of a TestNode nest under it."""
-        nodes = _make_complete_subtree()
+        nodes = _make_keyed_complete_subtree()
         graph = LayerGraph.deserialize(nodes, create_missing=True)
 
         llr_entry = _find_llr_entry(graph)
@@ -393,7 +455,7 @@ class TestLayerGraphFromDecomposeNodes:
     def test_auto_created_scaffold_attribute_nodes(self):
         """Scaffold AttributeNodes (notional references in LEFT_OPERAND/CALLEE
         edges) are auto-created by ``create_missing=True``."""
-        nodes = _make_complete_subtree()
+        nodes = _make_keyed_complete_subtree()
         graph = LayerGraph.deserialize(nodes, create_missing=True)
 
         all_nodes = []
@@ -405,7 +467,7 @@ class TestLayerGraphFromDecomposeNodes:
 
     def test_auto_created_scaffold_literal_nodes(self):
         """Scaffold LiteralNodes (like literal::true) are auto-created."""
-        nodes = _make_complete_subtree()
+        nodes = _make_keyed_complete_subtree()
         graph = LayerGraph.deserialize(nodes, create_missing=True)
 
         all_qnames = []
@@ -418,7 +480,7 @@ class TestLayerGraphFromDecomposeNodes:
     def test_operand_edges_are_references(self):
         """LEFT_OPERAND and RIGHT_OPERAND edges appear as references
         on the AssertionNode entries."""
-        nodes = _make_complete_subtree()
+        nodes = _make_keyed_complete_subtree()
         graph = LayerGraph.deserialize(nodes, create_missing=True)
 
         llr_entry = _find_llr_entry(graph)
@@ -438,7 +500,7 @@ class TestLayerGraphFromDecomposeNodes:
 
     def test_callee_edge_is_reference(self):
         """CALLEE edges appear as references on TestStepNode entries."""
-        nodes = _make_complete_subtree()
+        nodes = _make_keyed_complete_subtree()
         graph = LayerGraph.deserialize(nodes, create_missing=True)
 
         llr_entry = _find_llr_entry(graph)
@@ -471,28 +533,39 @@ def decompose_response():
 
 @pytest.fixture(scope="class")
 def decompose_nodes(decompose_response):
-    """Return just the nodes list from the response.
+    """Return the canonical-key-enriched nodes list from the response.
 
     Adds ``qualified_name`` to any LLR nodes that lack it (legacy
-    decompose outputs only include ``name``, but ``_node_key`` needs
-    the identity field to derive a stable key).
+    decompose outputs only include ``name``), then assigns canonical
+    keys (WP A) and converts edge refs to ``target_key`` (WP B) via
+    :func:`_enrich_canonical_keys`.
     """
     nodes = decompose_response["nodes"]
     for n in nodes:
         if n.get("type") == "LLR" and not n.get("qualified_name"):
             n["qualified_name"] = n.get("name", "")
-    return nodes
+    return _enrich_canonical_keys(nodes)
 
 
 @pytest.fixture(scope="class")
 def decompose_graph(decompose_response):
     """Deserialize the full decompose response into a LayerGraph."""
+    from codegraph.identity import IdentityScope, identity_scope
+
     nodes = decompose_response["nodes"]
-    # Add qualified_name to LLR nodes that lack it (legacy fixtures).
+    # Add qualified_name to LLR nodes that lack it (legacy fixtures),
+    # then enrich with canonical keys (WP A/B).
     for n in nodes:
         if n.get("type") == "LLR" and not n.get("qualified_name"):
             n["qualified_name"] = n.get("name", "")
-    return LayerGraph.deserialize(nodes, create_missing=True)
+    _enrich_canonical_keys(nodes)
+    # Scaffold auto-creation resolves keys under the ACTIVE identity scope,
+    # so deserialize under an explicit scope (class-scoped fixture runs
+    # before the function-scoped ambient scope fixture).
+    with identity_scope(
+        IdentityScope.repository("codegraph-suite", "codegraph")
+    ):
+        return LayerGraph.deserialize(nodes, create_missing=True)
 
 
 class TestDecomposeOutputValidation:
@@ -535,8 +608,9 @@ class TestDecomposeOutputLLRTests:
                 f"LLR '{n.get('name', '?')}' has no COMPOSES edges to TestNode"
             )
             for e in test_edges:
-                assert e["target_uid"] in test_qnames, (
-                    f"LLR '{n['name']}' references unknown TestNode '{e['target_uid']}'"
+                assert _ref_qname(decompose_nodes, e) in test_qnames, (
+                    f"LLR '{n['name']}' references unknown TestNode "
+                    f"'{_ref_qname(decompose_nodes, e)}'"
                 )
 
     def test_every_test_has_pre_and_post_conditions(self, decompose_nodes):
@@ -547,7 +621,7 @@ class TestDecomposeOutputLLRTests:
         }
         for qname, test_node in test_nodes.items():
             assertion_refs = [
-                e["target_uid"] for e in test_node.get("edges", [])
+                _ref_qname(decompose_nodes, e) for e in test_node.get("edges", [])
                 if e["relation_type"] == "COMPOSES" and e["target_type"] == "AssertionNode"
             ]
             pre_assertions = [
@@ -726,30 +800,32 @@ class TestDecompositionViolation:
 
 
 class TestScaffoldConnectivity:
-    """Verify that scaffold nodes persisted to Neo4j are properly connected.
+    """Verify that scaffold nodes persisted to SQLite are properly connected.
 
     Goes through the full persist_decomposition pipeline: deserialize the
-    decompose response → persist to Neo4j → query edges via neomodel.
-    This catches bugs where the Python LayerGraph is correct but the
-    Neo4j edge creation fails (e.g. UID/elementId mismatches).
+    decompose response → persist to the backend → query edges.  This
+    catches bugs where the Python LayerGraph is correct but the backend
+    edge creation fails (e.g. key/elementId mismatches).
     """
 
-    HLR_UID = "ada30b8f1f4e4e26ac83124929c321b92fe1046a"
+    HLR_UID = (
+        "cg:v1:repository:codegraph-suite%2Fcodegraph:requirement-hlr:"
+        "qualified_name=Architecture%20Diagram%20Generator"
+    )
 
     @pytest.fixture()
     def ensure_hlr_exists(self):
-        """Create the target HLR in the test Neo4j so persist_decomposition
-        can find it."""
+        """Create the target HLR in the test backend so persist_decomposition
+        can find it (keyed by canonical_key, WP A)."""
         from codegraph_requirements.models.requirement import HLR
         from codegraph.backends import get_backend
 
         # Delete existing if re-running
-        existing = HLR.nodes.get_or_none(uid=self.HLR_UID)
+        existing = get_backend().graph.find_by_key(self.HLR_UID)
         if existing:
-            get_backend().graph.delete_by_uid(self.HLR_UID)
+            get_backend().graph.delete_by_key(self.HLR_UID)
 
         hlr = HLR(
-            uid=self.HLR_UID,
             name="Architecture Diagram Generator",
             source="test",
             description=(
@@ -873,7 +949,7 @@ class TestScaffoldConnectivity:
                     for target in g.outgoing_by_relation(node, rel):
                         tags = getattr(target, "tags", None) or []
                         if "scaffold" in tags:
-                            target_uid = target._uid_value()
+                            target_uid = target.canonical_key or ""
                             if target_uid:
                                 directly_referenced.add(target_uid)
 
@@ -884,9 +960,9 @@ class TestScaffoldConnectivity:
             if "scaffold" not in tags:
                 continue
             for child in g.composed_children(node, CodeGraphNode):
-                child_uid = child._uid_value()
+                child_uid = child.canonical_key or ""
                 if child_uid and child_uid in directly_referenced:
-                    node_uid = node._uid_value()
+                    node_uid = node.canonical_key or ""
                     if node_uid:
                         reachable.add(node_uid)
 
@@ -895,7 +971,7 @@ class TestScaffoldConnectivity:
 
         orphaned = []
         for s in all_scaffolds:
-            eid = s._uid_value()
+            eid = s.canonical_key or ""
             if eid and eid not in reachable:
                 qn = getattr(s, "qualified_name", "") or "?"
                 labels = sorted(g.get_labels(eid)) if eid else []

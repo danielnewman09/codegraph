@@ -85,7 +85,7 @@ def test_namespace_composes_namespace():
     # Checks that the target UID of the composes edge matches the UID of the inner
     # namespace, confirming that the composition relationship correctly identifies the
     # composed namespace node.
-    assert composes_edges[0]["target_uid"] == inner_ns._uid_value()
+    assert composes_edges[0]["target_key"] == inner_ns.canonical_key
 
     # codegraph:test-desc namespace.test_namespace_composes_namespace.test_namespace_composes_namespace::step_3
     # Extracts the original fields from the outer namespace and the roundtripped fields
@@ -101,7 +101,7 @@ def test_namespace_composes_namespace():
     # Likely compares the connected node's identity to the inner namespace, confirming
     # that the single connected node is indeed the correct inner namespace, final
     # verification of composition fidelity.
-    assert connected[0]._uid_value() == inner_ns._uid_value()
+    assert connected[0].canonical_key == inner_ns.canonical_key
 
 
 if __name__ == "__main__":

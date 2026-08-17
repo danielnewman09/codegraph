@@ -10,6 +10,14 @@ from pathlib import Path
 import pytest
 
 from codegraph.graph import LayerGraph, CompositeEntry
+from tests.integration.serialization._keying import key_graph as _kg
+
+
+class _KeyedLayerGraph(LayerGraph):
+    """LayerGraph that stamps canonical keys on construction (WP A)."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _kg(self), CompositeEntry
 from codegraph.models.compound import ClassNode, InterfaceNode, EnumNode
 from codegraph.models.member import (
     MethodNode, AttributeNode, EnumValueNode, FunctionNode,
@@ -100,7 +108,7 @@ def _make_simple_graph() -> LayerGraph:
             "EnumNode": {"calc::Operation": op_entry},
         },
     )
-    return LayerGraph(tags=frozenset({"design"}), entries={"calc": ns_entry})
+    return _KeyedLayerGraph(tags=frozenset({"design"}), entries={"calc": ns_entry})
 
 
 # ── Export ──────────────────────────────────────────────────────────────────
@@ -304,7 +312,7 @@ class TestMarkdownExport:
             node=derived,
             references=[("INHERITS_FROM", "Animal", "ClassNode")],
         )
-        graph = LayerGraph(tags=frozenset({"design"}), entries={
+        graph = _KeyedLayerGraph(tags=frozenset({"design"}), entries={
             "Animal": CompositeEntry(node=base),
             "Dog": derived_entry,
         })
@@ -367,7 +375,7 @@ class TestMarkdownExport:
                 "ns::B": CompositeEntry(node=b),
             }},
         )
-        graph = LayerGraph(tags=frozenset({"design"}), entries={"ns": ns_entry})
+        graph = _KeyedLayerGraph(tags=frozenset({"design"}), entries={"ns": ns_entry})
         md = export_markdown(graph)
         # codegraph:test-desc test_markdown.TestMarkdownExport.test_relationships_section::post_0
         # Verifies that the exported Markdown includes a '## Relationships' heading,
@@ -403,7 +411,7 @@ class TestMarkdownExport:
         # codegraph:test-desc test_markdown.TestMarkdownExport.test_empty_graph::step_0
         # Executes the export_markdown function with the empty graph, producing the
         # markdown string that will be validated in the subsequent assertions.
-        graph = LayerGraph(tags=frozenset({"design"}))
+        graph = _KeyedLayerGraph(tags=frozenset({"design"}))
         md = export_markdown(graph)
         # codegraph:test-desc test_markdown.TestMarkdownExport.test_empty_graph::post_0
         # Confirms that the markdown output includes the '# codegraph: design' header,
@@ -952,7 +960,7 @@ class TestMarkdownRoundTrip:
             node=derived,
             references=[("INHERITS_FROM", "Animal", "ClassNode")],
         )
-        graph = LayerGraph(tags=frozenset({"design"}), entries={
+        graph = _KeyedLayerGraph(tags=frozenset({"design"}), entries={
             "Animal": base_entry,
             "Dog": derived_entry,
         })
@@ -1028,7 +1036,7 @@ class TestUnifiedFormat:
     # format, ensuring proper error handling in the LayerGraph export process.
     def test_unknown_format_raises(self):
         with pytest.raises(ValueError, match="Unknown"):
-            export_graph(LayerGraph(tags=frozenset({"design"})), format="csv")
+            export_graph(_KeyedLayerGraph(tags=frozenset({"design"})), format="csv")
 
 
 # ── Diagnostics ────────────────────────────────────────────────────────────

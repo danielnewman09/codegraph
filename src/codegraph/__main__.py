@@ -1,14 +1,11 @@
 """Entry point for ``python -m codegraph``.
 
-Dispatches subcommands.  Currently supports:
-
-    python -m codegraph viz <tag> [--output <path>] [--size large|small]
+Dispatches the project-local database management subcommand.
 """
 
 import sys
 
 _SUBCOMMANDS = {
-    "viz": "codegraph.export.viz:main",
     "db": "codegraph.persistence.db_cli:main",
 }
 
@@ -18,7 +15,6 @@ def main() -> None:
         print("Usage: python -m codegraph <subcommand> [args...]")
         print()
         print("Subcommands:")
-        print("  viz    Export a Cytoscape.js HTML graph visualisation")
         print("  db     Manage the project-local Neo4j Docker container")
         sys.exit(0)
 

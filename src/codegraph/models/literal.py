@@ -24,8 +24,7 @@ from __future__ import annotations
 
 from codegraph.models.descriptors import (
     Property,
-    UniqueId,
-)
+    )
 
 from codegraph.models.tags import CodeGraphNode
 
@@ -50,7 +49,6 @@ class LiteralNode(CodeGraphNode):
     _markdown_keyword = "Literal"
 
     # --- Identity ---
-    uid = UniqueId()
     qualified_name = Property(
         str, default="", index=True,
         help_text="Human-readable identifier, typically 'literal::<value>'.",

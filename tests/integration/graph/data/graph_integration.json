@@ -4,7 +4,7 @@
     "path": "/src/calc/calculator_engine.h",
     "source": "calculator",
     "type": "FileNode",
-    "uid": "a481de036d4aa4262b7fe0b0b22057ee870410da",
+    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_engine.h",
     "edges": []
   },
   {
@@ -12,7 +12,7 @@
     "path": "/src/calc/icalculator.h",
     "source": "calculator",
     "type": "FileNode",
-    "uid": "d7b62cf39dd781ab587a2bf7d13d15a16d56f279",
+    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Ficalculator.h",
     "edges": []
   },
   {
@@ -20,7 +20,7 @@
     "path": "/src/calc/operation.h",
     "source": "calculator",
     "type": "FileNode",
-    "uid": "cccbc1901c2f1c6a31a6e83bb25fa4eaed42f26c",
+    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Foperation.h",
     "edges": []
   },
   {
@@ -28,7 +28,7 @@
     "path": "/src/calc/calculator_result.h",
     "source": "calculator",
     "type": "FileNode",
-    "uid": "7cf39e5586c26cace739ac9e68b9c12ff0afd302",
+    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_result.h",
     "edges": []
   },
   {
@@ -36,7 +36,7 @@
     "path": "/src/ui/base_window.h",
     "source": "calculator",
     "type": "FileNode",
-    "uid": "ab1f119b125f35d51a2839cd7ea852a406f0bc70",
+    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fui%2Fbase_window.h",
     "edges": []
   },
   {
@@ -44,7 +44,7 @@
     "path": "/src/ui/calculator_window.h",
     "source": "calculator",
     "type": "FileNode",
-    "uid": "ed5079afea47324c35d360d8ee9e8707ce8f7962",
+    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fui%2Fcalculator_window.h",
     "edges": []
   },
   {
@@ -56,7 +56,7 @@
       "design"
     ],
     "type": "NamespaceNode",
-    "uid": "bd8b6cf747ada9179df7b2b110cf2cb811fdb73a",
+    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:namespace:qualified_name=calc",
     "edges": [],
     "composes": [
       {
@@ -70,21 +70,21 @@
         ],
         "visibility": "public",
         "type": "ClassNode",
-        "uid": "93aeaa5ee440aac253b156ccf2f15227aa11e0ac",
+        "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:class:qualified_name=calc%3A%3ACalculatorEngine",
         "edges": [
           {
             "relation_type": "DEFINED_IN",
-            "target_uid": "a481de036d4aa4262b7fe0b0b22057ee870410da",
+            "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_engine.h",
             "target_type": "FileNode"
           },
           {
             "relation_type": "DEPENDS_ON",
-            "target_uid": "3beaa98236596366493cf23e0ab33dad2bec8398",
+            "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:class:qualified_name=calc%3A%3ACalculatorResult",
             "target_type": "ClassNode"
           },
           {
             "relation_type": "REALIZES",
-            "target_uid": "c91c124590ac1b9feace1652a940c88ddcf38f3c",
+            "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:interface:qualified_name=calc%3A%3AICalculator",
             "target_type": "InterfaceNode"
           }
         ],
@@ -101,11 +101,11 @@
             "type_signature": "CalculatorResult",
             "visibility": "public",
             "type": "MethodNode",
-            "uid": "f03506a446d2e754452e774955c83c7ccd7bf8c6",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=calc%3A%3ACalculatorEngine%3A%3Aadd:canonical_signature=lang%3Acpp%7C%28double%2Cdouble%29",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "a481de036d4aa4262b7fe0b0b22057ee870410da",
+                "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_engine.h",
                 "target_type": "FileNode"
               }
             ]
@@ -122,11 +122,11 @@
             "type_signature": "bool",
             "visibility": "public",
             "type": "MethodNode",
-            "uid": "546620476ca16b2f3db46b316f9e8b9aa6d925f1",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=calc%3A%3ACalculatorEngine%3A%3AvalidateInput:canonical_signature=lang%3Acpp%7C%28string%29",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "a481de036d4aa4262b7fe0b0b22057ee870410da",
+                "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_engine.h",
                 "target_type": "FileNode"
               }
             ]
@@ -142,11 +142,11 @@
             "type_signature": "int",
             "visibility": "public",
             "type": "AttributeNode",
-            "uid": "e2c8a236f5d302627dcc4d2e22070f9519505e91",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:attribute:qualified_name=calc%3A%3ACalculatorEngine%3A%3Aprecision",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "a481de036d4aa4262b7fe0b0b22057ee870410da",
+                "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_engine.h",
                 "target_type": "FileNode"
               }
             ]
@@ -164,11 +164,11 @@
         ],
         "visibility": "public",
         "type": "ClassNode",
-        "uid": "3beaa98236596366493cf23e0ab33dad2bec8398",
+        "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:class:qualified_name=calc%3A%3ACalculatorResult",
         "edges": [
           {
             "relation_type": "DEFINED_IN",
-            "target_uid": "7cf39e5586c26cace739ac9e68b9c12ff0afd302",
+            "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_result.h",
             "target_type": "FileNode"
           }
         ],
@@ -184,11 +184,11 @@
             "type_signature": "double",
             "visibility": "public",
             "type": "AttributeNode",
-            "uid": "4c582541814c6e1e69804100ff09496d81ce1ba7",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:attribute:qualified_name=calc%3A%3ACalculatorResult%3A%3Avalue",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "7cf39e5586c26cace739ac9e68b9c12ff0afd302",
+                "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_result.h",
                 "target_type": "FileNode"
               }
             ]
@@ -205,11 +205,11 @@
             "type_signature": "double",
             "visibility": "public",
             "type": "MethodNode",
-            "uid": "29590eee47c8aaca1eeb2f993d7ed9830353bf26",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=calc%3A%3ACalculatorResult%3A%3Aget_value:canonical_signature=lang%3Acpp%7C%28%29",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "7cf39e5586c26cace739ac9e68b9c12ff0afd302",
+                "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_result.h",
                 "target_type": "FileNode"
               }
             ]
@@ -226,11 +226,11 @@
         ],
         "visibility": "public",
         "type": "InterfaceNode",
-        "uid": "c91c124590ac1b9feace1652a940c88ddcf38f3c",
+        "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:interface:qualified_name=calc%3A%3AICalculator",
         "edges": [
           {
             "relation_type": "DEFINED_IN",
-            "target_uid": "d7b62cf39dd781ab587a2bf7d13d15a16d56f279",
+            "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Ficalculator.h",
             "target_type": "FileNode"
           }
         ],
@@ -247,11 +247,11 @@
             "type_signature": "CalculatorResult",
             "visibility": "public",
             "type": "MethodNode",
-            "uid": "ae91bd9b059d2cbd18c3c6f0e5b6cbcd9a10bc58",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=calc%3A%3AICalculator%3A%3Acalculate:canonical_signature=lang%3Acpp%7C%28Operation%2Cdouble%2Cdouble%29",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "d7b62cf39dd781ab587a2bf7d13d15a16d56f279",
+                "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Ficalculator.h",
                 "target_type": "FileNode"
               }
             ]
@@ -268,11 +268,11 @@
         ],
         "visibility": "public",
         "type": "EnumNode",
-        "uid": "535a4bf2ad71c02172d3ebe363501e38da388059",
+        "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:enum:qualified_name=calc%3A%3AOperation",
         "edges": [
           {
             "relation_type": "DEFINED_IN",
-            "target_uid": "cccbc1901c2f1c6a31a6e83bb25fa4eaed42f26c",
+            "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Foperation.h",
             "target_type": "FileNode"
           }
         ],
@@ -287,7 +287,7 @@
             ],
             "visibility": "public",
             "type": "EnumValueNode",
-            "uid": "8abe9dc65a5df639ef2bcd7cf1bbfb7047405690",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:enum-value:qualified_name=calc%3A%3AOperation%3A%3AADD",
             "edges": []
           },
           {
@@ -300,7 +300,7 @@
             ],
             "visibility": "public",
             "type": "EnumValueNode",
-            "uid": "291b160857f2358aea93cf91dc891941c80042b0",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:enum-value:qualified_name=calc%3A%3AOperation%3A%3ASUBTRACT",
             "edges": []
           }
         ]
@@ -317,11 +317,11 @@
         "type_signature": "string",
         "visibility": "public",
         "type": "FunctionNode",
-        "uid": "b23fa2d4d504f613db1009edff2acd2b7556a0f4",
+        "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:function:qualified_name=calc%3A%3AformatResult:canonical_signature=lang%3Acpp%7C%28double%29",
         "edges": [
           {
             "relation_type": "DEFINED_IN",
-            "target_uid": "a481de036d4aa4262b7fe0b0b22057ee870410da",
+            "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_engine.h",
             "target_type": "FileNode"
           }
         ]
@@ -337,7 +337,7 @@
       "design"
     ],
     "type": "NamespaceNode",
-    "uid": "6c4df8a4a9e9401d070103edf9a7f17fff19c2ba",
+    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:namespace:qualified_name=ui",
     "edges": [],
     "composes": [
       {
@@ -351,11 +351,11 @@
         ],
         "visibility": "public",
         "type": "ClassNode",
-        "uid": "be5ed6c102db4247732c36442e610248058b2cc8",
+        "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:class:qualified_name=ui%3A%3ABaseWindow",
         "edges": [
           {
             "relation_type": "DEFINED_IN",
-            "target_uid": "ab1f119b125f35d51a2839cd7ea852a406f0bc70",
+            "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fui%2Fbase_window.h",
             "target_type": "FileNode"
           }
         ],
@@ -372,11 +372,11 @@
             "type_signature": "void",
             "visibility": "public",
             "type": "MethodNode",
-            "uid": "867d9f104a197c667c9a73c02d24f77960718dce",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ABaseWindow%3A%3Ashow:canonical_signature=lang%3Acpp%7C%28%29",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "ab1f119b125f35d51a2839cd7ea852a406f0bc70",
+                "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fui%2Fbase_window.h",
                 "target_type": "FileNode"
               }
             ]
@@ -394,21 +394,21 @@
         ],
         "visibility": "public",
         "type": "ClassNode",
-        "uid": "a7088a313f75ecdafea536ec62f8d93de39f2c33",
+        "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:class:qualified_name=ui%3A%3ACalculatorWindow",
         "edges": [
           {
             "relation_type": "DEFINED_IN",
-            "target_uid": "ed5079afea47324c35d360d8ee9e8707ce8f7962",
+            "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fui%2Fcalculator_window.h",
             "target_type": "FileNode"
           },
           {
             "relation_type": "DEPENDS_ON",
-            "target_uid": "93aeaa5ee440aac253b156ccf2f15227aa11e0ac",
+            "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:class:qualified_name=calc%3A%3ACalculatorEngine",
             "target_type": "ClassNode"
           },
           {
             "relation_type": "INHERITS_FROM",
-            "target_uid": "be5ed6c102db4247732c36442e610248058b2cc8",
+            "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:class:qualified_name=ui%3A%3ABaseWindow",
             "target_type": "ClassNode"
           }
         ],
@@ -424,11 +424,11 @@
             "type_signature": "string",
             "visibility": "private",
             "type": "AttributeNode",
-            "uid": "165fcec95cb3e811f028df0022614a35c6a8c3d1",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:attribute:qualified_name=ui%3A%3ACalculatorWindow%3A%3Adisplay",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "ed5079afea47324c35d360d8ee9e8707ce8f7962",
+                "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fui%2Fcalculator_window.h",
                 "target_type": "FileNode"
               }
             ]
@@ -444,11 +444,11 @@
             "type_signature": "string",
             "visibility": "private",
             "type": "AttributeNode",
-            "uid": "6b1fe9d08012d6786d663495c456e28764f06612",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:attribute:qualified_name=ui%3A%3ACalculatorWindow%3A%3AcurrentInput",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "ed5079afea47324c35d360d8ee9e8707ce8f7962",
+                "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fui%2Fcalculator_window.h",
                 "target_type": "FileNode"
               }
             ]
@@ -465,11 +465,11 @@
             "type_signature": "void",
             "visibility": "private",
             "type": "MethodNode",
-            "uid": "77a4b93934e021ded536b57f90c7ed400086c47d",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
             "edges": [
               {
                 "relation_type": "DEFINED_IN",
-                "target_uid": "ed5079afea47324c35d360d8ee9e8707ce8f7962",
+                "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fui%2Fcalculator_window.h",
                 "target_type": "FileNode"
               }
             ]

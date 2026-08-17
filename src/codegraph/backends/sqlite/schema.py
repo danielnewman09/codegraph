@@ -30,7 +30,7 @@ import sqlalchemy as sa
 
 log = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 3
 
 # ── Table metadata (SQLAlchemy Core) ─────────────────────────────────────
 
@@ -40,7 +40,10 @@ nodes = sa.Table(
     "nodes",
     metadata,
     sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
-    sa.Column("uid", sa.Text, nullable=False, unique=True),
+    # Canonical key — the sole storage identity (WP C).  A real column
+    # (not a generated view) so it is the upsert target; the properties
+    # JSON also carries it for round-trips.
+    sa.Column("canonical_key", sa.Text, nullable=False, unique=True),
     # JSON array of the inherited label chain, e.g. ["ClassNode","CompoundNode"].
     sa.Column("labels", sa.Text, nullable=False),
     # JSON object of every declared Property value.
@@ -64,12 +67,9 @@ nodes = sa.Table(
     ),
 )
 
-# Lookup index on the unique uid column (SQLite auto-creates one for the
-# UNIQUE constraint, so no separate index is needed).
 sa.Index("idx_nodes_source", nodes.c.source)
 sa.Index("idx_nodes_qname", nodes.c.qualified_name)
 sa.Index("idx_nodes_kind", nodes.c.kind)
-
 node_labels = sa.Table(
     "node_labels",
     metadata,
@@ -116,7 +116,7 @@ node_embeddings = sa.Table(
 
 _FTS5_DDL = (
     "CREATE VIRTUAL TABLE IF NOT EXISTS fts_nodes USING fts5("
-    "uid, content, qualified_name, tags"
+    "canonical_key, content, qualified_name, tags"
     ")"
 )
 
@@ -146,28 +146,27 @@ def create_all(conn) -> None:
 
 
 def _migrate(conn) -> None:
-    """Apply incremental migrations when the stored version is stale.
+    """Reject stale schemas (WP F — old databases are rejected, not
+    converted).
 
-    v1 is the initial schema — this is a no-op today, but the hook
-    exists from day one so future schema evolution (new tables/columns)
-    can ALTER in place instead of a destructive rebuild.
+    v1/v2 databases carry the legacy ``uid`` node column.  Under the
+    canonical-only cutover the ``nodes`` table is keyed by
+    ``canonical_key``; opening an old database without mutating it is
+    impossible with the new schema, so a targeted error explains the
+    cutover instead of silently converting.
     """
     row = conn.execute(sa.text("PRAGMA user_version")).scalar_one()
     version = int(row)
     if version >= SCHEMA_VERSION:
         return
     if version == 0:
-        # A version-0 database is either brand-new (create_all below)
-        # or pre-migration — rebuild from scratch.
+        # Brand-new database — create the canonical schema.
         create_all(conn)
         return
-    # Future: if version < SCHEMA_VERSION and version >= 1, apply
-    # incremental ALTERs here, then bump user_version.
-    log.warning(
-        "SQLite schema at version %d; SCHEMA_VERSION is %d. "
-        "No incremental migration defined — leaving as-is.",
-        version,
-        SCHEMA_VERSION,
+    raise RuntimeError(
+        f"SQLite database uses the legacy schema (user_version={version}); "
+        f"the canonical-only cutover (WP F) requires a fresh store — "
+        f"reindex sources into a new database instead of converting"
     )
 
 

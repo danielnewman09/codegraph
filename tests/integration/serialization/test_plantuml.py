@@ -14,6 +14,14 @@ from pathlib import Path
 import pytest
 
 from codegraph.graph import LayerGraph, CompositeEntry
+from tests.integration.serialization._keying import key_graph as _kg
+
+
+class _KeyedLayerGraph(LayerGraph):
+    """LayerGraph that stamps canonical keys on construction (WP A)."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _kg(self), CompositeEntry
 from codegraph.models.compound import ClassNode, InterfaceNode, EnumNode
 from codegraph.models.member import (
     MethodNode, AttributeNode, EnumValueNode, FunctionNode,
@@ -118,7 +126,7 @@ def _make_simple_graph() -> LayerGraph:
         },
     )
 
-    return LayerGraph(tags=frozenset({"design"}), entries={"calc": ns_entry})
+    return _KeyedLayerGraph(tags=frozenset({"design"}), entries={"calc": ns_entry})
 
 
 # ── _sanitize_alias ────────────────────────────────────────────────────────
@@ -531,7 +539,7 @@ class TestExportRelationships:
                 "ns::B": b_entry,
             }},
         )
-        graph = LayerGraph(tags=frozenset({"design"}), entries={"ns": ns_entry})
+        graph = _KeyedLayerGraph(tags=frozenset({"design"}), entries={"ns": ns_entry})
         puml = export_plantuml(graph)
         # codegraph:test-desc test_plantuml.TestExportRelationships.test_depends_on_arrow::post_0
         # Verifies that the string 'depends_on' appears in the generated PlantUML
@@ -579,7 +587,7 @@ class TestExportRelationships:
                 "ns::B": b_entry,
             }},
         )
-        graph = LayerGraph(tags=frozenset({"design"}), entries={"ns": ns_entry})
+        graph = _KeyedLayerGraph(tags=frozenset({"design"}), entries={"ns": ns_entry})
         puml = export_plantuml(graph)
 
         # The arrow must target ns__B (the parent class), NOT ns__B__foo (the member)
@@ -605,7 +613,7 @@ class TestExportRelationships:
             children={"MethodNode": {"A::bar": meth_bar_entry}},
             references=[("INVOKES", "A::bar", "MethodNode")],
         )
-        graph = LayerGraph(tags=frozenset({"design"}), entries={"A": a_entry})
+        graph = _KeyedLayerGraph(tags=frozenset({"design"}), entries={"A": a_entry})
         puml = export_plantuml(graph)
 
         # Since the member is rendered inside A, self-referential invocations
@@ -1354,7 +1362,7 @@ class TestExportImportRoundTrip:
             node=derived,
             references=[("INHERITS_FROM", "Animal", "ClassNode")],
         )
-        graph = LayerGraph(tags=frozenset({"design"}), entries={
+        graph = _KeyedLayerGraph(tags=frozenset({"design"}), entries={
             "Animal": base_entry,
             "Dog": derived_entry,
         })
@@ -1460,7 +1468,7 @@ class TestPngCompilation:
     # does not raise any errors, ensuring the system gracefully handles edge-case
     # scenarios with no data.
     def test_empty_graph_to_png(self):
-        graph = LayerGraph(tags=frozenset({"design"}))
+        graph = _KeyedLayerGraph(tags=frozenset({"design"}))
         puml = export_plantuml(graph)
         output = OUTPUT_DIR / "plantuml_empty_graph.png"
         # codegraph:test-desc test_plantuml.TestPngCompilation.test_empty_graph_to_png::post_0
@@ -1483,7 +1491,7 @@ class TestPngCompilation:
             node=derived,
             references=[("INHERITS_FROM", "Animal", "ClassNode")],
         )
-        graph = LayerGraph(tags=frozenset({"design"}), entries={
+        graph = _KeyedLayerGraph(tags=frozenset({"design"}), entries={
             "Animal": base_entry,
             "Dog": derived_entry,
         })
@@ -1513,7 +1521,7 @@ class TestPngCompilation:
                 "Operation::SUBTRACT": CompositeEntry(node=sub_val),
             }},
         )
-        graph = LayerGraph(tags=frozenset({"design"}),
+        graph = _KeyedLayerGraph(tags=frozenset({"design"}),
                           entries={"Operation": op_entry})
         puml = export_plantuml(graph)
         output = OUTPUT_DIR / "plantuml_enum.png"
@@ -1566,7 +1574,7 @@ class TestEdgeCases:
     # PlantUML string with no errors, ensuring the system gracefully handles boundary
     # cases without crashing.
     def test_empty_graph_export(self):
-        graph = LayerGraph(tags=frozenset({"design"}))
+        graph = _KeyedLayerGraph(tags=frozenset({"design"}))
         puml = export_plantuml(graph)
         # codegraph:test-desc test_plantuml.TestEdgeCases.test_empty_graph_export::post_0
         # Checks that the exported PlantUML string contains '@startuml', confirming the

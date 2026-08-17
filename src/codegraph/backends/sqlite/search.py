@@ -94,7 +94,7 @@ def _inflate_from_ids(conn, node_ids: list[int]) -> dict[int, Any]:
     rows = list(
         conn.execute(
             sa.text(
-                f"SELECT id, uid, labels, properties FROM nodes "
+                f"SELECT id, canonical_key, labels, properties FROM nodes "
                 f"WHERE id IN ({binds})"
             ),
             params,
@@ -146,7 +146,7 @@ def fts_search(
                     sa.text(
                         "SELECT n.id, -bm25(fts_nodes) AS score "
                         "FROM fts_nodes "
-                        "JOIN nodes n ON n.uid = fts_nodes.uid "
+                        "JOIN nodes n ON n.canonical_key = fts_nodes.canonical_key "
                         "WHERE fts_nodes MATCH :q"
                         + id_filter_sql
                         + " ORDER BY score DESC LIMIT :lim"

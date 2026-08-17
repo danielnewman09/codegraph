@@ -77,11 +77,26 @@ class Neo4jBackend(Backend):
             label = _node_labels(node_cls)[0]
             try:
                 self._conn.execute_raw(
-                    f"CREATE INDEX IF NOT EXISTS FOR (n:`{label}`) ON (n.uid)"
+                    f"CREATE INDEX IF NOT EXISTS FOR (n:`{label}`) ON (n.canonical_key)"
                 )
             except Exception:
                 # Best-effort — a missing label/type must not break startup.
                 continue
+        # Canonical identity (WP3.3): one unique constraint across ALL
+        # canonical entities via a common label, so cross-type key
+        # collisions are impossible (a per-concrete-label uniqueness
+        # constraint would silently allow them).
+        try:
+            self._conn.execute_raw(
+                "CREATE CONSTRAINT IF NOT EXISTS "
+                "FOR (n:CanonicalEntity) REQUIRE n.canonical_key IS UNIQUE"
+            )
+        except Exception:
+            log.warning(
+                "Could not create CanonicalEntity.canonical_key "
+                "constraint — is the database a read-only replica?",
+                exc_info=True,
+            )
 
     @override
     def health_check(self) -> bool:
@@ -163,7 +178,7 @@ class Neo4jBackend(Backend):
         self,
         nodes: list[CodeGraphNode],
     ) -> dict[str, list[EdgeDescriptor]]:
-        uids = [n._uid_value() for n in nodes if n._uid_value()]
+        uids = [n.canonical_key for n in nodes if n.canonical_key]
         return self._rel_ops.get_edges_for_uids(uids)
 
     @override
@@ -171,7 +186,7 @@ class Neo4jBackend(Backend):
         self,
         nodes: list[CodeGraphNode],
     ) -> dict[str, list[CodeGraphNode]]:
-        uids = [n._uid_value() for n in nodes if n._uid_value()]
+        uids = [n.canonical_key for n in nodes if n.canonical_key]
         return self._rel_ops.get_composed_children_for_uids(uids)
 
     @override

@@ -1,8 +1,7 @@
 """CLI configuration for the codegraph codegen exporter.
 
 Resolves a project's name, tag, and graph JSON path from a config file
-in the project root, in priority order (mirrors
-``codegraph.export.viz.cli_config``):
+in the project root, in priority order:
 
 1. ``.codegraph.toml``  — a standalone codegraph config::
 
@@ -24,7 +23,7 @@ in the project root, in priority order (mirrors
        input_paths = ["cpp_sqlite/src"]
 
 The codegen CLI reads the graph JSON at ``{output_dir}/{name}.json`` —
-the same convention as the HTML exporter, so one config serves both.
+the same convention as the codegraph project configuration.
 """
 
 from __future__ import annotations

@@ -221,15 +221,31 @@ class DesignToolDispatcher(CodeGraphDispatcher):
         self._schemas.pop(name, None)
 
     def _add_to_context(self, cls_dict: dict) -> None:
-        """Add a class dict to context_graph as a CompositeEntry."""
+        """Add a class dict to context_graph as a CompositeEntry.
+
+        Canonical identity is mandatory (WP A): the node's canonical key
+        is computed from its identity under the active scope (or
+        restored from the dict when present) before it joins the graph.
+        """
         qn = cls_dict.get("qualified_name", "")
         if not qn:
             return
         from codegraph_design.agents.design_oo_prompt import (
             _deserialize_class_dict,
         )
+        from codegraph.identity import get_identity_scope, resolve_identity_for
+
         try:
             node = _deserialize_class_dict(cls_dict)
+            if not node.canonical_key:
+                scope = get_identity_scope()
+                if scope is None:
+                    log.debug(
+                        "_add_to_context: no active identity scope — "
+                        "skipping '%s'", qn,
+                    )
+                    return
+                node.canonical_key = resolve_identity_for(node, scope).key()
             entry = CompositeEntry(node=node)
             self.context_graph.entries[
                 LayerGraph._node_key(node)

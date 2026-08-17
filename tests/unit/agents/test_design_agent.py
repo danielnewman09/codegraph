@@ -8,6 +8,8 @@ objects — no running Neo4j required.
 from __future__ import annotations
 
 import json
+import inspect
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -71,6 +73,44 @@ class TestDesignAgentInit:
 
         agent = DesignAgent()
         assert agent.name == "design_oo"
+
+    def test_default_contract_path_is_none(self) -> None:
+        from codegraph_agents.design import DesignAgent
+
+        assert DesignAgent()._api_contract_path is None
+
+    def test_explicit_none_contract_path_is_none(self) -> None:
+        from codegraph_agents.design import DesignAgent
+
+        assert DesignAgent(api_contract_path=None)._api_contract_path is None
+
+    def test_string_contract_path_is_preserved(self) -> None:
+        from codegraph_agents.design import DesignAgent
+
+        agent = DesignAgent(api_contract_path="contract.md")
+        assert agent._api_contract_path == "contract.md"
+
+    def test_path_contract_path_is_normalized_to_string(self, tmp_path: Path) -> None:
+        from codegraph_agents.design import DesignAgent
+
+        contract = tmp_path / "contract.md"
+        agent = DesignAgent(api_contract_path=contract)
+        assert agent._api_contract_path == str(contract)
+
+    def test_constructor_has_one_typed_definition(self) -> None:
+        from codegraph_agents.design.agent import DesignAgent
+
+        init = inspect.signature(DesignAgent.__init__)
+        assert init.parameters["api_contract_path"].annotation == "str | Path | None"
+
+    def test_base_initialization_preserves_run_and_checkpoint_state(self) -> None:
+        from codegraph_agents.design import DesignAgent
+
+        config = AgentConfig(run_id="design-test-run", checkpoint=True)
+        agent = DesignAgent(config)
+        assert agent.config is config
+        assert agent.config.run_id == "design-test-run"
+        assert agent._graph.checkpointer is not None
 
     def test_context_needs_include_all_resolvers(self) -> None:
         from codegraph_agents.design import DesignAgent
@@ -188,9 +228,23 @@ class TestDesignAgentBuildMessages:
 
         messages = agent.build_initial_messages(agent._context)
         assert len(messages) == 1
-        assert isinstance(messages[0], HumanMessage)
-        assert "Design a thermostat component" in str(messages[0].content)
-        assert "Notional verification stubs" not in str(messages[0].content)
+
+    def test_injects_api_contract(self, tmp_path: Path) -> None:
+        from codegraph_agents.design import DesignAgent
+
+        contract = tmp_path / "contract.md"
+        contract.write_text("class Thermostat {}", encoding="utf-8")
+        agent = DesignAgent(api_contract_path=contract)
+        context = {"hlr_subtree": _mock_hlr_tree(
+            hlr_desc="Design a thermostat component",
+        ), "component_namespace": ""}
+
+        message = agent.build_initial_messages(context)[0]
+        assert "## API Contract (type definitions)" in message.content
+        assert "class Thermostat {}" in message.content
+        assert isinstance(message, HumanMessage)
+        assert "Design a thermostat component" in str(message.content)
+        assert "Notional verification stubs" not in str(message.content)
 
     def test_includes_notional_verifications(self) -> None:
         from codegraph_agents.design import DesignAgent

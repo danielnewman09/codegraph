@@ -12,8 +12,7 @@ from __future__ import annotations
 
 from codegraph.models.descriptors import (
     Property,
-    UniqueId,
-)
+    )
 
 from codegraph.models.tags import CodeGraphNode
 
@@ -47,7 +46,6 @@ class ImplementationNode(CodeGraphNode):
     """
 
     # --- Identity ---
-    uid = UniqueId()
     qualified_name = Property(
         str, default="", index=True,
         help_text="Human-readable identifier matching the parent node's "

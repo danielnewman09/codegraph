@@ -39,7 +39,7 @@ class TestTradeoffNode:
         )
         tradeoff.trades_off_compound.connect(cls)
 
-        linked = get_backend().memory.find_linked_code_node(tradeoff.uid)
+        linked = get_backend().memory.find_linked_code_node(tradeoff.canonical_key)
         assert linked is not None
         assert linked["rel_type"] == "TRADES_OFF"
 

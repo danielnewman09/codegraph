@@ -6,6 +6,11 @@ across all enricher types (TestEnricher, ClassEnricher, etc.).
 Concrete responsibilities of the base class:
 
 * ``_call_llm()`` — delegates to ``llm_caller.call_text()``
+
+Migration-only legacy service. Its current consumer is the enrichment CLI and
+batch workflow; the replacement target is the shared model service. Remove
+after parity and downstream migration are verified. Do not add new
+orchestration behavior here.
 * ``parse_llm_response()`` — extracts JSON from LLM output
 * ``is_placeholder()`` — detects parser-generated placeholder descriptions
 * ``node_name()`` — extracts a readable qualified name

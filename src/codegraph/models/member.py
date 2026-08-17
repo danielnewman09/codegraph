@@ -9,8 +9,7 @@ from __future__ import annotations
 from codegraph.models.descriptors import (
     Property,
     Relationship,
-    UniqueId,
-)
+    )
 
 from codegraph.models.tags import CodeGraphNode
 
@@ -45,7 +44,6 @@ class MemberNode(CodeGraphNode):
     """
 
     # --- Identity ---
-    uid = UniqueId()
     qualified_name = Property(
         str, default="", index=True,
         help_text="Human-readable fully-qualified name. Indexed for lookup; "

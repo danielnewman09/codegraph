@@ -47,8 +47,40 @@ from codegraph.backends.interface import Backend
 from codegraph.backends import get_backend
 
 from codegraph.constants import Tag, TAGS
+from codegraph.identity import KEY_VERSION, VERSION_PREFIX
+from codegraph.identity.registry import KeyConflictError
 from codegraph.models.tags import CodeGraphNode, _type_discriminator
 from codegraph.models.descriptors import PropertyRegistry
+
+
+#: Current serialized-document format version (WP2.3).  ``LayerGraph``
+#: documents may be a bare list of node dicts — the documented legacy
+#: form, implicitly format v1 — or a versioned envelope dict:
+#: ``{"format_version": 1, "identity_version": 1, "entries": [...]}``.
+#: The envelope is how future formats present themselves; unknown
+#: versions fail clearly instead of being inferred from field presence.
+GRAPH_DOCUMENT_FORMAT_VERSION = 1
+
+
+class GraphDocumentError(ValueError):
+    """Raised when a serialized LayerGraph document is malformed or
+    declares a format/key version this build does not support.
+
+    Attributes mirror the offending document's declarations so callers
+    can distinguish a version problem (``format_version`` set) from a
+    structural one (``format_version`` is ``None``).
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        format_version: int | None = None,
+        identity_version: int | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.format_version = format_version
+        self.identity_version = identity_version
 
 
 def _require_tags(tag: str, nodes) -> None:
@@ -118,7 +150,13 @@ class CompositeEntry:
     references: list[tuple[str, str, str]] = field(default_factory=list)
     edge_attrs: dict[tuple[str, str], dict] = field(default_factory=dict)
 
-    def serialize(self, fields: str = "llm", *, export_implementation: bool = False) -> dict:
+    def serialize(
+        self,
+        fields: str = "llm",
+        *,
+        export_implementation: bool = False,
+        canonical_by_local: dict[str, str] | None = None,
+    ) -> dict:
         """Recursively serialize this CompositeEntry and its composed children.
 
         Walks the pre-built ``children`` tree to produce nested output.
@@ -135,13 +173,16 @@ class CompositeEntry:
         Args:
             fields: Which property fields to include when serializing
                 each node.  ``"llm"`` (default) — only ``_llm_fields``.
-                ``"all"`` — every defined property.  Passed through to
+                ``"all"`` — every declared property.  Passed through to
                 ``CodeGraphNode.serialize()``.
             export_implementation: When True, MethodNode ``body``
                 text (implementation bodies captured at parse time) is
                 included so codegen can regenerate out-of-line and
                 inline definitions.  Default False — implementation
                 data is opt-in.
+            canonical_by_local: Map of local node key → canonical key
+                (``cg:v1:...``); reference edges emit ``target_key`` from
+                it (WP B — canonical keys only).
 
         Returns:
             A dict representing the entry with nested children.
@@ -163,8 +204,7 @@ class CompositeEntry:
         # neomodel relationship managers.  This is essential for graphs
         # that were deserialized from JSON (e.g. subgraph views) where
         # the node is not connected to Neo4j.
-        uid_prop_name = type(self.node)._uid_prop() or "uid"
-        seen_targets = {(e["relation_type"], e["target_uid"]) for e in edges}
+        seen_targets = {(e["relation_type"], e["target_key"]) for e in edges}
         for rt, target_key, target_type in self.references:
             if rt in ("COMPOSES", "HAS_IMPLEMENTATION", "TEMPLATE_PARAM"):
                 continue
@@ -173,7 +213,7 @@ class CompositeEntry:
             seen_targets.add((rt, target_key))
             edge = {
                 "relation_type": rt,
-                "target_uid": target_key,
+                "target_key": target_key,
                 "target_type": target_type,
             }
             edge.update(self.edge_attrs.get((rt, target_key), {}))
@@ -188,22 +228,15 @@ class CompositeEntry:
             if not export_implementation or not body:
                 serialized.pop("body", None)
 
-        # Ensure uid property is included for roundtrip target resolution.
-        # With fields="llm" (default), FileNode's Doxygen refid is omitted since
-        # it's not in _llm_fields; with fields="all" it's already present.
-        uid_prop = type(self.node)._uid_prop()
-        if uid_prop and uid_prop not in serialized:
-            uid_value = self.node._uid_value()
-            if uid_value is not None:
-                serialized[uid_prop] = uid_value
-
         # Inline composed children under "composes"
         if self.children:
             composes: list[dict] = []
             for type_children in self.children.values():
                 for child_entry in type_children.values():
                     composes.append(child_entry.serialize(
-                        fields=fields, export_implementation=export_implementation
+                        fields=fields,
+                        export_implementation=export_implementation,
+                        canonical_by_local=canonical_by_local,
                     ))
             serialized["composes"] = composes
 
@@ -244,70 +277,101 @@ class LayerGraph:
     # ── Helpers ────────────────────────────────────────────────────────
 
     @staticmethod
+    def _register_identity_maps(
+        key_to_key: dict[str, str],
+        canonical: str,
+        key: str,
+        *,
+        context: str,
+    ) -> None:
+        """Register a node's canonical key, REJECTING ambiguous duplicates
+        instead of allowing last-write-wins (WP B — canonical-only)."""
+        if canonical:
+            existing = key_to_key.get(canonical)
+            if existing is not None and existing != key:
+                raise KeyConflictError(canonical, existing, key, context=context)
+            key_to_key[canonical] = key
+
+    @staticmethod
+    def _nodes_content_equal(a, b) -> bool:
+        """Content equality excluding identity fields (uid, canonical key,
+        element id) — used to tell a benign duplicated copy from an
+        ambiguous same-uid/same-key pair with differing content."""
+        da = a.serialize(fields="all")
+        db = b.serialize(fields="all")
+        for drop in ("uid", "canonical_key", "element_id"):
+            da.pop(drop, None)
+            db.pop(drop, None)
+        return da == db
+
+    @staticmethod
+    def _register_entry(
+        key_to_entry: dict[str, "CompositeEntry"],
+        key: str,
+        entry: "CompositeEntry",
+        *,
+        context: str,
+    ) -> None:
+        """Register an entry, rejecting duplicate keys (WP5.1).
+
+        Two DISTINCT nodes resolving to the same entry key — whether a
+        shared canonical key or a shared legacy uid — are reported as a
+        :class:`KeyConflictError` instead of overwriting one silently.
+        Only a true duplicate copy (same identity AND same content, e.g.
+        a D9 placement) is tolerated.
+        """
+        existing = key_to_entry.get(key)
+        if existing is not None and existing.node is not entry.node:
+            same_logical = (
+                (getattr(existing.node, "canonical_key", "") or "")
+                == (getattr(entry.node, "canonical_key", "") or "")
+                and LayerGraph._nodes_content_equal(existing.node, entry.node)
+            )
+            if not same_logical:
+                raise KeyConflictError(
+                    key,
+                    getattr(existing.node, "canonical_key", "") or "",
+                    getattr(entry.node, "canonical_key", "") or "",
+                    context=context,
+                )
+            # Same logical node re-registered (a duplicated copy in the
+            # document, e.g. a D9 placement).  Not ambiguous — the first
+            # registration stands and the tree position (child vs root)
+            # is decided by child_keys.
+            return
+        key_to_entry[key] = entry
+
+    @staticmethod
     def _node_key(obj) -> str:
-        """Derive a stable local key from a node instance or raw dict.
+        """Derive a node's local (entry) key — ALWAYS the canonical key
+        (WP B — canonical-only).  A node or document entry without a
+        canonical key cannot be part of a graph.
 
-        For dicts (raw JSON data), resolves the ``uid`` field via the
-        type registry.  Falls back to ``name`` only when the dict has
-        no ``uid`` (e.g. ParameterNode before save).
-
-        For CodeGraphNode instances, delegates to ``_uid_value()`` which
-        returns the value of the node's ``uid`` UniqueIdProperty.
+        For dicts (raw JSON data), reads the ``canonical_key`` field.
+        For CodeGraphNode instances, returns ``canonical_key``.
 
         Args:
             obj: A CodeGraphNode instance or a raw dict with ``type``
                 and node property keys.
 
         Returns:
-            The stable local key string for the node.
+            The canonical key string.
+
+        Raises:
+            ValueError: if the object carries no canonical key.
         """
+        canonical = ""
         if isinstance(obj, dict):
-            type_name = _type_discriminator(obj)
-            if type_name and type_name in CodeGraphNode._registry:
-                model_cls = CodeGraphNode._registry[type_name]
-                uid_prop = model_cls._uid_prop()
-                if uid_prop and uid_prop in obj:
-                    return obj[uid_prop]
-                # uid_prop exists but not in dict.  Compute the
-                # deterministic uid by deserializing — but ONLY when
-                # "source" is present.  Without "source",
-                # _compute_uid() raises ValueError and the key is
-                # unusable (no random auto-generated uid exists —
-                # uids are always deterministic).  Callers (e.g.
-                # design agent) must inject "source" into
-                # LLM-produced dicts before deserializing.
-                if uid_prop:
-                    identity_fields = getattr(model_cls, "_identity_fields", ())
-                    source_val = obj.get("source", "")
-                    has_source = bool(source_val)
-                    if identity_fields and obj.get(identity_fields[0]) and has_source:
-                        try:
-                            node = CodeGraphNode.deserialize(obj)
-                            uid = node._uid_value()
-                            if uid:
-                                return uid
-                        except Exception:
-                            log.debug(
-                                "_node_key: deserialize failed for %s '%s'",
-                                type_name, obj.get("name", ""),
-                                exc_info=True,
-                            )
-                    source_status = (
-                        "empty" if "source" in obj else "missing"
-                    )
-                    raise ValueError(
-                        f"Node of type '{type_name}' has {source_status} "
-                        f"'source' (and no explicit 'uid') — a non-empty "
-                        f"'source' is required to derive a stable key. "
-                        f"Dict keys: {sorted(obj.keys())}"
-                    )
-            return obj.get("name", "")
-        # CodeGraphNode instance — use the UniqueIdProperty value
-        uid = obj._uid_value()
-        if uid is not None:
-            return uid
-        # Fallback for types without UniqueIdProperty (e.g. ParameterNode)
-        return obj.name
+            canonical = obj.get("canonical_key") or ""
+        else:
+            canonical = getattr(obj, "canonical_key", "") or ""
+        if not canonical:
+            raise ValueError(
+                f"{type(obj).__name__ if not isinstance(obj, dict) else 'document entry'} "
+                f"has no canonical_key — canonical-only graphs reject "
+                f"uid-bearing legacy data (WP B)"
+            )
+        return canonical
 
     def resolve_target_name(
         self,
@@ -434,12 +498,12 @@ class LayerGraph:
         cls,
         data: dict,
         key_to_entry: dict[str, CompositeEntry],
-        uid_to_key: dict[str, str],
+        key_to_key: dict[str, str],
         child_keys: set[str],
     ) -> CompositeEntry:
-        """Phase 1: Create entries, register uids, and build the tree.
+        """Phase 1: Create entries and build the tree (WP B — canonical-only).
 
-        Does not resolve references — that requires a complete uid
+        Does not resolve references — that requires a complete key
         mapping, which is only available after all entries have been
         created.  Use ``_resolve_nested_references`` for Phase 2.
 
@@ -447,7 +511,7 @@ class LayerGraph:
             data: A dict representing one node with optional ``composes``
                 children.
             key_to_entry: Global index mapping node keys to entries.
-            uid_to_key: Mapping from unique ids to local keys.
+            key_to_key: Mapping from canonical keys to local keys.
             child_keys: Set of keys that appear as composed children
                 (used to determine root entries).
 
@@ -459,19 +523,19 @@ class LayerGraph:
         node = CodeGraphNode.deserialize(data)
         entry = CompositeEntry(node=node)
 
-        # Build uid → key mapping
         key = cls._node_key(data)
-        uid = node._uid_value()
-        if uid:
-            uid_to_key[uid] = key
+        canonical = getattr(node, "canonical_key", "") or ""
+        cls._register_identity_maps(
+            key_to_key, canonical, key, context="nested deserialize"
+        )
 
-        # Register in the global index
-        key_to_entry[key] = entry
+        # Register in the global index (reject duplicate keys)
+        cls._register_entry(key_to_entry, key, entry, context="nested deserialize")
 
         # Process composes children recursively
         for child_data in data.get("composes", []):
             child_entry = cls._parse_nested_entry(
-                child_data, key_to_entry, uid_to_key, child_keys
+                child_data, key_to_entry, key_to_key, child_keys
             )
             child_key = cls._node_key(child_data)
             child_type = _type_discriminator(child_data)
@@ -483,31 +547,51 @@ class LayerGraph:
         return entry
 
     @classmethod
+    def _resolve_target_key(
+        cls,
+        edge: dict,
+        key_to_key: dict[str, str],
+    ) -> str | None:
+        """Resolve an edge target to a local key (WP B — canonical-only).
+
+        Precedence: ``target_local_id`` (flat-format artifact), then
+        ``target_key`` (exact canonical key).  An edge without a
+        canonical target is unresolved — human-readable references use a
+        distinct ``target_ref`` field and must resolve before
+        persistence; they are never stored in ``target_key``.
+
+        Returns the resolved local key, or None when nothing matches.
+        """
+        local = edge.get("target_local_id")
+        key = edge.get("target_key") or ""
+        if local is not None:
+            return local
+        return key_to_key.get(key) if key else None
+
+    @classmethod
     def _resolve_nested_references(
         cls,
         data: dict,
         key_to_entry: dict[str, CompositeEntry],
-        uid_to_key: dict[str, str],
+        key_to_key: dict[str, str],
     ) -> None:
         """Phase 2: Resolve non-COMPOSES references for all entries.
 
         Walks the nested data recursively and populates the
         ``references`` list on each CompositeEntry using the complete
-        uid-to-key mapping.
+        canonical-key mapping.
 
         Args:
             data: A dict representing one node with optional ``composes``
                 children and ``edges``.
             key_to_entry: Global index mapping node keys to entries.
-            uid_to_key: Complete mapping from unique ids to local keys.
+            key_to_key: Complete mapping from canonical keys to local keys.
         """
         source_key = cls._node_key(data)
         source_entry = key_to_entry[source_key]
 
         for edge in data.get("edges", []):
-            target_key = edge.get("target_local_id")
-            if target_key is None and "target_uid" in edge:
-                target_key = uid_to_key.get(edge["target_uid"])
+            target_key = cls._resolve_target_key(edge, key_to_key)
             if target_key is None:
                 continue
             source_entry.references.append(
@@ -518,13 +602,16 @@ class LayerGraph:
             # deserialize → serialize → backends.
             attrs = {
                 k: v for k, v in edge.items()
-                if k not in ("relation_type", "target_uid", "target_local_id", "target_type")
+                if k not in ("relation_type", "target_key",
+                             "target_local_id", "target_type")
             }
             if attrs:
                 source_entry.edge_attrs[(edge["relation_type"], target_key)] = attrs
 
         for child_data in data.get("composes", []):
-            cls._resolve_nested_references(child_data, key_to_entry, uid_to_key)
+            cls._resolve_nested_references(
+                child_data, key_to_entry, key_to_key
+            )
 
     @classmethod
     def _deserialize_nested(cls, data: list[dict]) -> "LayerGraph":
@@ -542,14 +629,14 @@ class LayerGraph:
             A LayerGraph with the nested composition structure.
         """
         key_to_entry: dict[str, CompositeEntry] = {}
-        uid_to_key: dict[str, str] = {}
+        key_to_key: dict[str, str] = {}
         child_keys: set[str] = set()
         tags: frozenset[str] = frozenset()
 
         # Phase 1: create entries and build tree structure
         for entry_data in data:
             cls._parse_nested_entry(
-                entry_data, key_to_entry, uid_to_key, child_keys
+                entry_data, key_to_entry, key_to_key, child_keys
             )
             # Infer tags from node data (backward compat: "layer" field)
             if not tags:
@@ -559,9 +646,11 @@ class LayerGraph:
                 if node_tags:
                     tags = frozenset(node_tags)
 
-        # Phase 2: resolve references with complete uid mapping
+        # Phase 2: resolve references with complete key mapping
         for entry_data in data:
-            cls._resolve_nested_references(entry_data, key_to_entry, uid_to_key)
+            cls._resolve_nested_references(
+                entry_data, key_to_entry, key_to_key
+            )
 
         root_entries = {
             key: entry
@@ -592,11 +681,7 @@ class LayerGraph:
             A LayerGraph with the nested composition structure.
         """
         key_to_entry: dict[str, CompositeEntry] = {}
-        uid_to_key: dict[str, str] = {}
-        # Secondary lookup: maps identity-field values (qualified_name,
-        # name, path) to keys, so LLM-produced edges whose target_uid
-        # is a human-readable identifier (not a uid hash) can resolve.
-        identity_to_key: dict[str, str] = {}
+        key_to_key: dict[str, str] = {}
         tags: frozenset[str] = frozenset()
 
         # Phase 1: create all CompositeEntry instances (nodes only, no edges yet)
@@ -604,25 +689,15 @@ class LayerGraph:
             _ensure_type_registered(_type_discriminator(node_data) or "")
             node = CodeGraphNode.deserialize(node_data)
             key = cls._node_key(node_data)
-            key_to_entry[key] = CompositeEntry(node=node)
+            cls._register_entry(
+                key_to_entry, key, CompositeEntry(node=node),
+                context="flat deserialize",
+            )
 
-            # Build uid → key mapping for roundtrip format
-            uid = node._uid_value()
-            if uid:
-                uid_to_key[uid] = key
-
-            # Build identity_to_key from the node type's identity fields
-            # so edge targets that use human-readable identifiers (not uid
-            # hashes) can resolve to the correct node.
-            for field in getattr(type(node), "_identity_fields", ()):
-                val = node_data.get(field) or getattr(node, field, None)
-                if val:
-                    identity_to_key[val] = key
-            # Also index by name for cross-type lookups (e.g. LLM-produced
-            # edges that use bare names as target_uid)
-            name_val = node_data.get("name") or getattr(node, "name", None)
-            if name_val:
-                identity_to_key[name_val] = key
+            canonical = getattr(node, "canonical_key", "") or ""
+            cls._register_identity_maps(
+                key_to_key, canonical, key, context="flat deserialize",
+            )
 
             # Infer tags from node data (backward compat: "layer" field)
             if not tags:
@@ -641,17 +716,18 @@ class LayerGraph:
             source_entry = key_to_entry[source_key]
 
             for edge in node_data.get("edges", []):
-                # Resolve target key: try uid hash, then identity field
-                target_key = edge.get("target_local_id")
-                if target_key is None and "target_uid" in edge:
-                    target_key = uid_to_key.get(edge["target_uid"])
-                if target_key is None and "target_uid" in edge:
-                    target_key = identity_to_key.get(edge["target_uid"])
+                # Canonical-only resolution: local id → canonical key.
+                target_key = cls._resolve_target_key(edge, key_to_key)
 
-                # Auto-create scaffold node for unresolved target
-                if target_key is None and create_missing and "target_uid" in edge:
+                # Auto-create scaffold node for an unresolved canonical
+                # target when the caller explicitly asks.
+                if (
+                    target_key is None
+                    and create_missing
+                    and edge.get("target_key")
+                ):
                     target_key = cls._create_missing_scaffold(
-                        edge, key_to_entry, uid_to_key, identity_to_key
+                        edge, key_to_entry, key_to_key
                     )
 
                 if target_key is None:
@@ -677,7 +753,8 @@ class LayerGraph:
                     # spelling on INCLUDES edges) rides alongside.
                     attrs = {
                         k: v for k, v in edge.items()
-                        if k not in ("relation_type", "target_uid", "target_local_id", "target_type")
+                        if k not in ("relation_type", "target_key",
+                                     "target_local_id", "target_type")
                     }
                     if attrs:
                         source_entry.edge_attrs[(relation_type, target_key)] = attrs
@@ -711,33 +788,46 @@ class LayerGraph:
 
     @staticmethod
     def _create_missing_scaffold(
+        cls,
         edge: dict,
         key_to_entry: dict[str, CompositeEntry],
-        uid_to_key: dict[str, str],
-        identity_to_key: dict[str, str],
+        key_to_key: dict[str, str],
     ) -> str | None:
-        """Create a scaffold node for an unresolved edge target.
+        """Create a scaffold node for an unresolved notional target
+        (WP B — canonical-only).
 
         Builds a minimal node dict from the edge's ``target_type`` and
-        ``target_uid``, deserializes it (which computes the deterministic
-        ``uid``), and registers it in all lookup dicts.
+        its notional reference (``target_ref`` / ``target_qualified_name``
+        — the plan's distinct field for human-readable references; it is
+        never stored in ``target_key``), deserializes it, computes its
+        canonical key under the ACTIVE identity scope, and registers it.
 
         The scaffold gets ``tags=["scaffold"]`` so it can be identified
         and later reconciled with real design nodes.
 
         Args:
-            edge: The unresolved edge dict with ``target_uid`` and
-                ``target_type``.
+            edge: The unresolved edge dict with ``target_type`` and a
+                ``target_ref`` / ``target_qualified_name`` reference.
             key_to_entry: Global index to add the scaffold to.
-            uid_to_key: UID hash → key mapping to update.
-            identity_to_key: Identity field → key mapping to update.
+            key_to_key: Canonical-key → local-key mapping to update.
 
         Returns:
-            The scaffold's key, or None if creation failed.
+            The scaffold's key, or None if creation failed (no active
+            scope, or the edge carries no resolvable reference).
         """
         target_type = edge.get("target_type", "")
-        target_uid = edge.get("target_uid", "")
-        if not target_type or not target_uid:
+        target_ref = (
+            edge.get("target_ref")
+            or edge.get("target_qualified_name")
+            or edge.get("target_name")
+            or ""
+        )
+        if not target_type or not target_ref:
+            return None
+        from codegraph.identity import get_identity_scope, resolve_identity_for
+
+        scope = get_identity_scope()
+        if scope is None:
             return None
 
         target_cls = CodeGraphNode._registry.get(target_type)
@@ -745,22 +835,13 @@ class LayerGraph:
             return None
 
         # Build minimal scaffold dict
-        scaffold_data: dict = {"type": target_type, "source": "scaffold", "tags": ["scaffold"]}
+        scaffold_data: dict = {
+            "type": target_type, "source": "scaffold", "tags": ["scaffold"],
+        }
+        if PropertyRegistry.has_property(target_cls, "qualified_name"):
+            scaffold_data["qualified_name"] = target_ref
+        scaffold_data["name"] = target_ref.rsplit("::", 1)[-1] if "::" in target_ref else target_ref
 
-        # Set the first identity field to target_uid (e.g. qualified_name)
-        identity_fields = getattr(target_cls, "_identity_fields", ())
-        if identity_fields:
-            scaffold_data[identity_fields[0]] = target_uid
-
-        # Set name from last :: or . segment
-        if "::" in target_uid:
-            scaffold_data["name"] = target_uid.rsplit("::", 1)[-1]
-        elif "." in target_uid and not target_uid.startswith("literal::"):
-            scaffold_data["name"] = target_uid.rsplit(".", 1)[-1]
-        else:
-            scaffold_data["name"] = target_uid
-
-        # Set kind defaults for compound/member types
         kind_defaults = {
             "ClassNode": "class",
             "CompoundNode": "class",
@@ -775,60 +856,55 @@ class LayerGraph:
         if target_type in kind_defaults and PropertyRegistry.has_property(target_cls, "kind"):
             scaffold_data["kind"] = kind_defaults[target_type]
 
-        # LiteralNode needs a value with basic type classification
         if target_type == "LiteralNode":
-            # Strip "literal::" prefix if present for the raw value
             raw_value = (
-                target_uid.split("::", 1)[1]
-                if target_uid.startswith("literal::")
-                else target_uid
+                target_ref.split("::", 1)[1]
+                if target_ref.startswith("literal::")
+                else target_ref
             )
             scaffold_data["value"] = raw_value
             scaffold_data["value_type"] = LayerGraph._classify_literal(raw_value)
 
-        # Deserialize (computes deterministic uid)
         scaffold_node = CodeGraphNode.deserialize(scaffold_data)
-        # Use the node instance's key (uid hash), not the dict key (name),
-        # so that _flat_index() can find the scaffold.
-        scaffold_key = LayerGraph._node_key(scaffold_node)
+        try:
+            scaffold_node.canonical_key = resolve_identity_for(
+                scaffold_node, scope
+            ).key()
+        except Exception:
+            return None
+        scaffold_key = scaffold_node.canonical_key
 
         key_to_entry[scaffold_key] = CompositeEntry(node=scaffold_node)
+        key_to_key[scaffold_key] = scaffold_key
 
-        uid = scaffold_node._uid_value()
-        if uid:
-            uid_to_key[uid] = scaffold_key
-        identity_to_key[target_uid] = scaffold_key
-
-        # For member types with a "::" or "."-separated qualified_name, also
+        # For member types with a "::"-separated qualified_name, also
         # create a parent ClassNode scaffold (if not already present)
         # and nest the member under it via COMPOSES.  This follows the
         # codegraph convention that members belong to compounds.
-        # Handles both "::" (C++ convention) and "." (notional convention)
-        # separators — the decompose LLM sometimes uses "." even though
-        # the prompt asks for "::".
         if target_type in (
             "AttributeNode", "MemberNode", "MethodNode", "FunctionNode",
         ):
-            if "::" in target_uid:
-                parent_name = target_uid.rsplit("::", 1)[0]
-            elif "." in target_uid and not target_uid.startswith("literal::"):
-                parent_name = target_uid.rsplit(".", 1)[0]
+            if "::" in target_ref:
+                parent_name = target_ref.rsplit("::", 1)[0]
             else:
                 parent_name = None
             if parent_name:
-                # Find or create the parent ClassNode
-                parent_key = identity_to_key.get(parent_name)
+                parent_key = next(
+                    (k for k, e in key_to_entry.items()
+                     if getattr(e.node, "qualified_name", "") == parent_name
+                     and type(e.node).__name__ == "ClassNode"),
+                    None,
+                )
                 if parent_key is None:
                     parent_edge = {
-                        "target_uid": parent_name,
+                        "target_ref": parent_name,
                         "target_type": "ClassNode",
                         "relation_type": "COMPOSES",
                     }
-                    parent_key = LayerGraph._create_missing_scaffold(
-                        parent_edge, key_to_entry, uid_to_key, identity_to_key
+                    parent_key = cls._create_missing_scaffold(
+                        parent_edge, key_to_entry, key_to_key
                     )
                 if parent_key is not None:
-                    # Nest the member under the parent ClassNode
                     parent_entry = key_to_entry[parent_key]
                     if target_type not in parent_entry.children:
                         parent_entry.children[target_type] = {}
@@ -861,13 +937,25 @@ class LayerGraph:
         Args:
             data: A list of dicts, each a serialized node with ``type``,
                 properties, and optionally ``edges`` and ``composes``.
+                May also be a versioned document envelope (as produced by
+                ``serialize(document=True)``):
+                ``{"format_version": 1, "identity_version": 1,
+                "entries": [...]}``.  A bare list is the documented legacy
+                form and is treated as format version 1.
             create_missing: When True, auto-create scaffold nodes for
                 edge targets that don't resolve to any node in *data*.
 
         Returns:
             A LayerGraph containing the deserialized nodes in a nested
             composition structure.
+
+        Raises:
+            GraphDocumentError: if *data* is a document envelope that
+                is structurally invalid or declares a format/key version
+                this build does not support (WP2.3).
         """
+        if isinstance(data, dict):
+            data = cls._unwrap_document(data)
         # Detect format: nested if any entry has a "composes" key
         has_nested = any("composes" in entry for entry in data)
 
@@ -875,6 +963,65 @@ class LayerGraph:
             return cls._deserialize_nested(data)
 
         return cls._deserialize_flat(data, create_missing=create_missing)
+
+    # ── versioned document envelope (WP2.3) ─────────────────────────
+
+    @classmethod
+    def _unwrap_document(cls, document: dict) -> list[dict]:
+        """Validate and unwrap a versioned document envelope.
+
+        A document dict must declare ``format_version`` and
+        ``identity_version`` (both ints); unknown/future values fail
+        clearly.  ``entries`` must be a list of node dicts.  Extra keys
+        are tolerated so future envelopes can add metadata without
+        breaking older readers.
+
+        Raises:
+            GraphDocumentError: on a missing/invalid/unsupported
+                declaration.
+        """
+        if "format_version" not in document:
+            raise GraphDocumentError(
+                "document envelope must declare 'format_version'; a bare "
+                "list is the legacy format — a dict is not"
+            )
+        format_version = document.get("format_version")
+        if not isinstance(format_version, int) or isinstance(format_version, bool):
+            raise GraphDocumentError(
+                f"'format_version' must be an int, got {type(format_version).__name__}",
+                format_version=format_version,
+            )
+        if format_version != GRAPH_DOCUMENT_FORMAT_VERSION:
+            raise GraphDocumentError(
+                f"unsupported graph document format version {format_version}; "
+                f"this build supports only version "
+                f"{GRAPH_DOCUMENT_FORMAT_VERSION}",
+                format_version=format_version,
+            )
+        identity_version = document.get("identity_version")
+        if not isinstance(identity_version, int) or isinstance(identity_version, bool):
+            raise GraphDocumentError(
+                f"'identity_version' must be an int, got "
+                f"{type(identity_version).__name__}",
+                format_version=format_version,
+                identity_version=identity_version,
+            )
+        if identity_version != KEY_VERSION:
+            raise GraphDocumentError(
+                f"unsupported canonical identity version {identity_version}; "
+                f"this build supports only version {KEY_VERSION} "
+                f"(keys carry the {VERSION_PREFIX!r} prefix)",
+                format_version=format_version,
+                identity_version=identity_version,
+            )
+        entries = document.get("entries")
+        if not isinstance(entries, list):
+            raise GraphDocumentError(
+                "document envelope 'entries' must be a list of node dicts",
+                format_version=format_version,
+                identity_version=identity_version,
+            )
+        return entries
 
     # ── to_backend / from_backend ──────────────────────────────────────
 
@@ -893,8 +1040,7 @@ class LayerGraph:
         matched_nodes = backend.bulk_load_by_tag(tag)
 
         nodes: dict[str, CodeGraphNode] = {}
-        uid_to_key: dict[str, str] = {}
-        seen_uids: set[str] = set()
+        key_to_key: dict[str, str] = {}
 
         # ImplementationNode is deliberately excluded from LayerGraphs
         # (see its model docstring: "LayerGraph construction skips
@@ -916,11 +1062,23 @@ class LayerGraph:
             if getattr(node, "kind", "") == "type_parameter":
                 continue
             key = cls._node_key(node)
+            # WP B: two DISTINCT nodes resolving to one canonical key are
+            # reported, not merged by last-write-wins.
+            existing = nodes.get(key)
+            if existing is not None and existing is not node:
+                same_logical = (
+                    (getattr(existing, "canonical_key", "") or "")
+                    == (getattr(node, "canonical_key", "") or "")
+                )
+                if not same_logical:
+                    raise KeyConflictError(
+                        key,
+                        getattr(existing, "canonical_key", "") or "",
+                        getattr(node, "canonical_key", "") or "",
+                        context="backend load",
+                    )
             nodes[key] = node
-            uid = node._uid_value()
-            if uid:
-                uid_to_key[uid] = key
-                seen_uids.add(uid)
+            key_to_key[key] = key
 
         key_to_entry: dict[str, CompositeEntry] = {}
         duplicate_to_canonical: dict[str, str] = {}
@@ -945,8 +1103,8 @@ class LayerGraph:
         # edges, 1 for children) so tree assembly stays O(batches) rather
         # than O(nodes) round trips at graph scale.
         node_list = list(nodes.values())
-        children_by_uid = backend.get_composed_children_bulk(node_list)
-        edges_by_uid = backend.get_edges_bulk(node_list)
+        children_by_key = backend.get_composed_children_bulk(node_list)
+        edges_by_key = backend.get_edges_bulk(node_list)
 
         for key, node in nodes.items():
             canonical_key = duplicate_to_canonical.get(key, key)
@@ -954,13 +1112,12 @@ class LayerGraph:
             if entry is None:
                 continue
 
-            uid = node._uid_value()
-            if uid is None:
+            key = cls._node_key(node)
+            children = children_by_key.get(key, [])
+            edges = edges_by_key.get(key, [])
+            if not children and not edges:
                 children = backend.get_composed_children(node)
                 edges = backend.get_all_edges(node)
-            else:
-                children = children_by_uid.get(uid, [])
-                edges = edges_by_uid.get(uid, [])
 
             for child in children:
                 child_key = cls._node_key(child)
@@ -977,7 +1134,7 @@ class LayerGraph:
                     continue
                 if not edge.is_outgoing:
                     continue
-                target_key = uid_to_key.get(edge.target_uid)
+                target_key = edge.target_key
                 if target_key and target_key in key_to_entry:
                     entry.references.append(
                         (edge.relation_type, target_key, edge.target_type)
@@ -1020,7 +1177,13 @@ class LayerGraph:
 
     # ── Serialization ──────────────────────────────────────────────────
 
-    def serialize(self, fields: str = "llm", *, export_implementation: bool = False) -> list[dict]:
+    def serialize(
+        self,
+        fields: str = "llm",
+        *,
+        export_implementation: bool = False,
+        document: bool = False,
+    ) -> list[dict] | dict:
         """Serialize the graph as a nested list of dicts.
 
         Root entries are serialized recursively.  Composed children
@@ -1042,15 +1205,73 @@ class LayerGraph:
                 included so codegen can regenerate out-of-line and
                 inline definitions.  Default False — implementation
                 data is opt-in and default exports stay lean.
+            document: When True, wrap the entries in a versioned
+                document envelope (WP2.3):
+                ``{"format_version": 1, "identity_version": 1,
+                "entries": [...]}`` so readers never infer the format
+                from field presence.  Default False — the bare nested
+                list, the documented legacy v1 form.
 
         Returns:
-            A list of serialized node dicts with nested composition,
+            A list of serialized node dicts with nested composition
+            (or the versioned envelope dict when *document* is True),
             suitable for passing to ``json.dumps()`` externally.
         """
-        return [
-            entry.serialize(fields=fields, export_implementation=export_implementation)
+        # WP B: build the local-key → canonical-key map across the whole
+        # tree so reference edges carry the target's canonical key.
+        canonical_by_local: dict[str, str] = {}
+        for key, entry in self._flat_index().items():
+            canonical = getattr(entry.node, "canonical_key", "") or ""
+            if canonical:
+                canonical_by_local[key] = canonical
+        entries = [
+            entry.serialize(
+                fields=fields,
+                export_implementation=export_implementation,
+                canonical_by_local=canonical_by_local,
+            )
             for entry in self.entries.values()
         ]
+        if not document:
+            return entries
+        return {
+            "format_version": GRAPH_DOCUMENT_FORMAT_VERSION,
+            "identity_version": KEY_VERSION,
+            "entries": entries,
+        }
+
+    def identity_digest(self) -> str:
+        """Full-graph identity hash (WP5.1/5.4).
+
+        One digest over the entire tree keyed by each node's
+        :meth:`CodeGraphNode.primary_key` (canonical key when present,
+        else legacy uid) with a content hash of its non-identity
+        properties.  Two graphs with the same digest have the same
+        nodes under the same identities — the basis for graph-fixpoint
+        comparison and migration verification.
+        """
+        import hashlib
+        from codegraph.models.descriptors import PropertyRegistry
+
+        digest = hashlib.sha256()
+        lines: list[str] = []
+        for entry in self._all_entries():
+            node = entry.node
+            parts = [
+                node.primary_key(),
+                type(node).__name__,
+                ",".join(sorted(type(node).inherited_labels())),
+            ]
+            for name in sorted(PropertyRegistry.properties_of(type(node))):
+                if name in ("uid", "canonical_key", "element_id"):
+                    continue
+                val = getattr(node, name, None)
+                if val is None or val == "" or val == []:
+                    continue
+                parts.append(f"{name}={val!r}")
+            lines.append("\n".join(parts))
+        digest.update("\n---\n".join(sorted(lines)).encode("utf-8"))
+        return digest.hexdigest()
 
     # ── from_neo4j (compat) ──────────────────────────────────────────
 
@@ -1106,7 +1327,7 @@ class LayerGraph:
                 continue
             if not edge.is_outgoing:
                 continue
-            entry.references.append((rt, edge.target_uid, edge.target_type))
+            entry.references.append((rt, edge.target_key, edge.target_type))
 
         return cls(tags=actual_tags, entries={key: entry})
 

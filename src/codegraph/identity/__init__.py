@@ -22,6 +22,23 @@ Example::
     key = identity.key()   # cg:v1:repository:codegraph-suite%2Fcodegraph:...
 """
 
+from codegraph.identity.context import (
+    get_identity_scope,
+    identity_scope,
+    resolve_scope,
+    set_identity_scope,
+)
+from codegraph.identity.manifest import (
+    MANIFEST_NAME,
+    ManifestError,
+    find_manifest,
+    load_manifest,
+    manifest_project_id,
+    project_scope,
+    repository_scope,
+    repository_scopes,
+    resolve_scope_from_env,
+)
 from codegraph.identity.encoding import (
     KeyFormatError,
     ParsedKey,
@@ -39,18 +56,43 @@ from codegraph.identity.scope import (
     IdentityScopeError,
 )
 from codegraph.identity.registry import (
+    KEY_VERSION,
+    OBSERVATION_TAGS,
+    PARENT_FIELDS,
+    AmbiguousUidError,
     CanonicalIdentity,
+    IdentityConflictError,
     IdentityError,
     IdentitySpec,
+    KeyConflictError,
     audit_registry,
     category_spec,
     computed_providers,
+    missing_parents,
+    observation_pair_coexists,
+    parent_relative_fields,
     resolve_identity_for,
     short_label,
     spec_for,
 )
+from codegraph.identity.signature import normalize_type_spacing
 
 __all__ = [
+    # Context
+    "get_identity_scope",
+    "identity_scope",
+    "resolve_scope",
+    "set_identity_scope",
+    # Manifest (WP6.2)
+    "MANIFEST_NAME",
+    "ManifestError",
+    "find_manifest",
+    "load_manifest",
+    "manifest_project_id",
+    "project_scope",
+    "repository_scope",
+    "repository_scopes",
+    "resolve_scope_from_env",
     # Encoding
     "KeyFormatError",
     "ParsedKey",
@@ -66,13 +108,24 @@ __all__ = [
     "IdentityScope",
     "IdentityScopeError",
     # Registry
+    "KEY_VERSION",
+    "AmbiguousUidError",
     "CanonicalIdentity",
+    "IdentityConflictError",
     "IdentityError",
     "IdentitySpec",
+    "KeyConflictError",
+    "OBSERVATION_TAGS",
+    "PARENT_FIELDS",
     "audit_registry",
     "category_spec",
     "computed_providers",
+    "missing_parents",
+    "observation_pair_coexists",
+    "parent_relative_fields",
     "resolve_identity_for",
     "short_label",
     "spec_for",
+    # Signature
+    "normalize_type_spacing",
 ]

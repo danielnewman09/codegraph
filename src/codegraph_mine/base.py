@@ -18,6 +18,12 @@ The base class handles:
 
 * ``_call_llm()`` — delegates to ``llm_caller.call_structured()``
   (structured output via Pydantic schema)
+
+Migration-only legacy service. Its current consumers are the mining CLI and
+requirements/reporting workflows; the replacement target is the shared model
+service and a future ``codegraph_agents`` mining agent. Remove after parity
+and downstream migration are verified. Do not add new orchestration behavior
+here.
 * ``enrich_one()`` — template method: fetch → prompt → call → parse →
   persist
 * ``enrich_all()`` — template method: find targets → enrich_one loop

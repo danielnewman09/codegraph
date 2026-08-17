@@ -114,7 +114,7 @@ def _build_save_payload(node: "CodeGraphNode") -> tuple[str, str, dict]:
     Mirrors ``Neo4jNodeOps.save()`` exactly (same uid derivation,
     same PropertyRegistry prop building, same empty-value skipping,
     same deflation) so the batched bulk-write path stores byte-identical
-    rows to the per-node path.  Sets ``node.uid`` in place, matching
+    rows to the per-node path.  Sets ``node.canonical_key`` in place, matching
     ``save()``.
 
     Returns:
@@ -129,7 +129,7 @@ def _build_save_payload(node: "CodeGraphNode") -> tuple[str, str, dict]:
             node.qualified_name = node._compute_qualified_name()
 
     computed = node._compute_uid()
-    node.uid = computed
+    node.canonical_key = computed
     labels = ":".join(_node_labels(node_type))
 
     # Build property dict using PropertyRegistry (supports both old and new)
@@ -175,7 +175,7 @@ class Neo4jNodeOps:
         labels, computed, props = _build_save_payload(node)
 
         query = (
-            f"MERGE (n:{labels} {{uid: $uid}})"
+            f"MERGE (n:{labels} {{canonical_key: $key}})"
             f" SET n += $props RETURN n"
         )
         results, _ = db.cypher_query(
@@ -183,6 +183,19 @@ class Neo4jNodeOps:
         )
         if results and results[0]:
             node.element_id_property = results[0][0].element_id
+        # Canonical identity (WP3.3): keyed nodes also carry the common
+        # ``CanonicalEntity`` label so the single cross-type unique
+        # constraint on ``canonical_key`` applies.  A node whose key is
+        # already claimed by a DIFFERENT node raises the constraint
+        # violation — conflicting key pairs fail instead of silently
+        # shadowing.
+        key = getattr(node, "canonical_key", "") or ""
+        if key:
+            db.cypher_query(
+                f"MATCH (n:{labels} {{canonical_key: $key}}) "
+                "SET n:CanonicalEntity",
+                {"uid": computed},
+            )
         return node
 
     def delete(self, node: "CodeGraphNode") -> None:
@@ -359,7 +372,7 @@ class Neo4jNodeOps:
         if not uids:
             return []
         label = _node_labels(node_type)[0]
-        query = f"MATCH (n:`{label}`) WHERE n.uid IN $uids RETURN n"
+        query = f"MATCH (n:`{label}`) WHERE n.canonical_key IN $keys RETURN n"
         results, _ = db.cypher_query(query, {"uids": uids})
         return [self.inflate(r[0], node_type) for r in results if r[0]]
 
@@ -492,8 +505,24 @@ class Neo4jNodeOps:
         node types.
         """
         results, _ = db.cypher_query(
-            "MATCH (n) WHERE n.uid = $uid RETURN n LIMIT 1",
+            "MATCH (n) WHERE n.canonical_key = $key RETURN n LIMIT 1",
             {"uid": uid},
+        )
+        if not results:
+            return None
+        return self._inflate_by_labels(results[0][0])
+
+    def find_by_key(self, key: str) -> "CodeGraphNode | None":
+        """Find any node by its canonical key (WP3.3).
+
+        Matches through the common ``CanonicalEntity`` label — the
+        single uniqueness constraint means at most one node per key
+        across all concrete types.
+        """
+        results, _ = db.cypher_query(
+            "MATCH (n:CanonicalEntity) "
+            "WHERE n.canonical_key = $key RETURN n LIMIT 1",
+            {"key": key},
         )
         if not results:
             return None
@@ -502,7 +531,7 @@ class Neo4jNodeOps:
     def get_labels(self, uid: str) -> set[str]:
         """Return Neo4j labels for a node by uid."""
         results, _ = db.cypher_query(
-            "MATCH (n) WHERE n.uid = $uid RETURN labels(n) AS lbls",
+            "MATCH (n) WHERE n.canonical_key = $key RETURN labels(n) AS lbls",
             {"uid": uid},
         )
         if not results:
@@ -525,12 +554,12 @@ class Neo4jNodeOps:
         if to_add:
             add_clause = " ".join(f"SET n:`{l}`" for l in sorted(to_add))
             db.cypher_query(
-                f"MATCH (n) WHERE n.uid = $uid {add_clause}",
+                f"MATCH (n) WHERE n.canonical_key = $key {add_clause}",
                 {"uid": uid},
             )
         for label in sorted(to_remove):
             db.cypher_query(
-                f"MATCH (n) WHERE n.uid = $uid REMOVE n:`{label}`",
+                f"MATCH (n) WHERE n.canonical_key = $key REMOVE n:`{label}`",
                 {"uid": uid},
             )
 
@@ -540,7 +569,7 @@ class Neo4jNodeOps:
             return
         for label in labels:
             db.cypher_query(
-                f"MATCH (n) WHERE n.uid = $uid REMOVE n:`{label}`",
+                f"MATCH (n) WHERE n.canonical_key = $key REMOVE n:`{label}`",
                 {"uid": uid},
             )
 
@@ -560,7 +589,7 @@ class Neo4jNodeOps:
         if add_labels:
             label_ops = " ".join(f"SET n:`{l}`" for l in add_labels)
         query = (
-            f"MATCH (n) WHERE n.uid = $uid "
+            f"MATCH (n) WHERE n.canonical_key = $key "
             f"{label_ops} "
             f"SET {', '.join(set_parts)} "
             f"RETURN n"
@@ -571,9 +600,19 @@ class Neo4jNodeOps:
     def delete_by_uid(self, uid: str) -> bool:
         """Delete a node (DETACH DELETE) by uid."""
         results, _ = db.cypher_query(
-            "MATCH (n) WHERE n.uid = $uid "
+            "MATCH (n) WHERE n.canonical_key = $key "
             "DETACH DELETE n RETURN count(n) AS cnt",
             {"uid": uid},
+        )
+        return results and results[0][0] > 0
+
+    def delete_by_key(self, key: str) -> bool:
+        """Delete a node (DETACH DELETE) by canonical key (WP3.3)."""
+        results, _ = db.cypher_query(
+            "MATCH (n:CanonicalEntity) "
+            "WHERE n.canonical_key = $key "
+            "DETACH DELETE n RETURN count(n) AS cnt",
+            {"key": key},
         )
         return results and results[0][0] > 0
 
@@ -600,7 +639,7 @@ class Neo4jNodeOps:
         if not uids:
             return 0
         results, _ = db.cypher_query(
-            "MATCH (n) WHERE n.uid IN $uids "
+            "MATCH (n) WHERE n.canonical_key IN $keys "
             "DETACH DELETE n RETURN count(n) AS cnt",
             {"uids": uids},
         )
@@ -609,7 +648,7 @@ class Neo4jNodeOps:
     def find_uids_by_tag(self, tag: str) -> list[str]:
         """Return all uids for nodes whose tags array contains tag."""
         results, _ = db.cypher_query(
-            "MATCH (n) WHERE $tag IN coalesce(n.tags, []) RETURN n.uid AS uid",
+            "MATCH (n) WHERE $tag IN coalesce(n.tags, []) RETURN n.canonical_key AS uid",
             {"tag": tag},
         )
         return [r[0] for r in results]
@@ -621,13 +660,13 @@ class Neo4jNodeOps:
         if label:
             results, _ = db.cypher_query(
                 f"MATCH (n:`{label}`) WHERE n.name = $name "
-                "RETURN n.uid AS uid LIMIT 1",
+                "RETURN n.canonical_key AS uid LIMIT 1",
                 {"name": name},
             )
         else:
             results, _ = db.cypher_query(
                 "MATCH (n) WHERE n.name = $name "
-                "RETURN n.uid AS uid LIMIT 1",
+                "RETURN n.canonical_key AS uid LIMIT 1",
                 {"name": name},
             )
         return results[0][0] if results else None
@@ -636,7 +675,7 @@ class Neo4jNodeOps:
         """Look up uid for a node by qualified_name."""
         results, _ = db.cypher_query(
             "MATCH (n) WHERE n.qualified_name = $qn "
-            "RETURN n.uid AS uid LIMIT 1",
+            "RETURN n.canonical_key AS uid LIMIT 1",
             {"qn": qualified_name},
         )
         return results[0][0] if results else None
@@ -678,7 +717,7 @@ class Neo4jNodeOps:
     def find_qualified_name_by_uid(self, uid: str) -> str | None:
         """Look up qualified_name for a node by uid."""
         results, _ = db.cypher_query(
-            "MATCH (n) WHERE n.uid = $uid "
+            "MATCH (n) WHERE n.canonical_key = $key "
             "RETURN n.qualified_name AS qn LIMIT 1",
             {"uid": uid},
         )
@@ -687,15 +726,15 @@ class Neo4jNodeOps:
     # ── Edge deletion ──────────────────────────────────────────
 
     def delete_outgoing_relationships(
-        self, source_uid: str, rel_type: str
+        self, source_key: str, rel_type: str
     ) -> int:
         """Delete all outgoing relationships of rel_type from node."""
         results, _ = db.cypher_query(
             f"MATCH (n)-[r:{rel_type}]->() "
-            "WHERE n.uid = $uid "
+            "WHERE n.canonical_key = $key "
             "DELETE r "
             "RETURN count(r) AS cnt",
-            {"uid": source_uid},
+            {"uid": source_key},
         )
         return results[0][0] if results else 0
 
@@ -704,7 +743,7 @@ class Neo4jNodeOps:
     def node_exists(self, uid: str) -> bool:
         """Check whether a node with given uid exists."""
         results, _ = db.cypher_query(
-            "MATCH (n) WHERE n.uid = $uid RETURN count(n) AS cnt",
+            "MATCH (n) WHERE n.canonical_key = $key RETURN count(n) AS cnt",
             {"uid": uid},
         )
         return results[0][0] > 0 if results else False
@@ -722,7 +761,7 @@ class Neo4jNodeOps:
         cypher = "MATCH (n) WHERE $tag IN coalesce(n.tags, []) "
         if condition_clause:
             cypher += f"AND {condition_clause} "
-        cypher += "RETURN n.uid AS uid"
+        cypher += "RETURN n.canonical_key AS uid"
         results, _ = db.cypher_query(cypher, {"tag": tag, **(params or {})})
         return [r[0] for r in results]
 
@@ -790,7 +829,7 @@ class Neo4jNodeOps:
         results, _ = db.cypher_query(
             "MATCH (n) "
             "RETURN coalesce(n.qualified_name, '(none)') AS qualified_name, "
-            "labels(n) AS labels, n.uid AS uid "
+            "labels(n) AS labels, n.canonical_key AS uid "
             "ORDER BY qualified_name",
         )
         return [
@@ -807,7 +846,7 @@ class Neo4jNodeOps:
         results, _ = db.cypher_query(
             f"MATCH (n:{label_pattern}) "
             "RETURN coalesce(n.qualified_name, '(none)') AS qualified_name, "
-            "labels(n) AS labels, n.uid AS uid",
+            "labels(n) AS labels, n.canonical_key AS uid",
         )
         return [
             {"qualified_name": r[0], "labels": r[1], "uid": r[2]}

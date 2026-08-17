@@ -153,6 +153,48 @@ class GraphRepository(ABC):
         """
         ...
 
+    # ── Canonical-key operations (key-neutral; WP3.1) ──────────────
+    #
+    # New production code must prefer these over the UID-named methods;
+    # the UID-named methods remain as compatibility wrappers for the
+    # legacy path.  ``resolve_uid(qualified_name)`` — which selects an
+    # arbitrary first match — must NOT be used for canonical migration.
+
+    @abstractmethod
+    def find_by_key(self, key: str) -> "CodeGraphNode | None":
+        """Find any node by its canonical key (``cg:v1:...``)."""
+        ...
+
+    def resolve_key(self, identity) -> str:
+        """Resolve an identity (``CanonicalIdentity``) to its canonical key.
+
+        Canonical keys are deterministic functions of the identity, so
+        the base implementation computes it directly — no backend query.
+        Backends may override to additionally verify the node exists.
+        """
+        return identity.key()
+
+    @abstractmethod
+    def merge_relationship_by_key(
+        self,
+        source_key: str,
+        rel_type: str,
+        target_key: str,
+        *,
+        edge_properties: dict[str, object] | None = None,
+    ) -> int:
+        """MERGE a relationship between two nodes by canonical key.
+
+        Both endpoints must already exist as keyed nodes.  Returns 1 if
+        both resolve, 0 otherwise.
+        """
+        ...
+
+    @abstractmethod
+    def delete_by_key(self, key: str) -> bool:
+        """Delete a node (DETACH semantics) by canonical key."""
+        ...
+
     # ── Relationships ─────────────────────────────────────────────
 
     @abstractmethod

@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, ClassVar
 
 from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage
@@ -28,6 +29,7 @@ from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage
 from codegraph_agents.base import BaseAgent
 from codegraph_agents.config import AgentConfig
 from codegraph_agents.state import AgentState
+from contextlib import nullcontext as _nullcontext
 
 log = logging.getLogger("codegraph_agents.design")
 
@@ -143,18 +145,9 @@ class DesignAgent(BaseAgent):
         api_contract_path: str | Path | None = None,
     ) -> None:
         super().__init__(config)
-        self._api_contract_path: str | None = (
-            str(api_contract_path) if api_contract_path else None
+        self._api_contract_path = (
+            str(api_contract_path) if api_contract_path is not None else None
         )
-
-    def __init__(
-        self,
-        config: AgentConfig | None = None,
-        *,
-        api_contract_path: str = "",
-    ) -> None:
-        super().__init__(config)
-        self._api_contract_path = api_contract_path
 
     # ── Dispatch construction ────────────────────────────────────
 
@@ -201,8 +194,24 @@ class DesignAgent(BaseAgent):
         self._design_disp.component_namespace = namespace
         self._design_disp.sibling_namespaces = list(siblings)
 
-        for cls_dict in prior_compounds:
-            self._design_disp._add_to_context(cls_dict)
+        # Canonical identity is mandatory (WP A): prior-design compounds
+        # get their canonical keys under the manifest-resolved scope
+        # (falling back to the active context scope when set).
+        from codegraph.identity import (
+            get_identity_scope,
+            identity_scope,
+            resolve_scope_from_env,
+        )
+
+        scope = get_identity_scope() or resolve_scope_from_env()
+        if scope is None:
+            log.warning(
+                "DesignAgent: no identity scope — prior-design compounds "
+                "cannot be keyed and are not seeded"
+            )
+        with identity_scope(scope) if scope is not None else _nullcontext():
+            for cls_dict in prior_compounds:
+                self._design_disp._add_to_context(cls_dict)
 
         seeded = sum(
             1 for _ in self._design_disp.context_graph._all_entries()

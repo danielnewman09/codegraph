@@ -26,6 +26,14 @@ import re
 from pathlib import Path
 
 from codegraph.graph import LayerGraph, CompositeEntry
+from tests.integration.serialization._keying import key_graph as _kg
+
+
+class _KeyedLayerGraph(LayerGraph):
+    """LayerGraph that stamps canonical keys on construction (WP A)."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _kg(self), CompositeEntry
 from codegraph.models.tags import CodeGraphNode
 from codegraph.export.markdown import export_markdown, import_markdown
 
@@ -174,7 +182,7 @@ def _make_full_verification_graph() -> LayerGraph:
         "literal::not_empty": CompositeEntry(node=lit_non_empty),
     }
 
-    return LayerGraph(
+    return _KeyedLayerGraph(
         tags=frozenset({"design"}),
         entries={"Round-Trip Feature": hlr_entry, **scaffold_entries},
     )
@@ -580,15 +588,15 @@ class TestFullComposesHierarchy:
 
         for hlr_node in g.find_all_by_kind("hlr"):
             for llr in g.composed_children(hlr_node, CodeGraphNode):
-                llr_uid = llr._uid_value()
+                llr_uid = llr.canonical_key
                 if llr_uid:
                     parented_llrs.add(llr_uid)
                 for test in g.composed_children(llr, CodeGraphNode):
-                    test_uid = test._uid_value()
+                    test_uid = test.canonical_key
                     if test_uid:
                         parented_tests.add(test_uid)
                     for child in g.composed_children(test, CodeGraphNode):
-                        child_uid = child._uid_value()
+                        child_uid = child.canonical_key
                         if child_uid and "AssertionNode" in g.get_labels(child_uid):
                             parented_assertions.add(child_uid)
                         if child_uid and "TestStepNode" in g.get_labels(child_uid):
@@ -598,7 +606,7 @@ class TestFullComposesHierarchy:
         orphaned_llrs = [
             getattr(n, "qualified_name", "")
             for n in g.find_all_by_kind("llr")
-            if n._uid_value() and n._uid_value() not in parented_llrs
+            if n.canonical_key and n.canonical_key not in parented_llrs
         ]
         assert len(orphaned_llrs) == 0, \
             f"Orphaned LLRs (no parent HLR): {orphaned_llrs}"
@@ -607,7 +615,7 @@ class TestFullComposesHierarchy:
         orphaned_tests = [
             getattr(n, "qualified_name", "")
             for n in g.find_all_by_kind("test")
-            if n._uid_value() and n._uid_value() not in parented_tests
+            if n.canonical_key and n.canonical_key not in parented_tests
         ]
         assert len(orphaned_tests) == 0, \
             f"Orphaned TestNodes (no parent LLR): {orphaned_tests}"
@@ -616,7 +624,7 @@ class TestFullComposesHierarchy:
         orphaned_assertions = [
             getattr(n, "qualified_name", "")
             for n in g.find_all_by_kind("assertion")
-            if n._uid_value() and n._uid_value() not in parented_assertions
+            if n.canonical_key and n.canonical_key not in parented_assertions
         ]
         assert len(orphaned_assertions) == 0, \
             f"Orphaned AssertionNodes (no parent Test): {orphaned_assertions}"
@@ -625,7 +633,7 @@ class TestFullComposesHierarchy:
         orphaned_steps = [
             getattr(n, "qualified_name", "")
             for n in g.find_all_by_kind("test_step")
-            if n._uid_value() and n._uid_value() not in parented_steps
+            if n.canonical_key and n.canonical_key not in parented_steps
         ]
         assert len(orphaned_steps) == 0, \
             f"Orphaned TestStepNodes (no parent Test): {orphaned_steps}"
@@ -798,13 +806,13 @@ class TestDecomposeOutputFormat:
         parented_llrs: set[str] = set()
         for hlr_node in g.find_all_by_kind("hlr"):
             for llr in g.composed_children(hlr_node, CodeGraphNode):
-                llr_uid = llr._uid_value()
+                llr_uid = llr.canonical_key
                 if llr_uid:
                     parented_llrs.add(llr_uid)
         orphaned = [
             getattr(n, "qualified_name", "")
             for n in g.find_all_by_kind("llr")
-            if n._uid_value() and n._uid_value() not in parented_llrs
+            if n.canonical_key and n.canonical_key not in parented_llrs
         ]
         assert len(orphaned) == 0, \
             f"Orphaned LLRs (no parent HLR via COMPOSES): {orphaned}"

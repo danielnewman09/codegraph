@@ -69,6 +69,10 @@ class Neo4jGraphRepository(GraphRepository):
         return self._node_ops.find_by_uid(uid)
 
     @override
+    def find_by_key(self, key: str) -> "CodeGraphNode | None":
+        return self._node_ops.find_by_key(key)
+
+    @override
     def find_by_qualified_name(
         self, qualified_name: str
     ) -> "CodeGraphNode | None":
@@ -138,6 +142,10 @@ class Neo4jGraphRepository(GraphRepository):
         return self._node_ops.delete_by_uid(uid)
 
     @override
+    def delete_by_key(self, key: str) -> bool:
+        return self._node_ops.delete_by_key(key)
+
+    @override
     def delete_by_source(self, source: str) -> int:
         return self._node_ops.delete_by_source(source)
 
@@ -150,29 +158,43 @@ class Neo4jGraphRepository(GraphRepository):
     @override
     def merge_relationship(
         self,
-        source_uid: str,
+        source_key: str,
         rel_type: str,
-        target_uid: str,
+        target_key: str,
         *,
         edge_properties: dict[str, object] | None = None,
     ) -> int:
         return self._rel_ops.merge_relationship(
-            source_uid, rel_type, target_uid,
+            source_key, rel_type, target_key,
+            edge_properties=edge_properties,
+        )
+
+    @override
+    def merge_relationship_by_key(
+        self,
+        source_key: str,
+        rel_type: str,
+        target_key: str,
+        *,
+        edge_properties: dict[str, object] | None = None,
+    ) -> int:
+        return self._rel_ops.merge_relationship_by_key(
+            source_key, rel_type, target_key,
             edge_properties=edge_properties,
         )
 
     @override
     def merge_labeled_relationship(
         self,
-        source_uid: str,
+        source_key: str,
         source_label: str,
         rel_type: str,
-        target_uid: str,
+        target_key: str,
         target_label: str,
     ) -> None:
         from codegraph.backends.neo4j.memory_ops import Neo4jMemoryOps
         Neo4jMemoryOps(self._conn).merge_labeled_relationship(
-            source_uid, source_label, rel_type, target_uid, target_label,
+            source_key, source_label, rel_type, target_key, target_label,
         )
 
     # ── Traversal ─────────────────────────────────────────────────
@@ -212,14 +234,14 @@ class Neo4jGraphRepository(GraphRepository):
     @override
     def find_related_nodes(
         self,
-        target_uid: str,
+        target_key: str,
         rel_pattern: str,
         *,
         source_labels: str | None = None,
     ) -> list[dict]:
         from codegraph.backends.neo4j.memory_ops import Neo4jMemoryOps
         return Neo4jMemoryOps(self._conn).find_related_nodes(
-            target_uid, rel_pattern, source_labels=source_labels,
+            target_key, rel_pattern, source_labels=source_labels,
         )
 
     # ── Full-text search ──────────────────────────────────────────
@@ -314,14 +336,14 @@ class Neo4jGraphRepository(GraphRepository):
 
         while queue:
             node = queue.pop(0)
-            node_uid = node._uid_value()
+            node_uid = node.canonical_key
             if not node_uid or node_uid in seen_uids:
                 continue
             seen_uids.add(node_uid)
             composes_reachable.append(node)
 
             for child in self._rel_ops.get_composed_children(node):
-                child_uid = child._uid_value()
+                child_uid = child.canonical_key
                 if child_uid and child_uid not in seen_uids:
                     queue.append(child)
 
@@ -383,7 +405,7 @@ class Neo4jGraphRepository(GraphRepository):
                 continue
             if composer_type is not None and target_cls is not composer_type:
                 continue
-            composer = self._node_ops.get(target_cls, uid=e.target_uid)
+            composer = self._node_ops.get(target_cls, uid=e.target_key)
             if composer is not None:
                 composers.append(composer)
         return composers
@@ -405,7 +427,7 @@ class Neo4jGraphRepository(GraphRepository):
                 continue
             if target_type is not None and target_cls is not target_type:
                 continue
-            target = self._node_ops.get(target_cls, uid=e.target_uid)
+            target = self._node_ops.get(target_cls, uid=e.target_key)
             if target is not None:
                 targets.append(target)
         return targets
@@ -438,7 +460,7 @@ class Neo4jGraphRepository(GraphRepository):
         label_clause = "".join(f":{lbl}" for lbl in labels)
         rows, _ = self._conn.execute_raw(
             f"MATCH (n{label_clause}) "
-            "RETURN n.uid AS uid, "
+            "RETURN n.canonical_key AS uid, "
             "coalesce(n.qualified_name, '(none)') AS qualified_name, "
             "labels(n) AS labels"
         )
@@ -734,7 +756,7 @@ class Neo4jGraphRepository(GraphRepository):
         for node in seeds:
             key = LayerGraph._node_key(node)
             nodes[key] = node
-            uid = node._uid_value()
+            uid = node.canonical_key
             if uid:
                 uid_to_key[uid] = key
 
@@ -742,20 +764,20 @@ class Neo4jGraphRepository(GraphRepository):
             for edge_info in self._rel_ops.get_all_edges(node):
                 if edge_info.relation_type == "HAS_IMPLEMENTATION":
                     continue
-                target_uid = edge_info.target_uid
+                target_key = edge_info.target_key
                 target_type = edge_info.target_type
-                if target_uid not in uid_to_key:
+                if target_key not in uid_to_key:
                     target_cls = CodeGraphNode._registry.get(target_type)
                     if target_cls:
                         uid_prop = target_cls._uid_prop()
                         if uid_prop:
                             neighbor = self._node_ops.get(
-                                target_cls, **{uid_prop: target_uid}
+                                target_cls, **{uid_prop: target_key}
                             )
                             if neighbor:
                                 neighbor_key = LayerGraph._node_key(neighbor)
                                 nodes[neighbor_key] = neighbor
-                                uid_to_key[target_uid] = neighbor_key
+                                uid_to_key[target_key] = neighbor_key
 
         key_to_entry: dict[str, CompositeEntry] = {}
         for key, node in nodes.items():
@@ -777,7 +799,7 @@ class Neo4jGraphRepository(GraphRepository):
                 relation_type = edge_info.relation_type
                 if relation_type in ("COMPOSES", "HAS_IMPLEMENTATION"):
                     continue
-                target_key = uid_to_key.get(edge_info.target_uid)
+                target_key = uid_to_key.get(edge_info.target_key)
                 if target_key and target_key in key_to_entry:
                     entry.references.append(
                         (relation_type, target_key, edge_info.target_type)

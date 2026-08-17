@@ -77,3 +77,16 @@ def clear_db():
         with backend._conn.engine.begin() as conn:
             conn.execute(sa.text("DELETE FROM fts_nodes"))
             conn.execute(sa.text("DELETE FROM nodes"))
+
+
+@pytest.fixture(autouse=True)
+def canonical_identity_scope():
+    """Wrap every sqlite-backend test in a canonical identity scope
+    (WP A/D — canonical identity is mandatory; backend tests save code
+    nodes that need a repository scope)."""
+    from codegraph.identity import IdentityScope, identity_scope
+
+    with identity_scope(
+        IdentityScope.repository("codegraph-suite", "codegraph")
+    ):
+        yield

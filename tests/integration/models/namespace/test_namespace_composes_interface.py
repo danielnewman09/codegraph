@@ -80,7 +80,7 @@ def test_namespace_composes_interface():
     # codegraph:test-desc namespace.test_namespace_composes_interface.test_namespace_composes_interface::post_4
     # Asserts that the target UID of the composes edge matches the interface node's UID,
     # verifying that the composition links to the correct interface.
-    assert composes_edges[0]["target_uid"] == interface_node._uid_value()
+    assert composes_edges[0]["target_key"] == interface_node.canonical_key
 
     # codegraph:test-desc namespace.test_namespace_composes_interface.test_namespace_composes_interface::step_3
     # Queries the connected nodes from the composes edges to obtain the list of target
@@ -94,7 +94,7 @@ def test_namespace_composes_interface():
     # Asserts that the roundtripped node's fields match the original interface node's
     # fields, verifying that the serialize-deserialize process preserves the node's
     # data.
-    assert connected[0]._uid_value() == interface_node._uid_value()
+    assert connected[0].canonical_key == interface_node.canonical_key
 
 
 if __name__ == "__main__":

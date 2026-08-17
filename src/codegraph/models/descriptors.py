@@ -1,6 +1,6 @@
 """Backend-agnostic property and relationship descriptors.
 
-Replaces neomodel's ``StringProperty``, ``UniqueIdProperty``,
+Replaces neomodel's ``StringProperty``,
 ``RelationshipTo``, ``RelationshipFrom``, and ``defined_properties()``
 with pure-Python equivalents.  Storage backends (Neo4j, in-memory,
 SQLite) use these descriptors for introspection; I/O stays in the
@@ -8,10 +8,9 @@ backend implementations.
 
 Usage::
 
-    from codegraph.models.descriptors import Property, Relationship, UniqueId
+    from codegraph.models.descriptors import Property, Relationship
 
     class MyNode(CodeGraphNode):
-        uid = UniqueId()
         qualified_name = Property(str, index=True)
         methods = Relationship("COMPOSES", direction="OUTGOING",
                                target_class="MethodNode")
@@ -114,44 +113,6 @@ class Property:
 # ══════════════════════════════════════════════════════════════════════════
 # Specialized property types
 # ══════════════════════════════════════════════════════════════════════════
-
-
-class UniqueId(Property):
-    """Marks a property as the unique identifier.
-
-    A class may have at most one ``UniqueId`` property.  The backend uses
-    this property as the primary key for MERGE / upsert operations.
-
-    Uids are ALWAYS deterministic: reading the property on an instance
-    without an explicitly-set value derives it from the node's identity
-    fields (``source`` + ``_identity_fields``) via ``_compute_uid()``.
-    Random auto-generated uids are deliberately impossible — a missing
-    ``source`` or primary identity field raises ``ValueError`` instead of
-    silently minting a fresh random value (which would make every
-    re-import/round-trip produce different uids for the same symbol).
-    """
-
-    def __init__(self) -> None:
-        super().__init__(str, default=None)
-
-    def __get__(self, obj: Any, objtype: type | None = None) -> Any:
-        if obj is None:
-            return self
-        props = obj.__dict__.setdefault("_props", {})
-        val = props.get(self.name)
-        if val is None:
-            # No random fallback — derive the deterministic uid from the
-            # node's identity fields (raises ValueError when ``source``
-            # or the primary identity field is missing).
-            compute = getattr(obj, "_compute_uid", None)
-            if compute is None:
-                raise ValueError(
-                    f"{type(obj).__name__} declares a UniqueId but has no "
-                    f"_compute_uid() — uids are deterministic, never random."
-                )
-            val = compute()
-            props[self.name] = val
-        return val
 
 
 class DateTimeProperty(Property):
@@ -426,7 +387,7 @@ class PropertyRegistry:
         for base in reversed(klass.__mro__):
             for attr_name, value in vars(base).items():
                 if isinstance(value, Property):
-                    # Our Property / UniqueId / DateTimeProperty
+                    # Our Property / DateTimeProperty
                     props[attr_name] = value
                 elif isinstance(value, Relationship):
                     # Our Relationship
@@ -475,13 +436,98 @@ class PropertyRegistry:
         """Check whether *klass* (or any of its bases) declares *name*."""
         return name in cls.properties_of(klass)
 
-    @classmethod
-    def unique_id_name(cls, klass: type) -> str | None:
-        """Return the name of the UniqueId property, or None."""
-        for name, prop in cls.properties_of(klass).items():
-            if isinstance(prop, UniqueId):
-                return name
-        return None
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Relationship introspection — replaces find_relationship_manager
+# ══════════════════════════════════════════════════════════════════════════
+
+
+def _relationship_matches(
+    rel: Any,
+    relation_type: str,
+    target_type: type | str,
+) -> bool:
+    """Check whether a relationship descriptor matches type + target.
+
+    Class targets match by equality or subclass — e.g. a descriptor
+    targeting ``CompoundNode`` matches a ``ClassNode`` target.
+    """
+    target_name = (
+        target_type if isinstance(target_type, str) else target_type.__name__
+    )
+
+    if not isinstance(rel, Relationship):
+        return False
+
+    if rel.relation_type != relation_type:
+        return False
+    tc = rel.target_class
+    if isinstance(tc, str):
+        if tc == target_name or tc.endswith(f".{target_name}"):
+            return True
+        # String class targets also match by subclass — e.g. a
+        # descriptor targeting ``"CompoundNode"`` matches a
+        # ``ClassNode`` target (ClassNode subclasses CompoundNode).
+        # Match on the simple name against the target's MRO so no
+        # import is needed to resolve the dotted string.
+        if isinstance(target_type, type):
+            short = tc.split(".")[-1]
+            return any(base.__name__ == short for base in target_type.__mro__)
+        return False
+    if isinstance(tc, type) and isinstance(target_type, type):
+        return (
+            tc is target_type
+            or issubclass(target_type, tc)
+        )
+    return tc is target_type
+
+
+def find_relationship_descriptor(
+    source_type: type,
+    relation_type: str,
+    target_type: type | str,
+) -> Any | None:
+    """Find a relationship descriptor matching the given parameters.
+
+    Searches the source type's MRO for a descriptor with the given
+    ``relation_type`` whose ``target_class`` matches the given target
+    type (by class equality, name resolution, or subclass — e.g. a
+    descriptor targeting ``CompoundNode`` matches a ``ClassNode``).
+
+    Works with the new ``Relationship`` descriptors.
+
+    Args:
+        source_type: The node type that owns the relationship.
+        relation_type: Relationship label (e.g. ``"COMPOSES"``).
+        target_type: The target node type (class or class name string).
+
+    Returns:
+        The matching descriptor, or ``None`` if no match is found.
+    """
+    _, rels = PropertyRegistry.of(source_type)
+    for rel in rels.values():
+        if _relationship_matches(rel, relation_type, target_type):
+            return rel
+    return None
+
+
+def find_relationship_attr(
+    source_type: type,
+    relation_type: str,
+    target_type: type | str,
+) -> str | None:
+    """Return the attribute name of the matching relationship descriptor.
+
+    Like :func:`find_relationship_descriptor` but returns the attribute
+    name (e.g. ``"methods"``) instead of the descriptor instance.
+    Returns ``None`` if no descriptor matches.
+    """
+    _, rels = PropertyRegistry.of(source_type)
+    for name, rel in rels.items():
+        if _relationship_matches(rel, relation_type, target_type):
+            return name
+    return None
 
 
 # ══════════════════════════════════════════════════════════════════════════

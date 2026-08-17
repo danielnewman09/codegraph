@@ -1,11 +1,13 @@
 [
   {
+    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:namespace:qualified_name=calc",
     "component_id": null,
     "composes": [
       {
         "base_classes": [],
         "base_specifiers": [],
         "brief_description": "The core calculator engine class that performs arithmetic operations.",
+        "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=calc%3A%3ACalculatorEngine",
         "component_id": null,
         "composes": [
           {
@@ -14,6 +16,7 @@
             "body_file": "",
             "body_start": 0,
             "brief_description": "Calculates the sum of two valid numeric operands.",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=calc%3A%3ACalculatorEngine%3A%3Aadd:canonical_signature=lang%3Acpp%7C%28double%2Cdouble%29",
             "component_id": null,
             "compound_refid": "",
             "definition": "",
@@ -43,7 +46,6 @@
             "template_declarations": [],
             "type": "MethodNode",
             "type_signature": "CalculatorResult",
-            "uid": "0b69696d218cc6dc1fc9b7427a420512d9adefb5",
             "visibility": "public"
           },
           {
@@ -52,6 +54,7 @@
             "body_file": "",
             "body_start": 0,
             "brief_description": "Validates that the inputs are valid numbers.",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=calc%3A%3ACalculatorEngine%3A%3AvalidateInput:canonical_signature=lang%3Acpp%7C%28string%29",
             "component_id": null,
             "compound_refid": "",
             "definition": "",
@@ -81,13 +84,13 @@
             "template_declarations": [],
             "type": "MethodNode",
             "type_signature": "bool",
-            "uid": "0816226e5e9ad392c362d11753abd3a39b503038",
             "visibility": "public"
           },
           {
             "body_end": 0,
             "body_start": 0,
             "brief_description": "The number of decimal places for result precision.",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=calc%3A%3ACalculatorEngine%3A%3Aprecision",
             "component_id": null,
             "compound_refid": "",
             "declaration": "",
@@ -115,7 +118,6 @@
             ],
             "type": "AttributeNode",
             "type_signature": "int",
-            "uid": "45e6c1066cdac72e1237315c9f7f60f421521b06",
             "visibility": "public"
           }
         ],
@@ -126,13 +128,13 @@
         "edges": [
           {
             "relation_type": "REALIZES",
-            "target_type": "InterfaceNode",
-            "target_uid": "calc::ICalculator"
+            "target_key": "calc::ICalculator",
+            "target_type": "InterfaceNode"
           },
           {
             "relation_type": "DEPENDS_ON",
-            "target_type": "ClassNode",
-            "target_uid": "calc::CalculatorResult"
+            "target_key": "calc::CalculatorResult",
+            "target_type": "ClassNode"
           }
         ],
         "end_line": 0,
@@ -154,13 +156,13 @@
         ],
         "template_declarations": [],
         "type": "ClassNode",
-        "uid": "99239ee0b900e4092025c96c630a055e8eba1408",
         "visibility": ""
       },
       {
         "base_classes": [],
         "base_specifiers": [],
         "brief_description": "A result wrapper class that holds the outcome of a calculator operation.",
+        "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=calc%3A%3ACalculatorResult",
         "component_id": null,
         "composes": [
           {
@@ -169,6 +171,7 @@
             "body_file": "",
             "body_start": 0,
             "brief_description": "Returns the computed value.",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=calc%3A%3ACalculatorResult%3A%3Aget_value%3A%20double:canonical_signature=lang%3Acpp%7C%28%29",
             "component_id": null,
             "compound_refid": "",
             "definition": "",
@@ -198,13 +201,13 @@
             "template_declarations": [],
             "type": "MethodNode",
             "type_signature": "",
-            "uid": "c35d6ff11f978c878d1c3a7dae048d35b6aa20e6",
             "visibility": "public"
           },
           {
             "body_end": 0,
             "body_start": 0,
             "brief_description": "The computed numeric result.",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=calc%3A%3ACalculatorResult%3A%3Avalue",
             "component_id": null,
             "compound_refid": "",
             "declaration": "",
@@ -232,7 +235,6 @@
             ],
             "type": "AttributeNode",
             "type_signature": "double",
-            "uid": "ee1708658ecd4fa4dbd4b6af4d6773dcb6cacfd7",
             "visibility": "public"
           }
         ],
@@ -260,11 +262,11 @@
         ],
         "template_declarations": [],
         "type": "ClassNode",
-        "uid": "754f29e7181c6a8e6c0fa2d66e83b0571df3eab0",
         "visibility": ""
       },
       {
         "brief_description": "Calculator interface contract defining the core calculation operation.",
+        "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:interface:qualified_name=calc%3A%3AICalculator",
         "component_id": null,
         "composes": [
           {
@@ -273,6 +275,7 @@
             "body_file": "",
             "body_start": 0,
             "brief_description": "Perform a calculation with the given operation and operands.",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=calc%3A%3AICalculator%3A%3Acalculate:canonical_signature=lang%3Acpp%7C%28Operation%2Cdouble%2Cdouble%29",
             "component_id": null,
             "compound_refid": "",
             "definition": "",
@@ -302,7 +305,6 @@
             "template_declarations": [],
             "type": "MethodNode",
             "type_signature": "CalculatorResult",
-            "uid": "982cbd0edc30e03e63d379bb79e891aec96f32c9",
             "visibility": "public"
           }
         ],
@@ -329,17 +331,18 @@
         ],
         "template_declarations": [],
         "type": "InterfaceNode",
-        "uid": "309be9f7db2a9430b677b5665cce5a04d27cb082",
         "visibility": ""
       },
       {
         "brief_description": "An enumeration of supported arithmetic operations.",
+        "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:enum:qualified_name=calc%3A%3AOperation",
         "component_id": null,
         "composes": [
           {
             "body_end": 0,
             "body_start": 0,
             "brief_description": "Represents addition.",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:enum-value:qualified_name=calc%3A%3AOperation%3A%3AADD",
             "component_id": null,
             "compound_refid": "",
             "definition": "",
@@ -361,13 +364,13 @@
               "design"
             ],
             "type": "EnumValueNode",
-            "uid": "10bc7b65eaf4f16c8bd83259e5ce17e3dc62bf59",
             "visibility": ""
           },
           {
             "body_end": 0,
             "body_start": 0,
             "brief_description": "Represents subtraction.",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:enum-value:qualified_name=calc%3A%3AOperation%3A%3ASUBTRACT",
             "component_id": null,
             "compound_refid": "",
             "definition": "",
@@ -389,7 +392,6 @@
               "design"
             ],
             "type": "EnumValueNode",
-            "uid": "5944ad0d52b47da7db379857676cc931951354e0",
             "visibility": ""
           }
         ],
@@ -416,7 +418,6 @@
         ],
         "template_declarations": [],
         "type": "EnumNode",
-        "uid": "91fd735f5a9a24337a675fbc3d13f54f8394f96d",
         "underlying_type": "",
         "visibility": ""
       },
@@ -425,6 +426,7 @@
         "body_end": 0,
         "body_start": 0,
         "brief_description": "Formats a numeric result as a string.",
+        "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:function:qualified_name=calc%3A%3AformatResult:canonical_signature=lang%3Acpp%7C%28double%29",
         "component_id": null,
         "compound_refid": "",
         "definition": "",
@@ -446,7 +448,6 @@
         ],
         "type": "FunctionNode",
         "type_signature": "string",
-        "uid": "967f4e7379fd7d33263fe1d01405e025097fe424",
         "visibility": "public"
       }
     ],
@@ -463,16 +464,17 @@
     "tags": [
       "design"
     ],
-    "type": "NamespaceNode",
-    "uid": "f761f78b69b8e2bdaa092427ad2b85813877c9c5"
+    "type": "NamespaceNode"
   },
   {
+    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:namespace:qualified_name=ui",
     "component_id": null,
     "composes": [
       {
         "base_classes": [],
         "base_specifiers": [],
         "brief_description": "Abstract base window class providing common window operations.",
+        "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=ui%3A%3ABaseWindow",
         "component_id": null,
         "composes": [
           {
@@ -481,6 +483,7 @@
             "body_file": "",
             "body_start": 0,
             "brief_description": "Shows the window on screen.",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=ui%3A%3ABaseWindow%3A%3Ashow%3A%20void:canonical_signature=lang%3Acpp%7C%28%29",
             "component_id": null,
             "compound_refid": "",
             "definition": "",
@@ -510,7 +513,6 @@
             "template_declarations": [],
             "type": "MethodNode",
             "type_signature": "",
-            "uid": "8b391cd8a5d8f4fca66c23f89ab6b2e21fc56f0a",
             "visibility": "public"
           }
         ],
@@ -538,13 +540,13 @@
         ],
         "template_declarations": [],
         "type": "ClassNode",
-        "uid": "6ba9b747540ec0eeae52ff9d2bbabbf660c3f98d",
         "visibility": ""
       },
       {
         "base_classes": [],
         "base_specifiers": [],
         "brief_description": "The main application window for the calculator.",
+        "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=ui%3A%3ACalculatorWindow",
         "component_id": null,
         "compound_refid": "",
         "definition": "",
@@ -553,13 +555,13 @@
         "edges": [
           {
             "relation_type": "INHERITS_FROM",
-            "target_type": "ClassNode",
-            "target_uid": "ui::BaseWindow"
+            "target_key": "ui::BaseWindow",
+            "target_type": "ClassNode"
           },
           {
             "relation_type": "DEPENDS_ON",
-            "target_type": "ClassNode",
-            "target_uid": "calc::CalculatorEngine"
+            "target_key": "calc::CalculatorEngine",
+            "target_type": "ClassNode"
           }
         ],
         "end_line": 0,
@@ -581,7 +583,6 @@
         ],
         "template_declarations": [],
         "type": "ClassNode",
-        "uid": "b4eca5f7f3290de1c0d38e5699fcf41e8e8062db",
         "visibility": "public"
       }
     ],
@@ -598,10 +599,10 @@
     "tags": [
       "design"
     ],
-    "type": "NamespaceNode",
-    "uid": "6e4b45d53482f7de8ee0af7b43bc4e71eeedbbaa"
+    "type": "NamespaceNode"
   },
   {
+    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:file:normalized_repository_path=calculator_engine.h",
     "edges": [],
     "end_line": 0,
     "guard_leading_blank_lines": 0,
@@ -624,10 +625,10 @@
     "tags": [
       "design"
     ],
-    "type": "FileNode",
-    "uid": "a9da2ccc3c9daf0f7ca68df9b2ebded56e630314"
+    "type": "FileNode"
   },
   {
+    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:file:normalized_repository_path=icalculator.h",
     "edges": [],
     "end_line": 0,
     "guard_leading_blank_lines": 0,
@@ -650,10 +651,10 @@
     "tags": [
       "design"
     ],
-    "type": "FileNode",
-    "uid": "e5bccd930d60a278087722b21b3b6632f39dea76"
+    "type": "FileNode"
   },
   {
+    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:file:normalized_repository_path=operation.h",
     "edges": [],
     "end_line": 0,
     "guard_leading_blank_lines": 0,
@@ -676,10 +677,10 @@
     "tags": [
       "design"
     ],
-    "type": "FileNode",
-    "uid": "7114be2418e298f1b6276d16c3b783635ab9891f"
+    "type": "FileNode"
   },
   {
+    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:file:normalized_repository_path=calculator_result.h",
     "edges": [],
     "end_line": 0,
     "guard_leading_blank_lines": 0,
@@ -702,10 +703,10 @@
     "tags": [
       "design"
     ],
-    "type": "FileNode",
-    "uid": "3556e4baea50fb57da3d35f44d9ce90998da7a66"
+    "type": "FileNode"
   },
   {
+    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:file:normalized_repository_path=base_window.h",
     "edges": [],
     "end_line": 0,
     "guard_leading_blank_lines": 0,
@@ -728,10 +729,10 @@
     "tags": [
       "design"
     ],
-    "type": "FileNode",
-    "uid": "6a0508f59d16575932a8ed2c1f5ee2576aa37bd3"
+    "type": "FileNode"
   },
   {
+    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:file:normalized_repository_path=calculator_window.h",
     "edges": [],
     "end_line": 0,
     "guard_leading_blank_lines": 0,
@@ -754,7 +755,6 @@
     "tags": [
       "design"
     ],
-    "type": "FileNode",
-    "uid": "82646db8ea9de9213a2edbd9dd21c2e4ae24bce7"
+    "type": "FileNode"
   }
 ]

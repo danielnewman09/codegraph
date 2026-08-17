@@ -76,6 +76,10 @@ class SqliteGraphRepository(GraphRepository):
         return self._node_ops.find_by_uid(uid)
 
     @override
+    def find_by_key(self, key: str) -> CodeGraphNode | None:
+        return self._node_ops.find_by_key(key)
+
+    @override
     def find_by_qualified_name(
         self, qualified_name: str
     ) -> CodeGraphNode | None:
@@ -151,6 +155,10 @@ class SqliteGraphRepository(GraphRepository):
         return self._node_ops.delete_by_uid(uid)
 
     @override
+    def delete_by_key(self, key: str) -> bool:
+        return self._node_ops.delete_by_key(key)
+
+    @override
     def delete_by_source(self, source: str) -> int:
         return self._node_ops.delete_by_source(source)
 
@@ -171,6 +179,20 @@ class SqliteGraphRepository(GraphRepository):
     ) -> int:
         return self._rel_ops.merge_relationship(
             source_uid, rel_type, target_uid,
+            edge_properties=edge_properties,
+        )
+
+    @override
+    def merge_relationship_by_key(
+        self,
+        source_key: str,
+        rel_type: str,
+        target_key: str,
+        *,
+        edge_properties: dict[str, object] | None = None,
+    ) -> int:
+        return self._rel_ops.merge_relationship_by_key(
+            source_key, rel_type, target_key,
             edge_properties=edge_properties,
         )
 
@@ -315,7 +337,7 @@ class SqliteGraphRepository(GraphRepository):
     def get_hlr_subtree(self, uid: str, tag: str = "") -> LayerGraph:
         from codegraph_requirements.models import HLR
 
-        hlr = self._node_ops.get(HLR, uid=uid)
+        hlr = self._node_ops.get(HLR, canonical_key=uid)
         if hlr is None:
             return LayerGraph(tags=frozenset({"design"}))
 
@@ -325,15 +347,15 @@ class SqliteGraphRepository(GraphRepository):
 
         while queue:
             node = queue.pop(0)
-            node_uid = node._uid_value()
-            if not node_uid or node_uid in seen_uids:
+            node_key = node.canonical_key
+            if not node_key or node_key in seen_uids:
                 continue
-            seen_uids.add(node_uid)
+            seen_uids.add(node_key)
             composes_reachable.append(node)
 
             for child in self._rel_ops.get_composed_children(node):
-                child_uid = child._uid_value()
-                if child_uid and child_uid not in seen_uids:
+                child_key = child.canonical_key
+                if child_key and child_key not in seen_uids:
                     queue.append(child)
 
         graph = self._build_layer_graph(composes_reachable)
@@ -394,7 +416,7 @@ class SqliteGraphRepository(GraphRepository):
                 continue
             if composer_type is not None and target_cls is not composer_type:
                 continue
-            composer = self._node_ops.get(target_cls, uid=e.target_uid)
+            composer = self._node_ops.get(target_cls, canonical_key=e.target_key)
             if composer is not None:
                 composers.append(composer)
         return composers
@@ -416,7 +438,7 @@ class SqliteGraphRepository(GraphRepository):
                 continue
             if target_type is not None and target_cls is not target_type:
                 continue
-            target = self._node_ops.get(target_cls, uid=e.target_uid)
+            target = self._node_ops.get(target_cls, canonical_key=e.target_key)
             if target is not None:
                 targets.append(target)
         return targets
@@ -787,29 +809,25 @@ class SqliteGraphRepository(GraphRepository):
     ) -> LayerGraph:
         """Build a LayerGraph from seed nodes plus 1-hop neighbours."""
         nodes: dict[str, CodeGraphNode] = {}
-        uid_to_key: dict[str, str] = {}
-
         for node in seeds:
             key = LayerGraph._node_key(node)
             nodes[key] = node
-            uid = node._uid_value()
-            if uid:
-                uid_to_key[uid] = key
 
         for node in list(seeds):
             for edge_info in self._rel_ops.get_all_edges(node):
                 if edge_info.relation_type == "HAS_IMPLEMENTATION":
                     continue
-                target_uid = edge_info.target_uid
+                target_key = edge_info.target_key
                 target_type = edge_info.target_type
-                if target_uid not in uid_to_key:
+                if target_key not in nodes:
                     target_cls = CodeGraphNode._registry.get(target_type)
                     if target_cls:
-                        neighbor = self._node_ops.get(target_cls, uid=target_uid)
+                        neighbor = self._node_ops.get(
+                            target_cls, canonical_key=target_key
+                        )
                         if neighbor:
                             neighbor_key = LayerGraph._node_key(neighbor)
                             nodes[neighbor_key] = neighbor
-                            uid_to_key[target_uid] = neighbor_key
 
         key_to_entry: dict[str, CompositeEntry] = {}
         for key, node in nodes.items():
@@ -831,7 +849,7 @@ class SqliteGraphRepository(GraphRepository):
                 relation_type = edge_info.relation_type
                 if relation_type in ("COMPOSES", "HAS_IMPLEMENTATION"):
                     continue
-                target_key = uid_to_key.get(edge_info.target_uid)
+                target_key = edge_info.target_key
                 if target_key and target_key in key_to_entry:
                     entry.references.append(
                         (relation_type, target_key, edge_info.target_type)

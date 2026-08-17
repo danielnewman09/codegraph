@@ -6,8 +6,7 @@ a single unique property."""
 
 from codegraph.models.descriptors import (
     Property,
-    UniqueId,
-)
+    )
 
 from codegraph.models.tags import CodeGraphNode
 
@@ -28,7 +27,6 @@ class ParameterNode(CodeGraphNode):
     """
 
     # --- Identity ---
-    uid = UniqueId()
 
     # --- Identity fields for uid computation ---
     _identity_fields: tuple[str, ...] = ("member_refid", "position")

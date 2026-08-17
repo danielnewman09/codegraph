@@ -4,6 +4,12 @@ Ported from ticketing-system ``backend_migrated.agents.decompose_hlr``.
 Uses ``llm_caller`` for LLM tool calls and codegraph's requirements
 schemas + persistence.
 
+Migration-only legacy entry point. Its current consumer is the requirements
+decomposition CLI/service; the replacement target is
+``codegraph_agents.decompose`` plus the shared model service. Remove this
+module after parity and downstream migration are verified. Do not add new
+orchestration behavior here.
+
 Usage::
 
     from codegraph_design.agents.decompose_hlr import decompose

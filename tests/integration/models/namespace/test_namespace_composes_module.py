@@ -87,10 +87,10 @@ def test_namespace_composes_module():
     # relationship correctly identifies the target as a module.
     assert composes_edges[0]["target_type"] == "ModuleNode"
     # codegraph:test-desc namespace.test_namespace_composes_module.test_namespace_composes_module::post_4
-    # This assertion verifies that the target_uid of the composes edge matches the
+    # This assertion verifies that the target_key of the composes edge matches the
     # module_node's UID, ensuring that the edge correctly references the intended module
     # node and that the relationship is accurately recreated after deserialization.
-    assert composes_edges[0]["target_uid"] == module_node._uid_value()
+    assert composes_edges[0]["target_key"] == module_node.canonical_key
 
     # codegraph:test-desc namespace.test_namespace_composes_module.test_namespace_composes_module::step_3
     # Step 3 retrieves the serialization fields from both the original namespace_node
@@ -103,11 +103,11 @@ def test_namespace_composes_module():
     # edges) is preserved after the round-trip process.
     assert len(connected) == 1
     # codegraph:test-desc namespace.test_namespace_composes_module.test_namespace_composes_module::post_6
-    # This assertion checks that the 'source_uid' and 'target_uid' fields of the
+    # This assertion checks that the 'source_key' and 'target_key' fields of the
     # roundtripped node match specific expected values, verifying that the unique
     # identifiers of the node and its relationships are correctly maintained through
     # serialization and deserialization.
-    assert connected[0]._uid_value() == module_node._uid_value()
+    assert connected[0].canonical_key == module_node.canonical_key
 
 
 if __name__ == "__main__":

@@ -307,7 +307,7 @@ class TestNeo4jPersistence:
         assertion_names = [
             getattr(a, "qualified_name", "")
             for a in all_children
-            if a._uid_value() and "AssertionNode" in g.get_labels(a._uid_value())
+            if a.canonical_key and "AssertionNode" in g.get_labels(a.canonical_key)
         ]
         assert len(assertion_names) == 3
         assert "cond::pre::valid_config_provided" in assertion_names

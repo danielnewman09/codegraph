@@ -39,11 +39,11 @@ class SqliteRequirementsRepository(RequirementsRepository):
         with self._conn.connect() as conn:
             hlr_row = conn.execute(
                 sa.text(
-                    "SELECT n.id, n.uid, n.labels, n.properties FROM nodes n "
+                    "SELECT n.id, n.canonical_key, n.labels, n.properties FROM nodes n "
                     "JOIN node_labels nl ON nl.node_id = n.id "
-                    "WHERE nl.label = 'HLR' AND n.uid = :uid LIMIT 1"
+                    "WHERE nl.label = 'HLR' AND n.canonical_key = :key LIMIT 1"
                 ),
-                {"uid": hlr_uid},
+                {"key": hlr_uid},
             ).first()
             if hlr_row is None:
                 return {"hlr": None, "llrs": []}
@@ -54,7 +54,7 @@ class SqliteRequirementsRepository(RequirementsRepository):
             llr_rows = list(
                 conn.execute(
                     sa.text(
-                        "SELECT n.id, n.uid, n.labels, n.properties FROM edges e "
+                        "SELECT n.id, n.canonical_key, n.labels, n.properties FROM edges e "
                         "JOIN nodes n ON n.id = e.target_id "
                         "JOIN node_labels nl ON nl.node_id = n.id "
                         "WHERE e.source_id = :sid AND e.rel_type = 'COMPOSES' "
@@ -76,7 +76,7 @@ class SqliteRequirementsRepository(RequirementsRepository):
                     conn.execute(
                         sa.text(
                             "SELECT e.source_id AS llr_id, "
-                            "n.id, n.uid, n.labels, n.properties "
+                            "n.id, n.canonical_key, n.labels, n.properties "
                             "FROM edges e "
                             "JOIN nodes n ON n.id = e.target_id "
                             "JOIN node_labels nl ON nl.node_id = n.id "
@@ -124,7 +124,7 @@ class SqliteRequirementsRepository(RequirementsRepository):
                     conn.execute(
                         sa.text(
                             "SELECT e.source_id AS test_id, "
-                            "n.id, n.uid, n.labels, n.properties "
+                            "n.id, n.canonical_key, n.labels, n.properties "
                             "FROM edges e "
                             "JOIN nodes n ON n.id = e.target_id "
                             "JOIN node_labels nl ON nl.node_id = n.id "
@@ -171,7 +171,7 @@ class SqliteRequirementsRepository(RequirementsRepository):
                 for step in steps_by_test.get(test_id, []):
                     steps_out.append({
                         "step": {
-                            "uid": step._uid_value(),
+                            "uid": step.canonical_key,
                             "qualified_name": getattr(step, "qualified_name", ""),
                             "order": getattr(step, "order", 0),
                         },
@@ -179,7 +179,7 @@ class SqliteRequirementsRepository(RequirementsRepository):
                     })
                 tests_out.append({
                     "test": {
-                        "uid": test._uid_value(),
+                        "uid": test.canonical_key,
                         "test_name": getattr(test, "test_name", ""),
                         "qualified_name": getattr(test, "qualified_name", ""),
                     },
@@ -188,7 +188,7 @@ class SqliteRequirementsRepository(RequirementsRepository):
                 })
             llrs_out.append({
                 "llr": {
-                    "uid": llr._uid_value(),
+                    "uid": llr.canonical_key,
                     "name": getattr(llr, "name", ""),
                     "description": getattr(llr, "description", ""),
                 },
@@ -213,7 +213,7 @@ class SqliteRequirementsRepository(RequirementsRepository):
                 rows = list(
                     conn.execute(
                         sa.text(
-                            "SELECT DISTINCT child.uid AS uid "
+                            "SELECT DISTINCT child.canonical_key AS uid "
                             "FROM edges e "
                             "JOIN nodes child ON child.id = e.target_id "
                             "JOIN nodes parent ON parent.id = e.source_id "
@@ -231,7 +231,7 @@ class SqliteRequirementsRepository(RequirementsRepository):
                 rows = list(
                     conn.execute(
                         sa.text(
-                            "SELECT DISTINCT s.uid AS uid "
+                            "SELECT DISTINCT s.canonical_key AS uid "
                             "FROM edges e "
                             "JOIN nodes s ON s.id = e.target_id "
                             "JOIN nodes ca ON ca.id = e.source_id "
@@ -250,7 +250,7 @@ class SqliteRequirementsRepository(RequirementsRepository):
                 rows = list(
                     conn.execute(
                         sa.text(
-                            "SELECT DISTINCT n.uid AS uid FROM edges e "
+                            "SELECT DISTINCT n.canonical_key AS uid FROM edges e "
                             "JOIN nodes n ON n.id = e.target_id "
                             "JOIN node_tags nt ON nt.node_id = n.id "
                             f"WHERE e.rel_type IN ({edge_binds}) AND nt.tag = 'scaffold'"
@@ -264,7 +264,7 @@ class SqliteRequirementsRepository(RequirementsRepository):
                 rows = list(
                     conn.execute(
                         sa.text(
-                            "SELECT n.uid AS uid FROM nodes n "
+                            "SELECT n.canonical_key AS uid FROM nodes n "
                             "JOIN node_tags nt ON nt.node_id = n.id "
                             "WHERE nt.tag = 'scaffold' "
                             "AND NOT EXISTS (SELECT 1 FROM edges e "
@@ -277,7 +277,7 @@ class SqliteRequirementsRepository(RequirementsRepository):
             rows = list(
                 conn.execute(
                     sa.text(
-                        "SELECT n.uid AS uid FROM nodes n "
+                        "SELECT n.canonical_key AS uid FROM nodes n "
                         "JOIN node_tags nt ON nt.node_id = n.id "
                         "WHERE nt.tag = 'scaffold'"
                     )
@@ -297,14 +297,14 @@ class SqliteRequirementsRepository(RequirementsRepository):
             rows = list(
                 conn.execute(
                     sa.text(
-                        "SELECT DISTINCT parent.uid AS uid "
+                        "SELECT DISTINCT parent.canonical_key AS uid "
                         "FROM edges e "
                         "JOIN nodes parent ON parent.id = e.source_id "
                         "JOIN nodes child ON child.id = e.target_id "
                         "JOIN node_labels pl ON pl.node_id = parent.id "
                         "JOIN node_tags pt ON pt.node_id = parent.id "
                         f"WHERE e.rel_type = 'COMPOSES' "
-                        f"AND child.uid IN ({rbinds}) "
+                        f"AND child.canonical_key IN ({rbinds}) "
                         "AND pl.label = 'ClassNode' AND pt.tag = 'scaffold'"
                     ),
                     {f"r{i}": u for i, u in enumerate(referenced_uids)},
@@ -339,8 +339,8 @@ class SqliteRequirementsRepository(RequirementsRepository):
         if step_uid:
             with self._conn.session() as conn:
                 step_id = conn.execute(
-                    sa.text("SELECT id FROM nodes WHERE uid = :uid"),
-                    {"uid": step_uid},
+                    sa.text("SELECT id FROM nodes WHERE canonical_key = :key"),
+                    {"key": step_uid},
                 ).first()
                 if step_id is not None:
                     conn.execute(
@@ -369,13 +369,13 @@ class SqliteRequirementsRepository(RequirementsRepository):
                 sa.text(
                     "SELECT n.id FROM nodes n "
                     "JOIN node_labels nl ON nl.node_id = n.id "
-                    "WHERE nl.label = 'HLR' AND n.uid = :uid LIMIT 1"
+                    "WHERE nl.label = 'HLR' AND n.canonical_key = :key LIMIT 1"
                 ),
-                {"uid": source_uid},
+                {"key": source_uid},
             ).first()
             tgt = conn.execute(
                 sa.text(
-                    "SELECT n.id, n.uid, n.properties FROM nodes n "
+                    "SELECT n.id, n.canonical_key, n.properties FROM nodes n "
                     "JOIN node_labels nl ON nl.node_id = n.id "
                     "WHERE nl.label = 'HLR' "
                     "AND json_extract(n.properties, '$.name') = :name LIMIT 1"
@@ -410,13 +410,13 @@ class SqliteRequirementsRepository(RequirementsRepository):
                         "WITH RECURSIVE sub(sub_id, depth) AS ( "
                         "  SELECT n.id, 0 FROM nodes n "
                         "  JOIN node_labels hl ON hl.node_id = n.id "
-                        "  WHERE hl.label = 'HLR' AND n.uid = :uid "
+                        "  WHERE hl.label = 'HLR' AND n.canonical_key = :key "
                         "  UNION ALL "
                         "  SELECT e.target_id, s.depth + 1 FROM edges e "
                         "  JOIN sub s ON e.source_id = s.sub_id "
                         "  WHERE e.rel_type = 'COMPOSES' AND s.depth < 20 "
                         ") "
-                        "SELECT t.uid AS test_uid, t.properties AS t_props, "
+                        "SELECT t.canonical_key AS test_uid, t.properties AS t_props, "
                         "v.qualified_name AS target_qname, "
                         "json_extract(llr.properties, '$.name') AS llr_name "
                         "FROM sub s "
@@ -434,7 +434,7 @@ class SqliteRequirementsRepository(RequirementsRepository):
                         "WHERE te.rel_type = 'COMPOSES' AND tl.label = 'TestNode' "
                         "AND ve.rel_type = 'VERIFIES' AND vt.tag = 'scaffold'"
                     ),
-                    {"uid": hlr_uid},
+                    {"key": hlr_uid},
                 )
             )
         results: list[dict] = []
@@ -461,13 +461,13 @@ class SqliteRequirementsRepository(RequirementsRepository):
                         "WITH RECURSIVE sub(sub_id, depth) AS ( "
                         "  SELECT n.id, 0 FROM nodes n "
                         "  JOIN node_labels hl ON hl.node_id = n.id "
-                        "  WHERE hl.label = 'HLR' AND n.uid = :uid "
+                        "  WHERE hl.label = 'HLR' AND n.canonical_key = :key "
                         "  UNION ALL "
                         "  SELECT e.target_id, s.depth + 1 FROM edges e "
                         "  JOIN sub s ON e.source_id = s.sub_id "
                         "  WHERE e.rel_type = 'COMPOSES' AND s.depth < 20 "
                         ") "
-                        "SELECT DISTINCT st.uid AS step_uid, st.properties AS s_props, "
+                        "SELECT DISTINCT st.canonical_key AS step_uid, st.properties AS s_props, "
                         "c.qualified_name AS target_qname "
                         "FROM sub s "
                         "JOIN edges te ON te.source_id = s.sub_id "
@@ -483,7 +483,7 @@ class SqliteRequirementsRepository(RequirementsRepository):
                         "AND ste.rel_type = 'COMPOSES' AND sl.label = 'TestStepNode' "
                         "AND ce.rel_type = 'CALLEE' AND ct.tag = 'scaffold'"
                     ),
-                    {"uid": hlr_uid},
+                    {"key": hlr_uid},
                 )
             )
         results: list[dict] = []

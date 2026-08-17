@@ -3,8 +3,7 @@
 from codegraph.models.descriptors import (
     Property,
     Relationship,
-    UniqueId,
-)
+    )
 
 from codegraph.models.tags import CodeGraphNode
 
@@ -27,7 +26,6 @@ class NamespaceNode(CodeGraphNode):
         help_text="Human-readable fully-qualified name. Indexed for lookup; "
                   "the unique key is `uid`.",
     )
-    uid = UniqueId()
     kind = Property(str, default="namespace")
     tags = Property(list, default=list,
         help_text="Provenance tags: 'design', 'as-built', 'dependency'.")

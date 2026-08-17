@@ -7,9 +7,52 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 from codegraph.models.test import TestFixtureNode, TestNode, AssertionNode, TestStepNode
+from codegraph.models.compound import ClassNode
 from codegraph.constants import TAGS, NODE_KINDS, TEST_KIND_SET, DEFAULT_PREDICATES
-from codegraph.uid import compute_uid
 from codegraph.graph import LayerGraph
+
+
+def _key_parented(node):
+    """Compute a canonical key for a parent-relative test node (WP A)."""
+    from codegraph.identity import IdentityScope, resolve_identity_for
+
+    scope = IdentityScope.repository("codegraph-suite", "codegraph")
+    node.canonical_key = resolve_identity_for(
+        node, scope, parents={"parent_key": "parent"}
+    ).key()
+    return node
+
+
+def _parented_save(node):
+    """Save a test node, keying parent-relative types first (WP A)."""
+    from codegraph.identity import parent_relative_fields
+
+    if parent_relative_fields(type(node)):
+        _key_parented(node)
+    return node.save()
+
+
+def _data_key(type_name, qname, parent_key=None):
+    """Canonical key for a raw deserialize data dict (WP B)."""
+    from codegraph.identity import IdentityScope, resolve_identity_for
+
+    cls = {
+        "ClassNode": ClassNode,
+        "TestNode": TestNode,
+        "TestFixtureNode": TestFixtureNode,
+        "TestStepNode": TestStepNode,
+        "AssertionNode": AssertionNode,
+    }[type_name]
+    probe = cls(
+        qualified_name=qname,
+        name=qname.rsplit("::", 1)[-1],
+        source="test",
+    )
+    return resolve_identity_for(
+        probe,
+        IdentityScope.repository("codegraph-suite", "codegraph"),
+        parents={"parent_key": parent_key or "parent"},
+    ).key()
 
 class TestTestFixtureNodeFields:
     """Foundation: TestFixtureNode has the expected fields and defaults."""
@@ -108,21 +151,26 @@ class TestTestFixtureNodeFields:
     # Verifies that the UID of a test fixture node is correctly computed from its
     # qualified name, ensuring unique identification and traceability across the test
     # suite.
-    def test_field_uid_computed_from_qualified_name(self):
-        # codegraph:test-desc test.test_test_fixture_node.TestTestFixtureNodeFields.test_field_uid_computed_from_qualified_name::step_0
+    def test_field_canonical_key_computed_from_qualified_name(self):
+        # codegraph:test-desc test.test_test_fixture_node.TestTestFixtureNodeFields.test_field_canonical_key_computed_from_qualified_name::step_0
         # Sets up the test environment by initializing any necessary objects or state
         # before the assertion is evaluated.
+        from codegraph.identity import IdentityScope, resolve_identity_for
+
+        scope = IdentityScope.repository("codegraph-suite", "codegraph")
         node = TestFixtureNode(
             name="engine",
             qualified_name="tests::test_ops::engine",
             source="test",
         )
-        expected = compute_uid("test", "tests::test_ops::engine")
-        # codegraph:test-desc test.test_test_fixture_node.TestTestFixtureNodeFields.test_field_uid_computed_from_qualified_name::post_0
-        # Verifies that the UID computed by the node matches the expected value,
-        # ensuring that the UID generation algorithm correctly derives a unique
-        # identifier from the node's qualified name.
-        assert node._compute_uid() == expected
+        expected = resolve_identity_for(
+            node, scope, parents={"parent_key": "parent"}
+        ).key()
+        # codegraph:test-desc test.test_test_fixture_node.TestTestFixtureNodeFields.test_field_canonical_key_computed_from_qualified_name::post_0
+        # Verifies that the canonical key computed for the node is deterministic.
+        assert resolve_identity_for(
+            node, scope, parents={"parent_key": "parent"}
+        ).key() == expected
 
     # codegraph:test-desc test.test_test_fixture_node.TestTestFixtureNodeFields.test_field_doc_embedding_defaults_to_empty
     # Verifies that the `doc_embedding` field of a `TestFixtureNode` object defaults to
@@ -487,7 +535,7 @@ class TestTestFixtureNodeNeo4j:
         # codegraph:test-desc test.test_test_fixture_node.TestTestFixtureNodeNeo4j.test_create_and_save_basic_fixture::step_0
         # Sets up the test environment by initializing necessary objects or database
         # connections, ensuring the test can run against a known state.
-        node = TestFixtureNode(
+        node = _parented_save(TestFixtureNode(
             name="ns_node",
             qualified_name="tests::test_enum_composed::ns_node",
             kind="test_fixture",
@@ -495,7 +543,7 @@ class TestTestFixtureNodeNeo4j:
             description="A namespace fixture for calc namespace.",
             tags=["as-built"],
             source="test",
-        ).save()
+        )).save()
         # codegraph:test-desc test.test_test_fixture_node.TestTestFixtureNodeNeo4j.test_create_and_save_basic_fixture::post_0
         # Asserts that the saved node was assigned a unique element_id by Neo4j,
         # confirming the database interaction succeeded and the node is addressable.
@@ -526,15 +574,15 @@ class TestTestFixtureNodeNeo4j:
         # verify the connection.
         from codegraph.models.compound import ClassNode
 
-        type_def = ClassNode(
+        type_def = _parented_save(ClassNode(
             name="Foo",
             kind="class",
             qualified_name="myapp::Foo",
             tags=["design"],
             source="test",
-        ).save()
+        )).save()
 
-        fixture = TestFixtureNode(
+        fixture = _parented_save(TestFixtureNode(
             name="foo",
             qualified_name="tests::test_foo::foo",
             kind="test_fixture",
@@ -542,7 +590,7 @@ class TestTestFixtureNodeNeo4j:
             description="Instance of Foo class.",
             tags=["as-built"],
             source="test",
-        ).save()
+        )).save()
 
         fixture.of_type_class.connect(type_def)
 
@@ -554,7 +602,7 @@ class TestTestFixtureNodeNeo4j:
         # codegraph:test-desc test.test_test_fixture_node.TestTestFixtureNodeNeo4j.test_defined_in_connects_to_test_step::step_0
         # Sets up the block within which the fixture is defined, establishing the
         # context needed to later verify the DEFINED_IN relationship.
-        step = TestStepNode(
+        step = _parented_save(TestStepNode(
             name="step_0",
             qualified_name="tests::test_foo::test_create::step_0",
             kind="test_step",
@@ -562,9 +610,9 @@ class TestTestFixtureNodeNeo4j:
             description="Create foo = Foo()",
             tags=["as-built"],
             source="test",
-        ).save()
+        )).save()
 
-        fixture = TestFixtureNode(
+        fixture = _parented_save(TestFixtureNode(
             name="foo",
             qualified_name="tests::test_foo::test_create::foo",
             kind="test_fixture",
@@ -572,7 +620,7 @@ class TestTestFixtureNodeNeo4j:
             description="Instance created in step_0.",
             tags=["as-built"],
             source="test",
-        ).save()
+        )).save()
 
         fixture.defined_in.connect(step)
 
@@ -583,7 +631,7 @@ class TestTestFixtureNodeNeo4j:
         # codegraph:test-desc test.test_test_fixture_node.TestTestFixtureNodeNeo4j.test_checked_by_connects_to_assertion::step_0
         # Executes the setup block to initialize the test environment and create
         # necessary nodes for the CHECKED_BY relationship.
-        assertion = AssertionNode(
+        assertion = _parented_save(AssertionNode(
             name="post_0",
             qualified_name="tests::test_foo::test_create::post_0",
             kind="assertion",
@@ -593,9 +641,9 @@ class TestTestFixtureNodeNeo4j:
             description="foo.name == 'test'",
             tags=["as-built"],
             source="test",
-        ).save()
+        )).save()
 
-        fixture = TestFixtureNode(
+        fixture = _parented_save(TestFixtureNode(
             name="foo",
             qualified_name="tests::test_foo::test_create::foo",
             kind="test_fixture",
@@ -603,7 +651,7 @@ class TestTestFixtureNodeNeo4j:
             description="Instance checked in post_0.",
             tags=["as-built"],
             source="test",
-        ).save()
+        )).save()
 
         fixture.checked_by.connect(assertion)
 
@@ -614,7 +662,7 @@ class TestTestFixtureNodeNeo4j:
         # codegraph:test-desc test.test_test_fixture_node.TestTestFixtureNodeNeo4j.test_composes_from_test_node::step_0
         # Sets up the initial test environment and data required for validating that
         # TestFixtureNode correctly composes from a test node.
-        test = TestNode(
+        test = _parented_save(TestNode(
             name="test_create",
             qualified_name="tests::test_foo::test_create",
             kind="test",
@@ -624,9 +672,9 @@ class TestTestFixtureNodeNeo4j:
             description="Test fixture composition.",
             tags=["as-built"],
             source="test",
-        ).save()
+        )).save()
 
-        fixture = TestFixtureNode(
+        fixture = _parented_save(TestFixtureNode(
             name="foo",
             qualified_name="tests::test_foo::test_create::foo",
             kind="test_fixture",
@@ -634,7 +682,7 @@ class TestTestFixtureNodeNeo4j:
             description="Instance created in the test.",
             tags=["as-built"],
             source="test",
-        ).save()
+        )).save()
 
         test.fixtures.connect(fixture)
 
@@ -646,7 +694,7 @@ class TestTestFixtureNodeNeo4j:
         # Sets up the test environment by initializing the necessary context, such as
         # connecting to Neo4j or preparing test fixtures, ensuring the system is ready
         # for the subsequent action.
-        fixture = TestFixtureNode(
+        fixture = _parented_save(TestFixtureNode(
             name="parents",
             qualified_name="tests::test_enum::parents",
             kind="test_fixture",
@@ -654,7 +702,7 @@ class TestTestFixtureNodeNeo4j:
             description="Result of enum_node.parent_namespace.all().",
             tags=["as-built"],
             source="test",
-        ).save()
+        )).save()
 
         # type_signature captures the type without needing an OF_TYPE edge
         fetched = TestFixtureNode.nodes.get(
@@ -685,6 +733,7 @@ class TestLayerGraphTestFixtureNode:
         data = [
             {
                 "type": "TestFixtureNode",
+                "canonical_key": _data_key("TestFixtureNode", "tests::test_engine::engine"),
                 "source": "test",
                 "qualified_name": "tests::test_engine::engine",
                 "name": "engine",
@@ -720,21 +769,27 @@ class TestLayerGraphTestFixtureNode:
         # Sets up the test environment by initializing the LayerGraph with the required
         # edges, which is a prerequisite for verifying that these edges are correctly
         # preserved during serialization (to Neo4j) and deserialization.
-        from codegraph.uid import compute_uid
-
         # All nodes must be in the graph data so that to_neo4j() can
-        # resolve references via the flat index.  target_uid must be the
-        # SHA-1 hash of the target node's qualified_name, and the target
-        # data must include an explicit uid field so that _node_key()
-        # uses the hash (not just the name).
-        widget_uid = compute_uid("test", "myapp::Widget")
-        post0_uid = compute_uid("test", "tests::test_w::post_0")
-        arrange_uid = compute_uid("test", "tests::test_w::arrange")
+        # resolve references via the flat index.  target_key must be the
+        # canonical key of the target node, and the target data must
+        # include an explicit canonical_key field so that _node_key()
+        # uses the key (canonical-only, WP B).
+        from codegraph.identity import IdentityScope, resolve_identity_for
+
+        scope = IdentityScope.repository("codegraph-suite", "codegraph")
+
+        def key_for(type_name, qname, parent_key=None):
+            return _data_key(type_name, qname, parent_key)
+
+        widget_key = key_for("ClassNode", "myapp::Widget")
+        post0_key = key_for("AssertionNode", "tests::test_w::post_0", "parent")
+        arrange_key = key_for("TestStepNode", "tests::test_w::arrange", "parent")
+        fixture_key = key_for("TestFixtureNode", "tests::test_w::widget", "parent")
 
         data = [
             {
                 "type": "ClassNode",
-                "uid": widget_uid,
+                "canonical_key": widget_key,
                 "source": "test",
                 "qualified_name": "myapp::Widget",
                 "name": "Widget",
@@ -744,7 +799,7 @@ class TestLayerGraphTestFixtureNode:
             },
             {
                 "type": "AssertionNode",
-                "uid": post0_uid,
+                "canonical_key": post0_key,
                 "source": "test",
                 "qualified_name": "tests::test_w::post_0",
                 "name": "post_0",
@@ -758,7 +813,7 @@ class TestLayerGraphTestFixtureNode:
             },
             {
                 "type": "TestStepNode",
-                "uid": arrange_uid,
+                "canonical_key": arrange_key,
                 "source": "test",
                 "qualified_name": "tests::test_w::arrange",
                 "name": "arrange",
@@ -770,6 +825,7 @@ class TestLayerGraphTestFixtureNode:
             },
             {
                 "type": "TestFixtureNode",
+                "canonical_key": fixture_key,
                 "source": "test",
                 "qualified_name": "tests::test_w::widget",
                 "name": "widget",
@@ -778,9 +834,9 @@ class TestLayerGraphTestFixtureNode:
                 "description": "Widget instance.",
                 "tags": ["as-built"],
                 "edges": [
-                    {"relation_type": "OF_TYPE", "target_uid": widget_uid, "target_type": "ClassNode"},
-                    {"relation_type": "CHECKED_BY", "target_uid": post0_uid, "target_type": "AssertionNode"},
-                    {"relation_type": "DEFINED_IN", "target_uid": arrange_uid, "target_type": "TestStepNode"},
+                    {"relation_type": "OF_TYPE", "target_key": widget_key, "target_type": "ClassNode"},
+                    {"relation_type": "CHECKED_BY", "target_key": post0_key, "target_type": "AssertionNode"},
+                    {"relation_type": "DEFINED_IN", "target_key": arrange_key, "target_type": "TestStepNode"},
                 ],
             }
         ]
@@ -805,6 +861,7 @@ class TestLayerGraphTestFixtureNode:
         data = [
             {
                 "type": "TestNode",
+                "canonical_key": _data_key("TestNode", "tests::test_w::test_create"),
                 "source": "test",
                 "qualified_name": "tests::test_w::test_create",
                 "name": "test_create",
@@ -818,6 +875,11 @@ class TestLayerGraphTestFixtureNode:
                 "composes": [
                     {
                         "type": "TestFixtureNode",
+                        "canonical_key": _data_key(
+                            "TestFixtureNode",
+                            "tests::test_w::test_create::widget",
+                            parent_key=_data_key("TestNode", "tests::test_w::test_create"),
+                        ),
                         "source": "test",
                         "qualified_name": "tests::test_w::test_create::widget",
                         "name": "widget",

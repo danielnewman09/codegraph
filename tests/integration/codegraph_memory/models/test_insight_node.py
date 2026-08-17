@@ -39,7 +39,7 @@ class TestInsightNode:
         )
         insight.insight_into_compound.connect(cls)
 
-        linked = get_backend().memory.find_linked_code_node(insight.uid)
+        linked = get_backend().memory.find_linked_code_node(insight.canonical_key)
         assert linked is not None
         assert linked["rel_type"] == "INSIGHT_INTO"
 

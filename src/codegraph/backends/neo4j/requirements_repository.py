@@ -154,9 +154,9 @@ class Neo4jRequirementsRepository(RequirementsRepository):
     ) -> None:
         """MERGE VERIFIES edge."""
         test_uid = self._graph.resolve_uid(test_qname)
-        target_uid = self._graph.resolve_uid(target_qname)
-        if test_uid and target_uid:
-            self._graph.merge_relationship(test_uid, "VERIFIES", target_uid)
+        target_key = self._graph.resolve_uid(target_qname)
+        if test_uid and target_key:
+            self._graph.merge_relationship(test_uid, "VERIFIES", target_key)
 
     def replace_callee(
         self, step_qname: str, new_target_qname: str
@@ -165,22 +165,22 @@ class Neo4jRequirementsRepository(RequirementsRepository):
         step_uid = self._graph.resolve_uid(step_qname)
         if step_uid:
             self._req_ops.delete_callee_edges(step_uid)
-        target_uid = self._graph.resolve_uid(new_target_qname)
-        if step_uid and target_uid:
-            self._graph.merge_relationship(step_uid, "CALLEE", target_uid)
+        target_key = self._graph.resolve_uid(new_target_qname)
+        if step_uid and target_key:
+            self._graph.merge_relationship(step_uid, "CALLEE", target_key)
 
     # ── HLR dependencies ──────────────────────────────────────────
 
     def merge_depends_on(
         self,
-        source_uid: str,
+        source_key: str,
         target_name: str,
         *,
         description: str = "",
     ) -> dict | None:
         """MERGE DEPENDS_ON between HLRs with description."""
         return self._req_ops.merge_depends_on_hlr(
-            source_uid, target_name, description=description,
+            source_key, target_name, description=description,
         )
 
     # ── Unresolved verification queries ────────────────────────────

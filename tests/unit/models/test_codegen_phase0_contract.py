@@ -67,13 +67,17 @@ class TestEnumValueInitializer:
         assert node.initializer == "1 << 3"
 
     def test_initializer_in_full_serialization(self):
-        node = EnumValueNode(
-            name="Red",
-            qualified_name="palette::Color::Red",
-            initializer="1 << 3",
-            source="test",
-        )
-        serialized = node.serialize(fields="all")
+        from codegraph.identity import IdentityScope, identity_scope
+
+        scope = IdentityScope.repository("codegraph-suite", "codegraph")
+        with identity_scope(scope):
+            node = EnumValueNode(
+                name="Red",
+                qualified_name="palette::Color::Red",
+                initializer="1 << 3",
+                source="test",
+            )
+            serialized = node.serialize(fields="all")
         assert serialized["initializer"] == "1 << 3"
 
     def test_initializer_roundtrip_via_deserialize(self):
@@ -92,9 +96,12 @@ class TestEnumValueInitializer:
         node = EnumValueNode(name="Implicit", source="test")
         assert node.initializer == ""
 
-    def test_initializer_does_not_change_uid(self):
-        """initializer is not an identity field — uid stays deterministic
-        from (source, qualified_name)."""
+    def test_initializer_does_not_change_identity(self):
+        """initializer is not an identity field — the canonical key is
+        deterministic from (scope, qualified_name)."""
+        from codegraph.identity import IdentityScope, resolve_identity_for
+
+        scope = IdentityScope.repository("codegraph-suite", "codegraph")
         a = EnumValueNode(
             name="Red", qualified_name="palette::Color::Red", source="test"
         )
@@ -104,16 +111,24 @@ class TestEnumValueInitializer:
             initializer="1 << 3",
             source="test",
         )
-        assert a._compute_uid() == b._compute_uid()
+        assert (
+            resolve_identity_for(a, scope).key()
+            == resolve_identity_for(b, scope).key()
+        )
 
-    def test_uid_still_changes_with_name(self):
-        a = EnumValueNode(
-            name="Red", qualified_name="palette::Color::Red", source="test"
+    def test_name_changes_identity(self):
+        """Different names still produce different canonical keys."""
+        from codegraph.identity import IdentityScope, resolve_identity_for
+
+        scope = IdentityScope.repository("codegraph-suite", "codegraph")
+        a = EnumValueNode(name="Red", qualified_name="palette::Color::Red",
+                          source="test")
+        b = EnumValueNode(name="Blue", qualified_name="palette::Color::Blue",
+                          source="test")
+        assert (
+            resolve_identity_for(a, scope).key()
+            != resolve_identity_for(b, scope).key()
         )
-        b = EnumValueNode(
-            name="Blue", qualified_name="palette::Color::Blue", source="test"
-        )
-        assert a._compute_uid() != b._compute_uid()
 
 
 class TestParameterNodeSerialization:
@@ -125,28 +140,46 @@ class TestParameterNodeSerialization:
     the discriminator under ``"node_type"`` so the C++ type round-trips.
     """
 
-    def test_serialize_uses_node_type_discriminator(self):
-        param = ParameterNode(
-            name="x", type="const std::string &", position=0, source="test"
+    @staticmethod
+    def _keyed(param: ParameterNode) -> ParameterNode:
+        """Compute the parameter's canonical key with an explicit parent
+        context (a synthetic parent method key) — canonical identity is
+        mandatory, and parent-relative children need their parent."""
+        from codegraph.identity import IdentityScope, resolve_identity_for
+
+        scope = IdentityScope.repository("codegraph-suite", "codegraph")
+        parent_key = (
+            "cg:v1:repository:codegraph-suite%2Fcodegraph:method:"
+            "qualified_name=app%3A%3Aowner:canonical_signature=lang%3Acpp%7C%28%29"
         )
+        param.canonical_key = resolve_identity_for(
+            param, scope, parents={"parent_callable_key": parent_key}
+        ).key()
+        return param
+
+    def test_serialize_uses_node_type_discriminator(self):
+        param = self._keyed(ParameterNode(
+            name="x", type="const std::string &", position=0, source="test"
+        ))
         serialized = param.serialize(fields="all")
         assert serialized["node_type"] == "ParameterNode"
         assert serialized["type"] == "const std::string &"
 
     def test_serialize_llm_fields_preserves_type(self):
-        param = ParameterNode(name="x", type="double", position=0, source="test")
+        param = self._keyed(ParameterNode(name="x", type="double", position=0,
+                                          source="test"))
         serialized = param.serialize(fields="llm")
         assert serialized["node_type"] == "ParameterNode"
         assert serialized["type"] == "double"
 
     def test_roundtrip_preserves_cpp_type(self):
-        param = ParameterNode(
+        param = self._keyed(ParameterNode(
             name="x",
             type="std::vector<SchemaMismatch>",
             position=2,
             default_value="{}",
             source="test",
-        )
+        ))
         restored = ParameterNode.deserialize(param.serialize(fields="all"))
         assert isinstance(restored, ParameterNode)
         assert restored.name == "x"
@@ -170,10 +203,14 @@ class TestParameterNodeSerialization:
 
     def test_other_node_types_keep_type_discriminator(self):
         """Regression: non-colliding node types still use the ``type`` key."""
-        method = MethodNode(
-            name="f", qualified_name="ns::f", source="test"
-        )
-        serialized = method.serialize(fields="all")
+        from codegraph.identity import IdentityScope, identity_scope
+
+        scope = IdentityScope.repository("codegraph-suite", "codegraph")
+        with identity_scope(scope):
+            method = MethodNode(
+                name="f", qualified_name="ns::f", source="test"
+            )
+            serialized = method.serialize(fields="all")
         assert serialized["type"] == "MethodNode"
         assert "node_type" not in serialized
         restored = MethodNode.deserialize(serialized)

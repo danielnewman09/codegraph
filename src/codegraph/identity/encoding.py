@@ -214,6 +214,16 @@ def parse_key(key: str) -> ParsedKey:
     """
     if not isinstance(key, str):
         raise KeyFormatError(f"canonical key must be a str, got {type(key).__name__}")
+    if key.startswith("cg:v"):
+        # The scheme is ours but the version is not — fail with a targeted
+        # message rather than a generic prefix mismatch, so future key
+        # versions are diagnosed clearly (WP2.3).
+        version_token = key[3 : key.index(":", 3) if ":" in key[3:] else len(key)]
+        if not key.startswith(VERSION_PREFIX):
+            raise KeyFormatError(
+                f"unsupported canonical key version {version_token!r} "
+                f"(this build supports only {VERSION_PREFIX!r}): {key[:40]!r}"
+            )
     if not key.startswith(VERSION_PREFIX):
         raise KeyFormatError(
             f"canonical key must start with {VERSION_PREFIX!r}: {key[:40]!r}"

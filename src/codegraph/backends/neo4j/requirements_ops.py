@@ -29,7 +29,7 @@ class Neo4jRequirementsOps:
         """
         results, _ = db.cypher_query(
             "MATCH (hlr:HLR)-[:COMPOSES]->(llr:LLR) "
-            "WHERE hlr.uid = $uid "
+            "WHERE hlr.canonical_key = $key "
             "OPTIONAL MATCH (llr)-[:COMPOSES]->(test:TestNode) "
             "OPTIONAL MATCH (test)-[:VERIFIES]->(verifies_target) "
             "OPTIONAL MATCH (test)-[:COMPOSES]->(step:TestStepNode) "
@@ -46,7 +46,7 @@ class Neo4jRequirementsOps:
         """Return all scaffold node uids."""
         results, _ = db.cypher_query(
             "MATCH (n) WHERE 'scaffold' IN coalesce(n.tags, []) "
-            "RETURN n.uid AS uid",
+            "RETURN n.canonical_key AS uid",
         )
         return [r[0] for r in results]
 
@@ -59,7 +59,7 @@ class Neo4jRequirementsOps:
         results, _ = db.cypher_query(
             "MATCH (n) WHERE 'scaffold' IN coalesce(n.tags, []) "
             f"AND EXISTS {{ MATCH ()-[r]->(n) WHERE type(r) IN [{edge_list}] }} "
-            "RETURN n.uid AS uid",
+            "RETURN n.canonical_key AS uid",
         )
         return [r[0] for r in results]
 
@@ -68,7 +68,7 @@ class Neo4jRequirementsOps:
         results, _ = db.cypher_query(
             "MATCH (n) WHERE 'scaffold' IN coalesce(n.tags, []) "
             "AND NOT EXISTS { MATCH (n)-[r]-() } "
-            "RETURN n.uid AS uid",
+            "RETURN n.canonical_key AS uid",
         )
         return [r[0] for r in results]
 
@@ -81,8 +81,8 @@ class Neo4jRequirementsOps:
         results, _ = db.cypher_query(
             "MATCH (parent:ClassNode)-[:COMPOSES]->(child) "
             "WHERE 'scaffold' IN parent.tags "
-            "AND child.uid IN $uids "
-            "RETURN DISTINCT parent.uid AS uid",
+            "AND child.canonical_key IN $keys "
+            "RETURN DISTINCT parent.canonical_key AS uid",
             {"uids": referenced_uids},
         )
         return [r[0] for r in results]
@@ -93,7 +93,7 @@ class Neo4jRequirementsOps:
             "MATCH (parent)-[:COMPOSES]->(child) "
             "WHERE 'scaffold' IN coalesce(child.tags, []) "
             "AND NOT 'scaffold' IN coalesce(parent.tags, []) "
-            "RETURN child.uid AS uid",
+            "RETURN child.canonical_key AS uid",
         )
         return [r[0] for r in results]
 
@@ -104,7 +104,7 @@ class Neo4jRequirementsOps:
             "WHERE (ca:AssertionNode OR ca:TestStepNode) "
             "AND (r:LEFT_OPERAND OR r:RIGHT_OPERAND OR r:CALLEE) "
             "AND 'scaffold' IN s.tags "
-            "RETURN DISTINCT s.uid AS uid",
+            "RETURN DISTINCT s.canonical_key AS uid",
         )
         return [r[0] for r in results]
 
@@ -113,26 +113,26 @@ class Neo4jRequirementsOps:
     def delete_callee_edges(self, step_uid: str) -> None:
         """Delete all outgoing CALLEE edges from a TestStepNode."""
         db.cypher_query(
-            "MATCH (step:TestStepNode {uid: $uid})-[r:CALLEE]->() "
+            "MATCH (step:TestStepNode {canonical_key: $key})-[r:CALLEE]->() "
             "DELETE r",
             {"uid": step_uid},
         )
 
     def merge_depends_on_hlr(
         self,
-        source_uid: str,
+        source_key: str,
         target_name: str,
         *,
         description: str = "",
     ) -> dict | None:
         """MERGE DEPENDS_ON between HLRs with description."""
         results, _ = db.cypher_query(
-            "MATCH (source:HLR {uid: $suid}) "
+            "MATCH (source:HLR {uid: $skey}) "
             "MATCH (target:HLR {name: $tname}) "
             "MERGE (source)-[r:DEPENDS_ON]->(target) "
             "SET r.description = $desc "
             "RETURN source.name, type(r), target.name",
-            {"suid": source_uid, "tname": target_name, "desc": description},
+            {"suid": source_key, "tname": target_name, "desc": description},
         )
         if results:
             r = results[0]
@@ -154,7 +154,7 @@ class Neo4jRequirementsOps:
         """
         results, _ = db.cypher_query(
             "MATCH (hlr:HLR)-[:COMPOSES]->(llr:LLR) "
-            "WHERE hlr.uid = $uid "
+            "WHERE hlr.canonical_key = $key "
             "OPTIONAL MATCH (llr)-[:COMPOSES]->(test:TestNode) "
             "OPTIONAL MATCH (test)-[:VERIFIES]->(verifies_target) "
             "WHERE 'scaffold' IN coalesce(verifies_target.tags, []) "
@@ -172,7 +172,7 @@ class Neo4jRequirementsOps:
         """
         results, _ = db.cypher_query(
             "MATCH (hlr:HLR)-[:COMPOSES]->(llr:LLR) "
-            "WHERE hlr.uid = $uid "
+            "WHERE hlr.canonical_key = $key "
             "OPTIONAL MATCH (llr)-[:COMPOSES]->(test:TestNode) "
             "OPTIONAL MATCH (test)-[:COMPOSES]->(step:TestStepNode) "
             "OPTIONAL MATCH (step)-[:CALLEE]->(callee_target) "

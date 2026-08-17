@@ -6,7 +6,17 @@ from pathlib import Path
 from codegraph.models.test import AssertionNode
 from codegraph.models.tags import CodeGraphNode
 from codegraph.models.descriptors import PropertyRegistry
-from codegraph.uid import compute_uid
+
+
+def _key_parented(node):
+    """Compute a canonical key for a parent-relative test node (WP A)."""
+    from codegraph.identity import IdentityScope, resolve_identity_for
+
+    scope = IdentityScope.repository("codegraph-suite", "codegraph")
+    node.canonical_key = resolve_identity_for(
+        node, scope, parents={"parent_key": "parent"}
+    ).key()
+    return node
 
 class TestAssertionNodeModel:
     """Test AssertionNode creation and field defaults."""
@@ -29,27 +39,31 @@ class TestAssertionNodeModel:
     # Verifies that an AssertionNode instance is automatically assigned a unique
     # identifier (uid) upon creation, ensuring each node can be uniquely referenced and
     # tracked within the model.
-    def test_uid_auto_generated(self):
-        """uid is deterministic (source + identity) — never random."""
-        # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_uid_auto_generated::step_0
-        # An AssertionNode without source cannot derive a uid — reading it raises.
-        node = AssertionNode()
-        try:
-            _ = node.uid
-            raise AssertionError("uid without source must raise")
-        except ValueError:
-            pass
-        # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_uid_auto_generated::post_0
-        # With source + qualified_name the uid is a deterministic SHA-1 hash.
-        node = AssertionNode(
-            qualified_name="tests::test_update::test_single::post_0",
-            phase="post",
-            source="test",
-        )
-        uid = node.uid
-        assert isinstance(uid, str)
-        assert len(uid) == 40
-        assert node.uid == uid
+    def test_canonical_key_deterministic(self):
+        """canonical_key is deterministic for identical identity tuples."""
+        # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_canonical_key_deterministic::step_0
+        # An AssertionNode's canonical key is derived from its identity fields
+        # under a fixed scope — no random component.
+        from codegraph.identity import IdentityScope, resolve_identity_for
+
+        scope = IdentityScope.repository("codegraph-suite", "codegraph")
+        parents = {"parent_key": "parent"}
+
+        def key_for():
+            return resolve_identity_for(
+                AssertionNode(
+                    qualified_name="tests::test_update::test_single::post_0",
+                    phase="post", source="test",
+                ),
+                scope, parents=parents,
+            ).key()
+
+        k1 = key_for()
+        k2 = key_for()
+        # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_canonical_key_deterministic::post_0
+        # The key is deterministic and versioned (cg:v1).
+        assert k1 == k2
+        assert k1.startswith("cg:v1:")
 
     def test_phase_required(self):
         """phase is a required field — constructing without it uses default."""
@@ -188,6 +202,7 @@ class TestAssertionNodeModel:
             phase="post",
             operator="==",
         source="test",)
+        _key_parented(node)
         serialized = node.serialize()
         # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_serialize_includes_phase::post_0
         # Verifies that the serialized output includes the correct phase field ('post'),
@@ -211,6 +226,7 @@ class TestAssertionNodeModel:
             qualified_name="tests::test_update::test_single::post_0",
             phase="post",
         source="test",)
+        _key_parented(node)
         serialized = node.serialize()
         # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_serialize_includes_type_discriminator::post_0
         # Verifies that the serialized output includes a 'type' field set to
@@ -254,25 +270,29 @@ class TestAssertionNodeModel:
         # deserialize method.
         assert node.order == 0
 
-    def test_deserialize_computes_uid(self):
-        """deserialize() computes deterministic uid from qualified_name."""
-        # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_deserialize_computes_uid::step_0
+    def test_deserialize_restores_canonical_key(self):
+        """deserialize() restores the canonical_key from serialized data."""
+        # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_deserialize_restores_canonical_key::step_0
         # Sets up the test by performing the deserialize operation on the node to ensure
-        # it has a computed uid before any assertions are made.
+        # the canonical key is restored before any assertions are made.
         qn = "tests::test_update::test_single::post_0"
+        key = (
+            "cg:v1:repository:codegraph-suite%2Fcodegraph:assertion:"
+            "parent_key=parent:qualified_name=" + qn.replace(":", "%3A")
+        )
         data = {
             "type": "AssertionNode",
             "qualified_name": qn,
             "source": "test",
             "kind": "assertion",
             "phase": "post",
+            "canonical_key": key,
         }
         node = CodeGraphNode.deserialize(data)
-        expected_uid = compute_uid("test", qn)
-        # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_deserialize_computes_uid::post_0
-        # Verifies that the node's uid after deserialization equals the expected uid,
-        # confirming that the uid generation is deterministic and correct.
-        assert node.uid == expected_uid
+        # codegraph:test-desc test.test_assertion_node.TestAssertionNodeModel.test_deserialize_restores_canonical_key::post_0
+        # Verifies that the node's canonical key after deserialization equals the key
+        # carried by the serialized data.
+        assert node.canonical_key == key
 
     def test_fixture_roundtrip(self):
         """Verify assertion_node_full.json deserializes correctly."""

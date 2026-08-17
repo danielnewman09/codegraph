@@ -192,7 +192,7 @@ class TestMemoryGraph:
 
         # ── Verify every entry has the required fields ────────────
         required_fields = {
-            "type", "uid", "confidence", "content", "name",
+            "type", "canonical_key", "confidence", "content", "name",
             "qualified_name", "source", "tags", "decided_at", "updated_at",
             "edges", "linked_code_uid", "linked_code_qualified_name", "relation_type",
         }
@@ -207,7 +207,7 @@ class TestMemoryGraph:
                 "AssumptionNode", "TradeoffNode", "InsightNode",
             }, f"Unknown type: {entry['type']}"
             # uid must be a non-empty hex string
-            assert isinstance(entry["uid"], str) and len(entry["uid"]) == 40
+            assert isinstance(entry["canonical_key"], str) and entry["canonical_key"].startswith("cg:v1:")
             # edges must be a list
             assert isinstance(entry["edges"], list)
             # linked_code fields must be present (set by for_code_node)

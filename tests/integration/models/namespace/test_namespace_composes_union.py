@@ -82,7 +82,7 @@ def test_namespace_composes_union():
     # codegraph:test-desc namespace.test_namespace_composes_union.test_namespace_composes_union::post_4
     # Verifies that the target UID of the composes edge matches the union_node's UID,
     # ensuring the correct node is referenced in the composition relationship.
-    assert composes_edges[0]["target_uid"] == union_node._uid_value()
+    assert composes_edges[0]["target_key"] == union_node.canonical_key
 
     # codegraph:test-desc namespace.test_namespace_composes_union.test_namespace_composes_union::step_3
     # Retrieves the 'composes' edges from the roundtripped node, advancing the test to
@@ -96,7 +96,7 @@ def test_namespace_composes_union():
     # Verifies that the connected nodes retrieved from the roundtripped node match
     # expectations, ensuring the overall graph connectivity is preserved after
     # serialization.
-    assert connected[0]._uid_value() == union_node._uid_value()
+    assert connected[0].canonical_key == union_node.canonical_key
 
 
 if __name__ == "__main__":

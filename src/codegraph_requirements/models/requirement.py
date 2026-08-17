@@ -63,8 +63,7 @@ must be configured (by importing ``codegraph.backends`` or setting the
 from codegraph.models.descriptors import (
     Property,
     Relationship,
-    UniqueId,
-)
+    )
 
 from codegraph.models.tags import CodeGraphNode
 
@@ -100,7 +99,6 @@ class HLR(CodeGraphNode):
     # --- Identity (deterministic uid from qualified_name) ------------
     kind = Property(str, default="hlr")
     _identity_fields: tuple[str, ...] = ("qualified_name",)
-    uid = UniqueId()
 
     # --- Qualified name ----------------------------------------------------
     # Dot-delimited path derived from the incoming component and parent_hlr
@@ -261,7 +259,6 @@ class LLR(CodeGraphNode):
     # --- Identity (deterministic uid from qualified_name) ------------
     kind = Property(str, default="llr")
     _identity_fields: tuple[str, ...] = ("qualified_name",)
-    uid = UniqueId()
 
     # --- Qualified name ----------------------------------------------------
     # Dot-delimited path derived from the parent HLR's qualified_name

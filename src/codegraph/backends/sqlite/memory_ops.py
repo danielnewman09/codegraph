@@ -60,13 +60,13 @@ class SqliteMemoryOps:
             return []
         rel_binds = ", ".join(f":r{i}" for i in range(len(rels)))
         params: dict = {f"r{i}": r for i, r in enumerate(rels)}
-        params["tuid"] = target_uid
+        params["tkey"] = target_uid
         sql = (
-            "SELECT m.id, m.uid, m.labels, m.properties, e.rel_type AS rel_type "
+            "SELECT m.id, m.canonical_key, m.labels, m.properties, e.rel_type AS rel_type "
             "FROM edges e "
             "JOIN nodes m ON m.id = e.source_id "
             "JOIN nodes t ON t.id = e.target_id "
-            f"WHERE t.uid = :tuid AND e.rel_type IN ({rel_binds}) "
+            f"WHERE t.canonical_key = :tkey AND e.rel_type IN ({rel_binds}) "
         )
         if source_labels:
             labels = _rel_list(source_labels)
@@ -103,10 +103,10 @@ class SqliteMemoryOps:
         """
         with self._conn.session() as conn:
             src = conn.execute(
-                sa.text("SELECT id FROM nodes WHERE uid = :uid"), {"uid": source_uid}
+                sa.text("SELECT id FROM nodes WHERE canonical_key = :key"), {"key": source_uid}
             ).first()
             tgt = conn.execute(
-                sa.text("SELECT id FROM nodes WHERE uid = :uid"), {"uid": target_uid}
+                sa.text("SELECT id FROM nodes WHERE canonical_key = :key"), {"key": target_uid}
             ).first()
             if src is None or tgt is None:
                 return
@@ -125,7 +125,7 @@ class SqliteMemoryOps:
         labels = _rel_list(MEMORY_LABELS)
         lbl_binds = ", ".join(f":l{i}" for i in range(len(labels)))
         sql = (
-            "SELECT DISTINCT n.id, n.uid, n.labels, n.properties FROM nodes n "
+            "SELECT DISTINCT n.id, n.canonical_key, n.labels, n.properties FROM nodes n "
             "JOIN node_labels nl ON nl.node_id = n.id "
             "JOIN node_tags nt ON nt.node_id = n.id "
             f"WHERE nl.label IN ({lbl_binds}) AND nt.tag = :tag"
@@ -151,20 +151,20 @@ class SqliteMemoryOps:
         rels = _rel_list(MEMORY_REL_PATTERN)
         rel_binds = ", ".join(f":r{i}" for i in range(len(rels)))
         params: dict = {f"r{i}": r for i, r in enumerate(rels)}
-        params["uid"] = uid
+        params["key"] = uid
         params["maxd"] = max_depth
         sql = (
             "WITH RECURSIVE anc(anc_id, depth) AS ( "
             "  SELECT e.source_id, 1 FROM edges e "
             "  JOIN nodes n ON n.id = e.target_id "
-            "  WHERE n.uid = :uid AND e.rel_type = 'COMPOSES' "
+            "  WHERE n.canonical_key = :key AND e.rel_type = 'COMPOSES' "
             "  UNION ALL "
             "  SELECT e.source_id, a.depth + 1 FROM edges e "
             "  JOIN anc a ON e.target_id = a.anc_id "
             "  WHERE e.rel_type = 'COMPOSES' AND a.depth < :maxd "
             ") "
-            "SELECT a.anc_id AS source_id, n.uid AS source_uid, "
-            "m.id AS id, m.uid AS uid, "
+            "SELECT a.anc_id AS source_id, n.canonical_key AS source_uid, "
+            "m.id AS id, m.canonical_key AS uid, "
             "m.labels AS labels, m.properties AS properties, "
             "e.rel_type AS rel_type "
             "FROM anc a "
@@ -200,17 +200,17 @@ class SqliteMemoryOps:
         rels = _rel_list(MEMORY_REL_PATTERN)
         rel_binds = ", ".join(f":r{i}" for i in range(len(rels)))
         params: dict = {f"r{i}": r for i, r in enumerate(rels)}
-        params["uid"] = uid
+        params["key"] = uid
         params["maxd"] = max_depth
         sql = (
             "WITH RECURSIVE desc(desc_id, depth) AS ( "
-            "  SELECT n.id, 0 FROM nodes n WHERE n.uid = :uid "
+            "  SELECT n.id, 0 FROM nodes n WHERE n.canonical_key = :key "
             "  UNION ALL "
             "  SELECT e.target_id, d.depth + 1 FROM edges e "
             "  JOIN desc d ON e.source_id = d.desc_id "
             "  WHERE e.rel_type = 'COMPOSES' AND d.depth < :maxd "
             ") "
-            "SELECT DISTINCT m.id AS id, m.uid AS uid, m.labels AS labels, "
+            "SELECT DISTINCT m.id AS id, m.canonical_key AS uid, m.labels AS labels, "
             "m.properties AS properties "
             "FROM desc d "
             "JOIN edges e ON e.target_id = d.desc_id "
@@ -232,10 +232,10 @@ class SqliteMemoryOps:
         """MERGE a relationship from memory node to code node."""
         with self._conn.session() as conn:
             src = conn.execute(
-                sa.text("SELECT id FROM nodes WHERE uid = :uid"), {"uid": memory_uid}
+                sa.text("SELECT id FROM nodes WHERE canonical_key = :key"), {"key": memory_uid}
             ).first()
             tgt = conn.execute(
-                sa.text("SELECT id FROM nodes WHERE uid = :uid"), {"uid": code_uid}
+                sa.text("SELECT id FROM nodes WHERE canonical_key = :key"), {"key": code_uid}
             ).first()
             if src is None or tgt is None:
                 return
@@ -255,11 +255,11 @@ class SqliteMemoryOps:
         with self._conn.connect() as conn:
             row = conn.execute(
                 sa.text(
-                    "SELECT t.uid AS uid, t.qualified_name AS qn, e.rel_type AS rel_type "
+                    "SELECT t.canonical_key AS uid, t.qualified_name AS qn, e.rel_type AS rel_type "
                     "FROM edges e "
                     "JOIN nodes m ON m.id = e.source_id "
                     "JOIN nodes t ON t.id = e.target_id "
-                    "WHERE m.uid = :mid "
+                    "WHERE m.canonical_key = :mid "
                     "AND e.rel_type NOT IN ('SUPERSEDES', 'CONTRADICTS', 'REFINES') "
                     "LIMIT 1"
                 ),

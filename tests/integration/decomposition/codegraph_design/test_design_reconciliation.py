@@ -47,7 +47,10 @@ DATA_DIR = Path(__file__).resolve().parent / "data"
 DECOMPOSE_RESPONSE = DATA_DIR / "decompose_response.json"
 DESIGN_RESPONSE = DATA_DIR / "design_response.json"
 
-HLR_UID = "ada30b8f1f4e4e26ac83124929c321b92fe1046a"
+HLR_UID = (
+    "cg:v1:repository:codegraph-suite%2Fcodegraph:requirement-hlr:"
+    "qualified_name=Architecture%20Diagram%20Generator"
+)
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -141,7 +144,7 @@ def _find_conflicting_nodes():
 
     for kind in all_kinds:
         for node in graph.find_all_by_kind(kind):
-            uid = node._uid_value()
+            uid = node.canonical_key or ""
             if not uid or uid in seen:
                 continue
             seen.add(uid)
@@ -168,12 +171,11 @@ def _find_conflicting_nodes():
 def ensure_hlr_exists():
     """Create the target HLR in Neo4j so persist_decomposition
     can find it."""
-    existing = HLR.nodes.get_or_none(uid=HLR_UID)
+    existing = get_backend().graph.find_by_key(HLR_UID)
     if existing:
-        get_backend().graph.delete_by_uid(HLR_UID)
+        get_backend().graph.delete_by_key(HLR_UID)
 
     hlr = HLR(
-        uid=HLR_UID,
         name="Architecture Diagram Generator",
         source="test",
         description=(

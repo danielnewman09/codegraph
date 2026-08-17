@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from codegraph.models.descriptors import Property, UniqueId
+from codegraph.models.descriptors import Property
 from codegraph.models.tags import CodeGraphNode
 
 
@@ -14,8 +14,6 @@ class SourceFragmentNode(CodeGraphNode):
     It is not an error or a macro special case: it is the lossless fallback
     for syntax outside the current semantic data model.
     """
-
-    uid = UniqueId()
     qualified_name = Property(str, default="", index=True)
     kind = Property(str, default="unassigned_source_fragment")
     file_path = Property(str, default="")

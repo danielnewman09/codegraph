@@ -63,9 +63,9 @@ class TestDecisionNode:
             tags=["design"],
             source="test",
         )
-        original_uid = node.uid
+        original_uid = node.canonical_key
         node.update(content="Content B - completely different")
-        assert node.uid == original_uid
+        assert node.canonical_key == original_uid
 
     def test_decision_motivates_code_node(self, neo4j_connection):
         """DecisionNode can MOTIVATE a code node."""
@@ -86,7 +86,7 @@ class TestDecisionNode:
         decision.motivates_compound.connect(cls)
 
         # Verify via repository
-        linked = get_backend().memory.find_linked_code_node(decision.uid)
+        linked = get_backend().memory.find_linked_code_node(decision.canonical_key)
         assert linked is not None
         assert linked["rel_type"] == "MOTIVATES"
 
@@ -121,14 +121,14 @@ class TestDecisionNode:
             content="Original content.",
             tags=["design"], source="test",
         )
-        original_uid = node.uid
+        original_uid = node.canonical_key
         node.update(
             content="Updated content.",
             tags=["design", "as-built"],
             confidence=0.95,
         )
         # UID should stay the same — identity is qualified_name, not content
-        assert node.uid == original_uid
+        assert node.canonical_key == original_uid
         assert node.content == "Updated content."
         assert "as-built" in node.tags
         assert node.confidence == 0.95

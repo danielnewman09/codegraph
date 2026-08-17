@@ -1,11 +1,13 @@
 [
   {
+    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:namespace:qualified_name=calc",
     "component_id": null,
     "composes": [
       {
         "base_classes": [],
         "base_specifiers": [],
         "brief_description": "",
+        "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=calc%3A%3ACalculatorEngine",
         "component_id": null,
         "composes": [
           {
@@ -14,6 +16,7 @@
             "body_file": "",
             "body_start": 0,
             "brief_description": "",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=calc%3A%3ACalculatorEngine%3A%3Aadd:canonical_signature=lang%3Acpp%7C%28double%2Cdouble%29",
             "component_id": null,
             "compound_refid": "",
             "definition": "",
@@ -43,7 +46,6 @@
             "template_declarations": [],
             "type": "MethodNode",
             "type_signature": "CalculatorResult",
-            "uid": "f03506a446d2e754452e774955c83c7ccd7bf8c6",
             "visibility": "public"
           },
           {
@@ -52,6 +54,7 @@
             "body_file": "",
             "body_start": 0,
             "brief_description": "",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=calc%3A%3ACalculatorEngine%3A%3AvalidateInput:canonical_signature=lang%3Acpp%7C%28string%29",
             "component_id": null,
             "compound_refid": "",
             "definition": "",
@@ -81,13 +84,13 @@
             "template_declarations": [],
             "type": "MethodNode",
             "type_signature": "bool",
-            "uid": "546620476ca16b2f3db46b316f9e8b9aa6d925f1",
             "visibility": "public"
           },
           {
             "body_end": 0,
             "body_start": 0,
             "brief_description": "",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=calc%3A%3ACalculatorEngine%3A%3Aprecision",
             "component_id": null,
             "compound_refid": "",
             "declaration": "",
@@ -115,7 +118,6 @@
             ],
             "type": "AttributeNode",
             "type_signature": "int",
-            "uid": "e2c8a236f5d302627dcc4d2e22070f9519505e91",
             "visibility": "public"
           }
         ],
@@ -126,13 +128,13 @@
         "edges": [
           {
             "relation_type": "DEPENDS_ON",
-            "target_type": "ClassNode",
-            "target_uid": "calc::CalculatorResult"
+            "target_key": "calc::CalculatorResult",
+            "target_type": "ClassNode"
           },
           {
             "relation_type": "REALIZES",
-            "target_type": "InterfaceNode",
-            "target_uid": "calc::ICalculator"
+            "target_key": "calc::ICalculator",
+            "target_type": "InterfaceNode"
           }
         ],
         "end_line": 0,
@@ -154,13 +156,13 @@
         ],
         "template_declarations": [],
         "type": "ClassNode",
-        "uid": "93aeaa5ee440aac253b156ccf2f15227aa11e0ac",
         "visibility": ""
       },
       {
         "base_classes": [],
         "base_specifiers": [],
         "brief_description": "",
+        "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=calc%3A%3ACalculatorResult",
         "component_id": null,
         "composes": [
           {
@@ -169,6 +171,7 @@
             "body_file": "",
             "body_start": 0,
             "brief_description": "",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=calc%3A%3ACalculatorResult%3A%3Aget_value:canonical_signature=lang%3Acpp%7C%28%29",
             "component_id": null,
             "compound_refid": "",
             "definition": "",
@@ -198,13 +201,13 @@
             "template_declarations": [],
             "type": "MethodNode",
             "type_signature": "double",
-            "uid": "29590eee47c8aaca1eeb2f993d7ed9830353bf26",
             "visibility": "public"
           },
           {
             "body_end": 0,
             "body_start": 0,
             "brief_description": "",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=calc%3A%3ACalculatorResult%3A%3Avalue",
             "component_id": null,
             "compound_refid": "",
             "declaration": "",
@@ -232,7 +235,6 @@
             ],
             "type": "AttributeNode",
             "type_signature": "double",
-            "uid": "4c582541814c6e1e69804100ff09496d81ce1ba7",
             "visibility": "public"
           }
         ],
@@ -260,11 +262,11 @@
         ],
         "template_declarations": [],
         "type": "ClassNode",
-        "uid": "3beaa98236596366493cf23e0ab33dad2bec8398",
         "visibility": ""
       },
       {
         "brief_description": "",
+        "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:interface:qualified_name=calc%3A%3AICalculator",
         "component_id": null,
         "composes": [
           {
@@ -273,6 +275,7 @@
             "body_file": "",
             "body_start": 0,
             "brief_description": "",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=calc%3A%3AICalculator%3A%3Acalculate:canonical_signature=lang%3Acpp%7C%28Operation%2Cdouble%2Cdouble%29",
             "component_id": null,
             "compound_refid": "",
             "definition": "",
@@ -302,7 +305,6 @@
             "template_declarations": [],
             "type": "MethodNode",
             "type_signature": "CalculatorResult",
-            "uid": "ae91bd9b059d2cbd18c3c6f0e5b6cbcd9a10bc58",
             "visibility": "public"
           }
         ],
@@ -329,17 +331,18 @@
         ],
         "template_declarations": [],
         "type": "InterfaceNode",
-        "uid": "c91c124590ac1b9feace1652a940c88ddcf38f3c",
         "visibility": ""
       },
       {
         "brief_description": "",
+        "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:enum:qualified_name=calc%3A%3AOperation",
         "component_id": null,
         "composes": [
           {
             "body_end": 0,
             "body_start": 0,
             "brief_description": "",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:enum-value:qualified_name=calc%3A%3AOperation%3A%3AADD",
             "component_id": null,
             "compound_refid": "",
             "definition": "",
@@ -361,13 +364,13 @@
               "design"
             ],
             "type": "EnumValueNode",
-            "uid": "8abe9dc65a5df639ef2bcd7cf1bbfb7047405690",
             "visibility": ""
           },
           {
             "body_end": 0,
             "body_start": 0,
             "brief_description": "",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:enum-value:qualified_name=calc%3A%3AOperation%3A%3ASUBTRACT",
             "component_id": null,
             "compound_refid": "",
             "definition": "",
@@ -389,7 +392,6 @@
               "design"
             ],
             "type": "EnumValueNode",
-            "uid": "291b160857f2358aea93cf91dc891941c80042b0",
             "visibility": ""
           }
         ],
@@ -416,7 +418,6 @@
         ],
         "template_declarations": [],
         "type": "EnumNode",
-        "uid": "535a4bf2ad71c02172d3ebe363501e38da388059",
         "underlying_type": "",
         "visibility": ""
       },
@@ -425,6 +426,7 @@
         "body_end": 0,
         "body_start": 0,
         "brief_description": "",
+        "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:function:qualified_name=calc%3A%3AformatResult:canonical_signature=lang%3Acpp%7C%28%29",
         "component_id": null,
         "compound_refid": "",
         "definition": "",
@@ -446,7 +448,6 @@
         ],
         "type": "FunctionNode",
         "type_signature": "",
-        "uid": "b2871afab99a0863e8e92fcdc076b43f02ee5470",
         "visibility": ""
       }
     ],
@@ -463,16 +464,17 @@
     "tags": [
       "design"
     ],
-    "type": "NamespaceNode",
-    "uid": "bd8b6cf747ada9179df7b2b110cf2cb811fdb73a"
+    "type": "NamespaceNode"
   },
   {
+    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:namespace:qualified_name=ui",
     "component_id": null,
     "composes": [
       {
         "base_classes": [],
         "base_specifiers": [],
         "brief_description": "",
+        "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=ui%3A%3ABaseWindow",
         "component_id": null,
         "composes": [
           {
@@ -481,6 +483,7 @@
             "body_file": "",
             "body_start": 0,
             "brief_description": "",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=ui%3A%3ABaseWindow%3A%3Ashow:canonical_signature=lang%3Acpp%7C%28%29",
             "component_id": null,
             "compound_refid": "",
             "definition": "",
@@ -510,7 +513,6 @@
             "template_declarations": [],
             "type": "MethodNode",
             "type_signature": "void",
-            "uid": "867d9f104a197c667c9a73c02d24f77960718dce",
             "visibility": "public"
           }
         ],
@@ -538,13 +540,13 @@
         ],
         "template_declarations": [],
         "type": "ClassNode",
-        "uid": "be5ed6c102db4247732c36442e610248058b2cc8",
         "visibility": ""
       },
       {
         "base_classes": [],
         "base_specifiers": [],
         "brief_description": "",
+        "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=ui%3A%3ACalculatorWindow",
         "component_id": null,
         "composes": [
           {
@@ -553,6 +555,7 @@
             "body_file": "",
             "body_start": 0,
             "brief_description": "",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
             "component_id": null,
             "compound_refid": "",
             "definition": "",
@@ -582,13 +585,13 @@
             "template_declarations": [],
             "type": "MethodNode",
             "type_signature": "void",
-            "uid": "77a4b93934e021ded536b57f90c7ed400086c47d",
             "visibility": "private"
           },
           {
             "body_end": 0,
             "body_start": 0,
             "brief_description": "",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=ui%3A%3ACalculatorWindow%3A%3Adisplay",
             "component_id": null,
             "compound_refid": "",
             "declaration": "",
@@ -616,13 +619,13 @@
             ],
             "type": "AttributeNode",
             "type_signature": "string",
-            "uid": "165fcec95cb3e811f028df0022614a35c6a8c3d1",
             "visibility": "private"
           },
           {
             "body_end": 0,
             "body_start": 0,
             "brief_description": "",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=ui%3A%3ACalculatorWindow%3A%3AcurrentInput",
             "component_id": null,
             "compound_refid": "",
             "declaration": "",
@@ -650,7 +653,6 @@
             ],
             "type": "AttributeNode",
             "type_signature": "string",
-            "uid": "6b1fe9d08012d6786d663495c456e28764f06612",
             "visibility": "private"
           }
         ],
@@ -661,13 +663,13 @@
         "edges": [
           {
             "relation_type": "DEPENDS_ON",
-            "target_type": "ClassNode",
-            "target_uid": "calc::CalculatorEngine"
+            "target_key": "calc::CalculatorEngine",
+            "target_type": "ClassNode"
           },
           {
             "relation_type": "INHERITS_FROM",
-            "target_type": "ClassNode",
-            "target_uid": "ui::BaseWindow"
+            "target_key": "ui::BaseWindow",
+            "target_type": "ClassNode"
           }
         ],
         "end_line": 0,
@@ -689,7 +691,6 @@
         ],
         "template_declarations": [],
         "type": "ClassNode",
-        "uid": "a7088a313f75ecdafea536ec62f8d93de39f2c33",
         "visibility": ""
       }
     ],
@@ -706,7 +707,6 @@
     "tags": [
       "design"
     ],
-    "type": "NamespaceNode",
-    "uid": "6c4df8a4a9e9401d070103edf9a7f17fff19c2ba"
+    "type": "NamespaceNode"
   }
 ]

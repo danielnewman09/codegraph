@@ -7,11 +7,16 @@ Requires Neo4j (credentials loaded from .env via conftest.py).
 import json
 from pathlib import Path
 
+from codegraph.identity import IdentityScope, identity_scope
 from codegraph.models.member import MethodNode
 from codegraph.models.tags import CodeGraphNode
 from codegraph.persistence.repository import GraphRepository
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "unit_test_data"
+
+# Canonical identity is mandatory (WP A): saves run under an explicit
+# repository scope derived from the manifest project id.
+SCOPE = IdentityScope.repository("codegraph-suite", "codegraph")
 
 
 # codegraph:test-desc member.test_method_invokes_method.test_method_invokes_method
@@ -22,25 +27,26 @@ def test_method_invokes_method():
     # codegraph:test-desc member.test_method_invokes_method.test_method_invokes_method::step_0
     # Creates the caller MethodNode with an invokes relationship to the callee, setting
     # up the initial state for testing method invocation relationships.
-    caller = MethodNode(
-        name="handleEquals",
-        kind="method",
-        type_signature="void",
-        argsstring="()",
-        visibility="private",
-        source="test",
-    ).save()
+    with identity_scope(SCOPE):
+        caller = MethodNode(
+            name="handleEquals",
+            kind="method",
+            type_signature="void",
+            argsstring="()",
+            visibility="private",
+            source="test",
+        ).save()
 
-    callee = MethodNode(
-        name="performCalculation",
-        kind="method",
-        type_signature="void",
-        argsstring="()",
-        visibility="private",
-        source="test",
-    ).save()
+        callee = MethodNode(
+            name="performCalculation",
+            kind="method",
+            type_signature="void",
+            argsstring="()",
+            visibility="private",
+            source="test",
+        ).save()
 
-    caller.invokes.connect(callee)
+        caller.invokes.connect(callee)
 
     FIXTURE_DIR.mkdir(exist_ok=True)
     out_path = FIXTURE_DIR / "method_invokes_method.json"

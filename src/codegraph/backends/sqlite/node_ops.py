@@ -39,7 +39,7 @@ from codegraph.models.tags import CodeGraphNode
 log = logging.getLogger(__name__)
 
 # Generated-column names that can be filtered directly.
-_GENERATED_COLUMNS = frozenset({"source", "qualified_name", "kind"})
+_GENERATED_COLUMNS = frozenset({"source", "qualified_name", "kind", "canonical_key"})
 
 # Properties whose text contributes to the FTS "content" column.
 _SEARCHABLE_TEXT_PROPS = (
@@ -56,7 +56,7 @@ _SEARCHABLE_TEXT_PROPS = (
 # Property names that hold float-vector embeddings.
 _EMBEDDING_PROPS = ("doc_embedding", "impl_embedding")
 
-_NODE_COLS = "n.id, n.uid, n.labels, n.properties"
+_NODE_COLS = "n.id, n.canonical_key, n.labels, n.properties"
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -166,9 +166,10 @@ def _fts_content(node: CodeGraphNode) -> str:
 
 
 def _uid_to_id(conn, uid: str) -> int | None:
+    """Compatibility shim (WP C): a canonical key IS the storage key."""
     row = conn.execute(
-        sa.text("SELECT id FROM nodes WHERE uid = :uid"),
-        {"uid": uid},
+        sa.text("SELECT id FROM nodes WHERE canonical_key = :key"),
+        {"key": uid},
     ).first()
     return row[0] if row else None
 
@@ -237,14 +238,14 @@ class SqliteNodeOps:
     # ── Node CRUD ────────────────────────────────────────────────────
 
     def save(self, node: CodeGraphNode) -> CodeGraphNode:
-        """Save a node, computing uid from identity fields.
+        """Save a node keyed by its canonical key (WP C).
 
-        Upserts by uid (``INSERT ... ON CONFLICT(uid) DO UPDATE``),
-        mirrors labels/tags into the join tables, refreshes the FTS
-        row, and stores any declared embedding.  Sets
-        ``element_id_property`` from the INTEGER PK.
-
-        Raises ``ValueError`` if source or identity fields are empty.
+        Upserts by ``canonical_key`` (``INSERT ... ON CONFLICT(canonical_key)
+        DO UPDATE``), mirrors labels/tags into the join tables, refreshes
+        the FTS row, and stores any declared embedding.  Sets
+        ``element_id_property`` from the INTEGER PK.  Canonical identity
+        is mandatory — the model guarantees a valid key before the
+        backend sees the node.
         """
         node_type = type(node)
 
@@ -252,38 +253,42 @@ class SqliteNodeOps:
                 and not getattr(node, "qualified_name", "")):
             node.qualified_name = node._compute_qualified_name()
 
-        computed = node._compute_uid()
-        node.uid = computed
+        key = getattr(node, "canonical_key", "") or ""
+        if not key:
+            from codegraph.identity import IdentityError
+
+            raise IdentityError(
+                f"cannot save {type(node).__name__}: no canonical key"
+            )
         labels = _node_labels(node_type)
         props = _serialize_props(node)
 
         with self._conn.session() as conn:
             row = conn.execute(
                 sa.text(
-                    "INSERT INTO nodes (uid, labels, properties) "
-                    "VALUES (:uid, :labels, :properties) "
-                    "ON CONFLICT(uid) DO UPDATE SET "
-                    # Merge properties (Neo4j's ``SET n += $props``):
-                    # keys present in the new row win; existing keys not
-                    # in the new row are preserved (e.g. a description
-                    # re-ingested without a description line).  Labels are
-                    # NOT overwritten — they are mutated via set_labels().
+                    "INSERT INTO nodes (canonical_key, labels, properties) "
+                    "VALUES (:key, :labels, :properties) "
+                    "ON CONFLICT(canonical_key) DO UPDATE SET "
+                    # Properties merge (Neo4j's ``SET n += $props``
+                    # semantics): new keys win, existing keys not present
+                    # in the new row are preserved.
                     "properties = json_patch(nodes.properties, excluded.properties) "
-                    "RETURNING id, labels, properties"
+                    "RETURNING id, canonical_key, labels, properties"
                 ),
                 {
-                    "uid": computed,
+                    "key": key,
                     "labels": json.dumps(labels),
                     "properties": json.dumps(props),
                 },
             ).first()
             node_id = row[0]
-            stored_labels = json.loads(row[1])
-            stored_props = json.loads(row[2] or "{}")
+            stored_key = row[1]
+            stored_labels = json.loads(row[2])
+            stored_props = json.loads(row[3] or "{}")
 
             self._sync_labels(conn, node_id, stored_labels)
             self._sync_tags(conn, node_id, stored_props.get("tags") or [])
-            self._sync_fts_from_props(conn, computed, node_id, stored_props)
+            self._sync_fts_from_props(conn, stored_key, node_id, stored_props)
             self._sync_embedding(conn, node_id, stored_props)
 
         node.element_id_property = node_id
@@ -317,16 +322,16 @@ class SqliteNodeOps:
 
     def _sync_fts(self, conn, uid: str, node: CodeGraphNode, tags: list[str]) -> None:
         conn.execute(
-            sa.text("DELETE FROM fts_nodes WHERE uid = :uid"),
-            {"uid": uid},
+            sa.text("DELETE FROM fts_nodes WHERE canonical_key = :ckey"),
+            {"ckey": uid},
         )
         conn.execute(
             sa.text(
-                "INSERT INTO fts_nodes (uid, content, qualified_name, tags) "
-                "VALUES (:uid, :content, :qname, :tags)"
+                "INSERT INTO fts_nodes (canonical_key, content, qualified_name, tags) "
+                "VALUES (:ckey, :content, :qname, :tags)"
             ),
             {
-                "uid": uid,
+                "ckey": uid,
                 "content": _fts_content(node),
                 "qname": getattr(node, "qualified_name", "") or "",
                 "tags": " ".join(tags),
@@ -342,8 +347,8 @@ class SqliteNodeOps:
         (tags or searchable text) changed without a full ``save()``.
         """
         conn.execute(
-            sa.text("DELETE FROM fts_nodes WHERE uid = :uid"),
-            {"uid": uid},
+            sa.text("DELETE FROM fts_nodes WHERE canonical_key = :ckey"),
+            {"ckey": uid},
         )
         content_parts = [
             str(props[p])
@@ -352,11 +357,11 @@ class SqliteNodeOps:
         ]
         conn.execute(
             sa.text(
-                "INSERT INTO fts_nodes (uid, content, qualified_name, tags) "
-                "VALUES (:uid, :content, :qname, :tags)"
+                "INSERT INTO fts_nodes (canonical_key, content, qualified_name, tags) "
+                "VALUES (:ckey, :content, :qname, :tags)"
             ),
             {
-                "uid": uid,
+                "ckey": uid,
                 "content": " ".join(content_parts),
                 "qname": str(props.get("qualified_name", "") or ""),
                 "tags": " ".join(str(t) for t in (props.get("tags") or [])),
@@ -399,12 +404,12 @@ class SqliteNodeOps:
             if hasattr(child, "element_id_property") and not getattr(child, "deleted", False):
                 self.delete(child)
 
-        uid = node._uid_value()
+        key = node.canonical_key
         with self._conn.session() as conn:
-            if uid:
+            if key:
                 conn.execute(
-                    sa.text("DELETE FROM fts_nodes WHERE uid = :uid"),
-                    {"uid": uid},
+                    sa.text("DELETE FROM fts_nodes WHERE canonical_key = :ckey"),
+                    {"ckey": key},
                 )
             conn.execute(
                 sa.text("DELETE FROM nodes WHERE id = :nid"),
@@ -423,7 +428,7 @@ class SqliteNodeOps:
             rows = list(
                 conn.execute(
                     sa.text(
-                        "SELECT t.id, t.uid, t.labels, t.properties "
+                        "SELECT t.id, t.canonical_key, t.labels, t.properties "
                         "FROM edges e "
                         "JOIN nodes t ON t.id = e.target_id "
                         "WHERE e.source_id = :sid AND e.rel_type = 'COMPOSES'"
@@ -501,16 +506,16 @@ class SqliteNodeOps:
             if isinstance(raw, str):
                 row = conn.execute(
                     sa.text(
-                        "SELECT id, uid, labels, properties FROM nodes WHERE uid = :uid"
+                        "SELECT id, canonical_key, labels, properties FROM nodes WHERE canonical_key = :key"
                     ),
-                    {"uid": raw},
+                    {"key": raw},
                 ).first()
             else:
                 row = raw
             node = _row_to_node(row, conn)
         if node is None:
             if isinstance(raw, str):
-                raise KeyError(f"No node with uid {raw} in SQLite store")
+                raise KeyError(f"No node with key {raw} in SQLite store")
             raise ValueError("Cannot inflate raw row: no registered class matched")
         return node
 
@@ -577,13 +582,23 @@ class SqliteNodeOps:
     # ── uid-based node queries ────────────────────────────────────
 
     def find_by_uid(self, uid: str) -> CodeGraphNode | None:
-        """Find any node by its deterministic uid (inflates by labels)."""
+        """Compatibility shim (WP C): a canonical key IS the storage key."""
+        return self.find_by_key(uid)
+
+    def find_by_key(self, key: str) -> CodeGraphNode | None:
+        """Find any node by its canonical key (WP3.2).
+
+        Uses the generated ``canonical_key`` column + unique partial
+        index; ``LIMIT 1`` guards against a database that predates the
+        unique index.
+        """
         with self._conn.connect() as conn:
             row = conn.execute(
                 sa.text(
-                    f"SELECT {_NODE_COLS} FROM nodes n WHERE n.uid = :uid LIMIT 1"
+                    f"SELECT {_NODE_COLS} FROM nodes n "
+                    "WHERE n.canonical_key = :key LIMIT 1"
                 ),
-                {"uid": uid},
+                {"key": key},
             ).first()
             if row is None:
                 return None
@@ -593,8 +608,8 @@ class SqliteNodeOps:
         """Return the label chain for a node by uid."""
         with self._conn.connect() as conn:
             row = conn.execute(
-                sa.text("SELECT labels FROM nodes WHERE uid = :uid"),
-                {"uid": uid},
+                sa.text("SELECT labels FROM nodes WHERE canonical_key = :key"),
+                {"key": uid},
             ).first()
         if row is None:
             return set()
@@ -606,8 +621,8 @@ class SqliteNodeOps:
             return
         with self._conn.session() as conn:
             row = conn.execute(
-                sa.text("SELECT id FROM nodes WHERE uid = :uid"),
-                {"uid": uid},
+                sa.text("SELECT id FROM nodes WHERE canonical_key = :key"),
+                {"key": uid},
             ).first()
             if row is None:
                 return
@@ -624,8 +639,8 @@ class SqliteNodeOps:
             return
         with self._conn.session() as conn:
             row = conn.execute(
-                sa.text("SELECT id, labels FROM nodes WHERE uid = :uid"),
-                {"uid": uid},
+                sa.text("SELECT id, labels FROM nodes WHERE canonical_key = :key"),
+                {"key": uid},
             ).first()
             if row is None:
                 return
@@ -658,8 +673,8 @@ class SqliteNodeOps:
             return False
         with self._conn.session() as conn:
             row = conn.execute(
-                sa.text("SELECT id, labels, properties FROM nodes WHERE uid = :uid"),
-                {"uid": uid},
+                sa.text("SELECT id, labels, properties FROM nodes WHERE canonical_key = :key"),
+                {"key": uid},
             ).first()
             if row is None:
                 return False
@@ -685,7 +700,7 @@ class SqliteNodeOps:
                     {"new_uid": str(new_uid), "nid": node_id},
                 )
                 conn.execute(
-                    sa.text("UPDATE fts_nodes SET uid = :new_uid WHERE uid = :old_uid"),
+                    sa.text("UPDATE fts_nodes SET canonical_key = :new_uid WHERE canonical_key = :old_uid"),
                     {"new_uid": str(new_uid), "old_uid": uid},
                 )
                 uid = str(new_uid)
@@ -706,16 +721,24 @@ class SqliteNodeOps:
         return True
 
     def delete_by_uid(self, uid: str) -> bool:
-        """DETACH-style delete of a node by uid (FK cascade removes edges)."""
+        """Compatibility shim (WP C): a canonical key IS the storage key."""
+        return self.delete_by_key(uid)
+
+    def delete_by_key(self, key: str) -> bool:
+        """DETACH-style delete of a node by canonical key (WP3.2)."""
         with self._conn.session() as conn:
             row = conn.execute(
-                sa.text("SELECT id FROM nodes WHERE uid = :uid"),
-                {"uid": uid},
+                sa.text("SELECT id, canonical_key FROM nodes WHERE canonical_key = :key"),
+                {"key": key},
             ).first()
             if row is None:
                 return False
-            conn.execute(sa.text("DELETE FROM fts_nodes WHERE uid = :uid"), {"uid": uid})
-            conn.execute(sa.text("DELETE FROM nodes WHERE id = :nid"), {"nid": row[0]})
+            node_id, stored_key = row[0], row[1]
+            conn.execute(
+                sa.text("DELETE FROM fts_nodes WHERE canonical_key = :ckey"),
+                {"ckey": stored_key},
+            )
+            conn.execute(sa.text("DELETE FROM nodes WHERE id = :nid"), {"nid": node_id})
         return True
 
     def delete_by_source(self, source: str) -> int:
@@ -727,7 +750,7 @@ class SqliteNodeOps:
         with self._conn.session() as conn:
             conn.execute(
                 sa.text(
-                    "DELETE FROM fts_nodes WHERE uid IN "
+                    "DELETE FROM fts_nodes WHERE canonical_key IN "
                     "(SELECT uid FROM nodes WHERE source = :src)"
                 ),
                 {"src": source},
@@ -755,13 +778,13 @@ class SqliteNodeOps:
                 params = {f"u{i}": u for i, u in enumerate(chunk)}
                 conn.execute(
                     sa.text(
-                        f"DELETE FROM fts_nodes WHERE uid IN ({binds})"
+                        f"DELETE FROM fts_nodes WHERE canonical_key IN ({binds})"
                     ),
                     params,
                 )
                 result = conn.execute(
                     sa.text(
-                        f"DELETE FROM nodes WHERE uid IN ({binds})"
+                        f"DELETE FROM nodes WHERE canonical_key IN ({binds})"
                     ),
                     params,
                 )
@@ -774,7 +797,7 @@ class SqliteNodeOps:
             rows = list(
                 conn.execute(
                     sa.text(
-                        "SELECT n.uid FROM nodes n "
+                        "SELECT n.canonical_key FROM nodes n "
                         "JOIN node_tags nt ON nt.node_id = n.id "
                         "WHERE nt.tag = :tag"
                     ),
@@ -796,7 +819,7 @@ class SqliteNodeOps:
         aliased as ``n`` (the Neo4j equivalent takes Cypher).
         """
         sql = (
-            "SELECT n.uid FROM nodes n "
+            "SELECT n.canonical_key FROM nodes n "
             "JOIN node_tags nt ON nt.node_id = n.id "
             "WHERE nt.tag = :tag"
         )
@@ -813,7 +836,7 @@ class SqliteNodeOps:
         params: dict[str, Any] = {"name": name}
         if label:
             sql = (
-                "SELECT n.uid FROM nodes n "
+                "SELECT n.canonical_key FROM nodes n "
                 "JOIN node_labels nl ON nl.node_id = n.id "
                 "WHERE nl.label = :label "
                 "AND json_extract(n.properties, '$.name') = :name"
@@ -821,7 +844,7 @@ class SqliteNodeOps:
             params["label"] = label
         else:
             sql = (
-                "SELECT n.uid FROM nodes n "
+                "SELECT n.canonical_key FROM nodes n "
                 "WHERE json_extract(n.properties, '$.name') = :name"
             )
         with self._conn.connect() as conn:
@@ -832,7 +855,7 @@ class SqliteNodeOps:
         """Look up uid for a node by qualified_name (indexed)."""
         with self._conn.connect() as conn:
             row = conn.execute(
-                sa.text("SELECT uid FROM nodes WHERE qualified_name = :qn LIMIT 1"),
+                sa.text("SELECT canonical_key FROM nodes WHERE qualified_name = :qn LIMIT 1"),
                 {"qn": qualified_name},
             ).first()
         return row[0] if row else None
@@ -857,8 +880,8 @@ class SqliteNodeOps:
         """Look up qualified_name for a node by uid."""
         with self._conn.connect() as conn:
             row = conn.execute(
-                sa.text("SELECT qualified_name FROM nodes WHERE uid = :uid LIMIT 1"),
-                {"uid": uid},
+                sa.text("SELECT qualified_name FROM nodes WHERE canonical_key = :key LIMIT 1"),
+                {"key": uid},
             ).first()
         return row[0] if row else None
 
@@ -882,8 +905,8 @@ class SqliteNodeOps:
         """Check whether a node with given uid exists."""
         with self._conn.connect() as conn:
             row = conn.execute(
-                sa.text("SELECT 1 FROM nodes WHERE uid = :uid LIMIT 1"),
-                {"uid": uid},
+                sa.text("SELECT 1 FROM nodes WHERE canonical_key = :key LIMIT 1"),
+                {"key": uid},
             ).first()
         return row is not None
 
@@ -895,7 +918,7 @@ class SqliteNodeOps:
             rows = list(
                 conn.execute(
                     sa.text(
-                        "SELECT qualified_name, labels, uid FROM nodes "
+                        "SELECT qualified_name, labels, canonical_key FROM nodes "
                         "ORDER BY qualified_name"
                     )
                 )
@@ -919,7 +942,7 @@ class SqliteNodeOps:
             rows = list(
                 conn.execute(
                     sa.text(
-                        f"SELECT n.qualified_name, n.labels, n.uid FROM nodes n "
+                        f"SELECT n.qualified_name, n.labels, n.canonical_key FROM nodes n "
                         f"JOIN node_labels nl ON nl.node_id = n.id "
                         f"WHERE nl.label IN ({binds}) "
                         f"GROUP BY n.id "

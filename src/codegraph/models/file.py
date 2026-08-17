@@ -10,8 +10,7 @@ FileNode is the target of ``DEFINED_IN`` relationships from compounds
 from codegraph.models.descriptors import (
     Property,
     Relationship,
-    UniqueId,
-)
+    )
 
 from codegraph.models.tags import CodeGraphNode
 
@@ -47,7 +46,6 @@ class FileNode(CodeGraphNode):
     """
 
     # --- Identity ---
-    uid = UniqueId()
     refid = Property(
         str, default="", index=True,
         help_text="External reference ID from the source system (e.g. Doxygen).",

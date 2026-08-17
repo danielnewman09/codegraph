@@ -188,7 +188,7 @@ def lint_variant(request):
 
 # ── Tests ────────────────────────────────────────────────────────
 
-@pytest.skip
+@pytest.mark.skip(reason="needs a live lint-agent environment")
 @pytest.mark.slow
 @pytest.mark.integration
 class TestRequirementsLint:

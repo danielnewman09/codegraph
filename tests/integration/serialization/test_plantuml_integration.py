@@ -21,7 +21,15 @@ from pathlib import Path
 
 import pytest
 
-from codegraph.graph import LayerGraph
+from codegraph.graph import LayerGraph, CompositeEntry
+from tests.integration.serialization._keying import key_graph as _kg
+
+
+class _KeyedLayerGraph(LayerGraph):
+    """LayerGraph that stamps canonical keys on construction (WP A)."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _kg(self)
 from codegraph.models.tags import CodeGraphNode
 from codegraph.export.plantuml import export_plantuml, import_plantuml
 

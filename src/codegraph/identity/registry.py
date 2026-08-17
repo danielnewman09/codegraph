@@ -50,8 +50,11 @@ __all__ = [
     "CanonicalIdentity",
     "IdentityError",
     "IdentitySpec",
+    "PARENT_FIELDS",
     "audit_registry",
     "category_spec",
+    "missing_parents",
+    "parent_relative_fields",
     "resolve_identity_for",
     "short_label",
     "spec_for",
@@ -66,18 +69,142 @@ class IdentityError(ValueError):
     """Raised when an identity cannot be computed or resolved."""
 
 
+class IdentityConflictError(IdentityError):
+    """Raised when a canonical key and a legacy UID disagree.
+
+    WP2.2 contract: during dual-identity edge resolution, if an edge
+    carries both ``target_key`` (canonical) and ``target_uid`` (legacy)
+    and the two resolve to *different* nodes, resolution must fail with
+    a structured conflict — never choose one silently.
+    """
+
+    def __init__(
+        self,
+        target_key: str,
+        target_uid: str,
+        key_target: object,
+        uid_target: object,
+    ) -> None:
+        self.target_key = target_key
+        self.target_uid = target_uid
+        self.key_target = key_target
+        self.uid_target = uid_target
+        super().__init__(
+            f"identity conflict: edge target_key {target_key!r} resolves to "
+            f"{_describe(key_target)} but target_uid {target_uid!r} resolves "
+            f"to {_describe(uid_target)} — refusing to choose silently"
+        )
+
+
+def _describe(obj: object) -> str:
+    if isinstance(obj, str):
+        return obj
+    name = getattr(obj, "qualified_name", "") or getattr(obj, "name", "") or "?"
+    return f"{type(obj).__name__} {name!r}"
+
+
+class AmbiguousUidError(IdentityError):
+    """Raised when two distinct entries claim the same legacy UID.
+
+    WP5.1 contract: a serialized document or backend load in which two
+    nodes share a legacy ``uid`` but key differently is reported —
+    never resolved by last-write-wins.  ``first_key`` / ``second_key``
+    name the two entry keys so callers can locate the offenders.
+    """
+
+    def __init__(
+        self,
+        uid: str,
+        first_key: str,
+        second_key: str,
+        *,
+        context: str = "",
+    ) -> None:
+        self.uid = uid
+        self.first_key = first_key
+        self.second_key = second_key
+        prefix = f"{context}: " if context else ""
+        super().__init__(
+            f"{prefix}legacy uid {uid[:16]}… is claimed by two distinct "
+            f"entries ({first_key[:40]!r} and {second_key[:40]!r}) — "
+            f"refusing last-write-wins"
+        )
+
+
+class KeyConflictError(IdentityError):
+    """Raised when two distinct nodes claim the same canonical key.
+
+    WP3 contract (backend registration): a save/upsert must never
+    silently shadow an existing registration — a canonical key uniquely
+    identifies one node.  ``existing_uid`` / ``incoming_uid`` name the
+    two nodes so reconciliation (WP4) can decide who wins.
+
+    Exempt: coexisting design/as-built observations of the same logical
+    entity (frozen v1 matrix decision) — see :func:`observation_pair_coexists`.
+    """
+
+    def __init__(
+        self,
+        key: str,
+        existing_uid: str,
+        incoming_uid: str,
+        *,
+        context: str = "",
+    ) -> None:
+        self.key = key
+        self.existing_uid = existing_uid
+        self.incoming_uid = incoming_uid
+        prefix = f"{context}: " if context else ""
+        super().__init__(
+            f"{prefix}canonical key {key[:48]!r} is already claimed by "
+            f"uid {existing_uid[:12]}… (incoming uid {incoming_uid[:12]}…)"
+        )
+
+
+#: Provenance tags that describe *observations* of one logical entity
+#: rather than distinct entities.  The frozen v1 matrix lets a design
+#: observation and an as-built observation of the same entity share ONE
+#: canonical key while living as separate rows.
+OBSERVATION_TAGS = frozenset({"design", "as-built"})
+
+
+def observation_pair_coexists(tags_a, tags_b) -> bool:
+    """Do two tag sets represent coexisting observations of one entity?
+
+    True iff both are non-empty, disjoint, and drawn from the
+    observation vocabulary (``design`` / ``as-built``) — i.e. a design
+    observation and an as-built observation of the same logical entity.
+    Any other same-key pair (overlapping tags, non-observation tags, or
+    an empty side) is a genuine conflict for reconciliation.
+    """
+    a = set(tags_a or ())
+    b = set(tags_b or ())
+    if not a or not b:
+        return False
+    return a.isdisjoint(b) and a <= OBSERVATION_TAGS and b <= OBSERVATION_TAGS
+
+
 # ══════════════════════════════════════════════════════════════════════════
 # Computed identity providers
 # ══════════════════════════════════════════════════════════════════════════
 #
 # A spec field is either a plain property name (read straight off the
 # node) or the name of a computed provider.  Providers receive the node
-# and the resolved scope; parent-relative providers additionally receive
-# ``parents`` — a mapping of parent-identity field name → canonical key
-# of the parent entity (WP1.4 wires these through; until then they raise
-# a clear error rather than silently computing a wrong key).
+# and the resolved scope.  Parent-relative providers additionally receive
+# ``parents`` — a mapping of parent-identity field name to either the
+# parent *node* (its canonical key is computed on the spot) or a
+# precomputed parent *key string* (needed for chains such as
+# TestStep -> TestNode -> HLR, where the TestNode key itself depends on
+# its own parent).  Both forms are explicit: the parser/result model
+# carries the parent data; nothing is queried from a backend.
 
-Provider = Callable[[Any, IdentityScope, dict[str, str]], str]
+Provider = Callable[[Any, IdentityScope, dict[str, Any]], str]
+
+#: Parent-relative identity field names (each requires a ``parents``
+#: entry under the same name).
+PARENT_FIELDS = frozenset(
+    {"parent_callable_key", "parent_hlr_key", "parent_key", "file_key"}
+)
 
 
 def _canonical_signature_provider(node, scope: IdentityScope, parents) -> str:
@@ -96,18 +223,27 @@ def _singleton_provider(node, scope: IdentityScope, parents) -> str:
     return "project"
 
 
-def _parent_relative_provider(field: str) -> Provider:
-    def provider(node, scope: IdentityScope, parents) -> str:
-        value = parents.get(field)
-        if value is None:
-            raise IdentityError(
-                f"field {field!r} on {type(node).__name__} requires parent "
-                f"identity context; none provided (Work Package 1.4 wires "
-                f"computed parent identities)"
-            )
-        return value
+def _parent_key_provider(field: str) -> Provider:
+    """Build a provider that yields the parent entity's canonical key.
 
-    provider.__name__ = f"_parent_relative_provider_{field}"
+    The ``parents`` context entry for *field* is either a parent node
+    (its canonical key is computed via :func:`resolve_identity_for`) or a
+    precomputed canonical key string (chain case).
+    """
+
+    def provider(node, scope: IdentityScope, parents) -> str:
+        parent = parents.get(field)
+        if parent is None:
+            raise IdentityError(
+                f"field {field!r} on {type(node).__name__} requires a "
+                f"parent in the parents context ({field!r}: parent node "
+                f"or precomputed canonical key)"
+            )
+        if isinstance(parent, str):
+            return parent  # precomputed canonical key (chain case)
+        return resolve_identity_for(parent, scope).key()
+
+    provider.__name__ = f"_parent_key_provider_{field}"
     return provider
 
 
@@ -116,10 +252,10 @@ computed_providers: dict[str, Provider] = {
     "canonical_signature": _canonical_signature_provider,
     "normalized_repository_path": _normalized_repository_path_provider,
     "singleton": _singleton_provider,
-    "parent_callable_key": _parent_relative_provider("parent_callable_key"),
-    "parent_hlr_key": _parent_relative_provider("parent_hlr_key"),
-    "parent_key": _parent_relative_provider("parent_key"),
-    "file_key": _parent_relative_provider("file_key"),
+    "parent_callable_key": _parent_key_provider("parent_callable_key"),
+    "parent_hlr_key": _parent_key_provider("parent_hlr_key"),
+    "parent_key": _parent_key_provider("parent_key"),
+    "file_key": _parent_key_provider("file_key"),
 }
 
 
@@ -429,22 +565,22 @@ def resolve_identity_for(
     node: Any,
     scope: IdentityScope,
     *,
-    parents: dict[str, str] | None = None,
+    parents: dict[str, Any] | None = None,
 ) -> CanonicalIdentity:
     """Compute the canonical identity for a node under a resolved scope.
 
     Reads each spec field from the node — plain properties directly,
     computed providers via :data:`computed_providers`.  Parent-relative
-    fields (parameter/implementation/fragment/test children) require
-    ``parents``; until WP1.4 wires parent identity through, calling them
-    without parents raises :class:`IdentityError`.
+    fields (parameter/implementation/fragment/test/LLR children) require
+    ``parents``: a mapping of parent-identity field name → parent node
+    (key computed on the spot) or precomputed parent key string (chain
+    case, e.g. TestStep -> TestNode -> HLR).
 
     Args:
         node: The node instance.
         scope: The resolved identity scope.
-        parents: Optional mapping of parent-identity field name → the
-            parent's canonical key (``parent_callable_key``,
-            ``parent_hlr_key``, ``parent_key``, ``file_key``).
+        parents: Optional mapping of parent-identity field name to parent
+            node or precomputed canonical key string.
 
     Raises:
         IdentityError: if the type has no spec or a required field
@@ -464,6 +600,32 @@ def resolve_identity_for(
         else:
             values[field_name] = str(getattr(node, field_name, "") or "")
     return CanonicalIdentity.from_spec(spec, scope, values)
+
+
+def parent_relative_fields(model_type: type) -> tuple[str, ...]:
+    """Return the parent-relative identity fields of a node type.
+
+    Empty for standalone types (class, method, file, ...); non-empty for
+    children whose keys incorporate their parent's canonical key
+    (parameter, implementation, source-fragment, test nodes, LLR).
+    """
+    spec = spec_for(model_type)
+    if spec is None:
+        return ()
+    return tuple(f for f in spec.fields if f in PARENT_FIELDS)
+
+
+def missing_parents(
+    node: Any, parents: dict[str, Any] | None = None
+) -> tuple[str, ...]:
+    """Return the parent-relative fields still missing from *parents*.
+
+    Lets callers detect, before computing, that a child key cannot be
+    resolved (e.g. the parser/result model lacks the parent reference).
+    """
+    needed = parent_relative_fields(type(node))
+    parents = parents or {}
+    return tuple(f for f in needed if parents.get(f) is None)
 
 
 def short_label(identity: CanonicalIdentity | str) -> str:

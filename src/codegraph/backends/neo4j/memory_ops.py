@@ -30,13 +30,13 @@ class Neo4jMemoryOps:
 
     def find_related_nodes(
         self,
-        target_uid: str,
+        target_key: str,
         rel_pattern: str,
         *,
         source_labels: str | None = None,
     ) -> list[dict]:
         """Find source nodes that have a relationship matching
-        *rel_pattern* to the code node identified by *target_uid*.
+        *rel_pattern* to the code node identified by *target_key*.
 
         *rel_pattern* is a pipe-separated relationship list, e.g.
         ``"MOTIVATES|CONSTRAINTS|EXPLAINS"``.
@@ -49,9 +49,9 @@ class Neo4jMemoryOps:
         label_clause = f"m:{source_labels}" if source_labels else "m"
         results, _ = db.cypher_query(
             f"MATCH ({label_clause})-[r:{rel_pattern}]->(c) "
-            "WHERE c.uid = $uid "
+            "WHERE c.canonical_key = $key "
             "RETURN m, type(r) AS rel_type",
-            {"uid": target_uid},
+            {"uid": target_key},
         )
         nodes: list[dict] = []
         for row in results:
@@ -64,10 +64,10 @@ class Neo4jMemoryOps:
 
     def merge_labeled_relationship(
         self,
-        source_uid: str,
+        source_key: str,
         source_label: str,
         rel_type: str,
-        target_uid: str,
+        target_key: str,
         target_label: str,
     ) -> None:
         """Idempotently create a relationship between two labeled nodes.
@@ -78,10 +78,10 @@ class Neo4jMemoryOps:
         edges: SUPERSEDES, REFINES, CONTRADICTS.
         """
         db.cypher_query(
-            f"MATCH (n:`{source_label}`) WHERE n.uid = $suid "
-            f"MATCH (o:`{target_label}`) WHERE o.uid = $tuid "
+            f"MATCH (n:`{source_label}`) WHERE n.canonical_key = $skey "
+            f"MATCH (o:`{target_label}`) WHERE o.canonical_key = $tkey "
             f"MERGE (n)-[:{rel_type}]->(o)",
-            {"suid": source_uid, "tuid": target_uid},
+            {"suid": source_key, "tuid": target_key},
         )
 
     # ── Memory nodes by tag ─────────────────────────────────────
@@ -120,9 +120,9 @@ class Neo4jMemoryOps:
         """Find memory nodes linked to ancestors of *uid* (COMPOSES↑)."""
         results, _ = db.cypher_query(
             f"MATCH (target)<-[:COMPOSES*1..{max_depth}]-(ancestor) "
-            "WHERE target.uid = $uid "
+            "WHERE target.canonical_key = $key "
             f"MATCH (m)-[r:{self.MEMORY_REL_PATTERN}]->(ancestor) "
-            "RETURN ancestor.uid AS source_uid, m, type(r) AS rel_type",
+            "RETURN ancestor.canonical_key AS source_key, m, type(r) AS rel_type",
             {"uid": uid},
         )
         nodes: list[dict] = []
@@ -131,7 +131,7 @@ class Neo4jMemoryOps:
             if memory is not None:
                 nodes.append({
                     "memory": memory,
-                    "source_uid": row[0],
+                    "source_key": row[0],
                     "rel_type": row[2],
                 })
         return nodes
@@ -145,7 +145,7 @@ class Neo4jMemoryOps:
         """Find memory nodes linked to descendants of *uid* (COMPOSES↓)."""
         results, _ = db.cypher_query(
             f"MATCH (parent)-[:COMPOSES*0..{max_depth}]->(target) "
-            "WHERE parent.uid = $uid "
+            "WHERE parent.canonical_key = $key "
             f"MATCH (m)-[:{self.MEMORY_REL_PATTERN}]->(target) "
             "RETURN DISTINCT m",
             {"uid": uid},
@@ -167,8 +167,8 @@ class Neo4jMemoryOps:
     ) -> None:
         """MERGE a relationship from memory node to code node."""
         db.cypher_query(
-            f"MATCH (m) WHERE m.uid = $mid "
-            f"MATCH (c) WHERE c.uid = $cid "
+            f"MATCH (m) WHERE m.canonical_key = $mkey "
+            f"MATCH (c) WHERE c.canonical_key = $ckey "
             f"MERGE (m)-[:{rel_type}]->(c)",
             {"mid": memory_uid, "cid": code_uid},
         )
@@ -180,9 +180,9 @@ class Neo4jMemoryOps:
         """Find the code node linked to a memory node (non-meta edge)."""
         results, _ = db.cypher_query(
             "MATCH (m)-[r]->(c) "
-            "WHERE m.uid = $mid "
+            "WHERE m.canonical_key = $mkey "
             "AND NOT type(r) IN ['SUPERSEDES', 'CONTRADICTS', 'REFINES'] "
-            "RETURN c.uid AS uid, c.qualified_name AS qn, type(r) AS rel_type "
+            "RETURN c.canonical_key AS uid, c.qualified_name AS qn, type(r) AS rel_type "
             "LIMIT 1",
             {"mid": memory_uid},
         )
@@ -198,14 +198,14 @@ class Neo4jMemoryOps:
     # exist on the ABC and both delegate to the same Cypher here.
     def merge_relationship_by_labels(
         self,
-        source_uid: str,
+        source_key: str,
         rel_type: str,
-        target_uid: str,
+        target_key: str,
         source_label: str,
         target_label: str,
     ) -> None:
         """Alias of merge_labeled_relationship with canonical ordering:
-        (source_uid, rel_type, target_uid, source_label, target_label)."""
+        (source_key, rel_type, target_key, source_label, target_label)."""
         self.merge_labeled_relationship(
-            source_uid, source_label, rel_type, target_uid, target_label,
+            source_key, source_label, rel_type, target_key, target_label,
         )

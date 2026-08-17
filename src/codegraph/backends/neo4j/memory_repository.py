@@ -60,16 +60,16 @@ class Neo4jMemoryRepository(MemoryRepository):
     @override
     def merge_edge(
         self,
-        source_uid: str,
+        source_key: str,
         rel_type: str,
-        target_uid: str,
+        target_key: str,
         *,
         source_label: str,
         target_label: str,
     ) -> None:
         self._memory_ops.merge_labeled_relationship(
-            source_uid, source_label, rel_type,
-            target_uid, target_label,
+            source_key, source_label, rel_type,
+            target_key, target_label,
         )
 
     # ── Composite traversal + memory queries (delegate to memory_ops)

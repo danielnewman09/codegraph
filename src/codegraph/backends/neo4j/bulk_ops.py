@@ -108,14 +108,21 @@ class Neo4jBulkOps:
                 label_clause = ":".join(f"`{l}`" for l in labels.split(":"))
                 results, _ = self._conn.execute_raw(
                     f"UNWIND $rows AS row "
-                    f"MERGE (n:{label_clause} {{uid: row.uid}}) "
+                    f"MERGE (n:{label_clause} {{canonical_key: row.key}}) "
                     f"SET n += row.props "
-                    f"RETURN row.uid AS uid, elementId(n) AS eid",
+                    # WP3.3: keyed nodes also carry the common
+                    # CanonicalEntity label so the single cross-type
+                    # unique constraint applies (unkeyed nodes stay
+                    # untouched; Neo4j uniqueness permits NULLs).
+                    f"FOREACH (_ IN CASE WHEN row.props.canonical_key IS NOT NULL "
+                    f"AND row.props.canonical_key <> '' THEN [1] ELSE [] END "
+                    f"| SET n:CanonicalEntity) "
+                    f"RETURN row.key AS key, elementId(n) AS eid",
                     {"rows": rows},
                 )
-                eid_by_uid = {row["uid"]: row["eid"] for row in results}
+                eid_by_key = {row["key"]: row["eid"] for row in results}
                 for node in batch:
-                    eid = eid_by_uid.get(node.uid)
+                    eid = eid_by_key.get(node.canonical_key)
                     if eid is not None:
                         node.element_id_property = eid
 
@@ -183,34 +190,34 @@ class Neo4jBulkOps:
         for node in matched_nodes:
             key = _node_key_safe(node)
             nodes[key] = node
-            uid = node._uid_value()
+            uid = node.canonical_key
             if uid:
                 uid_to_key[uid] = key
                 seen_uids.add(uid)
 
         # Expand to first-level neighbors — batched edge fetch (2 queries).
         _dbg("  expanding 1-hop neighbors...")
-        matched_uids = [n._uid_value() for n in matched_nodes if n._uid_value()]
-        edges_by_uid = self._rel_ops.get_edges_for_uids(matched_uids)
+        matched_keys = [n.canonical_key for n in matched_nodes if n.canonical_key]
+        edges_by_key = self._rel_ops.get_edges_for_uids(matched_keys)
         _dbg(f"  edge fetch done")
         pending: dict[str, list[str]] = {}  # target_type -> [uids]
         pending: dict[str, list[str]] = {}  # target_type -> [uids]
         for node in matched_nodes:
-            uid = node._uid_value()
-            for edge in edges_by_uid.get(uid, []):
+            uid = node.canonical_key
+            for edge in edges_by_key.get(uid, []):
                 if edge.relation_type == "HAS_IMPLEMENTATION":
                     continue
-                target_uid = edge.target_uid
-                if target_uid not in seen_uids:
-                    seen_uids.add(target_uid)
-                    pending.setdefault(edge.target_type, []).append(target_uid)
+                target_key = edge.target_key
+                if target_key not in seen_uids:
+                    seen_uids.add(target_key)
+                    pending.setdefault(edge.target_type, []).append(target_key)
         neighbors = self._fetch_batched(pending)
         _dbg(f"  fetched {len(neighbors)} neighbors")
         for nbr in neighbors:
             key = _node_key_safe(nbr)
             nodes[key] = nbr
-            if nbr._uid_value():
-                uid_to_key[nbr._uid_value()] = key
+            if nbr.canonical_key:
+                uid_to_key[nbr.canonical_key] = key
 
         # Second pass: pull in namespace parents of non-project 1-hop
         # neighbours.  ONLY ``NamespaceNode`` parents qualify — arbitrary
@@ -218,12 +225,12 @@ class Neo4jBulkOps:
         # unrelated requirements/scaffold trees into e.g. a design
         # export, breaking the design-closure invariant (every node
         # design-tagged or 1-hop from a design-tagged node).
-        initial_uids = {n._uid_value() for n in matched_nodes}
-        neighbor_uids = [n._uid_value() for n in neighbors if n._uid_value()]
+        initial_uids = {n.canonical_key for n in matched_nodes}
+        neighbor_uids = [n.canonical_key for n in neighbors if n.canonical_key]
         parent_edges = self._rel_ops.get_edges_for_uids(neighbor_uids)
         pending2: dict[str, list[str]] = {}
         for nbr in neighbors:
-            nuid = nbr._uid_value()
+            nuid = nbr.canonical_key
             if nuid in initial_uids:
                 continue
             for edge in parent_edges.get(nuid, []):
@@ -231,18 +238,18 @@ class Neo4jBulkOps:
                     continue
                 if edge.is_outgoing:
                     continue  # only interested in incoming (parent→ns)
-                target_uid = edge.target_uid
+                target_key = edge.target_key
                 target_cls = CodeGraphNode._registry.get(edge.target_type)
                 if target_cls is None or not issubclass(target_cls, NamespaceNode):
                     continue
-                if target_uid not in seen_uids:
-                    seen_uids.add(target_uid)
-                    pending2.setdefault(edge.target_type, []).append(target_uid)
+                if target_key not in seen_uids:
+                    seen_uids.add(target_key)
+                    pending2.setdefault(edge.target_type, []).append(target_key)
         for parent in self._fetch_batched(pending2):
             key = _node_key_safe(parent)
             nodes[key] = parent
-            if parent._uid_value():
-                uid_to_key[parent._uid_value()] = key
+            if parent.canonical_key:
+                uid_to_key[parent.canonical_key] = key
 
         return list(nodes.values())
 

@@ -17,8 +17,7 @@ from __future__ import annotations
 from codegraph.models.descriptors import (
     DateTimeProperty,
     Property,
-    UniqueId,
-)
+    )
 
 from codegraph.models.tags import CodeGraphNode
 
@@ -36,7 +35,6 @@ class MemoryNode(CodeGraphNode):
     __abstract__ = True
 
     # ── Identity (same pattern as CompoundNode/MemberNode) ─────────
-    uid = UniqueId()
     qualified_name = Property(
         str,
         default="",

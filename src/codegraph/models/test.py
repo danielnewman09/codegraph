@@ -47,8 +47,7 @@ from __future__ import annotations
 from codegraph.models.descriptors import (
     Property,
     Relationship,
-    UniqueId,
-)
+    )
 
 from codegraph.models.tags import CodeGraphNode
 
@@ -90,7 +89,6 @@ class TestNode(CodeGraphNode):
     __test__ = False
 
     # --- Identity ---
-    uid = UniqueId()
     qualified_name = Property(
         str, default="", index=True,
         help_text="Fully-qualified test identifier "
@@ -278,7 +276,6 @@ class AssertionNode(CodeGraphNode):
     """
 
     # --- Identity ---
-    uid = UniqueId()
     qualified_name = Property(
         str, default="", index=True,
         help_text="Human-readable identifier for this assertion.",
@@ -458,7 +455,6 @@ class TestStepNode(CodeGraphNode):
     __test__ = False
 
     # --- Identity ---
-    uid = UniqueId()
     qualified_name = Property(
         str, default="", index=True,
         help_text="Human-readable identifier for this test step.",
@@ -640,7 +636,6 @@ class TestFixtureNode(CodeGraphNode):
     __test__ = False
 
     # --- Identity ---
-    uid = UniqueId()
     qualified_name = Property(
         str, default="", index=True,
         help_text="Fully-qualified fixture identifier "

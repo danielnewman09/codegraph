@@ -308,12 +308,16 @@ def _parse_param(segment: str) -> dict:
 def _canonical_type(segment: str) -> str:
     """One canonical param-type token for Tier-2 diffing.
 
-    Strips the parameter name and default value, collapses whitespace,
-    and normalizes template / pointer / ref spacing so the design
+    Strips the parameter name and default value, then delegates the
+    spacing canonicalization to the identity module's shared contract
+    (:func:`codegraph.identity.normalize_type_spacing`) so the design
     fixture's degraded encodings (``std::unique_ptr<Migration>``,
     ``Database&``) hash equal to doxygen's (``std::unique_ptr< Migration >``,
-    ``Database &``).
+    ``Database &``) under the SAME normalization the canonical-key
+    registry uses (WP5.4 — no test-local competing definition).
     """
+    from codegraph.identity import normalize_type_spacing
+
     seg = re.sub(r"\s+", " ", segment.strip())
     eq = _find_top_level_eq(seg)
     if eq is not None:
@@ -324,12 +328,7 @@ def _canonical_type(segment: str) -> str:
         candidate = seg[:name_match.start()].rstrip()
         if candidate:
             seg = candidate
-    # Template spacing: ``< X >`` → ``<X>``.
-    seg = re.sub(r"<\s+", "<", seg)
-    seg = re.sub(r"\s+>", ">", seg)
-    # Pointer/ref: ``X &`` → ``X&", ``X *`` → ``X*".
-    seg = re.sub(r"\s+([&*])", r"\1", seg)
-    return seg
+    return normalize_type_spacing(seg)
 
 
 def args_qualifiers(argsstring: str) -> str:

@@ -35,6 +35,8 @@ class InMemoryBackend(Backend):
     def __init__(self) -> None:
         """Initialise storage eagerly so the backend is usable immediately."""
         self._nodes: dict[str, "CodeGraphNode"] = {}
+        # Canonical-key index (WP B): ``_nodes`` is keyed by the node's
+        # canonical key — the sole storage identity.
         self._edges_out: dict[str, list[EdgeDescriptor]] = {}
         self._edges_in: dict[str, list[EdgeDescriptor]] = {}
         self._graph_repo: "InMemoryGraphRepository | None" = None
@@ -92,15 +94,30 @@ class InMemoryBackend(Backend):
         """
         from codegraph.models.descriptors import PropertyRegistry
 
-        # Ensure qualified_name is set before computing uid.
+        # Ensure qualified_name is set before keying.
         if (
             PropertyRegistry.has_property(type(node), "qualified_name")
             and not getattr(node, "qualified_name", "")
         ):
             node.qualified_name = node._compute_qualified_name()
 
-        node.uid = node._compute_uid()
-        self._nodes[node.uid] = node
+        # Canonical identity is mandatory (WP A): the model guarantees a
+        # valid key before the backend sees the node.
+        key = getattr(node, "canonical_key", "") or ""
+        if not key:
+            from codegraph.identity import IdentityError
+
+            raise IdentityError(
+                f"cannot save {type(node).__name__}: no canonical key"
+            )
+        # Upsert by key (MERGE semantics — the key is deterministic from
+        # the node's identity, so a same-key save is the same logical
+        # node; genuine cross-identity collisions cannot share a key).
+        self._nodes[key] = node
+        # Honor the element-id contract the other backends provide ("the
+        # persisted node's element id, or None if unsaved"): serialize()
+        # and update() gate on it.
+        node.element_id_property = f"memory:{key}"
         return node
 
     def delete(self, node: "CodeGraphNode") -> None:
@@ -110,20 +127,20 @@ class InMemoryBackend(Backend):
             self.delete(child)
 
         # Remove all edges involving this node
-        uid = node._uid_value()
-        if uid:
-            self._edges_out.pop(uid, None)
-            self._edges_in.pop(uid, None)
+        key = getattr(node, "canonical_key", "") or ""
+        if key:
+            self._edges_out.pop(key, None)
+            self._edges_in.pop(key, None)
             # Remove edges where this node is the target
-            for src_uid, edges in list(self._edges_out.items()):
-                self._edges_out[src_uid] = [
-                    e for e in edges if e.target_uid != uid
+            for src_key, edges in list(self._edges_out.items()):
+                self._edges_out[src_key] = [
+                    e for e in edges if e.target_key != key
                 ]
-            for src_uid, edges in list(self._edges_in.items()):
-                self._edges_in[src_uid] = [
-                    e for e in edges if e.target_uid != uid
+            for src_key, edges in list(self._edges_in.items()):
+                self._edges_in[src_key] = [
+                    e for e in edges if e.target_key != key
                 ]
-            self._nodes.pop(uid, None)
+            self._nodes.pop(key, None)
 
     def get(
         self,
@@ -237,25 +254,26 @@ class InMemoryBackend(Backend):
                 f"{type(source).__name__} to {type(target).__name__}"
             )
 
-        # Track in our in-memory adjacency list
-        src_uid = source._uid_value()
-        tgt_uid = target._uid_value()
-        if src_uid and tgt_uid:
+        # Track in our in-memory adjacency list (keyed by canonical key)
+        src_key = getattr(source, "canonical_key", "") or ""
+        tgt_key = getattr(target, "canonical_key", "") or ""
+        if src_key and tgt_key:
             edge = EdgeDescriptor(
                 relation_type=rel_type,
-                target_uid=tgt_uid,
+                target_key=tgt_key,
                 target_type=type(target).__name__,
                 is_outgoing=True,
                 attributes=dict(attributes or {}),
             )
-            self._edges_out.setdefault(src_uid, []).append(edge)
+            self._edges_out.setdefault(src_key, []).append(edge)
             in_edge = EdgeDescriptor(
                 relation_type=rel_type,
-                target_uid=src_uid,
+                target_key=src_key,
                 target_type=type(source).__name__,
                 is_outgoing=False,
+                attributes=dict(attributes or {}),
             )
-            self._edges_in.setdefault(tgt_uid, []).append(in_edge)
+            self._edges_in.setdefault(tgt_key, []).append(in_edge)
 
     def disconnect(
         self,
@@ -264,17 +282,17 @@ class InMemoryBackend(Backend):
         target: "CodeGraphNode",
     ) -> None:
         """Remove a single relationship."""
-        src_uid = source._uid_value()
-        tgt_uid = target._uid_value()
-        if src_uid:
-            self._edges_out[src_uid] = [
-                e for e in self._edges_out.get(src_uid, [])
-                if not (e.relation_type == rel_type and e.target_uid == tgt_uid)
+        src_key = getattr(source, "canonical_key", "") or ""
+        tgt_key = getattr(target, "canonical_key", "") or ""
+        if src_key:
+            self._edges_out[src_key] = [
+                e for e in self._edges_out.get(src_key, [])
+                if not (e.relation_type == rel_type and e.target_key == tgt_key)
             ]
-        if tgt_uid:
-            self._edges_in[tgt_uid] = [
-                e for e in self._edges_in.get(tgt_uid, [])
-                if not (e.relation_type == rel_type and e.target_uid == src_uid)
+        if tgt_key:
+            self._edges_in[tgt_key] = [
+                e for e in self._edges_in.get(tgt_key, [])
+                if not (e.relation_type == rel_type and e.target_key == src_key)
             ]
 
     def get_composed_children(
@@ -282,13 +300,13 @@ class InMemoryBackend(Backend):
         node: "CodeGraphNode",
     ) -> list["CodeGraphNode"]:
         """Return nodes reachable via outgoing COMPOSES edges."""
-        uid = node._uid_value()
-        if not uid:
+        key = getattr(node, "canonical_key", "") or ""
+        if not key:
             return []
         return [
-            self._nodes[e.target_uid]
-            for e in self._edges_out.get(uid, [])
-            if e.relation_type == "COMPOSES" and e.target_uid in self._nodes
+            self._nodes[e.target_key]
+            for e in self._edges_out.get(key, [])
+            if e.relation_type == "COMPOSES" and e.target_key in self._nodes
         ]
 
     def get_all_edges(
@@ -296,20 +314,20 @@ class InMemoryBackend(Backend):
         node: "CodeGraphNode",
     ) -> list[EdgeDescriptor]:
         """Return all edges (incoming and outgoing)."""
-        uid = node._uid_value()
-        if not uid:
+        key = getattr(node, "canonical_key", "") or ""
+        if not key:
             return []
-        return self._edges_out.get(uid, []) + self._edges_in.get(uid, [])
+        return self._edges_out.get(key, []) + self._edges_in.get(key, [])
 
     def get_all_edges_outgoing(
         self,
         node: "CodeGraphNode",
     ) -> list[EdgeDescriptor]:
         """Return only outgoing edges."""
-        uid = node._uid_value()
-        if not uid:
+        key = getattr(node, "canonical_key", "") or ""
+        if not key:
             return []
-        return self._edges_out.get(uid, [])
+        return self._edges_out.get(key, [])
 
     # ── Bulk operations ──────────────────────────────────────────────
 
@@ -346,22 +364,22 @@ class InMemoryBackend(Backend):
     def bulk_load_by_tag(self, tag: str) -> list["CodeGraphNode"]:
         """Load all nodes with *tag* plus 1-hop neighbors."""
         seeds = self._find_all_by_tag_impl(tag)
-        seen = {n._uid_value() for n in seeds if n._uid_value()}
+        seen = {n.canonical_key for n in seeds if n.canonical_key}
         result = list(seeds)
 
         for seed in seeds:
-            seed_uid = seed._uid_value()
-            if not seed_uid:
+            seed_key = seed.canonical_key
+            if not seed_key:
                 continue
-            for edge in self._edges_out.get(seed_uid, []):
-                neighbor = self._nodes.get(edge.target_uid)
-                if neighbor and neighbor._uid_value() not in seen:
-                    seen.add(neighbor._uid_value())
+            for edge in self._edges_out.get(seed_key, []):
+                neighbor = self._nodes.get(edge.target_key)
+                if neighbor and neighbor.canonical_key not in seen:
+                    seen.add(neighbor.canonical_key)
                     result.append(neighbor)
-            for edge in self._edges_in.get(seed_uid, []):
-                neighbor = self._nodes.get(edge.target_uid)
-                if neighbor and neighbor._uid_value() not in seen:
-                    seen.add(neighbor._uid_value())
+            for edge in self._edges_in.get(seed_key, []):
+                neighbor = self._nodes.get(edge.target_key)
+                if neighbor and neighbor.canonical_key not in seen:
+                    seen.add(neighbor.canonical_key)
                     result.append(neighbor)
 
         return result
@@ -409,17 +427,16 @@ class InMemoryGraphRepository:
     # ── uid / qualified_name resolution ───────────────────────────
 
     def resolve_uid(self, qualified_name: str) -> str | None:
-        node = self._backend.get(
-            __import__("codegraph.models.tags", fromlist=["CodeGraphNode"]).CodeGraphNode,
-            qualified_name=qualified_name,
-        )
-        return node._uid_value() if node else None
+        """Compatibility shim — deprecated (WP C).  Returns the canonical
+        key of the first node matching *qualified_name*."""
+        node = self.find_by_qualified_name(qualified_name)
+        return node.canonical_key if node else None
 
     def resolve_uid_by_name(self, name: str, *, label: str | None = None) -> str | None:
         for node in self._backend._nodes.values():
             if getattr(node, "name", None) == name:
                 if label is None or label in type(node).inherited_labels():
-                    return node._uid_value()
+                    return node.canonical_key
         return None
 
     def resolve_qualified_name(self, uid: str) -> str | None:
@@ -429,7 +446,15 @@ class InMemoryGraphRepository:
     # ── Node lookup ───────────────────────────────────────────────
 
     def find_by_uid(self, uid: str) -> "CodeGraphNode | None":
+        """Compatibility shim (WP C): the canonical key IS the storage key."""
         return self._backend._nodes.get(uid)
+
+    def find_by_key(self, key: str) -> "CodeGraphNode | None":
+        return self._backend._nodes.get(key)
+
+    def resolve_key(self, identity) -> str:
+        """Resolve an identity to its canonical key (deterministic)."""
+        return identity.key()
 
     def find_by_qualified_name(self, qualified_name: str) -> "CodeGraphNode | None":
         for node in self._backend._nodes.values():
@@ -464,7 +489,7 @@ class InMemoryGraphRepository:
             {
                 "qualified_name": getattr(n, "qualified_name", "") or "",
                 "labels": list(type(n).inherited_labels()),
-                "uid": n._uid_value(),
+                "uid": n.canonical_key,
             }
             for n in self._backend._nodes.values()
         ]
@@ -475,14 +500,21 @@ class InMemoryGraphRepository:
             {
                 "qualified_name": getattr(n, "qualified_name", "") or "",
                 "labels": list(type(n).inherited_labels()),
-                "uid": n._uid_value(),
+                "uid": n.canonical_key,
             }
             for n in self._backend._nodes.values()
             if label_set.issubset(type(n).inherited_labels())
         ]
 
-    def count_all_nodes(self) -> int:
-        return len(self._backend._nodes)
+    def count_all_nodes(self, tag: str | None = None) -> int:
+        """Count all nodes, optionally filtered by *tag* (parity with
+        sqlite/neo4j)."""
+        if tag is None:
+            return len(self._backend._nodes)
+        return sum(
+            1 for n in self._backend._nodes.values()
+            if tag in (getattr(n, "tags", None) or [])
+        )
 
     def list_sources(self) -> list[dict[str, Any]]:
         """Return distinct ``source`` values with node counts, desc."""
@@ -515,6 +547,14 @@ class InMemoryGraphRepository:
         self._backend.delete(node)
         return True
 
+    def delete_by_key(self, key: str) -> bool:
+        """Delete a node (edges cascade) by canonical key."""
+        node = self._backend._nodes.get(key)
+        if node is None:
+            return False
+        self._backend.delete(node)
+        return True
+
     def delete_by_source(self, source: str) -> int:
         """Delete every node carrying *source* (edges cascade)."""
         stale = [n for n in self._backend._nodes.values()
@@ -541,13 +581,27 @@ class InMemoryGraphRepository:
         *,
         edge_properties: dict[str, object] | None = None,
     ) -> int:
-        source = self._backend._nodes.get(source_uid)
-        target = self._backend._nodes.get(target_uid)
+        """Compatibility shim (WP C): uids ARE canonical keys here."""
+        return self.merge_relationship_by_key(
+            source_uid, rel_type, target_uid,
+            edge_properties=edge_properties,
+        )
+
+    def merge_relationship_by_key(
+        self,
+        source_key: str,
+        rel_type: str,
+        target_key: str,
+        *,
+        edge_properties: dict[str, object] | None = None,
+    ) -> int:
+        """MERGE a relationship between two nodes by canonical key."""
+        source = self._backend._nodes.get(source_key)
+        target = self._backend._nodes.get(target_key)
         if source is None or target is None:
             return 0
-        # Idempotent: skip if edge already exists
-        for e in self._backend._edges_out.get(source_uid, []):
-            if e.relation_type == rel_type and e.target_uid == target_uid:
+        for e in self._backend._edges_out.get(source_key, []):
+            if e.relation_type == rel_type and e.target_key == target_key:
                 return 0
         self._backend.connect(source, rel_type, target)
         return 1
@@ -560,7 +614,7 @@ class InMemoryGraphRepository:
         target_uid: str,
         target_label: str,
     ) -> None:
-        self.merge_relationship(source_uid, rel_type, target_uid)
+        self.merge_relationship_by_key(source_uid, rel_type, target_uid)
 
     # ── Traversal ─────────────────────────────────────────────────
 
@@ -576,15 +630,15 @@ class InMemoryGraphRepository:
                 for e in self._backend._edges_in.get(cur, []):
                     if e.relation_type != "COMPOSES":
                         continue
-                    if e.target_uid in seen:
+                    if e.target_key in seen:
                         continue
-                    seen.add(e.target_uid)
-                    node = self._backend._nodes.get(e.target_uid)
+                    seen.add(e.target_key)
+                    node = self._backend._nodes.get(e.target_key)
                     results.append({
-                        "uid": e.target_uid,
+                        "uid": e.target_key,
                         "labels": list(type(node).inherited_labels()) if node else [],
                     })
-                    next_frontier.append(e.target_uid)
+                    next_frontier.append(e.target_key)
             frontier = next_frontier
         return results
 
@@ -600,23 +654,24 @@ class InMemoryGraphRepository:
                 for e in self._backend._edges_out.get(cur, []):
                     if e.relation_type != "COMPOSES":
                         continue
-                    if e.target_uid in seen:
+                    if e.target_key in seen:
                         continue
-                    seen.add(e.target_uid)
-                    node = self._backend._nodes.get(e.target_uid)
+                    seen.add(e.target_key)
+                    node = self._backend._nodes.get(e.target_key)
                     results.append({
-                        "uid": e.target_uid,
+                        "uid": e.target_key,
                         "labels": list(type(node).inherited_labels()) if node else [],
                     })
-                    next_frontier.append(e.target_uid)
+                    next_frontier.append(e.target_key)
             frontier = next_frontier
         return results
 
     # ── Tag queries ───────────────────────────────────────────────
 
     def find_uids_by_tag(self, tag: str) -> list[str]:
+        """Returns canonical keys of nodes carrying *tag* (WP C)."""
         return [
-            n._uid_value() for n in self._backend._nodes.values()
+            n.canonical_key for n in self._backend._nodes.values()
             if tag in (getattr(n, "tags", None) or [])
         ]
 
@@ -675,17 +730,30 @@ class InMemoryGraphRepository:
     # ── LayerGraph builders ───────────────────────────────────────
 
     def _build_layer_graph(self, nodes: list["CodeGraphNode"]) -> "LayerGraph":
-        from codegraph.graph import LayerGraph
+        from codegraph.graph import CompositeEntry, LayerGraph
 
-        graph = LayerGraph()
+        graph = LayerGraph(tags=frozenset())
         for node in nodes:
-            graph.add_node(node)
+            graph.entries[LayerGraph._node_key(node)] = CompositeEntry(node=node)
         for node in nodes:
-            uid = node._uid_value()
-            for e in self._backend._edges_out.get(uid, []):
-                target = self._backend._nodes.get(e.target_uid)
+            key = node.canonical_key
+            for e in self._backend._edges_out.get(key, []):
+                target = self._backend._nodes.get(e.target_key)
                 if target is not None:
-                    graph.connect(node, e.relation_type, target)
+                    source_entry = graph.entries.get(LayerGraph._node_key(node))
+                    target_entry = graph.entries.get(LayerGraph._node_key(target))
+                    if source_entry is None or target_entry is None:
+                        continue
+                    if e.relation_type == "COMPOSES":
+                        t = type(target).__name__
+                        source_entry.children.setdefault(t, {})[
+                            LayerGraph._node_key(target)
+                        ] = target_entry
+                    else:
+                        source_entry.references.append(
+                            (e.relation_type, LayerGraph._node_key(target),
+                             type(target).__name__)
+                        )
         return graph
 
     def get_by_tag(self, tag: "Tag") -> "LayerGraph":
@@ -755,21 +823,21 @@ class InMemoryGraphRepository:
     def incoming_composers(
         self, node: "CodeGraphNode"
     ) -> list["CodeGraphNode"]:
-        uid = node._uid_value()
+        key = node.canonical_key
         return [
-            self._backend._nodes[e.target_uid]
-            for e in self._backend._edges_in.get(uid, [])
-            if e.relation_type == "COMPOSES" and e.target_uid in self._backend._nodes
+            self._backend._nodes[e.target_key]
+            for e in self._backend._edges_in.get(key, [])
+            if e.relation_type == "COMPOSES" and e.target_key in self._backend._nodes
         ]
 
     def outgoing_by_relation(
         self, node: "CodeGraphNode", rel_type: str
     ) -> list["CodeGraphNode"]:
-        uid = node._uid_value()
+        key = node.canonical_key
         return [
-            self._backend._nodes[e.target_uid]
-            for e in self._backend._edges_out.get(uid, [])
-            if e.relation_type == rel_type and e.target_uid in self._backend._nodes
+            self._backend._nodes[e.target_key]
+            for e in self._backend._edges_out.get(key, [])
+            if e.relation_type == rel_type and e.target_key in self._backend._nodes
         ]
 
     def save_layer_graph(self, graph: "LayerGraph") -> None:

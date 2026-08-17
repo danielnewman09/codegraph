@@ -4,6 +4,11 @@ memory findings and requirement updates.
 Uses ``llm_caller.call_tool_loop`` for multi-turn exploration of the
 codegraph and memory store before committing findings.
 
+Migration-only legacy entry point. Its current consumer is the feedback CLI
+and service; the replacement target is ``codegraph_agents.feedback`` plus the
+shared model service. Remove this module after parity and downstream migration
+are verified. Do not add new orchestration behavior here.
+
 Usage::
 
     from codegraph_feedback.agents.analyze_feedback import analyze_and_persist

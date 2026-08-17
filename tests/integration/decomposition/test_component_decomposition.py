@@ -24,6 +24,45 @@ from codegraph.export.plantuml import export_plantuml
 # ── Fixtures ───────────────────────────────────────────────────────────────
 
 
+def _key_graph(graph: LayerGraph) -> LayerGraph:
+    """WP A: assign canonical keys to every node in *graph* under the
+    active identity scope (parent-relative children use their parent's
+    key).  Mutates the entries in place and returns the graph."""
+    from codegraph.identity import get_identity_scope, resolve_identity_for
+
+    scope = get_identity_scope()
+    if scope is None:
+        return graph
+
+    def walk(entries, parent_key=None):
+        for entry in entries:
+            node = entry.node
+            t = type(node).__name__
+            parents = {}
+            if parent_key:
+                if t == "LLR":
+                    parents["parent_hlr_key"] = parent_key
+                elif t in (
+                    "TestNode", "TestFixtureNode",
+                    "AssertionNode", "TestStepNode",
+                ):
+                    parents["parent_key"] = parent_key
+            node.canonical_key = resolve_identity_for(
+                node, scope, parents=parents
+            ).key()
+            walk(
+                [
+                    e
+                    for type_children in entry.children.values()
+                    for e in type_children.values()
+                ],
+                node.canonical_key,
+            )
+
+    walk(list(graph.entries.values()))
+    return graph
+
+
 @pytest.fixture
 def simple_graph() -> LayerGraph:
     """A two-namespace graph with classes, interfaces, and methods."""
@@ -104,13 +143,13 @@ def simple_graph() -> LayerGraph:
         },
     )
 
-    return LayerGraph(
+    return _key_graph(LayerGraph(
         tags=frozenset(["as-built"]),
         entries={
             "calc": calc_ns_entry,
             "store": store_ns_entry,
         },
-    )
+    ))
 
 
 @pytest.fixture
@@ -130,10 +169,10 @@ def standalone_graph() -> LayerGraph:
         ("REALIZES", "App", "ClassNode"),
     ])
 
-    return LayerGraph(
+    return _key_graph(LayerGraph(
         tags=frozenset(["as-built"]),
         entries={"App": cls_entry, "IApp": iface_entry},
-    )
+    ))
 
 
 # ── ComponentDecomposition tests ──────────────────────────────────────────

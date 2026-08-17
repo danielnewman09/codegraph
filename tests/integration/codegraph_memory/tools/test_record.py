@@ -40,7 +40,7 @@ class TestCreate:
         assert result["action"] == "created"
         assert result["type"] == "DecisionNode"
         assert result["qualified_name"] == "memory::test-create-decision"
-        assert result["uid"] is not None
+        assert result["canonical_key"] is not None
         assert result["content"] == "We chose X over Y because of Z."
         assert result["tags"] == ["design"]
         assert result["confidence"] == 0.9
@@ -49,7 +49,7 @@ class TestCreate:
 
         # Cleanup
         from codegraph_memory.models.decision import DecisionNode
-        DecisionNode.nodes.get(uid=result["uid"]).delete()
+        DecisionNode.nodes.get(canonical_key=result["canonical_key"]).delete()
 
     def test_create_constraint(self):
         result = record_memory(
@@ -63,7 +63,7 @@ class TestCreate:
         assert result["confidence"] == 1.0  # default
 
         from codegraph_memory.models.constraint import ConstraintNode
-        ConstraintNode.nodes.get(uid=result["uid"]).delete()
+        ConstraintNode.nodes.get(canonical_key=result["canonical_key"]).delete()
 
     def test_create_rationale(self):
         result = record_memory(
@@ -75,7 +75,7 @@ class TestCreate:
         assert result["type"] == "RationaleNode"
 
         from codegraph_memory.models.rationale import RationaleNode
-        RationaleNode.nodes.get(uid=result["uid"]).delete()
+        RationaleNode.nodes.get(canonical_key=result["canonical_key"]).delete()
 
     def test_create_assumption(self):
         result = record_memory(
@@ -89,7 +89,7 @@ class TestCreate:
         assert result["confidence"] == 0.5
 
         from codegraph_memory.models.assumption import AssumptionNode
-        AssumptionNode.nodes.get(uid=result["uid"]).delete()
+        AssumptionNode.nodes.get(canonical_key=result["canonical_key"]).delete()
 
     def test_create_tradeoff(self):
         result = record_memory(
@@ -101,7 +101,7 @@ class TestCreate:
         assert result["type"] == "TradeoffNode"
 
         from codegraph_memory.models.tradeoff import TradeoffNode
-        TradeoffNode.nodes.get(uid=result["uid"]).delete()
+        TradeoffNode.nodes.get(canonical_key=result["canonical_key"]).delete()
 
     def test_create_insight(self):
         result = record_memory(
@@ -113,7 +113,7 @@ class TestCreate:
         assert result["type"] == "InsightNode"
 
         from codegraph_memory.models.insight import InsightNode
-        InsightNode.nodes.get(uid=result["uid"]).delete()
+        InsightNode.nodes.get(canonical_key=result["canonical_key"]).delete()
 
 
 # ── Update (upsert) ───────────────────────────────────────────────────
@@ -131,7 +131,7 @@ class TestUpsert:
         assert result["action"] == "created"
 
         from codegraph_memory.models.decision import DecisionNode
-        DecisionNode.nodes.get(uid=result["uid"]).delete()
+        DecisionNode.nodes.get(canonical_key=result["canonical_key"]).delete()
 
     def test_upsert_updates_when_found(self):
         # Create first
@@ -142,7 +142,7 @@ class TestUpsert:
             tags=["design"],
             confidence=0.7,
         )
-        uid = r1["uid"]
+        uid = r1["canonical_key"]
         assert r1["action"] == "created"
 
         # Upsert with new content
@@ -155,14 +155,14 @@ class TestUpsert:
             mode="upsert",
         )
         assert r2["action"] == "updated"
-        assert r2["uid"] == uid  # same node, stable UID
+        assert r2["canonical_key"] == uid  # same node, stable UID
         assert r2["content"] == "Updated content."
         assert r2["tags"] == ["as-built"]
         assert r2["confidence"] == 0.95
 
         # Cleanup
         from codegraph_memory.models.decision import DecisionNode
-        DecisionNode.nodes.get(uid=uid).delete()
+        DecisionNode.nodes.get(canonical_key=uid).delete()
 
     def test_upsert_preserves_unchanged_fields(self):
         # Create with tags
@@ -173,7 +173,7 @@ class TestUpsert:
             tags=["design"],
             confidence=0.8,
         )
-        uid = r1["uid"]
+        uid = r1["canonical_key"]
 
         # Upsert without tags — tags should be preserved
         r2 = record_memory(
@@ -187,7 +187,7 @@ class TestUpsert:
         assert r2["confidence"] == 0.8  # preserved
 
         from codegraph_memory.models.decision import DecisionNode
-        DecisionNode.nodes.get(uid=uid).delete()
+        DecisionNode.nodes.get(canonical_key=uid).delete()
 
 
 # ── Mode constraints ──────────────────────────────────────────────────
@@ -201,7 +201,7 @@ class TestModeConstraints:
             qualified_name="memory::test-create-exists",
             content="First.",
         )
-        uid = r1["uid"]
+        uid = r1["canonical_key"]
 
         r2 = record_memory(
             type="decision",
@@ -213,7 +213,7 @@ class TestModeConstraints:
         assert "already exists" in r2["error"]
 
         from codegraph_memory.models.decision import DecisionNode
-        DecisionNode.nodes.get(uid=uid).delete()
+        DecisionNode.nodes.get(canonical_key=uid).delete()
 
     def test_update_fails_if_not_found(self):
         result = record_memory(
@@ -293,7 +293,7 @@ class TestDisambiguation:
             from codegraph_memory.models.decision import DecisionNode as _DN
 
             _props = {
-                "uid": "manual-uid-99999",
+                "canonical_key": "cg:v1:repository:other-project%2Fother-repo:memory-decision:qualified_name=memory%3A%3Atest-ambiguous-raw",
                 "qualified_name": "memory::test-ambiguous-raw",
                 "content": "Second version.",
                 "source": "test",
@@ -303,11 +303,11 @@ class TestDisambiguation:
             }
             _labels = _DN.inherited_labels()
             rows, _ = backend.execute_raw(
-                "INSERT INTO nodes (uid, labels, properties) "
-                "VALUES (:uid, :labels, :props) "
-                "ON CONFLICT(uid) DO NOTHING RETURNING id",
+                "INSERT INTO nodes (canonical_key, labels, properties) "
+                "VALUES (:canonical_key, :labels, :props) "
+                "ON CONFLICT(canonical_key) DO NOTHING RETURNING id",
                 {
-                    "uid": "manual-uid-99999",
+                    "canonical_key": "cg:v1:repository:other-project%2Fother-repo:memory-decision:qualified_name=memory%3A%3Atest-ambiguous-raw",
                     "labels": _json.dumps(_labels),
                     "props": _json.dumps(_props),
                 },
@@ -320,7 +320,7 @@ class TestDisambiguation:
             )
         else:
             backend.execute_raw(
-                "CREATE (n:DecisionNode:MemoryNode) SET n.uid = 'manual-uid-99999', "
+                "CREATE (n:DecisionNode:MemoryNode) SET n.canonical_key = 'cg:v1:repository:other-project%2Fother-repo:memory-decision:qualified_name=memory%3A%3Atest-ambiguous-raw', "
                 "n.qualified_name = 'memory::test-ambiguous-raw', "
                 "n.content = 'Second version.', n.source = 'test', n.tags = [], "
                 "n.confidence = 1.0, n.name = ''"
@@ -337,7 +337,7 @@ class TestDisambiguation:
 
         # Cleanup
         d1.delete()
-        get_backend().graph.delete_by_uid("manual-uid-99999")
+        get_backend().graph.delete_by_key("cg:v1:repository:other-project%2Fother-repo:memory-decision:qualified_name=memory%3A%3Atest-ambiguous-raw")
 
     def test_uid_disambiguates(self):
         from codegraph_memory.models.decision import DecisionNode
@@ -355,15 +355,15 @@ class TestDisambiguation:
         )
         d2.save()
 
-        # Target by uid
+        # Target by canonical key
         result = record_memory(
             type="decision",
             qualified_name="memory::test-uid-ambiguous",
             content="Updated via uid.",
-            uid=d1.uid,
+            uid=d1.canonical_key,
         )
         assert result["action"] == "updated"
-        assert result["uid"] == d1.uid
+        assert result["canonical_key"] == d1.canonical_key
         assert result["content"] == "Updated via uid."
 
         d1.delete()
@@ -387,7 +387,7 @@ class TestLinksTo:
 
         # Verify the edge exists
         from codegraph_memory.models.decision import DecisionNode
-        node = DecisionNode.nodes.get(uid=result["uid"])
+        node = DecisionNode.nodes.get(canonical_key=result["canonical_key"])
         from codegraph_memory.models.relationships import get_linked_code_nodes
         linked = get_linked_code_nodes(node, "MOTIVATES")
         assert len(linked) == 1
@@ -410,7 +410,7 @@ class TestLinksTo:
         assert set(result["linked_code"]) == {"test::RecordTarget", "test::RecordTarget2"}
 
         from codegraph_memory.models.constraint import ConstraintNode
-        node = ConstraintNode.nodes.get(uid=result["uid"])
+        node = ConstraintNode.nodes.get(canonical_key=result["canonical_key"])
         from codegraph_memory.models.relationships import get_linked_code_nodes
         linked = get_linked_code_nodes(node, "CONSTRAINS")
         assert len(linked) == 2
@@ -430,7 +430,7 @@ class TestLinksTo:
         assert result["linked_code"] == []  # skipped
 
         from codegraph_memory.models.decision import DecisionNode
-        DecisionNode.nodes.get(uid=result["uid"]).delete()
+        DecisionNode.nodes.get(canonical_key=result["canonical_key"]).delete()
 
     def test_links_to_is_additive_on_update(self, code_node):
         # Create with one link
@@ -440,7 +440,7 @@ class TestLinksTo:
             content="Decision.",
             links_to="test::RecordTarget",
         )
-        uid = r1["uid"]
+        uid = r1["canonical_key"]
 
         # Create second code node
         c2 = ClassNode(qualified_name="test::RecordTarget3", source="test")
@@ -458,7 +458,7 @@ class TestLinksTo:
 
         # Both links should exist
         from codegraph_memory.models.decision import DecisionNode
-        node = DecisionNode.nodes.get(uid=uid)
+        node = DecisionNode.nodes.get(canonical_key=uid)
         from codegraph_memory.models.relationships import get_linked_code_nodes
         linked = get_linked_code_nodes(node, "MOTIVATES")
         assert len(linked) == 2
@@ -479,7 +479,7 @@ class TestSupersedes:
             qualified_name="memory::test-supersede-old",
             content="Old approach: use psycopg2.",
         )
-        old_uid = old["uid"]
+        old_uid = old["canonical_key"]
 
         # Create new decision that supersedes
         new = record_memory(
@@ -489,12 +489,12 @@ class TestSupersedes:
             supersedes="memory::test-supersede-old",
         )
         assert new["action"] == "created"
-        assert new["uid"] != old_uid  # different node
+        assert new["canonical_key"] != old_uid  # different node
 
         # Verify SUPERSEDES edge
         from codegraph_memory.models.decision import DecisionNode
-        new_node = DecisionNode.nodes.get(uid=new["uid"])
-        old_node = DecisionNode.nodes.get(uid=old_uid)
+        new_node = DecisionNode.nodes.get(canonical_key=new["canonical_key"])
+        old_node = DecisionNode.nodes.get(canonical_key=old_uid)
 
         assert old_node in new_node.supersedes.all()
 
@@ -514,7 +514,7 @@ class TestSupersedes:
             qualified_name="memory::test-supersede-force-old",
             content="Old approach.",
         )
-        old_uid = old["uid"]
+        old_uid = old["canonical_key"]
 
         # New decision with a different qualified_name supersedes the old
         new = record_memory(
@@ -526,11 +526,11 @@ class TestSupersedes:
         )
         # Should be created (not updated) because supersedes implies create
         assert new["action"] == "created"
-        assert new["uid"] != old_uid  # different node
+        assert new["canonical_key"] != old_uid  # different node
 
         from codegraph_memory.models.decision import DecisionNode
-        new_node = DecisionNode.nodes.get(uid=new["uid"])
-        old_node = DecisionNode.nodes.get(uid=old_uid)
+        new_node = DecisionNode.nodes.get(canonical_key=new["canonical_key"])
+        old_node = DecisionNode.nodes.get(canonical_key=old_uid)
         new_node.delete()
         old_node.delete()
 
@@ -555,7 +555,7 @@ class TestRefines:
             qualified_name="memory::test-refines-decision",
             content="We chose async processing.",
         )
-        dec_uid = dec["uid"]
+        dec_uid = dec["canonical_key"]
 
         # Create rationale that refines it
         rat = record_memory(
@@ -570,8 +570,8 @@ class TestRefines:
         from codegraph_memory.models.rationale import RationaleNode
         from codegraph_memory.models.decision import DecisionNode
 
-        rat_node = RationaleNode.nodes.get(uid=rat["uid"])
-        dec_node = DecisionNode.nodes.get(uid=dec_uid)
+        rat_node = RationaleNode.nodes.get(canonical_key=rat["canonical_key"])
+        dec_node = DecisionNode.nodes.get(canonical_key=dec_uid)
 
         assert dec_node in rat_node.refines.all()
 
@@ -599,7 +599,7 @@ class TestContradicts:
             qualified_name="memory::test-contradicts-a1",
             content="The network is reliable.",
         )
-        a1_uid = a1["uid"]
+        a1_uid = a1["canonical_key"]
 
         # Create second assumption that contradicts the first
         a2 = record_memory(
@@ -613,8 +613,8 @@ class TestContradicts:
         # Verify CONTRADICTS edge
         from codegraph_memory.models.assumption import AssumptionNode
 
-        a2_node = AssumptionNode.nodes.get(uid=a2["uid"])
-        a1_node = AssumptionNode.nodes.get(uid=a1_uid)
+        a2_node = AssumptionNode.nodes.get(canonical_key=a2["canonical_key"])
+        a1_node = AssumptionNode.nodes.get(canonical_key=a1_uid)
 
         assert a1_node in a2_node.contradicts.all()
 
@@ -654,7 +654,7 @@ class TestErrors:
             uid="nonexistent-uid-12345",
         )
         assert result["action"] == "created"  # falls through to create
-        assert result["uid"] != "nonexistent-uid-12345"
+        assert result["canonical_key"] != "nonexistent-uid-12345"
 
         from codegraph_memory.models.decision import DecisionNode
-        DecisionNode.nodes.get(uid=result["uid"]).delete()
+        DecisionNode.nodes.get(canonical_key=result["canonical_key"]).delete()

@@ -10,7 +10,8 @@
     "uid": "a481de036d4aa4262b7fe0b0b22057ee870410da",
     "tags": [
       "design"
-    ]
+    ],
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_engine.h"
   },
   {
     "type": "FileNode",
@@ -23,7 +24,8 @@
     "uid": "d7b62cf39dd781ab587a2bf7d13d15a16d56f279",
     "tags": [
       "design"
-    ]
+    ],
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:file:normalized_repository_path=%2Fsrc%2Fcalc%2Ficalculator.h"
   },
   {
     "type": "FileNode",
@@ -36,7 +38,8 @@
     "uid": "cccbc1901c2f1c6a31a6e83bb25fa4eaed42f26c",
     "tags": [
       "design"
-    ]
+    ],
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:file:normalized_repository_path=%2Fsrc%2Fcalc%2Foperation.h"
   },
   {
     "type": "FileNode",
@@ -49,7 +52,8 @@
     "uid": "7cf39e5586c26cace739ac9e68b9c12ff0afd302",
     "tags": [
       "design"
-    ]
+    ],
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_result.h"
   },
   {
     "type": "FileNode",
@@ -62,7 +66,8 @@
     "uid": "ab1f119b125f35d51a2839cd7ea852a406f0bc70",
     "tags": [
       "design"
-    ]
+    ],
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:file:normalized_repository_path=%2Fsrc%2Fui%2Fbase_window.h"
   },
   {
     "type": "FileNode",
@@ -75,7 +80,8 @@
     "uid": "ed5079afea47324c35d360d8ee9e8707ce8f7962",
     "tags": [
       "design"
-    ]
+    ],
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:file:normalized_repository_path=%2Fsrc%2Fui%2Fcalculator_window.h"
   },
   {
     "type": "NamespaceNode",
@@ -88,33 +94,34 @@
       {
         "relation_type": "COMPOSES",
         "target_type": "ClassNode",
-        "target_local_id": "93aeaa5ee440aac253b156ccf2f15227aa11e0ac"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=calc%3A%3ACalculatorEngine"
       },
       {
         "relation_type": "COMPOSES",
         "target_type": "ClassNode",
-        "target_local_id": "3beaa98236596366493cf23e0ab33dad2bec8398"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=calc%3A%3ACalculatorResult"
       },
       {
         "relation_type": "COMPOSES",
         "target_type": "InterfaceNode",
-        "target_local_id": "c91c124590ac1b9feace1652a940c88ddcf38f3c"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:interface:qualified_name=calc%3A%3AICalculator"
       },
       {
         "relation_type": "COMPOSES",
         "target_type": "EnumNode",
-        "target_local_id": "535a4bf2ad71c02172d3ebe363501e38da388059"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:enum:qualified_name=calc%3A%3AOperation"
       },
       {
         "relation_type": "COMPOSES",
         "target_type": "FunctionNode",
-        "target_local_id": "b23fa2d4d504f613db1009edff2acd2b7556a0f4"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:function:qualified_name=calc%3A%3AformatResult:canonical_signature=lang%3Acpp%7C%28%29"
       }
     ],
     "tags": [
       "design"
     ],
-    "uid": "bd8b6cf747ada9179df7b2b110cf2cb811fdb73a"
+    "uid": "bd8b6cf747ada9179df7b2b110cf2cb811fdb73a",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:namespace:qualified_name=calc"
   },
   {
     "type": "NamespaceNode",
@@ -127,18 +134,19 @@
       {
         "relation_type": "COMPOSES",
         "target_type": "ClassNode",
-        "target_local_id": "be5ed6c102db4247732c36442e610248058b2cc8"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=ui%3A%3ABaseWindow"
       },
       {
         "relation_type": "COMPOSES",
         "target_type": "ClassNode",
-        "target_local_id": "a7088a313f75ecdafea536ec62f8d93de39f2c33"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=ui%3A%3ACalculatorWindow"
       }
     ],
     "tags": [
       "design"
     ],
-    "uid": "6c4df8a4a9e9401d070103edf9a7f17fff19c2ba"
+    "uid": "6c4df8a4a9e9401d070103edf9a7f17fff19c2ba",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:namespace:qualified_name=ui"
   },
   {
     "type": "InterfaceNode",
@@ -155,18 +163,19 @@
       {
         "relation_type": "COMPOSES",
         "target_type": "MethodNode",
-        "target_local_id": "ae91bd9b059d2cbd18c3c6f0e5b6cbcd9a10bc58"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=calc%3A%3AICalculator%3A%3Acalculate:canonical_signature=lang%3Acpp%7C%28Operation%2Cdouble%2Cdouble%29"
       },
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "d7b62cf39dd781ab587a2bf7d13d15a16d56f279"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:file:normalized_repository_path=%2Fsrc%2Fcalc%2Ficalculator.h"
       }
     ],
     "tags": [
       "design"
     ],
-    "uid": "c91c124590ac1b9feace1652a940c88ddcf38f3c"
+    "uid": "c91c124590ac1b9feace1652a940c88ddcf38f3c",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:interface:qualified_name=calc%3A%3AICalculator"
   },
   {
     "type": "ClassNode",
@@ -185,38 +194,39 @@
       {
         "relation_type": "REALIZES",
         "target_type": "InterfaceNode",
-        "target_local_id": "c91c124590ac1b9feace1652a940c88ddcf38f3c"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:interface:qualified_name=calc%3A%3AICalculator"
       },
       {
         "relation_type": "DEPENDS_ON",
         "target_type": "ClassNode",
-        "target_local_id": "3beaa98236596366493cf23e0ab33dad2bec8398"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=calc%3A%3ACalculatorResult"
       },
       {
         "relation_type": "COMPOSES",
         "target_type": "MethodNode",
-        "target_local_id": "f03506a446d2e754452e774955c83c7ccd7bf8c6"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=calc%3A%3ACalculatorEngine%3A%3Aadd:canonical_signature=lang%3Acpp%7C%28double%2Cdouble%29"
       },
       {
         "relation_type": "COMPOSES",
         "target_type": "MethodNode",
-        "target_local_id": "546620476ca16b2f3db46b316f9e8b9aa6d925f1"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=calc%3A%3ACalculatorEngine%3A%3AvalidateInput:canonical_signature=lang%3Acpp%7C%28string%29"
       },
       {
         "relation_type": "COMPOSES",
         "target_type": "AttributeNode",
-        "target_local_id": "e2c8a236f5d302627dcc4d2e22070f9519505e91"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=calc%3A%3ACalculatorEngine%3A%3Aprecision"
       },
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "a481de036d4aa4262b7fe0b0b22057ee870410da"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_engine.h"
       }
     ],
     "tags": [
       "design"
     ],
-    "uid": "93aeaa5ee440aac253b156ccf2f15227aa11e0ac"
+    "uid": "93aeaa5ee440aac253b156ccf2f15227aa11e0ac",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=calc%3A%3ACalculatorEngine"
   },
   {
     "type": "ClassNode",
@@ -235,23 +245,24 @@
       {
         "relation_type": "COMPOSES",
         "target_type": "AttributeNode",
-        "target_local_id": "4c582541814c6e1e69804100ff09496d81ce1ba7"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=calc%3A%3ACalculatorResult%3A%3Avalue"
       },
       {
         "relation_type": "COMPOSES",
         "target_type": "MethodNode",
-        "target_local_id": "29590eee47c8aaca1eeb2f993d7ed9830353bf26"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=calc%3A%3ACalculatorResult%3A%3Aget_value:canonical_signature=lang%3Acpp%7C%28%29"
       },
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "7cf39e5586c26cace739ac9e68b9c12ff0afd302"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_result.h"
       }
     ],
     "tags": [
       "design"
     ],
-    "uid": "3beaa98236596366493cf23e0ab33dad2bec8398"
+    "uid": "3beaa98236596366493cf23e0ab33dad2bec8398",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=calc%3A%3ACalculatorResult"
   },
   {
     "type": "EnumNode",
@@ -267,23 +278,24 @@
       {
         "relation_type": "COMPOSES",
         "target_type": "EnumValueNode",
-        "target_local_id": "8abe9dc65a5df639ef2bcd7cf1bbfb7047405690"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:enum-value:qualified_name=calc%3A%3AOperation%3A%3AADD"
       },
       {
         "relation_type": "COMPOSES",
         "target_type": "EnumValueNode",
-        "target_local_id": "291b160857f2358aea93cf91dc891941c80042b0"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:enum-value:qualified_name=calc%3A%3AOperation%3A%3ASUBTRACT"
       },
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "cccbc1901c2f1c6a31a6e83bb25fa4eaed42f26c"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:file:normalized_repository_path=%2Fsrc%2Fcalc%2Foperation.h"
       }
     ],
     "tags": [
       "design"
     ],
-    "uid": "535a4bf2ad71c02172d3ebe363501e38da388059"
+    "uid": "535a4bf2ad71c02172d3ebe363501e38da388059",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:enum:qualified_name=calc%3A%3AOperation"
   },
   {
     "type": "EnumValueNode",
@@ -297,7 +309,8 @@
     "tags": [
       "design"
     ],
-    "uid": "8abe9dc65a5df639ef2bcd7cf1bbfb7047405690"
+    "uid": "8abe9dc65a5df639ef2bcd7cf1bbfb7047405690",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:enum-value:qualified_name=calc%3A%3AOperation%3A%3AADD"
   },
   {
     "type": "EnumValueNode",
@@ -311,7 +324,8 @@
     "tags": [
       "design"
     ],
-    "uid": "291b160857f2358aea93cf91dc891941c80042b0"
+    "uid": "291b160857f2358aea93cf91dc891941c80042b0",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:enum-value:qualified_name=calc%3A%3AOperation%3A%3ASUBTRACT"
   },
   {
     "type": "FunctionNode",
@@ -327,13 +341,14 @@
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "a481de036d4aa4262b7fe0b0b22057ee870410da"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_engine.h"
       }
     ],
     "tags": [
       "design"
     ],
-    "uid": "b23fa2d4d504f613db1009edff2acd2b7556a0f4"
+    "uid": "b23fa2d4d504f613db1009edff2acd2b7556a0f4",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:function:qualified_name=calc%3A%3AformatResult:canonical_signature=lang%3Acpp%7C%28%29"
   },
   {
     "type": "ClassNode",
@@ -351,18 +366,19 @@
       {
         "relation_type": "COMPOSES",
         "target_type": "MethodNode",
-        "target_local_id": "867d9f104a197c667c9a73c02d24f77960718dce"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=ui%3A%3ABaseWindow%3A%3Ashow:canonical_signature=lang%3Acpp%7C%28%29"
       },
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "ab1f119b125f35d51a2839cd7ea852a406f0bc70"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:file:normalized_repository_path=%2Fsrc%2Fui%2Fbase_window.h"
       }
     ],
     "tags": [
       "design"
     ],
-    "uid": "be5ed6c102db4247732c36442e610248058b2cc8"
+    "uid": "be5ed6c102db4247732c36442e610248058b2cc8",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=ui%3A%3ABaseWindow"
   },
   {
     "type": "ClassNode",
@@ -380,38 +396,39 @@
       {
         "relation_type": "INHERITS_FROM",
         "target_type": "ClassNode",
-        "target_local_id": "be5ed6c102db4247732c36442e610248058b2cc8"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=ui%3A%3ABaseWindow"
       },
       {
         "relation_type": "DEPENDS_ON",
         "target_type": "ClassNode",
-        "target_local_id": "93aeaa5ee440aac253b156ccf2f15227aa11e0ac"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=calc%3A%3ACalculatorEngine"
       },
       {
         "relation_type": "COMPOSES",
         "target_type": "AttributeNode",
-        "target_local_id": "165fcec95cb3e811f028df0022614a35c6a8c3d1"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=ui%3A%3ACalculatorWindow%3A%3Adisplay"
       },
       {
         "relation_type": "COMPOSES",
         "target_type": "AttributeNode",
-        "target_local_id": "6b1fe9d08012d6786d663495c456e28764f06612"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=ui%3A%3ACalculatorWindow%3A%3AcurrentInput"
       },
       {
         "relation_type": "COMPOSES",
         "target_type": "MethodNode",
-        "target_local_id": "77a4b93934e021ded536b57f90c7ed400086c47d"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29"
       },
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "ed5079afea47324c35d360d8ee9e8707ce8f7962"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:file:normalized_repository_path=%2Fsrc%2Fui%2Fcalculator_window.h"
       }
     ],
     "tags": [
       "design"
     ],
-    "uid": "a7088a313f75ecdafea536ec62f8d93de39f2c33"
+    "uid": "a7088a313f75ecdafea536ec62f8d93de39f2c33",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=ui%3A%3ACalculatorWindow"
   },
   {
     "type": "MethodNode",
@@ -427,13 +444,14 @@
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "d7b62cf39dd781ab587a2bf7d13d15a16d56f279"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:file:normalized_repository_path=%2Fsrc%2Fcalc%2Ficalculator.h"
       }
     ],
     "tags": [
       "design"
     ],
-    "uid": "ae91bd9b059d2cbd18c3c6f0e5b6cbcd9a10bc58"
+    "uid": "ae91bd9b059d2cbd18c3c6f0e5b6cbcd9a10bc58",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=calc%3A%3AICalculator%3A%3Acalculate:canonical_signature=lang%3Acpp%7C%28Operation%2Cdouble%2Cdouble%29"
   },
   {
     "type": "MethodNode",
@@ -449,13 +467,14 @@
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "a481de036d4aa4262b7fe0b0b22057ee870410da"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_engine.h"
       }
     ],
     "tags": [
       "design"
     ],
-    "uid": "f03506a446d2e754452e774955c83c7ccd7bf8c6"
+    "uid": "f03506a446d2e754452e774955c83c7ccd7bf8c6",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=calc%3A%3ACalculatorEngine%3A%3Aadd:canonical_signature=lang%3Acpp%7C%28double%2Cdouble%29"
   },
   {
     "type": "MethodNode",
@@ -471,13 +490,14 @@
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "a481de036d4aa4262b7fe0b0b22057ee870410da"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_engine.h"
       }
     ],
     "tags": [
       "design"
     ],
-    "uid": "546620476ca16b2f3db46b316f9e8b9aa6d925f1"
+    "uid": "546620476ca16b2f3db46b316f9e8b9aa6d925f1",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=calc%3A%3ACalculatorEngine%3A%3AvalidateInput:canonical_signature=lang%3Acpp%7C%28string%29"
   },
   {
     "type": "AttributeNode",
@@ -492,13 +512,14 @@
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "a481de036d4aa4262b7fe0b0b22057ee870410da"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_engine.h"
       }
     ],
     "tags": [
       "design"
     ],
-    "uid": "e2c8a236f5d302627dcc4d2e22070f9519505e91"
+    "uid": "e2c8a236f5d302627dcc4d2e22070f9519505e91",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=calc%3A%3ACalculatorEngine%3A%3Aprecision"
   },
   {
     "type": "AttributeNode",
@@ -513,13 +534,14 @@
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "7cf39e5586c26cace739ac9e68b9c12ff0afd302"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_result.h"
       }
     ],
     "tags": [
       "design"
     ],
-    "uid": "4c582541814c6e1e69804100ff09496d81ce1ba7"
+    "uid": "4c582541814c6e1e69804100ff09496d81ce1ba7",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=calc%3A%3ACalculatorResult%3A%3Avalue"
   },
   {
     "type": "MethodNode",
@@ -535,13 +557,14 @@
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "7cf39e5586c26cace739ac9e68b9c12ff0afd302"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_result.h"
       }
     ],
     "tags": [
       "design"
     ],
-    "uid": "29590eee47c8aaca1eeb2f993d7ed9830353bf26"
+    "uid": "29590eee47c8aaca1eeb2f993d7ed9830353bf26",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=calc%3A%3ACalculatorResult%3A%3Aget_value:canonical_signature=lang%3Acpp%7C%28%29"
   },
   {
     "type": "MethodNode",
@@ -557,13 +580,14 @@
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "ab1f119b125f35d51a2839cd7ea852a406f0bc70"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:file:normalized_repository_path=%2Fsrc%2Fui%2Fbase_window.h"
       }
     ],
     "tags": [
       "design"
     ],
-    "uid": "867d9f104a197c667c9a73c02d24f77960718dce"
+    "uid": "867d9f104a197c667c9a73c02d24f77960718dce",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=ui%3A%3ABaseWindow%3A%3Ashow:canonical_signature=lang%3Acpp%7C%28%29"
   },
   {
     "type": "AttributeNode",
@@ -578,13 +602,14 @@
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "ed5079afea47324c35d360d8ee9e8707ce8f7962"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:file:normalized_repository_path=%2Fsrc%2Fui%2Fcalculator_window.h"
       }
     ],
     "tags": [
       "design"
     ],
-    "uid": "165fcec95cb3e811f028df0022614a35c6a8c3d1"
+    "uid": "165fcec95cb3e811f028df0022614a35c6a8c3d1",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=ui%3A%3ACalculatorWindow%3A%3Adisplay"
   },
   {
     "type": "AttributeNode",
@@ -599,13 +624,14 @@
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "ed5079afea47324c35d360d8ee9e8707ce8f7962"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:file:normalized_repository_path=%2Fsrc%2Fui%2Fcalculator_window.h"
       }
     ],
     "tags": [
       "design"
     ],
-    "uid": "6b1fe9d08012d6786d663495c456e28764f06612"
+    "uid": "6b1fe9d08012d6786d663495c456e28764f06612",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=ui%3A%3ACalculatorWindow%3A%3AcurrentInput"
   },
   {
     "type": "MethodNode",
@@ -621,12 +647,13 @@
       {
         "relation_type": "DEFINED_IN",
         "target_type": "FileNode",
-        "target_local_id": "ed5079afea47324c35d360d8ee9e8707ce8f7962"
+        "target_key": "cg:v1:repository:fixture%2Ffixture:file:normalized_repository_path=%2Fsrc%2Fui%2Fcalculator_window.h"
       }
     ],
     "tags": [
       "design"
     ],
-    "uid": "77a4b93934e021ded536b57f90c7ed400086c47d"
+    "uid": "77a4b93934e021ded536b57f90c7ed400086c47d",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29"
   }
 ]

@@ -208,12 +208,10 @@ def load_container_config(
 
     db_section = data.get(DB_CONFIG_SECTION, {})
 
-    # Resolve output_dir from either config format to locate codegraph/
-    if config_source == ".codegraph.toml":
-        output_dir_raw = proj.get("output_dir", "codegraph")
-    else:
-        html_section = data.get("codegraph-html", {})
-        output_dir_raw = html_section.get("output_dir", "codegraph")
+    # The database container follows the current project configuration.
+    # Legacy .doxygen-index.toml files use the standard codegraph directory;
+    # the retired HTML exporter no longer supplies a configuration override.
+    output_dir_raw = proj.get("output_dir", "codegraph")
 
     codegraph_dir = (project_dir / output_dir_raw).resolve()
     neo4j_dir = codegraph_dir / NEO4J_SUBDIR
