@@ -80,7 +80,7 @@ def test_namespace_composes_enum():
     # codegraph:test-desc namespace.test_namespace_composes_enum.test_namespace_composes_enum::post_4
     # Verifies that the target UID of the 'composes' edge matches the UID of the
     # original EnumNode, ensuring that the specific composed node is correctly linked.
-    assert composes_edges[0]["target_uid"] == enum_node._uid_value()
+    assert composes_edges[0]["target_key"] == enum_node.canonical_key
 
     # codegraph:test-desc namespace.test_namespace_composes_enum.test_namespace_composes_enum::step_3
     # Extracts the 'composes' edges from the deserialized node and queries connected
@@ -93,7 +93,7 @@ def test_namespace_composes_enum():
     # codegraph:test-desc namespace.test_namespace_composes_enum.test_namespace_composes_enum::post_6
     # Compares the deserialized connected node with the original EnumNode for equality,
     # verifying that the entire node (including its data) was accurately reconstructed.
-    assert connected[0]._uid_value() == enum_node._uid_value()
+    assert connected[0].canonical_key == enum_node.canonical_key
 
 
 if __name__ == "__main__":

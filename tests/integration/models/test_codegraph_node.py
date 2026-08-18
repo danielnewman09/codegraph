@@ -13,7 +13,6 @@ from codegraph.models.namespace import NamespaceNode
 from codegraph.models.tags import CodeGraphNode
 from codegraph.persistence.repository import GraphRepository
 from codegraph.backends import get_backend
-from codegraph.uid import compute_uid
 import codegraph_requirements.models.requirement  # noqa: F401 — registers HLR/LLR
 from codegraph_requirements.models.requirement import HLR, LLR
 
@@ -661,74 +660,74 @@ class TestSerializeFields:
         assert node.serialize(fields="all")["edges"] == []
 
 
-class TestUidAccessors:
-    """Tests for _uid_prop and _uid_value."""
+class TestCanonicalKeyAccessors:
+    """Tests for the canonical-key property and resolver."""
 
-    def test_uid_prop_for_class_node(self):
-        """ClassNode has uid as UniqueIdProperty (route B)."""
-        # codegraph:test-desc test_codegraph_node.TestUidAccessors.test_uid_prop_for_class_node::post_0
-        # Verifies that the 'uid' property of a ClassNode instance is equal to the
-        # expected UniqueIdProperty value, ensuring that the UniqueIdProperty is
-        # correctly assigned and stored for class nodes in the code graph.
-        assert ClassNode._uid_prop() == "uid"
+    def test_canonical_key_is_property_on_class_node(self):
+        """ClassNode carries canonical_key as a Property."""
+        # codegraph:test-desc test_codegraph_node.TestCanonicalKeyAccessors.test_canonical_key_is_property_on_class_node::post_0
+        # Verifies that ClassNode declares the canonical_key property, which is the
+        # single identity for nodes/edges under WP A.
+        from codegraph.models.descriptors import PropertyRegistry
 
-    def test_uid_prop_for_file_node(self):
-        """FileNode has uid as UniqueIdProperty (route B)."""
-        # codegraph:test-desc test_codegraph_node.TestUidAccessors.test_uid_prop_for_file_node::post_0
-        # Verifies that the uid property of a FileNode object matches the expected
-        # unique identifier. This ensures that the FileNode correctly assigns and stores
-        # a unique ID, which is essential for distinguishing different file nodes in the
-        # code graph.
-        assert FileNode._uid_prop() == "uid"
+        assert "canonical_key" in PropertyRegistry.properties_of(ClassNode)
 
-    def test_uid_value_returns_stored_uid(self):
-        """_uid_value returns the auto-generated uid after save."""
-        # codegraph:test-desc test_codegraph_node.TestUidAccessors.test_uid_value_returns_stored_uid::step_0
+    def test_canonical_key_is_property_on_file_node(self):
+        """FileNode carries canonical_key as a Property."""
+        # codegraph:test-desc test_codegraph_node.TestCanonicalKeyAccessors.test_canonical_key_is_property_on_file_node::post_0
+        # Verifies that FileNode declares the canonical_key property.
+        from codegraph.models.descriptors import PropertyRegistry
+
+        assert "canonical_key" in PropertyRegistry.properties_of(FileNode)
+
+    def test_key_value_returns_stored_key(self):
+        """canonical_key is filled in deterministically after save."""
+        # codegraph:test-desc test_codegraph_node.TestCanonicalKeyAccessors.test_key_value_returns_stored_key::step_0
         # Sets up the test by creating and saving a ClassNode, which triggers
-        # auto-generation of a UID and prepares the node for subsequent calls to the
-        # _uid_value accessor.
+        # canonical-key computation and prepares the node for inspection.
         cls = ClassNode(source="test", name="UidTestClass", kind="class").save()
         try:
-            uid = cls._uid_value()
-            # codegraph:test-desc test_codegraph_node.TestUidAccessors.test_uid_value_returns_stored_uid::post_0
-            # Verifies that the uid obtained from _uid_value is not None, confirming
-            # that the node has indeed been assigned a UID after save.
-            assert uid is not None
-            # codegraph:test-desc test_codegraph_node.TestUidAccessors.test_uid_value_returns_stored_uid::post_1
-            # Asserts that the returned uid is a string type, confirming that the UID is
-            # represented in the expected textual format for downstream use.
-            assert isinstance(uid, str)
-            # codegraph:test-desc test_codegraph_node.TestUidAccessors.test_uid_value_returns_stored_uid::post_2
-            # Checks that the uid string is non-empty, ensuring that auto-generated UIDs
-            # are not blank strings and contain meaningful content.
-            assert len(uid) > 0
+            key = cls.canonical_key
+            # codegraph:test-desc test_codegraph_node.TestCanonicalKeyAccessors.test_key_value_returns_stored_key::post_0
+            # The key is a non-empty versioned string (cg:v1).
+            assert key is not None
+            assert isinstance(key, str)
+            assert key.startswith("cg:v1:")
+            assert len(key) > 0
         finally:
             cls.delete()
 
-    def test_uid_value_for_unsaved_file_node(self):
-        """FileNode uid is deterministic from source + path — never random."""
-        # codegraph:test-desc test_codegraph_node.TestUidAccessors.test_uid_value_for_unsaved_file_node::step_0
-        # A FileNode without source cannot derive a uid; reading it raises.
+    def test_key_value_for_unsaved_file_node(self):
+        """FileNode key is deterministic from the repository path."""
+        # codegraph:test-desc test_codegraph_node.TestCanonicalKeyAccessors.test_key_value_for_unsaved_file_node::step_0
+        # A FileNode without a path resolves to an empty-value key (never random);
+        # with a path the key is a deterministic canonical key.
+        from codegraph.identity import IdentityScope
+
+        scope = IdentityScope.repository("codegraph-suite", "codegraph")
         f = FileNode(name="unsaved.h")
-        with pytest.raises(ValueError):
-            _ = f._uid_value()
+        assert f.resolve_canonical_key(scope).endswith("normalized_repository_path=")
 
-        # With source + path, the uid is a deterministic hash.
-        g = FileNode(name="unsaved.h", source="test")
-        uid = g._uid_value()
-        assert isinstance(uid, str)
-        assert len(uid) == 40  # SHA-1 hex digest
-        assert g._uid_value() == uid  # stable across reads
+        g = FileNode(name="unsaved.h", path="src/unsaved.h")
+        k1 = g.resolve_canonical_key(scope)
+        k2 = g.resolve_canonical_key(scope)
+        assert k1 == k2  # stable across reads
+        assert k1.startswith("cg:v1:")
+        assert k1.endswith("normalized_repository_path=src%2Funsaved.h")
 
-    # ── HLR/LLR deterministic uid tests ───────────────────────────────
+    # ── HLR/LLR deterministic canonical-key tests ───────────────────
 
-    def test_uid_prop_for_hlr(self):
-        """HLR has uid as UniqueIdProperty (same pattern as ClassNode)."""
-        assert HLR._uid_prop() == "uid"
+    def test_canonical_key_property_on_hlr(self):
+        """HLR carries canonical_key as a Property (same pattern as ClassNode)."""
+        from codegraph.models.descriptors import PropertyRegistry
 
-    def test_uid_prop_for_llr(self):
-        """LLR has uid as UniqueIdProperty (same pattern as ClassNode)."""
-        assert LLR._uid_prop() == "uid"
+        assert "canonical_key" in PropertyRegistry.properties_of(HLR)
+
+    def test_canonical_key_property_on_llr(self):
+        """LLR carries canonical_key as a Property (same pattern as ClassNode)."""
+        from codegraph.models.descriptors import PropertyRegistry
+
+        assert "canonical_key" in PropertyRegistry.properties_of(LLR)
 
     def test_hlr_identity_fields(self):
         """HLR._identity_fields is ("qualified_name",) — deterministic uid from qualified_name."""
@@ -738,40 +737,48 @@ class TestUidAccessors:
         """LLR._identity_fields is ("qualified_name",) — deterministic uid from qualified_name."""
         assert LLR._identity_fields == ("qualified_name",)
 
-    def test_hlr_computes_deterministic_uid(self):
-        """HLR.save() computes uid = SHA-1(source, name)."""
+    def test_hlr_computes_deterministic_canonical_key(self):
+        """HLR.save() computes a deterministic canonical key (WP A)."""
         name = "Test HLR Uid"
         hlr = HLR(name=name, description="desc", tags=["design"], source="design").save()
         try:
-            expected = compute_uid("design", name)
-            assert hlr.uid == expected
-            assert hlr._uid_value() == expected
+            key = hlr.canonical_key
+            assert key.startswith("cg:v1:")
+            assert hlr.canonical_key == key
         finally:
             hlr.delete()
 
-    def test_llr_computes_deterministic_uid(self):
-        """LLR.save() computes uid = SHA-1(source, name)."""
+    def test_llr_computes_deterministic_canonical_key(self):
+        """LLR.resolve_canonical_key is deterministic given a parent HLR (WP A)."""
         name = "Test LLR Uid"
-        llr = LLR(name=name, description="desc", tags=["design"], source="design").save()
+        hlr = HLR(name="HLR parent", description="parent", tags=["design"], source="design").save()
         try:
-            expected = compute_uid("design", name)
-            assert llr.uid == expected
-            assert llr._uid_value() == expected
+            llr = LLR(name=name, description="desc", tags=["design"], source="design")
+            key = llr.resolve_canonical_key(
+                parents={"parent_hlr_key": hlr.canonical_key}
+            )
+            assert key.startswith("cg:v1:")
+            # Stable across reads
+            assert (
+                LLR(name=name, description="desc", tags=["design"], source="design")
+                .resolve_canonical_key(parents={"parent_hlr_key": hlr.canonical_key})
+                == key
+            )
         finally:
-            llr.delete()
+            hlr.delete()
 
     def test_hlr_save_idempotent(self):
         """Re-saving an HLR with the same name updates, does not duplicate."""
         name = "Idempotent HLR Uid Test"
         hlr1 = HLR(name=name, description="first", tags=["design"], source="design").save()
         try:
-            uid_after_first = hlr1.uid
+            key_after_first = hlr1.canonical_key
 
             # Re-save a new instance with the same name
             hlr2 = HLR(name=name, description="second", tags=["design"], source="design").save()
             try:
-                # Same uid — it was an upsert
-                assert hlr2.uid == uid_after_first
+                # Same key — it was an upsert
+                assert hlr2.canonical_key == key_after_first
                 # Description should be updated
                 assert hlr2.description == "second"
             finally:
@@ -780,23 +787,32 @@ class TestUidAccessors:
             hlr1.delete()
 
     def test_llr_save_idempotent(self):
-        """Re-saving an LLR with the same name updates, does not duplicate."""
+        """Re-saving an LLR under the same parent HLR updates, does not duplicate."""
         name = "Idempotent LLR Uid Test"
-        llr1 = LLR(name=name, description="first", tags=["design"], source="design").save()
+        hlr = HLR(name="HLR parent", description="parent", tags=["design"], source="design").save()
         try:
-            uid_after_first = llr1.uid
-
-            # Re-save a new instance with the same name
-            llr2 = LLR(name=name, description="second", tags=["design"], source="design").save()
+            parents = {"parent_hlr_key": hlr.canonical_key}
+            llr1 = LLR(name=name, description="first", tags=["design"], source="design")
+            llr1.canonical_key = llr1.resolve_canonical_key(parents=parents)
+            llr1.save()
             try:
-                # Same uid — it was an upsert
-                assert llr2.uid == uid_after_first
-                # Description should be updated
-                assert llr2.description == "second"
+                key_after_first = llr1.canonical_key
+
+                # Re-save a new instance with the same name + parent
+                llr2 = LLR(name=name, description="second", tags=["design"], source="design")
+                llr2.canonical_key = llr2.resolve_canonical_key(parents=parents)
+                llr2.save()
+                try:
+                    # Same key — it was an upsert
+                    assert llr2.canonical_key == key_after_first
+                    # Description should be updated
+                    assert llr2.description == "second"
+                finally:
+                    llr2.delete()
             finally:
-                llr2.delete()
+                llr1.delete()
         finally:
-            llr1.delete()
+            hlr.delete()
 
 
 class TestWalkComposes:
@@ -941,37 +957,37 @@ class TestSerializeNested:
             meth.delete()
             cls.delete()
 
-    def test_nested_includes_uid_property(self):
-        """serialize(nested=True) includes uid property for roundtrip resolution."""
-        # codegraph:test-desc test_codegraph_node.TestSerializeNested.test_nested_includes_uid_property::step_0
+    def test_nested_includes_canonical_key_property(self):
+        """serialize(nested=True) includes canonical_key for roundtrip resolution."""
+        # codegraph:test-desc test_codegraph_node.TestSerializeNested.test_nested_includes_canonical_key_property::step_0
         # Sets up the test by instantiating a ClassNode, serving as the input for the
         # serialization call that will be validated later.
         cls = ClassNode(source="test", name="UidClass", kind="class", qualified_name="ns::UidClass").save()
         try:
             result = cls.serialize(nested=True)
-            # uid is the UniqueIdProperty — always included for resolution
-            # codegraph:test-desc test_codegraph_node.TestSerializeNested.test_nested_includes_uid_property::post_0
-            # Verifies that the serialized output contains the 'uid' field, which is
-            # essential for reconstructing the object graph during a roundtrip
+            # canonical_key is the sole identity — always included for resolution
+            # codegraph:test-desc test_codegraph_node.TestSerializeNested.test_nested_includes_canonical_key_property::post_0
+            # Verifies that the serialized output contains the 'canonical_key' field,
+            # which is essential for reconstructing the object graph during a roundtrip
             # serialization-deserialization process.
-            assert "uid" in result
+            assert "canonical_key" in result
         finally:
             cls.delete()
 
-    def test_nested_includes_uid_for_file_node(self):
-        """FileNode.serialize(nested=True) includes uid even though it's not in _llm_fields."""
-        # codegraph:test-desc test_codegraph_node.TestSerializeNested.test_nested_includes_uid_for_file_node::step_0
+    def test_nested_includes_canonical_key_for_file_node(self):
+        """FileNode.serialize(nested=True) includes canonical_key even though it's not in _llm_fields."""
+        # codegraph:test-desc test_codegraph_node.TestSerializeNested.test_nested_includes_canonical_key_for_file_node::step_0
         # Calls `serialize(nested=True)` on the FileNode fixture to produce the result
-        # that will be inspected for the presence of the `uid` field.
+        # that will be inspected for the presence of the `canonical_key` field.
         f = FileNode(source="test", name="uidtest.h", path="/src/uidtest.h").save()
         try:
             result = f.serialize(nested=True)
-            # FileNode has no COMPOSES relationships, but nested=True still ensures uid
-            # codegraph:test-desc test_codegraph_node.TestSerializeNested.test_nested_includes_uid_for_file_node::post_0
-            # Verifies that the `uid` key exists in the serialized output, ensuring that
-            # even though `uid` is not in `_llm_fields`, it is still included when
+            # FileNode has no COMPOSES relationships, but nested=True still ensures the key
+            # codegraph:test-desc test_codegraph_node.TestSerializeNested.test_nested_includes_canonical_key_for_file_node::post_0
+            # Verifies that the `canonical_key` key exists in the serialized output, ensuring that
+            # even though `canonical_key` is not in `_llm_fields`, it is still included when
             # nesting is enabled.
-            assert "uid" in result
+            assert "canonical_key" in result
         finally:
             f.delete()
 

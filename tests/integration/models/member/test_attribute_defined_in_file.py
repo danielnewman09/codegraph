@@ -108,7 +108,7 @@ def test_attribute_defined_in_file():
     # codegraph:test-desc member.test_attribute_defined_in_file.test_attribute_defined_in_file::post_7
     # Checks that the 'defined_in' edge's target UID matches the file_node's UID,
     # confirming the edge points to the correct file.
-    assert edge["target_uid"] == file_node._uid_value()
+    assert edge["target_key"] == file_node.canonical_key
 
     # 6. Verify the live graph agrees
     # codegraph:test-desc member.test_attribute_defined_in_file.test_attribute_defined_in_file::step_4
@@ -122,7 +122,7 @@ def test_attribute_defined_in_file():
     # codegraph:test-desc member.test_attribute_defined_in_file.test_attribute_defined_in_file::post_9
     # Ensures some final equality condition is met (likely comparing the roundtripped
     # node's UID or field equality), completing the consistency verification.
-    assert connected[0]._uid_value() == file_node._uid_value()
+    assert connected[0].canonical_key == file_node.canonical_key
 
 
 if __name__ == "__main__":

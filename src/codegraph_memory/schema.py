@@ -12,17 +12,17 @@ from codegraph.backends import get_backend
 MEMORY_CONSTRAINTS_AND_INDEXES: list[str] = [
     # ── Uniqueness constraints ─────────────────────────────────────
     "CREATE CONSTRAINT memory_decision_uid IF NOT EXISTS "
-    "FOR (m:DecisionNode) REQUIRE m.uid IS UNIQUE",
+    "FOR (m:DecisionNode) REQUIRE m.canonical_key IS UNIQUE",
     "CREATE CONSTRAINT memory_constraint_uid IF NOT EXISTS "
-    "FOR (m:ConstraintNode) REQUIRE m.uid IS UNIQUE",
+    "FOR (m:ConstraintNode) REQUIRE m.canonical_key IS UNIQUE",
     "CREATE CONSTRAINT memory_rationale_uid IF NOT EXISTS "
-    "FOR (m:RationaleNode) REQUIRE m.uid IS UNIQUE",
+    "FOR (m:RationaleNode) REQUIRE m.canonical_key IS UNIQUE",
     "CREATE CONSTRAINT memory_assumption_uid IF NOT EXISTS "
-    "FOR (m:AssumptionNode) REQUIRE m.uid IS UNIQUE",
+    "FOR (m:AssumptionNode) REQUIRE m.canonical_key IS UNIQUE",
     "CREATE CONSTRAINT memory_tradeoff_uid IF NOT EXISTS "
-    "FOR (m:TradeoffNode) REQUIRE m.uid IS UNIQUE",
+    "FOR (m:TradeoffNode) REQUIRE m.canonical_key IS UNIQUE",
     "CREATE CONSTRAINT memory_insight_uid IF NOT EXISTS "
-    "FOR (m:InsightNode) REQUIRE m.uid IS UNIQUE",
+    "FOR (m:InsightNode) REQUIRE m.canonical_key IS UNIQUE",
 
     # ── Tag indexes (array membership, matching codegraph pattern) ─
     "CREATE INDEX decision_tags IF NOT EXISTS "

@@ -156,7 +156,7 @@ def _build_callable(entry, state, *, parent_name: str = "") -> dict:
         "kind": node.kind or ("method" if is_method else "function"),
         "name": name,
         "qualified_name": node.qualified_name or "",
-        "uid": node.uid or "",
+        "uid": node.canonical_key or "",
         "role": _role(name, parent_name) if is_method else "function",
         "declaration": declaration,
         "return_type": parts.return_type,

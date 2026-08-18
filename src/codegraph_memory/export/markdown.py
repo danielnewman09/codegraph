@@ -71,12 +71,12 @@ def export_adr(
         lines.append("")
 
     # ── Rationale ──────────────────────────────────────────────────
-    decision_uid = decision._uid_value()
+    decision_uid = decision.canonical_key
     rationales = []
     for rat in backend.find_all(RationaleNode):
         refines = [
             e for e in backend.get_all_edges_outgoing(rat)
-            if e.relation_type == "REFINES" and e.target_uid == decision_uid
+            if e.relation_type == "REFINES" and e.target_key == decision_uid
         ]
         if refines:
             rationales.append(rat)
@@ -92,14 +92,14 @@ def export_adr(
     # ── Tradeoffs ──────────────────────────────────────────────────
     # Find tradeoffs linked to the same code nodes as the decision
     if motivated:
-        motivated_uids = [n.uid for n in motivated if hasattr(n, "uid")]
+        motivated_uids = [n.canonical_key for n in motivated if hasattr(n, "uid")]
         if motivated_uids:
             tradeoffs = []
             for to in backend.find_all(TradeoffNode):
                 trades_off = [
                     e for e in backend.get_all_edges_outgoing(to)
                     if e.relation_type == "TRADES_OFF"
-                    and e.target_uid in motivated_uids
+                    and e.target_key in motivated_uids
                 ]
                 if trades_off:
                     tradeoffs.append(to)
@@ -117,7 +117,7 @@ def export_adr(
     for edge in backend.get_all_edges_outgoing(decision):
         if edge.relation_type != "SUPERSEDES":
             continue
-        older = backend.graph.find_by_uid(edge.target_uid)
+        older = backend.graph.find_by_key(edge.target_key)
         if older is not None:
             superseded_rows.append((
                 getattr(older, "qualified_name", ""),

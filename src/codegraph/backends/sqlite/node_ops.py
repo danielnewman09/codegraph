@@ -751,7 +751,7 @@ class SqliteNodeOps:
             conn.execute(
                 sa.text(
                     "DELETE FROM fts_nodes WHERE canonical_key IN "
-                    "(SELECT uid FROM nodes WHERE source = :src)"
+                    "(SELECT canonical_key FROM nodes WHERE source = :src)"
                 ),
                 {"src": source},
             )

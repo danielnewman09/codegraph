@@ -82,9 +82,9 @@ def test_enum_composes_value():
     # preserved.
     assert composes_edges[0]["target_type"] == "EnumValueNode"
     # codegraph:test-desc compound.test_enum_composes_value.test_enum_composes_value::post_4
-    # Checks that the target_uid of the composition edge matches the UID of the original
+    # Checks that the target_key of the composition edge matches the key of the original
     # value_node, verifying that the link points to the correct composed node.
-    assert composes_edges[0]["target_uid"] == value_node._uid_value()
+    assert composes_edges[0]["target_key"] == value_node.canonical_key
 
     # codegraph:test-desc compound.test_enum_composes_value.test_enum_composes_value::step_3
     # Deserializes the previously serialized dictionary back into a CodeGraphNode using
@@ -99,7 +99,7 @@ def test_enum_composes_value():
     # Verifies that the 'connected' field of the roundtripped node is an empty list
     # (==), ensuring no leftover or unexpected connections are introduced during
     # serialization/deserialization.
-    assert connected[0]._uid_value() == value_node._uid_value()
+    assert connected[0].canonical_key == value_node.canonical_key
 
 
 if __name__ == "__main__":

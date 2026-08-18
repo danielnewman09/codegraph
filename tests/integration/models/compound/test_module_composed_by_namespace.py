@@ -45,7 +45,7 @@ def test_module_composed_by_namespace():
     # codegraph:test-desc compound.test_module_composed_by_namespace.test_module_composed_by_namespace::post_1
     # Verifies that the module's parent is the expected namespace node, ensuring the
     # correct parent assignment in the module-namespace composition.
-    assert parents[0]._uid_value() == ns_node._uid_value()
+    assert parents[0].canonical_key == ns_node.canonical_key
 
 
 if __name__ == "__main__":

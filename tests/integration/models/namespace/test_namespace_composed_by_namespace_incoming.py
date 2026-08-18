@@ -48,7 +48,7 @@ def test_namespace_composed_by_parent_namespace():
     # Asserts that the single parent namespace of outer_ns is the expected one. This
     # ensures the namespace hierarchy is correctly resolved, which is critical for
     # understanding the code structure and dependencies.
-    assert parents[0]._uid_value() == outer_ns._uid_value()
+    assert parents[0].canonical_key == outer_ns.canonical_key
 
 
 if __name__ == "__main__":

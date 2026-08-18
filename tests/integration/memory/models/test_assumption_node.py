@@ -39,7 +39,7 @@ class TestAssumptionNode:
         )
         assumption.assumes_compound.connect(cls)
 
-        linked = get_backend().memory.find_linked_code_node(assumption.uid)
+        linked = get_backend().memory.find_linked_code_node(assumption.canonical_key)
         assert linked is not None
         assert linked["rel_type"] == "ASSUMES"
 

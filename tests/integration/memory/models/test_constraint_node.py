@@ -40,7 +40,7 @@ class TestConstraintNode:
         )
         constraint.constrains_compound.connect(cls)
 
-        linked = get_backend().memory.find_linked_code_node(constraint.uid)
+        linked = get_backend().memory.find_linked_code_node(constraint.canonical_key)
         assert linked is not None
         assert linked["rel_type"] == "CONSTRAINS"
 

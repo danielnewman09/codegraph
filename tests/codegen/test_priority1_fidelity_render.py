@@ -20,10 +20,16 @@ from codegraph.codegen.context import CodegenContextBuilder, BuildState
 from codegraph.codegen.planner import FilePlanner
 from codegraph.codegen.pack import TemplatePack
 from codegraph.graph import LayerGraph
+from tests.codegen.context.conftest import key_document as _kd
+
+# TODO Move this into a conftest to avoid repetition
+def _deser(data):
+    return LayerGraph.deserialize(_kd(data))
+
 
 
 def _gen(nodes: list[dict]) -> dict:
-    graph = LayerGraph.deserialize(nodes)
+    graph = _deser(nodes)
     builder = CodegenContextBuilder()
     output = builder.build(graph, FilePlanner())
     pack = TemplatePack(language="cpp")
@@ -419,7 +425,7 @@ class TestBuildStateAsBuilt:
     def test_as_built_detection_by_file_nodes(self):
         """As-built mode is FileNode-rooted provenance — a design graph
         tagged 'as-built' without FileNodes must not suppress forward decls."""
-        design = LayerGraph.deserialize([
+        design = _deser([
             {
                 "type": "NamespaceNode",
                 "name": "ns",

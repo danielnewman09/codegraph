@@ -4,8 +4,8 @@ Browse by namespace: a progressive tree of sub-namespaces, classes, and
 the high-level requirements that map to them; select a class to view a
 zoomable class-scoped diagram and its requirements/tests narration.
 
-Deliberately independent of the legacy Cytoscape HTML export
-(``codegraph.export.viz``) — a clean start per project direction.
+Deliberately independent of the retired Cytoscape HTML export — a clean start
+per project direction.
 """
 
 from codegraph.explorer.api import GraphSource, LayerGraphSource

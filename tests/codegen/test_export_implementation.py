@@ -22,6 +22,12 @@ import tempfile
 from codegraph.codegen import generate
 from codegraph.codegen.planner import FilePlanner
 from codegraph.graph import LayerGraph
+from tests.codegen.context.conftest import key_document as _kd
+
+
+def _deser(data):
+    return LayerGraph.deserialize(_kd(data))
+
 
 
 def _method(
@@ -74,14 +80,14 @@ def _body_graph() -> LayerGraph:
         "f", "ns::C::f", body="int C::f() { return 1; }\n",
         body_file="src/f.cpp", type_signature="int", argsstring="()",
     )
-    return LayerGraph.deserialize([cpp, method])
+    return _deser([cpp, method])
 
 
 def _two_files_with_include(spelling: str = '"y.hpp"') -> LayerGraph:
     """Two FileNodes linked by an INCLUDES edge carrying the spelling."""
     y = _file("y.hpp", "include/y.hpp")
-    gy = LayerGraph.deserialize([y])
-    y_uid = next(iter(gy._all_entries())).node._uid_value()
+    gy = _deser([y])
+    y_uid = next(iter(gy._all_entries())).node.canonical_key
     x = _file(
         "x.hpp", "include/x.hpp",
         edges=[{
@@ -89,7 +95,7 @@ def _two_files_with_include(spelling: str = '"y.hpp"') -> LayerGraph:
             "target_type": "FileNode", "include": spelling, "local": True,
         }],
     )
-    return LayerGraph.deserialize([x, y])
+    return _deser([x, y])
 
 
 class TestSerializeFlag:
@@ -127,7 +133,7 @@ class TestSerializeFlag:
         assert '"body"' not in raw
 
     def test_empty_body_not_exported(self):
-        g = LayerGraph.deserialize([
+        g = _deser([
             _file("f.cpp", "src/f.cpp"),
             _method("f", "ns::C::f", body_file="src/f.cpp"),
         ])
@@ -137,7 +143,7 @@ class TestSerializeFlag:
     def test_body_file_is_routing_not_implementation(self):
         """body_file (a path) stays in the default export — it is routing
         metadata, not implementation text."""
-        g = LayerGraph.deserialize([
+        g = _deser([
             _file("f.cpp", "src/f.cpp"),
             _method("f", "ns::C::f", body_file="src/f.cpp"),
         ])
@@ -198,7 +204,7 @@ class TestCodegenSemanticBodies:
     def test_body_routes_to_its_body_file(self):
         """A body whose body_file names a different .cpp does not leak
         into the wrong source file."""
-        g = LayerGraph.deserialize([
+        g = _deser([
             _file("a.cpp", "src/a.cpp"),
             _file("b.cpp", "src/b.cpp"),
             _method("f", "ns::C::f", body="int C::f() { return 1; }\n",
@@ -211,7 +217,7 @@ class TestCodegenSemanticBodies:
     def test_no_body_emits_nothing_in_source_file(self):
         """A body-less method is a declaration, not an out-of-line
         definition — the source file gets no body text for it."""
-        g = LayerGraph.deserialize([
+        g = _deser([
             _file("f.cpp", "src/f.cpp"),
             _method("f", "ns::C::f", body_file="src/f.cpp"),
         ])
@@ -220,7 +226,7 @@ class TestCodegenSemanticBodies:
 
     def test_bodies_ordered_by_source_line(self):
         """Implementation body_start wins over header declaration order."""
-        g = LayerGraph.deserialize([
+        g = _deser([
             _file("f.cpp", "src/f.cpp"),
             _method("b", "ns::C::b", body="void C::b() {}\n",
                     body_file="src/f.cpp", line_number=10, body_start=20),
@@ -238,6 +244,6 @@ class TestJsonRoundTrip:
         body intact."""
         g = _body_graph()
         data = g.serialize(fields="all", export_implementation=True)
-        g2 = LayerGraph.deserialize(json.loads(json.dumps(data)))
+        g2 = _deser(json.loads(json.dumps(data)))
         methods = [e for e in g2._all_entries() if type(e.node).__name__ == "MethodNode"]
         assert methods and getattr(methods[0].node, "body", "") == "int C::f() { return 1; }\n"

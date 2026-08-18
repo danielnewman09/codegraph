@@ -19,6 +19,12 @@ from pathlib import Path
 import pytest
 
 from codegraph.graph import LayerGraph
+from tests.codegen.context.conftest import key_document as _kd
+
+
+def _deser(data):
+    return LayerGraph.deserialize(_kd(data))
+
 
 GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
 GOLDEN_SPLIT = GOLDEN_DIR / "design_layergraph.json"
@@ -82,7 +88,7 @@ class TestGoldensExistAndDeserialize:
 
     @pytest.mark.parametrize("path", [GOLDEN_SPLIT, GOLDEN_FULL_DECL])
     def test_golden_deserializes_to_layer_graph(self, path: Path):
-        graph = LayerGraph.deserialize(_load(path))
+        graph = _deser(_load(path))
         assert graph.entries, f"{path.name} produced no root entries"
 
     def test_split_golden_is_current_generator_output(self):

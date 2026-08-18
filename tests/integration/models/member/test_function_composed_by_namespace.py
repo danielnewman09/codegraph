@@ -50,7 +50,7 @@ def test_function_composed_by_namespace():
     # codegraph:test-desc member.test_function_composed_by_namespace.test_function_composed_by_namespace::post_1
     # Verifies that the function node's parent is exactly the expected namespace node,
     # confirming the correctness of the composition relationship.
-    assert parents[0]._uid_value() == ns_node._uid_value()
+    assert parents[0].canonical_key == ns_node.canonical_key
 
 
 if __name__ == "__main__":

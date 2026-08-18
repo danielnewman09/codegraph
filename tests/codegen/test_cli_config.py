@@ -1,11 +1,18 @@
+from __future__ import annotations
+from codegraph.graph import LayerGraph
+from tests.codegen.context.conftest import key_document as _kd
+
+
+def _deser(data):
+    return LayerGraph.deserialize(_kd(data))
+
 """CLI config discovery tests (.codegraph.toml / .doxygen-index.toml).
 
-Mirrors codegraph-html's convention: the graph JSON lives at
+Uses the project convention: the graph JSON lives at
 ``{output_dir}/{name}.json``; the CLI discovers it from the project
 config instead of requiring an explicit ``--input``.
 """
 
-from __future__ import annotations
 
 import json
 from pathlib import Path

@@ -48,7 +48,7 @@ def test_class_composed_by_namespace():
     # Verifies that the parent of the ClassNode is exactly the NamespaceNode, ensuring
     # the composition link points to the correct namespace node, which is critical for
     # accurate graph traversal and relationship integrity.
-    assert parents[0]._uid_value() == ns_node._uid_value()
+    assert parents[0].canonical_key == ns_node.canonical_key
 
 
 if __name__ == "__main__":

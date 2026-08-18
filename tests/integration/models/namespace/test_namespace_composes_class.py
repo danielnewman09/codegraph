@@ -84,7 +84,7 @@ def test_namespace_composes_class():
     # codegraph:test-desc namespace.test_namespace_composes_class.test_namespace_composes_class::post_4
     # Verifies that the composition edge points to the correct class node by matching
     # its unique identifier, ensuring the relationship is accurately preserved.
-    assert composes_edges[0]["target_uid"] == class_node._uid_value()
+    assert composes_edges[0]["target_key"] == class_node.canonical_key
 
     # codegraph:test-desc namespace.test_namespace_composes_class.test_namespace_composes_class::step_3
     # Extracts the composed graph edge from the deserialized roundtripped node,
@@ -98,7 +98,7 @@ def test_namespace_composes_class():
     # codegraph:test-desc namespace.test_namespace_composes_class.test_namespace_composes_class::post_6
     # Verifies that the connected node retrieved via the composition edge is equal to
     # the original class_node, ensuring the graph connection is correctly reconstructed.
-    assert connected[0]._uid_value() == class_node._uid_value()
+    assert connected[0].canonical_key == class_node.canonical_key
 
 
 if __name__ == "__main__":

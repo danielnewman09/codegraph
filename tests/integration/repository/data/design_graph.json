@@ -83,27 +83,27 @@
     "edges": [
       {
         "relation_type": "COMPOSES",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:class:qualified_name=calc%3A%3ACalculatorEngine",
         "target_type": "ClassNode"
       },
       {
         "relation_type": "COMPOSES",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:class:qualified_name=calc%3A%3ACalculatorResult",
         "target_type": "ClassNode"
       },
       {
         "relation_type": "COMPOSES",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:interface:qualified_name=calc%3A%3AICalculator",
         "target_type": "InterfaceNode"
       },
       {
         "relation_type": "COMPOSES",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:enum:qualified_name=calc%3A%3AOperation",
         "target_type": "EnumNode"
       },
       {
         "relation_type": "COMPOSES",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:function:qualified_name=calc%3A%3AformatResult:canonical_signature=lang%3Acpp%7C%28double%29",
         "target_type": "FunctionNode"
       }
     ],
@@ -122,12 +122,12 @@
     "edges": [
       {
         "relation_type": "COMPOSES",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:class:qualified_name=ui%3A%3ABaseWindow",
         "target_type": "ClassNode"
       },
       {
         "relation_type": "COMPOSES",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:class:qualified_name=ui%3A%3ACalculatorWindow",
         "target_type": "ClassNode"
       }
     ],
@@ -147,12 +147,12 @@
     "edges": [
       {
         "relation_type": "COMPOSES",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=calc%3A%3AICalculator%3A%3Acalculate:canonical_signature=lang%3Acpp%7C%28Operation%2Cdouble%2Cdouble%29",
         "target_type": "MethodNode"
       },
       {
         "relation_type": "DEFINED_IN",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Ficalculator.h",
         "target_type": "FileNode"
       }
     ],
@@ -176,32 +176,32 @@
     "edges": [
       {
         "relation_type": "REALIZES",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:interface:qualified_name=calc%3A%3AICalculator",
         "target_type": "InterfaceNode"
       },
       {
         "relation_type": "DEPENDS_ON",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:class:qualified_name=calc%3A%3ACalculatorResult",
         "target_type": "ClassNode"
       },
       {
         "relation_type": "COMPOSES",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=calc%3A%3ACalculatorEngine%3A%3Aadd:canonical_signature=lang%3Acpp%7C%28double%2Cdouble%29",
         "target_type": "MethodNode"
       },
       {
         "relation_type": "COMPOSES",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=calc%3A%3ACalculatorEngine%3A%3AvalidateInput:canonical_signature=lang%3Acpp%7C%28string%29",
         "target_type": "MethodNode"
       },
       {
         "relation_type": "COMPOSES",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:attribute:qualified_name=calc%3A%3ACalculatorEngine%3A%3Aprecision",
         "target_type": "AttributeNode"
       },
       {
         "relation_type": "DEFINED_IN",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_engine.h",
         "target_type": "FileNode"
       }
     ],
@@ -226,17 +226,17 @@
     "edges": [
       {
         "relation_type": "COMPOSES",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:attribute:qualified_name=calc%3A%3ACalculatorResult%3A%3Avalue",
         "target_type": "AttributeNode"
       },
       {
         "relation_type": "COMPOSES",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=calc%3A%3ACalculatorResult%3A%3Aget_value:canonical_signature=lang%3Acpp%7C%28%29",
         "target_type": "MethodNode"
       },
       {
         "relation_type": "DEFINED_IN",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_result.h",
         "target_type": "FileNode"
       }
     ],
@@ -260,17 +260,17 @@
     "edges": [
       {
         "relation_type": "COMPOSES",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:enum-value:qualified_name=calc%3A%3AOperation%3A%3AADD",
         "target_type": "EnumValueNode"
       },
       {
         "relation_type": "COMPOSES",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:enum-value:qualified_name=calc%3A%3AOperation%3A%3ASUBTRACT",
         "target_type": "EnumValueNode"
       },
       {
         "relation_type": "DEFINED_IN",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Foperation.h",
         "target_type": "FileNode"
       }
     ],
@@ -320,7 +320,7 @@
     "edges": [
       {
         "relation_type": "DEFINED_IN",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_engine.h",
         "target_type": "FileNode"
       }
     ],
@@ -342,12 +342,12 @@
     "edges": [
       {
         "relation_type": "COMPOSES",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ABaseWindow%3A%3Ashow:canonical_signature=lang%3Acpp%7C%28%29",
         "target_type": "MethodNode"
       },
       {
         "relation_type": "DEFINED_IN",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fui%2Fbase_window.h",
         "target_type": "FileNode"
       }
     ],
@@ -371,22 +371,22 @@
     "edges": [
       {
         "relation_type": "INHERITS_FROM",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:class:qualified_name=ui%3A%3ABaseWindow",
         "target_type": "ClassNode"
       },
       {
         "relation_type": "DEPENDS_ON",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:class:qualified_name=calc%3A%3ACalculatorEngine",
         "target_type": "ClassNode"
       },
       {
         "relation_type": "COMPOSES",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:attribute:qualified_name=ui%3A%3ACalculatorWindow%3A%3Adisplay",
         "target_type": "AttributeNode"
       },
       {
         "relation_type": "COMPOSES",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:attribute:qualified_name=ui%3A%3ACalculatorWindow%3A%3AcurrentInput",
         "target_type": "AttributeNode"
       },
       {
@@ -396,7 +396,7 @@
       },
       {
         "relation_type": "DEFINED_IN",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fui%2Fcalculator_window.h",
         "target_type": "FileNode"
       }
     ],
@@ -420,7 +420,7 @@
     "edges": [
       {
         "relation_type": "DEFINED_IN",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Ficalculator.h",
         "target_type": "FileNode"
       }
     ],
@@ -442,7 +442,7 @@
     "edges": [
       {
         "relation_type": "DEFINED_IN",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_engine.h",
         "target_type": "FileNode"
       }
     ],
@@ -464,7 +464,7 @@
     "edges": [
       {
         "relation_type": "DEFINED_IN",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_engine.h",
         "target_type": "FileNode"
       }
     ],
@@ -485,7 +485,7 @@
     "edges": [
       {
         "relation_type": "DEFINED_IN",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_engine.h",
         "target_type": "FileNode"
       }
     ],
@@ -506,7 +506,7 @@
     "edges": [
       {
         "relation_type": "DEFINED_IN",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_result.h",
         "target_type": "FileNode"
       }
     ],
@@ -528,7 +528,7 @@
     "edges": [
       {
         "relation_type": "DEFINED_IN",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_result.h",
         "target_type": "FileNode"
       }
     ],
@@ -550,7 +550,7 @@
     "edges": [
       {
         "relation_type": "DEFINED_IN",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fui%2Fbase_window.h",
         "target_type": "FileNode"
       }
     ],
@@ -571,7 +571,7 @@
     "edges": [
       {
         "relation_type": "DEFINED_IN",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fui%2Fcalculator_window.h",
         "target_type": "FileNode"
       }
     ],
@@ -592,7 +592,7 @@
     "edges": [
       {
         "relation_type": "DEFINED_IN",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fui%2Fcalculator_window.h",
         "target_type": "FileNode"
       }
     ],
@@ -614,7 +614,7 @@
     "edges": [
       {
         "relation_type": "DEFINED_IN",
-        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:method:qualified_name=ui%3A%3ACalculatorWindow%3A%3AhandleEquals:canonical_signature=lang%3Acpp%7C%28%29",
+        "target_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fui%2Fcalculator_window.h",
         "target_type": "FileNode"
       }
     ],

@@ -80,7 +80,7 @@ def test_class_composes_attribute():
     # codegraph:test-desc compound.test_class_composes_attribute.test_class_composes_attribute::post_4
     # Verifies that the composition edge targets the correct attribute by matching the
     # UID of the original attr_node, ensuring precise relationship restoration.
-    assert composes_edges[0]["target_uid"] == attr_node._uid_value()
+    assert composes_edges[0]["target_key"] == attr_node.canonical_key
 
     # codegraph:test-desc compound.test_class_composes_attribute.test_class_composes_attribute::step_3
     # Deserializes the serialized ClassNode back into a new object, completing the
@@ -93,7 +93,7 @@ def test_class_composes_attribute():
     # codegraph:test-desc compound.test_class_composes_attribute.test_class_composes_attribute::post_6
     # Performs an equality check to ensure the entire round-tripped object matches the
     # original, verifying complete structural fidelity.
-    assert connected[0]._uid_value() == attr_node._uid_value()
+    assert connected[0].canonical_key == attr_node.canonical_key
 
 
 if __name__ == "__main__":

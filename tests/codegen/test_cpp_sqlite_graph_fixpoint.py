@@ -34,6 +34,12 @@ import pytest
 
 from codegraph.codegen import generate
 from codegraph.graph import LayerGraph
+from tests.codegen.context.conftest import key_document as _kd
+
+
+def _deser(data):
+    return LayerGraph.deserialize(_kd(data))
+
 
 _HERE = Path(__file__).resolve().parent.parent / "unit_test_data"
 IMPL_SRC = _HERE / "cpp_sqlite_impl_src"

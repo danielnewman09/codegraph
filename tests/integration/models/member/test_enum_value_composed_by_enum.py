@@ -45,7 +45,7 @@ def test_enum_value_composed_by_enum():
     # codegraph:test-desc member.test_enum_value_composed_by_enum.test_enum_value_composed_by_enum::post_1
     # Asserts that the value node's parent is the expected enum node, verifying the
     # direct composition link between the enum value and its containing enum.
-    assert parents[0]._uid_value() == enum_node._uid_value()
+    assert parents[0].canonical_key == enum_node.canonical_key
 
 
 if __name__ == "__main__":

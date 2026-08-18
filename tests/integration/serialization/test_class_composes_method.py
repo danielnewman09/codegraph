@@ -54,12 +54,12 @@ def test_class_composes_method():
     composes_edges = [e for e in data["edges"] if e["relation_type"] == "COMPOSES"]
     assert len(composes_edges) == 1
     assert composes_edges[0]["target_type"] == "MethodNode"
-    assert composes_edges[0]["target_uid"] == method_node._uid_value()
+    assert composes_edges[0]["target_key"] == method_node.canonical_key
 
     # Backend-agnostic: use get_backend().graph.composed_children() instead of .methods.all()
     connected = get_backend().graph.composed_children(class_node, MethodNode)
     assert len(connected) == 1
-    assert connected[0]._uid_value() == method_node._uid_value()
+    assert connected[0].canonical_key == method_node.canonical_key
 
 
 if __name__ == "__main__":

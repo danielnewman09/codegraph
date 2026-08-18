@@ -12,6 +12,12 @@ from __future__ import annotations
 
 from codegraph.codegen.verify import verify
 from codegraph.graph import LayerGraph
+from tests.codegen.context.conftest import key_document as _kd
+
+# TODO Move this into a conftest to avoid repetition
+def _deser(data):
+    return LayerGraph.deserialize(_kd(data))
+
 
 
 # ---------------------------------------------------------------------------
@@ -87,8 +93,8 @@ DESIGN = [
 
 class TestVerify:
     def test_subset_pass(self):
-        design = LayerGraph.deserialize(DESIGN)
-        as_built = LayerGraph.deserialize([
+        design = _deser(DESIGN)
+        as_built = _deser([
             _class("MigrationManager", "cpp_sqlite::MigrationManager"),
             _class("Migration", "cpp_sqlite::Migration"),
             _class("Extra", "cpp_sqlite::Extra"),          # parse-only
@@ -102,15 +108,15 @@ class TestVerify:
         ]
 
     def test_missing_reported(self):
-        design = LayerGraph.deserialize(DESIGN)
-        as_built = LayerGraph.deserialize([
+        design = _deser(DESIGN)
+        as_built = _deser([
             _class("MigrationManager", "cpp_sqlite::MigrationManager"),
         ])
         report = verify(design, as_built)
         assert report.missing == ["cpp_sqlite::Migration"]
 
     def test_kinds_filter(self):
-        design = LayerGraph.deserialize([
+        design = _deser([
             _class("MigrationManager", "cpp_sqlite::MigrationManager"),
             {
                 "type": "EnumNode", "name": "Code",
@@ -118,7 +124,7 @@ class TestVerify:
                 "source": "test", "tags": ["design"],
             },
         ])
-        as_built = LayerGraph.deserialize([
+        as_built = _deser([
             _class("MigrationManager", "cpp_sqlite::MigrationManager"),
         ])
         # classes only: enum is out of scope → pass
@@ -132,7 +138,7 @@ class TestVerify:
         """D9: a struct nested in a parent AND peering under the namespace
         (same qname → same uid) is excluded from the assert — the emitted
         placement is ambiguous, and the parse scopes it one way."""
-        design = LayerGraph.deserialize([
+        design = _deser([
             {
                 "type": "NamespaceNode", "name": "cpp_sqlite",
                 "qualified_name": "cpp_sqlite", "kind": "namespace",
@@ -146,7 +152,7 @@ class TestVerify:
                 ],
             },
         ])
-        as_built = LayerGraph.deserialize([
+        as_built = _deser([
             _class("MigrationManager", "cpp_sqlite::MigrationManager"),
             # the parse scopes the nested struct inside the manager only
             _class("MigrationResult", "cpp_sqlite::MigrationManager::MigrationResult"),
@@ -157,13 +163,13 @@ class TestVerify:
 
     def test_tier_2_methods_match_across_encodings(self):
         """The canonical key reconciles design ts + parse argsstring/qname."""
-        design = LayerGraph.deserialize([
+        design = _deser([
             _ns_class("Migration", "cpp_sqlite::Migration",
                       DESIGN_METHODS[:2]),
             _ns_class("MigrationManager", "cpp_sqlite::MigrationManager",
                       DESIGN_METHODS[2:]),
         ])
-        as_built = LayerGraph.deserialize([
+        as_built = _deser([
             _ns_class("Migration", "cpp_sqlite::Migration",
                       AS_BUILT_METHODS[:2]),
             _ns_class("MigrationManager", "cpp_sqlite::MigrationManager",
@@ -177,12 +183,12 @@ class TestVerify:
         assert report.summarize().startswith("tier 2")
 
     def test_tier2_missing_and_extra(self):
-        design = LayerGraph.deserialize([
+        design = _deser([
             _ns_class("MigrationManager", "cpp_sqlite::MigrationManager",
                       DESIGN_METHODS[2:]),
         ])
         dropped = AS_BUILT_METHODS[:3] + AS_BUILT_METHODS[4:]  # no computeSchemaChecksum
-        as_built = LayerGraph.deserialize([
+        as_built = _deser([
             _ns_class("MigrationManager", "cpp_sqlite::MigrationManager",
                       dropped + [
                           _method("extra", "cpp_sqlite::MigrationManager::extra()",
@@ -202,7 +208,7 @@ class TestVerify:
 
     def test_tier2_signature_drift(self):
         """Same method key, different canonical params → drift, not missing."""
-        design = LayerGraph.deserialize([
+        design = _deser([
             _ns_class("Migration", "cpp_sqlite::Migration",
                       DESIGN_METHODS[:2]),
         ])
@@ -212,7 +218,7 @@ class TestVerify:
             _method("getVersion", "cpp_sqlite::Migration::getVersion(())",
                     "int", "() const", tags=("codebase",)),
         ]
-        as_built = LayerGraph.deserialize([
+        as_built = _deser([
             _ns_class("Migration", "cpp_sqlite::Migration", wrong),
         ])
         report = verify(design, as_built, tier=2)
@@ -223,14 +229,14 @@ class TestVerify:
 
     def test_tier2_degraded_ctor_argsstring(self):
         """The degraded bare ctor argstring (no parens) still canonicalizes."""
-        design = LayerGraph.deserialize([
+        design = _deser([
             _ns_class("MigrationManager", "cpp_sqlite::MigrationManager", [
                 _method("MigrationManager",
                         "cpp_sqlite::MigrationManager::MigrationManager(Database &db)",
                         "MigrationManager(Database& db)", "Database &db"),
             ]),
         ])
-        as_built = LayerGraph.deserialize([
+        as_built = _deser([
             _ns_class("MigrationManager", "cpp_sqlite::MigrationManager", [
                 _method("MigrationManager",
                         "cpp_sqlite::MigrationManager::MigrationManager(Database &db)",

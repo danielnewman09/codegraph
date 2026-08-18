@@ -24,7 +24,8 @@
     "type": "AttributeNode",
     "type_signature": "",
     "uid": "71378026994c2f2e0c5b2487e6bff89183821ab7",
-    "visibility": ""
+    "visibility": "",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aerror_state"
   },
   {
     "body_end": 0,
@@ -51,7 +52,8 @@
     "type": "AttributeNode",
     "type_signature": "",
     "uid": "8137f2f72d997c77f1790d67ec0acd9b95026603",
-    "visibility": ""
+    "visibility": "",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=DuplicateVersionError"
   },
   {
     "body_end": 0,
@@ -78,7 +80,8 @@
     "type": "AttributeNode",
     "type_signature": "",
     "uid": "4adb062509e00ede2a6036b3a0669312d57df96a",
-    "visibility": ""
+    "visibility": "",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Ais_initialized"
   },
   {
     "body_end": 0,
@@ -105,7 +108,8 @@
     "type": "AttributeNode",
     "type_signature": "",
     "uid": "cc1d8cfd3166a849f5cb722fea1953a764a5aad7",
-    "visibility": ""
+    "visibility": "",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aregistered_versions"
   },
   {
     "body_end": 0,
@@ -132,7 +136,8 @@
     "type": "AttributeNode",
     "type_signature": "",
     "uid": "f4a8bbc168a1d94832d30af799a9a749565c42d9",
-    "visibility": ""
+    "visibility": "",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversion1_reapplied"
   },
   {
     "body_end": 0,
@@ -159,7 +164,8 @@
     "type": "AttributeNode",
     "type_signature": "",
     "uid": "c4a7155f92b2512e432f72cfee84fdebb036a0bb",
-    "visibility": ""
+    "visibility": "",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversion2_recorded"
   },
   {
     "body_end": 0,
@@ -186,7 +192,8 @@
     "type": "AttributeNode",
     "type_signature": "",
     "uid": "287fe11f47bcecc1600e22be2aa0d6cb73855abb",
-    "visibility": ""
+    "visibility": "",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversion3_recorded"
   },
   {
     "body_end": 0,
@@ -213,7 +220,8 @@
     "type": "AttributeNode",
     "type_signature": "",
     "uid": "520e07ce12ee008ebbb4b4783864231c7ac14dda",
-    "visibility": ""
+    "visibility": "",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aexecution_order"
   },
   {
     "body_end": 0,
@@ -240,7 +248,8 @@
     "type": "AttributeNode",
     "type_signature": "",
     "uid": "2bddec4cf45764e50d46cfa2659a1f2be78213b9",
-    "visibility": ""
+    "visibility": "",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversion1_recorded_on_fail"
   },
   {
     "body_end": 0,
@@ -267,7 +276,8 @@
     "type": "AttributeNode",
     "type_signature": "",
     "uid": "685281acf5ce4fc95e08a303f9fb82afcfb20b1c",
-    "visibility": ""
+    "visibility": "",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversion2_not_recorded_on_fail"
   },
   {
     "body_end": 0,
@@ -294,7 +304,8 @@
     "type": "AttributeNode",
     "type_signature": "",
     "uid": "8b0e92a68faa3598a24406c12922a1a187ffe5b6",
-    "visibility": ""
+    "visibility": "",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aerror_on_fail"
   },
   {
     "body_end": 0,
@@ -321,7 +332,8 @@
     "type": "AttributeNode",
     "type_signature": "",
     "uid": "ab5036f45500d42c31c2711501e8f7046b152ad1",
-    "visibility": ""
+    "visibility": "",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversion1_schema_preserved"
   },
   {
     "body_end": 0,
@@ -348,7 +360,8 @@
     "type": "AttributeNode",
     "type_signature": "",
     "uid": "09badcbbdf39d32b0d6b8dbef327e2b89c6a216e",
-    "visibility": ""
+    "visibility": "",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Amismatch_count"
   },
   {
     "body_end": 0,
@@ -375,7 +388,8 @@
     "type": "AttributeNode",
     "type_signature": "",
     "uid": "228dbbd4a9c20e6083cd92501a51126277eb0fe6",
-    "visibility": ""
+    "visibility": "",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Amismatch_version"
   },
   {
     "body_end": 0,
@@ -402,7 +416,8 @@
     "type": "AttributeNode",
     "type_signature": "",
     "uid": "3e3a75d52a9165834a7380c9bc47c39d3507ee69",
-    "visibility": ""
+    "visibility": "",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Amismatch_kind"
   },
   {
     "body_end": 0,
@@ -429,7 +444,8 @@
     "type": "AttributeNode",
     "type_signature": "",
     "uid": "2e90ccfcf6266c16889993fab3b6ed4f461457e8",
-    "visibility": ""
+    "visibility": "",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=UnexpectedTable"
   },
   {
     "body_end": 0,
@@ -456,7 +472,8 @@
     "type": "AttributeNode",
     "type_signature": "",
     "uid": "eefea8a6bb880cad6a95d9ff0d8e5d59a6d30f47",
-    "visibility": ""
+    "visibility": "",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Amigration_applied"
   },
   {
     "body_end": 0,
@@ -483,7 +500,8 @@
     "type": "AttributeNode",
     "type_signature": "",
     "uid": "ed2a4158bb4e681f1d9f89f38d123fc13a0dbcdc",
-    "visibility": ""
+    "visibility": "",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversion3_not_recorded"
   },
   {
     "body_end": 0,
@@ -510,7 +528,8 @@
     "type": "AttributeNode",
     "type_signature": "",
     "uid": "ddf850e15cc89924ed9c362bbc9372cbae892376",
-    "visibility": ""
+    "visibility": "",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversions_1_2_remain"
   },
   {
     "body_end": 0,
@@ -537,7 +556,8 @@
     "type": "AttributeNode",
     "type_signature": "",
     "uid": "17aecaa5c47e422d10c81e91689d687f5e8b4590",
-    "visibility": ""
+    "visibility": "",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Adown_called"
   },
   {
     "body_end": 0,
@@ -564,7 +584,8 @@
     "type": "AttributeNode",
     "type_signature": "",
     "uid": "2a7c3547166a9ba6a952ac912034d5aa322e0158",
-    "visibility": ""
+    "visibility": "",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aerror_on_rollback_fail"
   },
   {
     "body_end": 0,
@@ -591,7 +612,8 @@
     "type": "AttributeNode",
     "type_signature": "",
     "uid": "88631b67b8b7f908f5c83a57ee757cf076a99c85",
-    "visibility": ""
+    "visibility": "",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversion2_still_exists_on_fail"
   },
   {
     "body_end": 0,
@@ -618,7 +640,8 @@
     "type": "AttributeNode",
     "type_signature": "",
     "uid": "ddc18b0965a6fe25e99d0fe126f3613045d07cd9",
-    "visibility": ""
+    "visibility": "",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversion1_preserved_on_fail"
   },
   {
     "component_id": null,
@@ -658,7 +681,8 @@
             "type": "MethodNode",
             "type_signature": "virtual int getVersion() const = 0",
             "uid": "29f67e1663a2461975a1072ff157b3e4320a8893",
-            "visibility": "public"
+            "visibility": "public",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=cpp_sqlite%3A%3AMigration%3A%3AgetVersion:canonical_signature=lang%3Acpp%7C%28%29"
           },
           {
             "argsstring": "(Transaction&)",
@@ -690,7 +714,8 @@
             "type": "MethodNode",
             "type_signature": "virtual void up(cpp_sqlite::Transaction& transaction) = 0",
             "uid": "6679261e94b4f04e6dc1bb2f0f333c8b48155dbb",
-            "visibility": "public"
+            "visibility": "public",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=cpp_sqlite%3A%3AMigration%3A%3Aup:canonical_signature=lang%3Acpp%7C%28Transaction%26%29"
           },
           {
             "argsstring": "(Transaction&)",
@@ -722,7 +747,8 @@
             "type": "MethodNode",
             "type_signature": "virtual void down(cpp_sqlite::Transaction& transaction) = 0",
             "uid": "82f0e6095e0f9e068023169bd797e292a33394a2",
-            "visibility": "public"
+            "visibility": "public",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=cpp_sqlite%3A%3AMigration%3A%3Adown:canonical_signature=lang%3Acpp%7C%28Transaction%26%29"
           },
           {
             "argsstring": "",
@@ -754,7 +780,8 @@
             "type": "MethodNode",
             "type_signature": "virtual ~Migration() = default",
             "uid": "1b329d0b0a2052d30a3202d47709507dcb86d215",
-            "visibility": "public"
+            "visibility": "public",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=cpp_sqlite%3A%3AMigration%3A%3A~Migration:canonical_signature=lang%3Acpp%7Cdestructor%7C%28%29"
           }
         ],
         "definition": "",
@@ -764,7 +791,7 @@
           {
             "relation_type": "DEPENDS_ON",
             "target_type": "ClassNode",
-            "target_uid": "523e24d119bc34003dc1dcecb3cd55b96f38a9e8"
+            "target_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3ATransaction"
           }
         ],
         "file_path": "",
@@ -783,7 +810,8 @@
         ],
         "type": "ClassNode",
         "uid": "b9212531b58fb98bf3a8277b8630bf06a29a4e7d",
-        "visibility": ""
+        "visibility": "",
+        "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3AMigration"
       },
       {
         "base_classes": [],
@@ -820,7 +848,8 @@
                 "type": "AttributeNode",
                 "type_signature": "bool",
                 "uid": "eb894fad73fc7f70810146b9f22b0b5b43e6cebe",
-                "visibility": "public"
+                "visibility": "public",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3AMigrationResult%3A%3Asuccess"
               },
               {
                 "body_end": 0,
@@ -847,7 +876,8 @@
                 "type": "AttributeNode",
                 "type_signature": "cpp_sqlite::MigrationErrorCode",
                 "uid": "015dd44375d42e36a31cc8ac77537eb03f222ee2",
-                "visibility": "public"
+                "visibility": "public",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3AMigrationResult%3A%3Aerror"
               }
             ],
             "definition": "",
@@ -857,12 +887,12 @@
               {
                 "relation_type": "DEPENDS_ON",
                 "target_type": "EnumNode",
-                "target_uid": "b558c70b4289ab6e5bd6d15f9a8943d3f133d334"
+                "target_key": "cg:v1:repository:fixture%2Ffixture:enum:qualified_name=cpp_sqlite%3A%3AMigrationErrorCode"
               },
               {
                 "relation_type": "USES",
                 "target_type": "EnumNode",
-                "target_uid": "b558c70b4289ab6e5bd6d15f9a8943d3f133d334"
+                "target_key": "cg:v1:repository:fixture%2Ffixture:enum:qualified_name=cpp_sqlite%3A%3AMigrationErrorCode"
               }
             ],
             "file_path": "",
@@ -881,7 +911,8 @@
             ],
             "type": "ClassNode",
             "uid": "88cca5e78a9de7e712e125fecdbb9daa3ef774f1",
-            "visibility": ""
+            "visibility": "",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3AMigrationResult"
           },
           {
             "base_classes": [],
@@ -918,7 +949,8 @@
                     "type": "AttributeNode",
                     "type_signature": "int",
                     "uid": "0cf7896bf187e53d307a80a6e0171e6c89f62b5b",
-                    "visibility": "public"
+                    "visibility": "public",
+                    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaMismatch%3A%3Aversion"
                   },
                   {
                     "body_end": 0,
@@ -945,7 +977,8 @@
                     "type": "AttributeNode",
                     "type_signature": "cpp_sqlite::MismatchKind",
                     "uid": "cfee220e7835e4276fb981783d22ac1f829aa992",
-                    "visibility": "public"
+                    "visibility": "public",
+                    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaMismatch%3A%3Akind"
                   },
                   {
                     "body_end": 0,
@@ -972,7 +1005,8 @@
                     "type": "AttributeNode",
                     "type_signature": "std::string",
                     "uid": "941bb3c1c67c085054ec3668ae83b864fcfb8d24",
-                    "visibility": "public"
+                    "visibility": "public",
+                    "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaMismatch%3A%3Adetail"
                   }
                 ],
                 "definition": "",
@@ -982,12 +1016,12 @@
                   {
                     "relation_type": "DEPENDS_ON",
                     "target_type": "EnumNode",
-                    "target_uid": "e87800f3a6464d347ce338581076eb1842951285"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:enum:qualified_name=cpp_sqlite%3A%3AMismatchKind"
                   },
                   {
                     "relation_type": "USES",
                     "target_type": "EnumNode",
-                    "target_uid": "e87800f3a6464d347ce338581076eb1842951285"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:enum:qualified_name=cpp_sqlite%3A%3AMismatchKind"
                   }
                 ],
                 "file_path": "",
@@ -1006,7 +1040,8 @@
                 ],
                 "type": "ClassNode",
                 "uid": "f9662d8539e788f8330c4b8cc85e69f9edaa49c6",
-                "visibility": ""
+                "visibility": "",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3ASchemaMismatch"
               },
               {
                 "body_end": 0,
@@ -1033,7 +1068,8 @@
                 "type": "AttributeNode",
                 "type_signature": "std::vector<cpp_sqlite::SchemaMismatch>",
                 "uid": "1200cc165e968003d649875a2b29fa7d406c0e77",
-                "visibility": "public"
+                "visibility": "public",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaVerificationResult%3A%3Amismatches"
               },
               {
                 "body_end": 0,
@@ -1060,7 +1096,8 @@
                 "type": "AttributeNode",
                 "type_signature": "bool",
                 "uid": "9e701e92190567100a303f40681d52912284a1ba",
-                "visibility": "public"
+                "visibility": "public",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaVerificationResult%3A%3Ais_consistent"
               }
             ],
             "definition": "",
@@ -1070,12 +1107,12 @@
               {
                 "relation_type": "DEPENDS_ON",
                 "target_type": "ClassNode",
-                "target_uid": "f9662d8539e788f8330c4b8cc85e69f9edaa49c6"
+                "target_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3ASchemaMismatch"
               },
               {
                 "relation_type": "DEPENDS_ON",
                 "target_type": "ClassNode",
-                "target_uid": "8603e29fe52aa90c05a1d73f60227c1567b9fc8a"
+                "target_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=std%3A%3Avector"
               }
             ],
             "file_path": "",
@@ -1094,7 +1131,8 @@
             ],
             "type": "ClassNode",
             "uid": "dadd4ca4efa858d7b73d7613274a871e1c0b3b61",
-            "visibility": ""
+            "visibility": "",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3ASchemaVerificationResult"
           },
           {
             "argsstring": "(std::unique_ptr<Migration>)",
@@ -1126,7 +1164,8 @@
             "type": "MethodNode",
             "type_signature": "MigrationResult register_migration(std::unique_ptr<cpp_sqlite::Migration> migration)",
             "uid": "caafe196f2f2324e182b00551f20547456690de6",
-            "visibility": "public"
+            "visibility": "public",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Aregister_migration:canonical_signature=lang%3Acpp%7C%28std%3A%3Aunique_ptr%3CMigration%3E%29"
           },
           {
             "argsstring": "()",
@@ -1158,7 +1197,8 @@
             "type": "MethodNode",
             "type_signature": "MigrationResult apply()",
             "uid": "824b89a53334811e4c7894a7814824476b436d71",
-            "visibility": "public"
+            "visibility": "public",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Aapply:canonical_signature=lang%3Acpp%7C%28%29"
           },
           {
             "argsstring": "(int target_version)",
@@ -1190,7 +1230,8 @@
             "type": "MethodNode",
             "type_signature": "MigrationResult rollback(int target_version)",
             "uid": "475d6362a76e67d0e47ebb098e100afbb235f58b",
-            "visibility": "public"
+            "visibility": "public",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Arollback:canonical_signature=lang%3Acpp%7C%28int%29"
           },
           {
             "argsstring": "()",
@@ -1222,7 +1263,8 @@
             "type": "MethodNode",
             "type_signature": "SchemaVerificationResult verify()",
             "uid": "8278c352841b5b7195ab919c5a34fc88e5b71fd0",
-            "visibility": "public"
+            "visibility": "public",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Averify:canonical_signature=lang%3Acpp%7C%28%29"
           },
           {
             "argsstring": "",
@@ -1254,7 +1296,8 @@
             "type": "MethodNode",
             "type_signature": "MigrationManager(cpp_sqlite::Database& db)",
             "uid": "b8238fc2cde888fd4f256f47a852d217b6b1f95e",
-            "visibility": "public"
+            "visibility": "public",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3AMigrationManager:canonical_signature=lang%3Acpp%7Cconstructor%7C%28%29"
           },
           {
             "argsstring": "",
@@ -1286,7 +1329,8 @@
             "type": "MethodNode",
             "type_signature": "void ensure_schema_versions_table()",
             "uid": "1e30fdfa2e3514bac081e6406b53cb235a28dacb",
-            "visibility": "private"
+            "visibility": "private",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Aensure_schema_versions_table:canonical_signature=lang%3Acpp%7C%28%29"
           },
           {
             "argsstring": "",
@@ -1318,7 +1362,8 @@
             "type": "MethodNode",
             "type_signature": "std::vector<cpp_sqlite::SchemaVersion> load_applied_versions()",
             "uid": "b63ccac33683acbf287c12a8be9034286a616fd8",
-            "visibility": "private"
+            "visibility": "private",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Aload_applied_versions:canonical_signature=lang%3Acpp%7C%28%29"
           },
           {
             "argsstring": "",
@@ -1350,7 +1395,8 @@
             "type": "MethodNode",
             "type_signature": "std::string compute_schema_checksum()",
             "uid": "efd3e73cf5a436b8a27e9b5c32d774aadf4abf65",
-            "visibility": "private"
+            "visibility": "private",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Acompute_schema_checksum:canonical_signature=lang%3Acpp%7C%28%29"
           },
           {
             "body_end": 0,
@@ -1377,7 +1423,8 @@
             "type": "AttributeNode",
             "type_signature": "cpp_sqlite::Database&",
             "uid": "23e3c5c965df2c15afb9b0efc7df3ab9c2f97a47",
-            "visibility": "private"
+            "visibility": "private",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Adb_"
           },
           {
             "body_end": 0,
@@ -1404,7 +1451,8 @@
             "type": "AttributeNode",
             "type_signature": "std::vector<std::unique_ptr<cpp_sqlite::Migration>>",
             "uid": "61bb83209b4cd7a432073e5ef5740e4442e48f81",
-            "visibility": "private"
+            "visibility": "private",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Amigrations_"
           },
           {
             "body_end": 0,
@@ -1431,7 +1479,8 @@
             "type": "AttributeNode",
             "type_signature": "std::vector<cpp_sqlite::SchemaVersion>",
             "uid": "42c8603619d61cb3d8a4e4bd53ceccb82658488a",
-            "visibility": "private"
+            "visibility": "private",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Aschema_versions_"
           }
         ],
         "definition": "",
@@ -1441,57 +1490,57 @@
           {
             "relation_type": "DEPENDS_ON",
             "target_type": "ClassNode",
-            "target_uid": "b9212531b58fb98bf3a8277b8630bf06a29a4e7d"
+            "target_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3AMigration"
           },
           {
             "relation_type": "DEPENDS_ON",
             "target_type": "ClassNode",
-            "target_uid": "523e24d119bc34003dc1dcecb3cd55b96f38a9e8"
+            "target_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3ATransaction"
           },
           {
             "relation_type": "DEPENDS_ON",
             "target_type": "ClassNode",
-            "target_uid": "93eb7592f33af1212c93227f9214fdf1610fc310"
+            "target_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=std%3A%3Aunique_ptr"
           },
           {
             "relation_type": "DEPENDS_ON",
             "target_type": "ClassNode",
-            "target_uid": "26d4c7f84a47a5e784f347a8f9c1d2a316aec1ba"
+            "target_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3ASchemaVersion"
           },
           {
             "relation_type": "DEPENDS_ON",
             "target_type": "EnumNode",
-            "target_uid": "b558c70b4289ab6e5bd6d15f9a8943d3f133d334"
+            "target_key": "cg:v1:repository:fixture%2Ffixture:enum:qualified_name=cpp_sqlite%3A%3AMigrationErrorCode"
           },
           {
             "relation_type": "DEPENDS_ON",
             "target_type": "ClassNode",
-            "target_uid": "b927d76a5a666d19ca90f227d5edf5bb4904f7b7"
+            "target_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3ADatabase"
           },
           {
             "relation_type": "DEPENDS_ON",
             "target_type": "ClassNode",
-            "target_uid": "88cca5e78a9de7e712e125fecdbb9daa3ef774f1"
+            "target_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3AMigrationResult"
           },
           {
             "relation_type": "DEPENDS_ON",
             "target_type": "ClassNode",
-            "target_uid": "dadd4ca4efa858d7b73d7613274a871e1c0b3b61"
+            "target_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3ASchemaVerificationResult"
           },
           {
             "relation_type": "DEPENDS_ON",
             "target_type": "ClassNode",
-            "target_uid": "8603e29fe52aa90c05a1d73f60227c1567b9fc8a"
+            "target_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=std%3A%3Avector"
           },
           {
             "relation_type": "USES",
             "target_type": "ClassNode",
-            "target_uid": "26d4c7f84a47a5e784f347a8f9c1d2a316aec1ba"
+            "target_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3ASchemaVersion"
           },
           {
             "relation_type": "USES",
             "target_type": "ClassNode",
-            "target_uid": "b9212531b58fb98bf3a8277b8630bf06a29a4e7d"
+            "target_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3AMigration"
           }
         ],
         "file_path": "",
@@ -1510,7 +1559,8 @@
         ],
         "type": "ClassNode",
         "uid": "770b4b285466feafcd8a61cc55b815499920daad",
-        "visibility": ""
+        "visibility": "",
+        "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3AMigrationManager"
       },
       {
         "base_classes": [],
@@ -1542,7 +1592,8 @@
             "type": "AttributeNode",
             "type_signature": "int",
             "uid": "cb636bd059170ae0c634a25a000a5236adcd39e4",
-            "visibility": "public"
+            "visibility": "public",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaVersion%3A%3Aversion"
           },
           {
             "body_end": 0,
@@ -1569,7 +1620,8 @@
             "type": "AttributeNode",
             "type_signature": "std::string",
             "uid": "0ae6f5997f08ce296414d248f77e2d2bf12cae5f",
-            "visibility": "public"
+            "visibility": "public",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaVersion%3A%3Aapplied_at"
           },
           {
             "body_end": 0,
@@ -1596,7 +1648,8 @@
             "type": "AttributeNode",
             "type_signature": "std::string",
             "uid": "be17162f3b1b4b3ba7f456f64b4e116246cde913",
-            "visibility": "public"
+            "visibility": "public",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaVersion%3A%3Achecksum"
           }
         ],
         "definition": "",
@@ -1619,7 +1672,8 @@
         ],
         "type": "ClassNode",
         "uid": "26d4c7f84a47a5e784f347a8f9c1d2a316aec1ba",
-        "visibility": ""
+        "visibility": "",
+        "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3ASchemaVersion"
       },
       {
         "base_classes": [],
@@ -1651,7 +1705,8 @@
             "type": "AttributeNode",
             "type_signature": "bool",
             "uid": "eb894fad73fc7f70810146b9f22b0b5b43e6cebe",
-            "visibility": "public"
+            "visibility": "public",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3AMigrationResult%3A%3Asuccess"
           },
           {
             "body_end": 0,
@@ -1678,7 +1733,8 @@
             "type": "AttributeNode",
             "type_signature": "cpp_sqlite::MigrationErrorCode",
             "uid": "015dd44375d42e36a31cc8ac77537eb03f222ee2",
-            "visibility": "public"
+            "visibility": "public",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3AMigrationResult%3A%3Aerror"
           }
         ],
         "definition": "",
@@ -1688,12 +1744,12 @@
           {
             "relation_type": "DEPENDS_ON",
             "target_type": "EnumNode",
-            "target_uid": "b558c70b4289ab6e5bd6d15f9a8943d3f133d334"
+            "target_key": "cg:v1:repository:fixture%2Ffixture:enum:qualified_name=cpp_sqlite%3A%3AMigrationErrorCode"
           },
           {
             "relation_type": "USES",
             "target_type": "EnumNode",
-            "target_uid": "b558c70b4289ab6e5bd6d15f9a8943d3f133d334"
+            "target_key": "cg:v1:repository:fixture%2Ffixture:enum:qualified_name=cpp_sqlite%3A%3AMigrationErrorCode"
           }
         ],
         "file_path": "",
@@ -1712,7 +1768,8 @@
         ],
         "type": "ClassNode",
         "uid": "88cca5e78a9de7e712e125fecdbb9daa3ef774f1",
-        "visibility": ""
+        "visibility": "",
+        "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3AMigrationResult"
       },
       {
         "base_classes": [],
@@ -1744,7 +1801,8 @@
             "type": "AttributeNode",
             "type_signature": "int",
             "uid": "0cf7896bf187e53d307a80a6e0171e6c89f62b5b",
-            "visibility": "public"
+            "visibility": "public",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaMismatch%3A%3Aversion"
           },
           {
             "body_end": 0,
@@ -1771,7 +1829,8 @@
             "type": "AttributeNode",
             "type_signature": "cpp_sqlite::MismatchKind",
             "uid": "cfee220e7835e4276fb981783d22ac1f829aa992",
-            "visibility": "public"
+            "visibility": "public",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaMismatch%3A%3Akind"
           },
           {
             "body_end": 0,
@@ -1798,7 +1857,8 @@
             "type": "AttributeNode",
             "type_signature": "std::string",
             "uid": "941bb3c1c67c085054ec3668ae83b864fcfb8d24",
-            "visibility": "public"
+            "visibility": "public",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaMismatch%3A%3Adetail"
           }
         ],
         "definition": "",
@@ -1808,12 +1868,12 @@
           {
             "relation_type": "DEPENDS_ON",
             "target_type": "EnumNode",
-            "target_uid": "e87800f3a6464d347ce338581076eb1842951285"
+            "target_key": "cg:v1:repository:fixture%2Ffixture:enum:qualified_name=cpp_sqlite%3A%3AMismatchKind"
           },
           {
             "relation_type": "USES",
             "target_type": "EnumNode",
-            "target_uid": "e87800f3a6464d347ce338581076eb1842951285"
+            "target_key": "cg:v1:repository:fixture%2Ffixture:enum:qualified_name=cpp_sqlite%3A%3AMismatchKind"
           }
         ],
         "file_path": "",
@@ -1832,7 +1892,8 @@
         ],
         "type": "ClassNode",
         "uid": "f9662d8539e788f8330c4b8cc85e69f9edaa49c6",
-        "visibility": ""
+        "visibility": "",
+        "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3ASchemaMismatch"
       },
       {
         "base_classes": [],
@@ -1869,7 +1930,8 @@
                 "type": "AttributeNode",
                 "type_signature": "int",
                 "uid": "0cf7896bf187e53d307a80a6e0171e6c89f62b5b",
-                "visibility": "public"
+                "visibility": "public",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaMismatch%3A%3Aversion"
               },
               {
                 "body_end": 0,
@@ -1896,7 +1958,8 @@
                 "type": "AttributeNode",
                 "type_signature": "cpp_sqlite::MismatchKind",
                 "uid": "cfee220e7835e4276fb981783d22ac1f829aa992",
-                "visibility": "public"
+                "visibility": "public",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaMismatch%3A%3Akind"
               },
               {
                 "body_end": 0,
@@ -1923,7 +1986,8 @@
                 "type": "AttributeNode",
                 "type_signature": "std::string",
                 "uid": "941bb3c1c67c085054ec3668ae83b864fcfb8d24",
-                "visibility": "public"
+                "visibility": "public",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaMismatch%3A%3Adetail"
               }
             ],
             "definition": "",
@@ -1933,12 +1997,12 @@
               {
                 "relation_type": "DEPENDS_ON",
                 "target_type": "EnumNode",
-                "target_uid": "e87800f3a6464d347ce338581076eb1842951285"
+                "target_key": "cg:v1:repository:fixture%2Ffixture:enum:qualified_name=cpp_sqlite%3A%3AMismatchKind"
               },
               {
                 "relation_type": "USES",
                 "target_type": "EnumNode",
-                "target_uid": "e87800f3a6464d347ce338581076eb1842951285"
+                "target_key": "cg:v1:repository:fixture%2Ffixture:enum:qualified_name=cpp_sqlite%3A%3AMismatchKind"
               }
             ],
             "file_path": "",
@@ -1957,7 +2021,8 @@
             ],
             "type": "ClassNode",
             "uid": "f9662d8539e788f8330c4b8cc85e69f9edaa49c6",
-            "visibility": ""
+            "visibility": "",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3ASchemaMismatch"
           },
           {
             "body_end": 0,
@@ -1984,7 +2049,8 @@
             "type": "AttributeNode",
             "type_signature": "std::vector<cpp_sqlite::SchemaMismatch>",
             "uid": "1200cc165e968003d649875a2b29fa7d406c0e77",
-            "visibility": "public"
+            "visibility": "public",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaVerificationResult%3A%3Amismatches"
           },
           {
             "body_end": 0,
@@ -2011,7 +2077,8 @@
             "type": "AttributeNode",
             "type_signature": "bool",
             "uid": "9e701e92190567100a303f40681d52912284a1ba",
-            "visibility": "public"
+            "visibility": "public",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaVerificationResult%3A%3Ais_consistent"
           }
         ],
         "definition": "",
@@ -2021,12 +2088,12 @@
           {
             "relation_type": "DEPENDS_ON",
             "target_type": "ClassNode",
-            "target_uid": "f9662d8539e788f8330c4b8cc85e69f9edaa49c6"
+            "target_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3ASchemaMismatch"
           },
           {
             "relation_type": "DEPENDS_ON",
             "target_type": "ClassNode",
-            "target_uid": "8603e29fe52aa90c05a1d73f60227c1567b9fc8a"
+            "target_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=std%3A%3Avector"
           }
         ],
         "file_path": "",
@@ -2045,7 +2112,8 @@
         ],
         "type": "ClassNode",
         "uid": "dadd4ca4efa858d7b73d7613274a871e1c0b3b61",
-        "visibility": ""
+        "visibility": "",
+        "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3ASchemaVerificationResult"
       },
       {
         "brief_description": "Error codes for migration operation results.",
@@ -2073,7 +2141,8 @@
             ],
             "type": "EnumValueNode",
             "uid": "7a8431a81e16495ab89a7f4e13ad0f46c76b7f90",
-            "visibility": ""
+            "visibility": "",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:enum-value:qualified_name=cpp_sqlite%3A%3AMigrationErrorCode%3A%3ASuccess"
           },
           {
             "body_end": 0,
@@ -2097,7 +2166,8 @@
             ],
             "type": "EnumValueNode",
             "uid": "a8ac562a12ec9356b94d0bf7b883c169f913ea40",
-            "visibility": ""
+            "visibility": "",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:enum-value:qualified_name=cpp_sqlite%3A%3AMigrationErrorCode%3A%3ADuplicateVersion"
           },
           {
             "body_end": 0,
@@ -2121,7 +2191,8 @@
             ],
             "type": "EnumValueNode",
             "uid": "231f6fa1c6f2384b53a00dcb87a9b4c0b79e5bc8",
-            "visibility": ""
+            "visibility": "",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:enum-value:qualified_name=cpp_sqlite%3A%3AMigrationErrorCode%3A%3AMigrationFailed"
           },
           {
             "body_end": 0,
@@ -2145,7 +2216,8 @@
             ],
             "type": "EnumValueNode",
             "uid": "331cf2fe4647943437ba5ae0deb43f75b1df5bb6",
-            "visibility": ""
+            "visibility": "",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:enum-value:qualified_name=cpp_sqlite%3A%3AMigrationErrorCode%3A%3ARollbackFailed"
           },
           {
             "body_end": 0,
@@ -2169,7 +2241,8 @@
             ],
             "type": "EnumValueNode",
             "uid": "cfc95af65955d382972cfab6b604522d58635d3c",
-            "visibility": ""
+            "visibility": "",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:enum-value:qualified_name=cpp_sqlite%3A%3AMigrationErrorCode%3A%3AVersionNotFound"
           },
           {
             "body_end": 0,
@@ -2193,7 +2266,8 @@
             ],
             "type": "EnumValueNode",
             "uid": "0d43ce408285675cda18db3584e9c13ac24391ba",
-            "visibility": ""
+            "visibility": "",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:enum-value:qualified_name=cpp_sqlite%3A%3AMigrationErrorCode%3A%3ANotInitialized"
           }
         ],
         "definition": "",
@@ -2214,7 +2288,8 @@
         ],
         "type": "EnumNode",
         "uid": "b558c70b4289ab6e5bd6d15f9a8943d3f133d334",
-        "visibility": ""
+        "visibility": "",
+        "canonical_key": "cg:v1:repository:fixture%2Ffixture:enum:qualified_name=cpp_sqlite%3A%3AMigrationErrorCode"
       },
       {
         "brief_description": "Kinds of schema mismatch detected during verification.",
@@ -2242,7 +2317,8 @@
             ],
             "type": "EnumValueNode",
             "uid": "a54e289352088b3d7361a038c1bef238e3d9c874",
-            "visibility": ""
+            "visibility": "",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:enum-value:qualified_name=cpp_sqlite%3A%3AMismatchKind%3A%3AMissingTable"
           },
           {
             "body_end": 0,
@@ -2266,7 +2342,8 @@
             ],
             "type": "EnumValueNode",
             "uid": "7f1af50e4937065e2613dd695e7e5c9124823805",
-            "visibility": ""
+            "visibility": "",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:enum-value:qualified_name=cpp_sqlite%3A%3AMismatchKind%3A%3AExtraTable"
           },
           {
             "body_end": 0,
@@ -2290,7 +2367,8 @@
             ],
             "type": "EnumValueNode",
             "uid": "0f2ff146272407930c47e7c2a0920c1cf8a5ae99",
-            "visibility": ""
+            "visibility": "",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:enum-value:qualified_name=cpp_sqlite%3A%3AMismatchKind%3A%3AColumnDifference"
           },
           {
             "body_end": 0,
@@ -2314,7 +2392,8 @@
             ],
             "type": "EnumValueNode",
             "uid": "90987d3cb462d53e97e437b9c3655cc89454a4c9",
-            "visibility": ""
+            "visibility": "",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:enum-value:qualified_name=cpp_sqlite%3A%3AMismatchKind%3A%3AChecksumMismatch"
           }
         ],
         "definition": "",
@@ -2335,7 +2414,8 @@
         ],
         "type": "EnumNode",
         "uid": "e87800f3a6464d347ce338581076eb1842951285",
-        "visibility": ""
+        "visibility": "",
+        "canonical_key": "cg:v1:repository:fixture%2Ffixture:enum:qualified_name=cpp_sqlite%3A%3AMismatchKind"
       }
     ],
     "description": "",
@@ -2349,7 +2429,8 @@
       "design"
     ],
     "type": "NamespaceNode",
-    "uid": "90da100e7fd16fbc6942c6068ff6f305ab02ab69"
+    "uid": "90da100e7fd16fbc6942c6068ff6f305ab02ab69",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:namespace:qualified_name=cpp_sqlite"
   },
   {
     "brief_description": "",
@@ -2366,7 +2447,8 @@
     "type": "LiteralNode",
     "uid": "94246dd625a7addc2b60aff9926573c10385306d",
     "value": "true",
-    "value_type": "boolean"
+    "value_type": "boolean",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3Atrue"
   },
   {
     "brief_description": "",
@@ -2383,7 +2465,8 @@
     "type": "LiteralNode",
     "uid": "ed69f003c463d0e9f09369ec9886ac4886bc06e6",
     "value": "1",
-    "value_type": "int"
+    "value_type": "int",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3A1"
   },
   {
     "brief_description": "",
@@ -2400,7 +2483,8 @@
     "type": "LiteralNode",
     "uid": "a10b9c0f15463837610d18567f8bce335d85cbb8",
     "value": "3",
-    "value_type": "int"
+    "value_type": "int",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3A3"
   },
   {
     "brief_description": "",
@@ -2417,7 +2501,8 @@
     "type": "LiteralNode",
     "uid": "50e8ec71e5657068e56386cf88072d769cfa5de5",
     "value": "false",
-    "value_type": "boolean"
+    "value_type": "boolean",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3Afalse"
   },
   {
     "brief_description": "",
@@ -2434,7 +2519,8 @@
     "type": "LiteralNode",
     "uid": "bbde3e0a8d001f3ed9af55c6d1caf739a01d49e3",
     "value": "0",
-    "value_type": "int"
+    "value_type": "int",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3A0"
   },
   {
     "base_classes": [],
@@ -2458,7 +2544,8 @@
     "tags": [],
     "type": "ClassNode",
     "uid": "523e24d119bc34003dc1dcecb3cd55b96f38a9e8",
-    "visibility": ""
+    "visibility": "",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3ATransaction"
   },
   {
     "base_classes": [],
@@ -2482,7 +2569,8 @@
     "tags": [],
     "type": "ClassNode",
     "uid": "b927d76a5a666d19ca90f227d5edf5bb4904f7b7",
-    "visibility": ""
+    "visibility": "",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3ADatabase"
   },
   {
     "component_id": null,
@@ -2511,7 +2599,8 @@
         ],
         "type": "ClassNode",
         "uid": "93eb7592f33af1212c93227f9214fdf1610fc310",
-        "visibility": ""
+        "visibility": "",
+        "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=std%3A%3Aunique_ptr"
       },
       {
         "base_classes": [],
@@ -2537,7 +2626,8 @@
         ],
         "type": "ClassNode",
         "uid": "8603e29fe52aa90c05a1d73f60227c1567b9fc8a",
-        "visibility": ""
+        "visibility": "",
+        "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=std%3A%3Avector"
       }
     ],
     "description": "",
@@ -2551,7 +2641,8 @@
       "as-built"
     ],
     "type": "NamespaceNode",
-    "uid": "c3eaea02b6b5c72455bb8d160aa3c3ec74d74f78"
+    "uid": "c3eaea02b6b5c72455bb8d160aa3c3ec74d74f78",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:namespace:qualified_name=std"
   },
   {
     "composes": [
@@ -2565,12 +2656,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "8137f2f72d997c77f1790d67ec0acd9b95026603"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=DuplicateVersionError"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "71378026994c2f2e0c5b2487e6bff89183821ab7"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aerror_state"
                   }
                 ],
                 "kind": "assertion",
@@ -2585,7 +2676,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "edc1eaa0df2ae9eddd2780bcbb46540d96594bd0"
+                "uid": "edc1eaa0df2ae9eddd2780bcbb46540d96594bd0",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Areg_dup_error_is_duplicate"
               },
               {
                 "description": "",
@@ -2593,12 +2685,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "94246dd625a7addc2b60aff9926573c10385306d"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3Atrue"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "cc1d8cfd3166a849f5cb722fea1953a764a5aad7"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aregistered_versions"
                   }
                 ],
                 "kind": "assertion",
@@ -2613,7 +2705,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "53d52d71c4a59357d82457b472360e8abff1f271"
+                "uid": "53d52d71c4a59357d82457b472360e8abff1f271",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Areg_dup_original_retained"
               },
               {
                 "description": "",
@@ -2621,12 +2714,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "94246dd625a7addc2b60aff9926573c10385306d"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3Atrue"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "4adb062509e00ede2a6036b3a0669312d57df96a"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Ais_initialized"
                   }
                 ],
                 "kind": "assertion",
@@ -2641,7 +2734,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "1a8f00272c1688c3805cd936fac2d0fc98267033"
+                "uid": "1a8f00272c1688c3805cd936fac2d0fc98267033",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apre%3A%3Areg_dup_first_migration_registered"
               },
               {
                 "body_end": 0,
@@ -2658,7 +2752,8 @@
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "6c631ae302ed7d95583fa95a73b6d425df0ff022"
+                "uid": "6c631ae302ed7d95583fa95a73b6d425df0ff022",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Areg_dup_invoke_register_second"
               },
               {
                 "body_end": 0,
@@ -2675,7 +2770,8 @@
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "d92af71e88d7c089d3e82c49e96755457478b401"
+                "uid": "d92af71e88d7c089d3e82c49e96755457478b401",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Areg_dup_invoke_register_first"
               }
             ],
             "description": "Register two migrations with the same version number. Verify the second registration returns an error result indicating a duplicate version error. Verify the original migration remains registered.",
@@ -2695,7 +2791,8 @@
             "test_module": "",
             "test_name": "test_register_migration_rejects_duplicate_version",
             "type": "TestNode",
-            "uid": "ca8394587618be93a4f1776d275338559bdf192e"
+            "uid": "ca8394587618be93a4f1776d275338559bdf192e",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:test:parent_key=cg%3Av1%3Aroot:qualified_name=vm%3A%3Amigration_registration%3A%3Atest_duplicate_version_rejected"
           },
           {
             "composes": [
@@ -2705,12 +2802,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "ed69f003c463d0e9f09369ec9886ac4886bc06e6"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3A1"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "cc1d8cfd3166a849f5cb722fea1953a764a5aad7"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aregistered_versions"
                   }
                 ],
                 "kind": "assertion",
@@ -2725,7 +2822,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "5a8f0ad83674a385d2bf0f08dd47f548cbc37f68"
+                "uid": "5a8f0ad83674a385d2bf0f08dd47f548cbc37f68",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Areg_sort_order_correct"
               },
               {
                 "description": "",
@@ -2733,12 +2831,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "94246dd625a7addc2b60aff9926573c10385306d"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3Atrue"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "4adb062509e00ede2a6036b3a0669312d57df96a"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Ais_initialized"
                   }
                 ],
                 "kind": "assertion",
@@ -2753,7 +2851,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "cd4fbf56566e1e97c0449c81f224406b88b24d3d"
+                "uid": "cd4fbf56566e1e97c0449c81f224406b88b24d3d",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apre%3A%3Areg_sort_no_migrations"
               },
               {
                 "body_end": 0,
@@ -2770,7 +2869,8 @@
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "057270d71fd0556a43e8558151aa2cfedaeccf0b"
+                "uid": "057270d71fd0556a43e8558151aa2cfedaeccf0b",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Areg_sort_register_three"
               }
             ],
             "description": "Register migrations at versions 3, 1, and 2. Verify the manager stores them in ascending version order [1, 2, 3] regardless of registration order.",
@@ -2790,7 +2890,8 @@
             "test_module": "",
             "test_name": "test_register_migration_sorts_by_version",
             "type": "TestNode",
-            "uid": "26be269ccc36b65b1862d0b508ef1a6fd513ac47"
+            "uid": "26be269ccc36b65b1862d0b508ef1a6fd513ac47",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:test:parent_key=cg%3Av1%3Aroot:qualified_name=vm%3A%3Amigration_registration%3A%3Atest_sorted_by_version"
           }
         ],
         "description": "The `MigrationManager` shall expose a `register_migration` method that accepts a `std::unique_ptr<Migration>` and stores it. Registered migrations shall be sorted by their `version` value (ascending). The manager shall reject duplicate version numbers by returning a `MigrationResult` with `success=false` and `error=MigrationErrorCode::DuplicateVersion`. Since `register_migration` takes ownership via `std::unique_ptr`, the same migration instance cannot be registered twice.",
@@ -2804,7 +2905,8 @@
           "requirements"
         ],
         "type": "LLR",
-        "uid": "ce92a3a5ac3fe411e894d04a4baff19146950736"
+        "uid": "ce92a3a5ac3fe411e894d04a4baff19146950736",
+        "canonical_key": "cg:v1:repository:fixture%2Ffixture:requirement-llr:parent_hlr_key=cg%3Av1%3Arepository%3Acodegraph-suite%252Fcodegraph%3Arequirement-hlr%3Aqualified_name%3DHLR:qualified_name=llr_migration_registration"
       },
       {
         "composes": [
@@ -2816,12 +2918,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "a10b9c0f15463837610d18567f8bce335d85cbb8"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3A3"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "cc1d8cfd3166a849f5cb722fea1953a764a5aad7"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aregistered_versions"
                   }
                 ],
                 "kind": "assertion",
@@ -2836,7 +2938,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "7919a78e5ce53fd3b43c921b70881d0451f53dbd"
+                "uid": "7919a78e5ce53fd3b43c921b70881d0451f53dbd",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Aapply_pending_count_correct"
               },
               {
                 "description": "",
@@ -2844,12 +2947,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "94246dd625a7addc2b60aff9926573c10385306d"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3Atrue"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "287fe11f47bcecc1600e22be2aa0d6cb73855abb"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversion3_recorded"
                   }
                 ],
                 "kind": "assertion",
@@ -2864,7 +2967,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "a491eb5aed31a5ebcbd8da8cd76306befd27df9e"
+                "uid": "a491eb5aed31a5ebcbd8da8cd76306befd27df9e",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Aapply_pending_version3_recorded"
               },
               {
                 "description": "",
@@ -2872,12 +2976,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "94246dd625a7addc2b60aff9926573c10385306d"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3Atrue"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "c4a7155f92b2512e432f72cfee84fdebb036a0bb"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversion2_recorded"
                   }
                 ],
                 "kind": "assertion",
@@ -2892,7 +2996,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "1bd6eefbfaa5a81bb833fbeb6e34adc0652c237c"
+                "uid": "1bd6eefbfaa5a81bb833fbeb6e34adc0652c237c",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Aapply_pending_version2_recorded"
               },
               {
                 "description": "",
@@ -2900,12 +3005,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "50e8ec71e5657068e56386cf88072d769cfa5de5"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3Afalse"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "f4a8bbc168a1d94832d30af799a9a749565c42d9"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversion1_reapplied"
                   }
                 ],
                 "kind": "assertion",
@@ -2920,7 +3025,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "c86ab8d2c1ee643f3590e0ce0f2386d3b2ea55a7"
+                "uid": "c86ab8d2c1ee643f3590e0ce0f2386d3b2ea55a7",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Aapply_pending_version1_not_reapplied"
               },
               {
                 "description": "",
@@ -2928,12 +3034,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "94246dd625a7addc2b60aff9926573c10385306d"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3Atrue"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "4adb062509e00ede2a6036b3a0669312d57df96a"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Ais_initialized"
                   }
                 ],
                 "kind": "assertion",
@@ -2948,7 +3054,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "3f030a87e186dc6c7cbed10fdeeaa1912f2e9553"
+                "uid": "3f030a87e186dc6c7cbed10fdeeaa1912f2e9553",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apre%3A%3Aapply_pending_version1_preexists"
               },
               {
                 "body_end": 0,
@@ -2965,7 +3072,8 @@
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "2ac2ee63a1d46a1a74ee3e58557d65b1daee0e42"
+                "uid": "2ac2ee63a1d46a1a74ee3e58557d65b1daee0e42",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Aapply_pending_invoke_apply"
               },
               {
                 "body_end": 0,
@@ -2982,7 +3090,8 @@
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "674ff5db0b52d2a30bc227f509e4e81aaae062eb"
+                "uid": "674ff5db0b52d2a30bc227f509e4e81aaae062eb",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Aapply_pending_prepopulate_schema_versions"
               },
               {
                 "body_end": 0,
@@ -2999,7 +3108,8 @@
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "bc68bc68d4ca90e22d1f67064f9d4ee46f8dcf3e"
+                "uid": "bc68bc68d4ca90e22d1f67064f9d4ee46f8dcf3e",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Aapply_pending_register_migrations"
               }
             ],
             "description": "Register three migrations at versions 1, 2, 3. Pre-populate `schema_versions` with version 1 already applied. Invoke `apply`. Verify only versions 2 and 3 are executed. Verify `schema_versions` now contains versions 2 and 3. Verify the total number of applied migrations is 3.",
@@ -3019,7 +3129,8 @@
             "test_module": "",
             "test_name": "test_apply_migration_applies_only_pending",
             "type": "TestNode",
-            "uid": "fa579aea5f1ae19009e2e87b15d4fdc49635a3fe"
+            "uid": "fa579aea5f1ae19009e2e87b15d4fdc49635a3fe",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:test:parent_key=cg%3Av1%3Aroot:qualified_name=vm%3A%3Amigration_apply%3A%3Atest_applies_only_pending"
           },
           {
             "composes": [
@@ -3029,12 +3140,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "94246dd625a7addc2b60aff9926573c10385306d"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3Atrue"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "ab5036f45500d42c31c2711501e8f7046b152ad1"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversion1_schema_preserved"
                   }
                 ],
                 "kind": "assertion",
@@ -3049,7 +3160,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "0d4a4336dbd433071462e7ee2510b9674ee2ea56"
+                "uid": "0d4a4336dbd433071462e7ee2510b9674ee2ea56",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Aapply_fail_earlier_schema_preserved"
               },
               {
                 "description": "",
@@ -3057,12 +3169,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "94246dd625a7addc2b60aff9926573c10385306d"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3Atrue"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "8b0e92a68faa3598a24406c12922a1a187ffe5b6"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aerror_on_fail"
                   }
                 ],
                 "kind": "assertion",
@@ -3077,7 +3189,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "8f4daca149b7107a4c2ed0cc91cdff69d50269a7"
+                "uid": "8f4daca149b7107a4c2ed0cc91cdff69d50269a7",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Aapply_fail_error_signaled"
               },
               {
                 "description": "",
@@ -3085,12 +3198,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "94246dd625a7addc2b60aff9926573c10385306d"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3Atrue"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "685281acf5ce4fc95e08a303f9fb82afcfb20b1c"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversion2_not_recorded_on_fail"
                   }
                 ],
                 "kind": "assertion",
@@ -3105,7 +3218,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "e6e76836b0eb137c2a2f5987c66cd04dd142b090"
+                "uid": "e6e76836b0eb137c2a2f5987c66cd04dd142b090",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Aapply_fail_version2_not_recorded"
               },
               {
                 "description": "",
@@ -3113,12 +3227,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "94246dd625a7addc2b60aff9926573c10385306d"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3Atrue"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "2bddec4cf45764e50d46cfa2659a1f2be78213b9"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversion1_recorded_on_fail"
                   }
                 ],
                 "kind": "assertion",
@@ -3133,7 +3247,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "f620f533b45bb68d2013bf70e8fd0d4e370803d0"
+                "uid": "f620f533b45bb68d2013bf70e8fd0d4e370803d0",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Aapply_fail_version1_recorded"
               },
               {
                 "description": "",
@@ -3141,12 +3256,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "94246dd625a7addc2b60aff9926573c10385306d"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3Atrue"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "4adb062509e00ede2a6036b3a0669312d57df96a"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Ais_initialized"
                   }
                 ],
                 "kind": "assertion",
@@ -3161,7 +3276,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "972643ff296009489f2f5a983df79e8a0b5bd781"
+                "uid": "972643ff296009489f2f5a983df79e8a0b5bd781",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apre%3A%3Aapply_fail_migrations_registered"
               },
               {
                 "body_end": 0,
@@ -3178,7 +3294,8 @@
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "6d50cb47f72cadd0e4e43f1773be84fbec71974b"
+                "uid": "6d50cb47f72cadd0e4e43f1773be84fbec71974b",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Aapply_fail_invoke_apply"
               },
               {
                 "body_end": 0,
@@ -3195,7 +3312,8 @@
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "6f120d243ec3212a71750382b074f7994008a4fb"
+                "uid": "6f120d243ec3212a71750382b074f7994008a4fb",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Aapply_fail_register_migrations"
               }
             ],
             "description": "Register two migrations at version 1 (succeeds) and version 2 (whose `up` method throws a `std::runtime_error`). Invoke `apply`. Verify version 1 is marked as applied in `schema_versions`. Verify version 2 is NOT marked as applied. Verify the apply operation signals an error indicating the migration failure. Verify the database still contains any schema objects created by version 1.",
@@ -3215,7 +3333,8 @@
             "test_module": "",
             "test_name": "test_apply_migration_rolls_back_on_up_failure",
             "type": "TestNode",
-            "uid": "4ab61697f76ad3ea451ec1889eb89e4bc213f841"
+            "uid": "4ab61697f76ad3ea451ec1889eb89e4bc213f841",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:test:parent_key=cg%3Av1%3Aroot:qualified_name=vm%3A%3Amigration_apply%3A%3Atest_up_failure_rolls_back"
           },
           {
             "composes": [
@@ -3225,12 +3344,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "ed69f003c463d0e9f09369ec9886ac4886bc06e6"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3A1"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "520e07ce12ee008ebbb4b4783864231c7ac14dda"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aexecution_order"
                   }
                 ],
                 "kind": "assertion",
@@ -3245,7 +3364,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "e581ab55838c03e3f91d7675061cd807569e997f"
+                "uid": "e581ab55838c03e3f91d7675061cd807569e997f",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Aapply_order_is_ascending"
               },
               {
                 "description": "",
@@ -3253,12 +3373,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "94246dd625a7addc2b60aff9926573c10385306d"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3Atrue"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "4adb062509e00ede2a6036b3a0669312d57df96a"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Ais_initialized"
                   }
                 ],
                 "kind": "assertion",
@@ -3273,7 +3393,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "b6c00d4814401758f11c31c7370ec53f25a35fb9"
+                "uid": "b6c00d4814401758f11c31c7370ec53f25a35fb9",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apre%3A%3Aapply_order_migrations_registered"
               },
               {
                 "body_end": 0,
@@ -3290,7 +3411,8 @@
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "3c82365c09ecbc786aff8f6114f69fd1acf17b5a"
+                "uid": "3c82365c09ecbc786aff8f6114f69fd1acf17b5a",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Aapply_order_invoke_apply"
               },
               {
                 "body_end": 0,
@@ -3307,7 +3429,8 @@
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "a80f307c51691c86a9d93e8b497a72aca4d7c696"
+                "uid": "a80f307c51691c86a9d93e8b497a72aca4d7c696",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Aapply_order_register_migrations"
               }
             ],
             "description": "Register three migrations at versions 1, 2, 3 where each `up` method records its execution in a shared vector. Invoke `apply`. Verify the execution order recorded is [1, 2, 3].",
@@ -3327,7 +3450,8 @@
             "test_module": "",
             "test_name": "test_apply_migration_executes_in_version_order",
             "type": "TestNode",
-            "uid": "77e20b6c5f82cd4b78a5bba8ff2e14b1f98c28ed"
+            "uid": "77e20b6c5f82cd4b78a5bba8ff2e14b1f98c28ed",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:test:parent_key=cg%3Av1%3Aroot:qualified_name=vm%3A%3Amigration_apply%3A%3Atest_apply_in_order"
           }
         ],
         "description": "The `MigrationManager` shall provide an `apply` method that returns a `MigrationResult`. On first invocation, `apply` shall create the `schema_versions` table if it does not exist. It shall execute all unapplied migrations in version order against a cpp_sqlite::`Database` instance. Each migration's `up` method shall be invoked with a cpp_sqlite::`Transaction` reference. The manager shall record each successfully applied migration as a `SchemaVersion` in the `schema_versions` table (version: INTEGER, applied_at: TEXT ISO-8601, checksum: TEXT SHA-256). The `SchemaVersion` INSERT and the migration's `up()` shall execute within a single cpp_sqlite::`Transaction` \u2014 both succeed or both roll back atomically. If any migration's `up` method throws, the manager shall roll back the current migration's changes via the active `Transaction` (without affecting previously applied migrations) and return `MigrationResult{success=false, error=MigrationErrorCode::MigrationFailed}`. The manager shall not re-apply migrations already recorded in `schema_versions`. Concurrent apply calls are not supported; behavior is undefined if apply is called concurrently.",
@@ -3341,7 +3465,8 @@
           "requirements"
         ],
         "type": "LLR",
-        "uid": "2f103555a2d6453a31ff5e4af2a6918d6d235d31"
+        "uid": "2f103555a2d6453a31ff5e4af2a6918d6d235d31",
+        "canonical_key": "cg:v1:repository:fixture%2Ffixture:requirement-llr:parent_hlr_key=cg%3Av1%3Arepository%3Acodegraph-suite%252Fcodegraph%3Arequirement-hlr%3Aqualified_name%3DHLR:qualified_name=llr_migration_apply"
       },
       {
         "composes": [
@@ -3353,12 +3478,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "2e90ccfcf6266c16889993fab3b6ed4f461457e8"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=UnexpectedTable"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "3e3a75d52a9165834a7380c9bc47c39d3507ee69"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Amismatch_kind"
                   }
                 ],
                 "kind": "assertion",
@@ -3373,7 +3498,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "4d48a900ececcfe57b95cac5e060af1293d4daa7"
+                "uid": "4d48a900ececcfe57b95cac5e060af1293d4daa7",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Averify_mismatch_kind_extra_table"
               },
               {
                 "description": "",
@@ -3381,12 +3507,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "ed69f003c463d0e9f09369ec9886ac4886bc06e6"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3A1"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "228dbbd4a9c20e6083cd92501a51126277eb0fe6"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Amismatch_version"
                   }
                 ],
                 "kind": "assertion",
@@ -3401,7 +3527,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "c66c43694d65f5d91f2a6e427b9b55df251568df"
+                "uid": "c66c43694d65f5d91f2a6e427b9b55df251568df",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Averify_mismatch_version_is_1"
               },
               {
                 "description": "",
@@ -3409,12 +3536,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "ed69f003c463d0e9f09369ec9886ac4886bc06e6"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3A1"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "09badcbbdf39d32b0d6b8dbef327e2b89c6a216e"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Amismatch_count"
                   }
                 ],
                 "kind": "assertion",
@@ -3429,7 +3556,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "45a1e78baf0a9a7c3753763c8022f4fa8f8bfd69"
+                "uid": "45a1e78baf0a9a7c3753763c8022f4fa8f8bfd69",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Averify_mismatch_count_is_1"
               },
               {
                 "description": "",
@@ -3437,12 +3565,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "94246dd625a7addc2b60aff9926573c10385306d"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3Atrue"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "eefea8a6bb880cad6a95d9ff0d8e5d59a6d30f47"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Amigration_applied"
                   }
                 ],
                 "kind": "assertion",
@@ -3457,7 +3585,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "6147c8eac31e8e7de5d8a31db2011f111abc18d3"
+                "uid": "6147c8eac31e8e7de5d8a31db2011f111abc18d3",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apre%3A%3Averify_migration_applied"
               },
               {
                 "body_end": 0,
@@ -3474,7 +3603,8 @@
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "0d38745384f6ecd2b2283a6f3d1ac03b09888093"
+                "uid": "0d38745384f6ecd2b2283a6f3d1ac03b09888093",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Averify_invoke_verify"
               },
               {
                 "body_end": 0,
@@ -3491,7 +3621,8 @@
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "fd95225f7344bf09be30e8f704b1eb8eb74cb4c5"
+                "uid": "fd95225f7344bf09be30e8f704b1eb8eb74cb4c5",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Averify_add_unexpected_table"
               },
               {
                 "body_end": 0,
@@ -3508,7 +3639,8 @@
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "d343d23665cbaaaa62c3b2025aea9d9ac3d2923b"
+                "uid": "d343d23665cbaaaa62c3b2025aea9d9ac3d2923b",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Averify_register_and_apply_migration"
               }
             ],
             "description": "Register and apply a migration at version 1 that creates a table \"users\". Then manually alter the database to add an unexpected table \"extra\". Invoke verify. Verify the result contains one mismatch entry. Verify the mismatch reports version 1 and `MismatchKind::ChecksumMismatch`, with a detail describing the schema difference.",
@@ -3528,7 +3660,8 @@
             "test_module": "",
             "test_name": "test_verify_detects_schema_mismatch",
             "type": "TestNode",
-            "uid": "685fcfdd88d96463a0850113f0f89923475678cf"
+            "uid": "685fcfdd88d96463a0850113f0f89923475678cf",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:test:parent_key=cg%3Av1%3Aroot:qualified_name=vm%3A%3Aschema_verify%3A%3Atest_mismatch_detected"
           },
           {
             "composes": [
@@ -3538,12 +3671,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "bbde3e0a8d001f3ed9af55c6d1caf739a01d49e3"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3A0"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "09badcbbdf39d32b0d6b8dbef327e2b89c6a216e"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Amismatch_count"
                   }
                 ],
                 "kind": "assertion",
@@ -3558,7 +3691,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "0b428eb36032665672b6359e1777422d023575f5"
+                "uid": "0b428eb36032665672b6359e1777422d023575f5",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Averify_consistent_no_mismatches"
               },
               {
                 "description": "",
@@ -3566,12 +3700,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "94246dd625a7addc2b60aff9926573c10385306d"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3Atrue"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "4adb062509e00ede2a6036b3a0669312d57df96a"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Ais_initialized"
                   }
                 ],
                 "kind": "assertion",
@@ -3586,7 +3720,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "5951adf3b54c0d8618bd02651b485c7bc2269dff"
+                "uid": "5951adf3b54c0d8618bd02651b485c7bc2269dff",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apre%3A%3Averify_consistent_migration_applied"
               },
               {
                 "body_end": 0,
@@ -3603,7 +3738,8 @@
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "02d01c0e209150ea760932a536299e2841d55b7f"
+                "uid": "02d01c0e209150ea760932a536299e2841d55b7f",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Averify_consistent_invoke_verify"
               },
               {
                 "body_end": 0,
@@ -3620,7 +3756,8 @@
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "c1614c78df995760e29592e818230876b0392750"
+                "uid": "c1614c78df995760e29592e818230876b0392750",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Averify_consistent_apply_migration"
               }
             ],
             "description": "Register and apply a migration at version 1 that creates a table \"users\". Do not modify the schema afterward. Invoke verify. Verify the result contains zero mismatches.",
@@ -3640,7 +3777,8 @@
             "test_module": "",
             "test_name": "test_verify_reports_consistent_schema",
             "type": "TestNode",
-            "uid": "4f4ca4bfc45ad895ec2563a11eacca7947609ac0"
+            "uid": "4f4ca4bfc45ad895ec2563a11eacca7947609ac0",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:test:parent_key=cg%3Av1%3Aroot:qualified_name=vm%3A%3Aschema_verify%3A%3Atest_consistent_schema"
           }
         ],
         "description": "The `MigrationManager` shall provide a `verify` method that checks whether the current database schema matches the expected state from all applied migrations. The verify method shall compute a SHA-256 checksum of the current schema by querying `SELECT sql FROM sqlite_master WHERE type IN ('table','index','trigger') ORDER BY name` and hashing the concatenated SQL strings. It shall compare this checksum against the stored checksum of the **highest-applied** `SchemaVersion` in `schema_versions`. It shall return a `SchemaVerificationResult` containing a `std::vector<SchemaMismatch>` and an `is_consistent` boolean. If the live checksum matches the stored checksum, the result shall be `{mismatches={}, is_consistent=true}`. If they differ, the result shall contain one `SchemaMismatch` reporting the version number, `MismatchKind::ChecksumMismatch`, and a human-readable detail string. If `schema_versions` is empty (no migrations applied), `verify` shall return `{mismatches={}, is_consistent=true}`. Verify is not required to be thread-safe; its behavior is undefined if called concurrently with `apply` or `rollback`.",
@@ -3654,7 +3792,8 @@
           "requirements"
         ],
         "type": "LLR",
-        "uid": "8a66a148c6789d8cb38892bbedb9dd1ce4325556"
+        "uid": "8a66a148c6789d8cb38892bbedb9dd1ce4325556",
+        "canonical_key": "cg:v1:repository:fixture%2Ffixture:requirement-llr:parent_hlr_key=cg%3Av1%3Arepository%3Acodegraph-suite%252Fcodegraph%3Arequirement-hlr%3Aqualified_name%3DHLR:qualified_name=llr_schema_verification"
       },
       {
         "composes": [
@@ -3666,12 +3805,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "94246dd625a7addc2b60aff9926573c10385306d"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3Atrue"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "ed2a4158bb4e681f1d9f89f38d123fc13a0dbcdc"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversion3_not_recorded"
                   }
                 ],
                 "kind": "assertion",
@@ -3686,7 +3825,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "5bf02c03938f88733590b0849d2930a8c1a333b6"
+                "uid": "5bf02c03938f88733590b0849d2930a8c1a333b6",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Arollback_version3_not_in_table"
               },
               {
                 "description": "",
@@ -3694,12 +3834,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "94246dd625a7addc2b60aff9926573c10385306d"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3Atrue"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "ddf850e15cc89924ed9c362bbc9372cbae892376"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversions_1_2_remain"
                   }
                 ],
                 "kind": "assertion",
@@ -3714,7 +3854,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "57c5160d3e8d29af7b5d8ba0efcb20ed9b4c3277"
+                "uid": "57c5160d3e8d29af7b5d8ba0efcb20ed9b4c3277",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Arollback_versions_1_and_2_remain"
               },
               {
                 "description": "",
@@ -3722,12 +3863,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "94246dd625a7addc2b60aff9926573c10385306d"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3Atrue"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "17aecaa5c47e422d10c81e91689d687f5e8b4590"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Adown_called"
                   }
                 ],
                 "kind": "assertion",
@@ -3742,7 +3883,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "16aea49e67b6746997969bc7440f43d914eda4fc"
+                "uid": "16aea49e67b6746997969bc7440f43d914eda4fc",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Arollback_down_called"
               },
               {
                 "description": "",
@@ -3750,12 +3892,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "94246dd625a7addc2b60aff9926573c10385306d"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3Atrue"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "4adb062509e00ede2a6036b3a0669312d57df96a"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Ais_initialized"
                   }
                 ],
                 "kind": "assertion",
@@ -3770,7 +3912,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "459eb78d15d31e49498b108c0f4fe2727c09b75f"
+                "uid": "459eb78d15d31e49498b108c0f4fe2727c09b75f",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apre%3A%3Arollback_three_migrations_applied"
               },
               {
                 "body_end": 0,
@@ -3787,7 +3930,8 @@
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "c6c1391256c92e6d95a85104f262e1f07a516746"
+                "uid": "c6c1391256c92e6d95a85104f262e1f07a516746",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Arollback_invoke_rollback"
               },
               {
                 "body_end": 0,
@@ -3804,7 +3948,8 @@
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "d51040eb20128f46fb2d36f8512d805c40281c23"
+                "uid": "d51040eb20128f46fb2d36f8512d805c40281c23",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Arollback_apply_three_migrations"
               }
             ],
             "description": "Apply migrations at versions 1, 2, 3. Invoke `rollback(2)`. Verify version 3's `down` method was called. Verify only versions 1 and 2 remain in `schema_versions`. Verify version 3 is not in `schema_versions`.",
@@ -3824,7 +3969,8 @@
             "test_module": "",
             "test_name": "test_rollback_rolls_back_to_target_version",
             "type": "TestNode",
-            "uid": "10c77f6d334bee8867b896e97bfc95ebac22f8ca"
+            "uid": "10c77f6d334bee8867b896e97bfc95ebac22f8ca",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:test:parent_key=cg%3Av1%3Aroot:qualified_name=vm%3A%3Arollback%3A%3Atest_rollback_to_version"
           },
           {
             "composes": [
@@ -3834,12 +3980,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "94246dd625a7addc2b60aff9926573c10385306d"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3Atrue"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "ddc18b0965a6fe25e99d0fe126f3613045d07cd9"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversion1_preserved_on_fail"
                   }
                 ],
                 "kind": "assertion",
@@ -3854,7 +4000,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "078a37af4ea43a82f27a9c29c1946c27ed6b472f"
+                "uid": "078a37af4ea43a82f27a9c29c1946c27ed6b472f",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Arollback_fail_version1_preserved"
               },
               {
                 "description": "",
@@ -3862,12 +4009,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "94246dd625a7addc2b60aff9926573c10385306d"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3Atrue"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "88631b67b8b7f908f5c83a57ee757cf076a99c85"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversion2_still_exists_on_fail"
                   }
                 ],
                 "kind": "assertion",
@@ -3882,7 +4029,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "c9dc02192fe1949798d10188c799d403b66f937b"
+                "uid": "c9dc02192fe1949798d10188c799d403b66f937b",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Arollback_fail_version2_still_exists"
               },
               {
                 "description": "",
@@ -3890,12 +4038,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "94246dd625a7addc2b60aff9926573c10385306d"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3Atrue"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "2a7c3547166a9ba6a952ac912034d5aa322e0158"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aerror_on_rollback_fail"
                   }
                 ],
                 "kind": "assertion",
@@ -3910,7 +4058,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "8daa9a84720bd47019dd8aaab64d4dc99160040f"
+                "uid": "8daa9a84720bd47019dd8aaab64d4dc99160040f",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Arollback_fail_error_signaled"
               },
               {
                 "description": "",
@@ -3918,12 +4067,12 @@
                   {
                     "relation_type": "RIGHT_OPERAND",
                     "target_type": "LiteralNode",
-                    "target_uid": "94246dd625a7addc2b60aff9926573c10385306d"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3Atrue"
                   },
                   {
                     "relation_type": "LEFT_OPERAND",
                     "target_type": "AttributeNode",
-                    "target_uid": "4adb062509e00ede2a6036b3a0669312d57df96a"
+                    "target_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Ais_initialized"
                   }
                 ],
                 "kind": "assertion",
@@ -3938,7 +4087,8 @@
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "8d9dc5514d45f135dfcc7533fd02edfc0b5f134b"
+                "uid": "8d9dc5514d45f135dfcc7533fd02edfc0b5f134b",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apre%3A%3Arollback_fail_two_applied"
               },
               {
                 "body_end": 0,
@@ -3955,7 +4105,8 @@
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "590371c94789589d4aaee728adc86f7195f1c64f"
+                "uid": "590371c94789589d4aaee728adc86f7195f1c64f",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Arollback_fail_invoke_rollback"
               },
               {
                 "body_end": 0,
@@ -3972,7 +4123,8 @@
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "35f35c16cad96e7473b19d67c766b3c1434a12a1"
+                "uid": "35f35c16cad96e7473b19d67c766b3c1434a12a1",
+                "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Arollback_fail_apply_migrations"
               }
             ],
             "description": "Apply migrations at versions 1 and 2 where version 2's `down` method throws. Invoke `rollback(1)`. Verify the operation signals an error. Verify version 2 remains in `schema_versions`. Verify version 1 still exists in `schema_versions`.",
@@ -3992,7 +4144,8 @@
             "test_module": "",
             "test_name": "test_rollback_aborts_on_down_failure",
             "type": "TestNode",
-            "uid": "af58015a841018d8294e452dc145ced7d29dea95"
+            "uid": "af58015a841018d8294e452dc145ced7d29dea95",
+            "canonical_key": "cg:v1:repository:fixture%2Ffixture:test:parent_key=cg%3Av1%3Aroot:qualified_name=vm%3A%3Arollback%3A%3Atest_down_failure_aborts"
           }
         ],
         "description": "The `MigrationManager` shall provide a `rollback` method that accepts a target `int` version and returns a `MigrationResult`. It shall roll back all migrations above the target version in descending version order. Each migration's `down` method shall be invoked with a cpp_sqlite::`Transaction` reference. Rollback shall remove rows for rolled-back migrations from `schema_versions`. If any `down` method throws, the manager shall abort the rollback and leave the database in its partially-rolled-back state, returning `MigrationResult{success=false, error=MigrationErrorCode::RollbackFailed}`. If the target version does not exist in `schema_versions`, the manager shall return `MigrationResult{success=false, error=MigrationErrorCode::VersionNotFound}`. If `schema_versions` is empty, `rollback` shall return `MigrationResult{success=false, error=MigrationErrorCode::NotInitialized}`. Calling `rollback` to a version at or below the lowest applied version (equivalent to full rollback) is valid and shall remove all applied migrations, returning `MigrationResult{success=true}`. Rollback is idempotent \u2014 calling `rollback(N)` a second time when no migrations are above N shall return `MigrationResult{success=true}` (no-op).",
@@ -4006,7 +4159,8 @@
           "requirements"
         ],
         "type": "LLR",
-        "uid": "4b2aedc573580beb4bd3df69840333e4447ebee0"
+        "uid": "4b2aedc573580beb4bd3df69840333e4447ebee0",
+        "canonical_key": "cg:v1:repository:fixture%2Ffixture:requirement-llr:parent_hlr_key=cg%3Av1%3Arepository%3Acodegraph-suite%252Fcodegraph%3Arequirement-hlr%3Aqualified_name%3DHLR:qualified_name=llr_migration_rollback"
       }
     ],
     "description": "The `MigrationManager` class shall provide a schema versioning system for SQLite databases using the cpp-sqlite library. It shall track applied migrations, apply pending migrations in version order, detect schema drift, and roll back migrations when requested. The manager shall integrate with the existing cpp_sqlite::`Database` class without modifying it. Migrations shall be defined by the user as subclasses of the `Migration` abstract base class and registered with the manager. The manager shall provide a `verify` method that checks whether the current database schema matches the expected state from all applied migrations.",
@@ -4020,6 +4174,7 @@
       "requirements"
     ],
     "type": "HLR",
-    "uid": "4d5ab0b66ad6ff20c194e6a17aa2fbd5c3e0c70c"
+    "uid": "4d5ab0b66ad6ff20c194e6a17aa2fbd5c3e0c70c",
+    "canonical_key": "cg:v1:repository:fixture%2Ffixture:requirement-hlr:qualified_name=Database%20Migration%20Manager"
   }
 ]

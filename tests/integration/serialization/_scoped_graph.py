@@ -14,6 +14,34 @@ from codegraph.models.test import TestNode, TestStepNode, AssertionNode
 from codegraph_requirements.models.requirement import LLR, HLR
 
 
+def _key_graph(graph):
+    """WP A: stamp canonical keys onto every node in *graph*."""
+    from codegraph.identity import IdentityScope, resolve_identity_for
+
+    scope = IdentityScope.repository("codegraph-suite", "codegraph")
+
+    def walk(entries, parent_key=None):
+        for entry in entries:
+            node = entry.node
+            t = type(node).__name__
+            parents = {}
+            if t == "LLR":
+                parents["parent_hlr_key"] = parent_key or "cg:v1:root"
+            elif t in ("TestNode", "TestFixtureNode",
+                       "AssertionNode", "TestStepNode"):
+                parents["parent_key"] = parent_key or "cg:v1:root"
+            node.canonical_key = resolve_identity_for(
+                node, scope, parents=parents
+            ).key()
+            walk(
+                [e for tc in entry.children.values() for e in tc.values()],
+                node.canonical_key,
+            )
+
+    walk(list(graph.entries.values()))
+    return graph
+
+
 def make_scoped_verification_graph(with_hlr: bool = False) -> LayerGraph:
     """Build a small graph with a class under test, a neighbour, an
     unrelated class, and an LLR (optionally under an HLR) whose tests
@@ -141,5 +169,5 @@ def make_scoped_verification_graph(with_hlr: bool = False) -> LayerGraph:
         )
         entries = {"app": ns_entry, "llr_engine": llr_entry}
 
-    return LayerGraph(tags=frozenset({"design"}), entries=entries)
+    return _key_graph(LayerGraph(tags=frozenset({"design"}), entries=entries))
 

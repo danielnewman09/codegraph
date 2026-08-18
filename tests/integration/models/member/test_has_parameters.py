@@ -40,7 +40,13 @@ def _make_member_and_params(node_cls, member_name, param_specs):
             default_value=spec.get("default", ""),
             source="test",
             tags=["as-built"],
-        ).save()
+        )
+        # ParameterNode is parent-relative — resolve its key from the
+        # member's canonical key (WP A, never invented at save).
+        param.canonical_key = param.resolve_canonical_key(
+            parents={"parent_callable_key": member.canonical_key}
+        )
+        param.save()
         params.append(param)
     return member, params
 

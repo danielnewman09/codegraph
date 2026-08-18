@@ -832,12 +832,16 @@ def validate_decomposition(nodes: list[dict]) -> list[DecompositionViolation]:
     test_ids: set[str] = set()
     cond_ids: set[str] = set()
     action_ids: set[str] = set()
+    key_to_qname: dict[str, str] = {}
 
     for n in nodes:
         ntype = n.get("type", "")
         ident = n.get("qualified_name", "") or n.get("name", "")
         if ident:
             nodes_by_ident[ident] = n
+        ck = n.get("canonical_key") or ""
+        if ck:
+            key_to_qname[ck] = ident
         if ntype == "LLR":
             llr_ids.add(ident)
         elif ntype == "TestNode":
@@ -846,6 +850,19 @@ def validate_decomposition(nodes: list[dict]) -> list[DecompositionViolation]:
             cond_ids.add(ident)
         elif ntype == "TestStepNode":
             action_ids.add(ident)
+
+    def _edge_ref(e: dict) -> str:
+        """Resolve an edge target to its node identity (qname).
+
+        Canonical wire format carries ``target_key`` (the target node's
+        canonical key); legacy decompose outputs carry ``target_uid``
+        (the target's qualified name).  In-list targets resolve through
+        the canonical-key → qname map; scaffold targets (not present in
+        the node list) fall back to the raw reference string, which is
+        consistent across edges to the same scaffold.
+        """
+        ref = e.get("target_key") or e.get("target_uid") or ""
+        return key_to_qname.get(ref, ref)
 
     llr_to_tests: dict[str, list[str]] = {}
     test_to_conds: dict[str, list[str]] = {}
@@ -856,7 +873,7 @@ def validate_decomposition(nodes: list[dict]) -> list[DecompositionViolation]:
         ntype = n.get("type", "")
         for e in n.get("edges", []):
             rt = e.get("relation_type", "")
-            tuid = e.get("target_uid", "")
+            tuid = _edge_ref(e)
             if rt != "COMPOSES":
                 continue
             if ntype == "LLR" and tuid in test_ids:
@@ -877,7 +894,7 @@ def validate_decomposition(nodes: list[dict]) -> list[DecompositionViolation]:
             continue
         for e in n.get("edges", []):
             ttype = e.get("target_type", "")
-            tuid = e.get("target_uid", "")
+            tuid = _edge_ref(e)
             rt = e.get("relation_type", "")
             if ttype in ("AttributeNode", "LiteralNode", "ClassNode") and tuid:
                 scaffold_refs.setdefault(tuid, []).append((ident, rt))
@@ -1574,13 +1591,14 @@ def decompose_and_persist_hlr(
         Dict with keys ``hlr_uid``, ``num_llrs``, ``llrs_created``, etc.
     """
     from codegraph_requirements.models import HLR
+    from codegraph.backends import get_backend
     from codegraph_requirements.persistence import persist_decomposition
 
     log.info("decompose_and_persist_hlr: loading HLR %s", hlr_uid[:16])
-    hlr = HLR.nodes.get_or_none(uid=hlr_uid)
+    hlr = get_backend().graph.find_by_key(hlr_uid)
     if not hlr:
         raise ValueError(f"HLR {hlr_uid} not found")
-    uid = hlr.uid
+    uid = hlr.canonical_key
 
     # --- Guard: refuse re-decomposition if HLR already has scaffold nodes ---
     # Scaffold nodes are the concrete artifact of a successful decomposition;

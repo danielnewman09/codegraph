@@ -151,7 +151,7 @@ class MemoryNode(CodeGraphNode):
         for e in backend.get_all_edges(self):
             edges.append({
                 "relation_type": e.relation_type,
-                "target_uid": e.target_uid,
+                "target_key": e.target_key,
                 "target_type": e.target_type,
             })
         return edges

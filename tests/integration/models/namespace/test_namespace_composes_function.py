@@ -81,7 +81,7 @@ def test_namespace_composes_function():
     # codegraph:test-desc namespace.test_namespace_composes_function.test_namespace_composes_function::post_4
     # Asserts that the UID of the target node in the first composes edge matches the
     # `function_node`'s UID, confirming the edge links to the correct function.
-    assert composes_edges[0]["target_uid"] == function_node._uid_value()
+    assert composes_edges[0]["target_key"] == function_node.canonical_key
 
     # codegraph:test-desc namespace.test_namespace_composes_function.test_namespace_composes_function::step_3
     # Deserializes the `CompositeEntry` back into a `CodeGraphNode` and extracts its
@@ -96,7 +96,7 @@ def test_namespace_composes_function():
     # Asserts that the first composes edge from round-trip equals a specific numerical
     # check (likely the target UID matches the function node’s UID via `==`), ensuring
     # the edge points to the exact intended function node.
-    assert connected[0]._uid_value() == function_node._uid_value()
+    assert connected[0].canonical_key == function_node.canonical_key
 
 
 if __name__ == "__main__":

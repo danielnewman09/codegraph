@@ -21,7 +21,15 @@ from pathlib import Path
 
 import pytest
 
-from codegraph.graph import LayerGraph
+from codegraph.graph import LayerGraph, CompositeEntry
+from tests.integration.serialization._keying import key_graph as _kg
+
+
+class _KeyedLayerGraph(LayerGraph):
+    """LayerGraph that stamps canonical keys on construction (WP A)."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _kg(self)
 from codegraph.export.markdown import export_markdown, import_markdown
 
 FIXTURE = Path(__file__).resolve().parent / "data" / "design_graph.json"

@@ -24,7 +24,7 @@ Usage::
     # Create an HLR
     hlr = HLR.save_new(name="Error handling", description="The system shall...")
     # ... after decomposition:
-    result = persist_decomposition(hlr_uid=hlr.uid, decomposition=schema_output)
+    result = persist_decomposition(hlr_uid=hlr.canonical_key, decomposition=schema_output)
     print(f"Created {result.llrs_created} LLRs, {result.tests_created} tests")
 
 Graph structure::

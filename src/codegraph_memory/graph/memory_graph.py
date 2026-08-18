@@ -119,8 +119,8 @@ class MemoryGraph:
         entries: list[MemoryEntry] = []
         for memory in nodes:
             entry = MemoryEntry(memory=memory)
-            if include_code and hasattr(memory, "uid"):
-                linked = memory_repo.find_linked_code_node(memory.uid)
+            if include_code and hasattr(memory, "canonical_key"):
+                linked = memory_repo.find_linked_code_node(memory.canonical_key)
                 if linked:
                     entry.code_node_uid = linked["uid"]
                     entry.code_node_qualified_name = linked["qualified_name"]
@@ -151,42 +151,42 @@ class MemoryGraph:
     def constraints_for(cls, code_node: CodeGraphNode) -> list[ConstraintNode]:
         """Return all constraints governing a code node."""
         return cls._memories_by_type(
-            code_node.uid, "CONSTRAINS", ConstraintNode
+            code_node.canonical_key, "CONSTRAINS", ConstraintNode
         )
 
     @classmethod
     def decisions_for(cls, code_node: CodeGraphNode) -> list[DecisionNode]:
         """Return all decisions motivating a code node."""
         return cls._memories_by_type(
-            code_node.uid, "MOTIVATES", DecisionNode
+            code_node.canonical_key, "MOTIVATES", DecisionNode
         )
 
     @classmethod
     def insights_for(cls, code_node: CodeGraphNode) -> list[InsightNode]:
         """Return all insights learned from a code node."""
         return cls._memories_by_type(
-            code_node.uid, "INSIGHT_INTO", InsightNode
+            code_node.canonical_key, "INSIGHT_INTO", InsightNode
         )
 
     @classmethod
     def rationales_for(cls, code_node: CodeGraphNode) -> list[RationaleNode]:
         """Return all rationales explaining a code node."""
         return cls._memories_by_type(
-            code_node.uid, "EXPLAINS", RationaleNode
+            code_node.canonical_key, "EXPLAINS", RationaleNode
         )
 
     @classmethod
     def assumptions_for(cls, code_node: CodeGraphNode) -> list[AssumptionNode]:
         """Return all assumptions underpinning a code node."""
         return cls._memories_by_type(
-            code_node.uid, "ASSUMES", AssumptionNode
+            code_node.canonical_key, "ASSUMES", AssumptionNode
         )
 
     @classmethod
     def tradeoffs_for(cls, code_node: CodeGraphNode) -> list[TradeoffNode]:
         """Return all tradeoffs applying to a code node."""
         return cls._memories_by_type(
-            code_node.uid, "TRADES_OFF", TradeoffNode
+            code_node.canonical_key, "TRADES_OFF", TradeoffNode
         )
 
     @classmethod
@@ -203,7 +203,7 @@ class MemoryGraph:
             A list of memory node instances.
         """
         return get_backend().memory.find_linked_to_descendants(
-            code_node.uid
+            code_node.canonical_key
         )
 
     # ── Serialization ──────────────────────────────────────────────
@@ -281,7 +281,7 @@ class MemoryGraph:
             if entry.code_node_uid and entry.relation_type:
                 try:
                     backend.memory.link_to_code_node(
-                        entry.memory.uid,
+                        entry.memory.canonical_key,
                         entry.code_node_uid,
                         entry.relation_type,
                     )

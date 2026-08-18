@@ -36,7 +36,7 @@ def _linked_code(backend, memory: CodeGraphNode) -> list[tuple[CodeGraphNode, st
     for edge in backend.get_all_edges_outgoing(memory):
         if edge.relation_type not in _MEMORY_TO_CODE_RELS:
             continue
-        target = backend.graph.find_by_uid(edge.target_uid)
+        target = backend.graph.find_by_key(edge.target_key)
         if target is not None:
             links.append((target, edge.relation_type))
     return links
@@ -107,7 +107,7 @@ def confidence_decay(code_node_uid: str, decay_factor: float = 0.9) -> int:
         memory = entry["node"]
         old_conf = getattr(memory, "confidence", None) or 1.0
         new_conf = max(0.0, old_conf * decay_factor)
-        backend.graph.update_properties(memory._uid_value(), {"confidence": new_conf})
+        backend.graph.update_properties(memory.canonical_key, {"confidence": new_conf})
         count += 1
     return count
 

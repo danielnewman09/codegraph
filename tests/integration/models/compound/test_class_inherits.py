@@ -84,7 +84,7 @@ def test_class_inherits():
     # Verifies that the target node of the inheritance edge has the unique identifier
     # (UID) of the base_class, proving that the correct inheritance relationship was
     # restored.
-    assert inherits_edges[0]["target_uid"] == base_class._uid_value()
+    assert inherits_edges[0]["target_key"] == base_class.canonical_key
 
     # codegraph:test-desc compound.test_class_inherits.test_class_inherits::step_3
     # Extracts the deserialized roundtripped node from the LayerGraph, preparing it for
@@ -98,7 +98,7 @@ def test_class_inherits():
     # codegraph:test-desc compound.test_class_inherits.test_class_inherits::post_6
     # Verifies that the target node's base_fields (or similar) match expected values,
     # confirming the integrity of the base class data after deserialization.
-    assert connected[0]._uid_value() == base_class._uid_value()
+    assert connected[0].canonical_key == base_class.canonical_key
 
 
 if __name__ == "__main__":

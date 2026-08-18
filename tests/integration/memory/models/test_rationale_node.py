@@ -38,7 +38,7 @@ class TestRationaleNode:
         )
         rationale.explains_compound.connect(method)
 
-        linked = get_backend().memory.find_linked_code_node(rationale.uid)
+        linked = get_backend().memory.find_linked_code_node(rationale.canonical_key)
         assert linked is not None
         assert linked["rel_type"] == "EXPLAINS"
 

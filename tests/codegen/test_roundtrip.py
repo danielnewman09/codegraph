@@ -38,6 +38,12 @@ except ModuleNotFoundError:
     identity = None
 from codegraph.codegen.verify import verify
 from codegraph.graph import LayerGraph
+from tests.codegen.context.conftest import key_document as _kd
+
+# TODO move this into a conftest to avoid repetition
+def _deser(data):
+    return LayerGraph.deserialize(_kd(data))
+
 
 GOLDEN_SPLIT = Path(__file__).resolve().parent / "golden" / "design_layergraph.json"
 
@@ -67,7 +73,7 @@ def roundtrip_graph(tmp_path_factory):
 
     # 1. Codegen the SPLIT golden into a parseable project.
     data = json.loads(GOLDEN_SPLIT.read_text())
-    design = LayerGraph.deserialize(data)
+    design = _deser(data)
     result = generate(data)
     assert len(result.files) > 30, "expected the full SPLIT golden tree"
     for rel, text in result.files.items():

@@ -46,7 +46,7 @@ def test_union_composed_by_namespace():
     # Verifies that the single parent of the union_node is the expected namespace node
     # (ns_node), ensuring the union's parent is correctly set to its composing
     # namespace.
-    assert parents[0]._uid_value() == ns_node._uid_value()
+    assert parents[0].canonical_key == ns_node.canonical_key
 
 
 if __name__ == "__main__":

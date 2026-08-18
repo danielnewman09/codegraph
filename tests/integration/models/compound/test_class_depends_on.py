@@ -79,7 +79,7 @@ def test_class_depends_on():
     # codegraph:test-desc compound.test_class_depends_on.test_class_depends_on::post_4
     # Verifies that the target UID of the dependency edge matches the UID of the
     # dependency fixture, ensuring the correct dependency link is maintained.
-    assert depends_edges[0]["target_uid"] == dependency._uid_value()
+    assert depends_edges[0]["target_key"] == dependency.canonical_key
 
     # codegraph:test-desc compound.test_class_depends_on.test_class_depends_on::step_3
     # Retrieves the dependency edges from the round-tripped ClassNode to extract the
@@ -92,7 +92,7 @@ def test_class_depends_on():
     # codegraph:test-desc compound.test_class_depends_on.test_class_depends_on::post_6
     # Validates that the connected node is the expected dependency node, ensuring the
     # dependency relationship is accurately restored in the graph.
-    assert connected[0]._uid_value() == dependency._uid_value()
+    assert connected[0].canonical_key == dependency.canonical_key
 
 
 if __name__ == "__main__":

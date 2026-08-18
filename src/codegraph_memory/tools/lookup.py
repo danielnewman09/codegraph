@@ -16,7 +16,7 @@ def memory_of(qualified_name: str) -> list[dict[str, Any]]:
     node = get_backend().graph.find_by_qualified_name(qualified_name)
     if node is None:
         return []
-    uid = node._uid_value()
+    uid = node.canonical_key
     if not uid:
         return []
     results = get_backend().memory.find_for_code_node(uid)
@@ -31,7 +31,7 @@ def constraints_for(qualified_name: str) -> list[dict[str, Any]]:
     node = get_backend().graph.find_by_qualified_name(qualified_name)
     if node is None:
         return []
-    uid = node._uid_value()
+    uid = node.canonical_key
     if not uid:
         return []
     results = get_backend().memory.find_for_code_node(uid)
@@ -47,7 +47,7 @@ def decisions_for(qualified_name: str) -> list[dict[str, Any]]:
     node = get_backend().graph.find_by_qualified_name(qualified_name)
     if node is None:
         return []
-    uid = node._uid_value()
+    uid = node.canonical_key
     if not uid:
         return []
     results = get_backend().memory.find_for_code_node(uid)
@@ -69,7 +69,7 @@ def decision_chain(qualified_name: str) -> list[dict[str, Any]]:
     if code_node is None:
         return []
 
-    uid = code_node._uid_value()
+    uid = code_node.canonical_key
     if not uid:
         return []
 
@@ -96,9 +96,9 @@ def _walk_supersedes(decision) -> list[dict[str, Any]]:
     current = decision
     while current is not None:
         for older in current.supersedes.all():
-            if older.uid in visited:
+            if older.canonical_key in visited:
                 continue
-            visited.add(older.uid)
+            visited.add(older.canonical_key)
             chain.append(older.serialize())
             current = older
             break  # follow one level per iteration
@@ -112,7 +112,7 @@ def insights_for(qualified_name: str) -> list[dict[str, Any]]:
     node = get_backend().graph.find_by_qualified_name(qualified_name)
     if node is None:
         return []
-    uid = node._uid_value()
+    uid = node.canonical_key
     if not uid:
         return []
     results = get_backend().memory.find_for_code_node(uid)
@@ -128,7 +128,7 @@ def rationales_for(qualified_name: str) -> list[dict[str, Any]]:
     node = get_backend().graph.find_by_qualified_name(qualified_name)
     if node is None:
         return []
-    uid = node._uid_value()
+    uid = node.canonical_key
     if not uid:
         return []
     results = get_backend().memory.find_for_code_node(uid)
@@ -144,7 +144,7 @@ def assumptions_for(qualified_name: str) -> list[dict[str, Any]]:
     node = get_backend().graph.find_by_qualified_name(qualified_name)
     if node is None:
         return []
-    uid = node._uid_value()
+    uid = node.canonical_key
     if not uid:
         return []
     results = get_backend().memory.find_for_code_node(uid)
@@ -160,7 +160,7 @@ def tradeoffs_for(qualified_name: str) -> list[dict[str, Any]]:
     node = get_backend().graph.find_by_qualified_name(qualified_name)
     if node is None:
         return []
-    uid = node._uid_value()
+    uid = node.canonical_key
     if not uid:
         return []
     results = get_backend().memory.find_for_code_node(uid)
@@ -179,7 +179,7 @@ def affected_decisions(qualified_name: str) -> list[dict[str, Any]]:
     node = get_backend().graph.find_by_qualified_name(qualified_name)
     if node is None:
         return []
-    uid = node._uid_value()
+    uid = node.canonical_key
     if not uid:
         return []
     nodes = get_backend().memory.find_linked_to_descendants(uid)

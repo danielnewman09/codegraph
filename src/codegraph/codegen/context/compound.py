@@ -99,7 +99,7 @@ def _build_class_like(entry, state) -> dict:
         "kind": kind,
         "name": name,
         "qualified_name": node.qualified_name or "",
-        "uid": node.uid or "",
+        "uid": node.canonical_key or "",
         "visibility": base.normalize_visibility(node.visibility),
         "brief": node.brief_description or "",
         "detailed": node.detailed_description or "",
@@ -181,13 +181,13 @@ def _forward_decls(entry, state) -> list[dict]:
     if state is None:
         return []
     own_qn = entry.node.qualified_name or ""
-    own_uid = getattr(entry.node, "uid", None)
+    own_uid = getattr(entry.node, "canonical_key", None)
     own_ns = own_qn.rsplit("::", 1)[0] if "::" in own_qn else ""
 
     # D9: composed children are defined in this header — never forward-
     # declared (their uid matches a DEPENDS_ON target).
     child_uids = {
-        getattr(child.node, "uid", None)
+        getattr(child.node, "canonical_key", None)
         for _child_type, _key, child in base.ordered_children(entry)
     }
 
@@ -198,7 +198,7 @@ def _forward_decls(entry, state) -> list[dict]:
         if target is None:
             continue
         t = target.node
-        t_uid = getattr(t, "uid", None)
+        t_uid = getattr(t, "canonical_key", None)
         t_qn = getattr(t, "qualified_name", "") or ""
         t_kind = getattr(t, "kind", "") or "class"
         if t_kind not in ("class", "struct", "interface"):
@@ -289,7 +289,7 @@ def _build_enum(entry, state) -> dict:
         "kind": node.kind or "enum",
         "name": node.name or "",
         "qualified_name": node.qualified_name or "",
-        "uid": node.uid or "",
+        "uid": node.canonical_key or "",
         "visibility": base.normalize_visibility(node.visibility),
         "brief": node.brief_description or "",
         "detailed": node.detailed_description or "",
@@ -328,7 +328,7 @@ def _build_concept(entry, state) -> dict:
         "kind": node.kind or "concept",
         "name": node.name or "",
         "qualified_name": qn,
-        "uid": node.uid or "",
+        "uid": node.canonical_key or "",
         "visibility": base.normalize_visibility(node.visibility),
         "brief": node.brief_description or "",
         "detailed": node.detailed_description or "",

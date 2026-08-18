@@ -24,7 +24,7 @@ Usage::
     from codegraph_requirements.persistence import persist_decomposition
 
     decomposition = persist_decomposition(
-        hlr_uid="2c3463b2…",
+        hlr_uid="cg:v1:project:codegraph-suite:requirement-hlr:qualified_name=…",
         decomposition=decomposed,
     )
 """
@@ -126,6 +126,137 @@ def _safe_flat_index(graph, all_entries: list) -> dict:
     return {LayerGraph._node_key(e.node): e for e in all_entries}
 
 
+# TODO understand why this is necessary
+def key_decomposition_nodes(
+    nodes: list[dict],
+    *,
+    parent_hlr_key: str,
+    scope=None,
+) -> list[dict]:
+    """WP A/B: assign canonical keys to a decompose node list in place.
+
+    Every node dict gets a ``canonical_key`` computed under the ACTIVE
+    identity scope, and each edge's ``target_uid`` qname reference is
+    converted to the target's ``target_key`` (canonical wire format).
+    Parent chains (LLR → TestNode → Assertion/Step) are followed through
+    COMPOSES edges; scaffold targets not present in the list get
+    deterministic probe keys plus a ``target_ref`` so
+    ``LayerGraph.deserialize(create_missing=True)`` can materialize them.
+
+    Idempotent: safe to call twice on the same node list.
+
+    Args:
+        nodes: Flat decompose node dicts (mutated in place).
+        parent_hlr_key: The owning HLR's canonical key — the parent for
+            every LLR in this decomposition.
+
+    Returns:
+        The same *nodes* list.
+
+    Raises:
+        ``codegraph.identity.IdentityError`` if no identity scope is
+        active (WP A — scope is never inferred).
+    """
+    from codegraph.identity import get_identity_scope, resolve_identity_for
+    from codegraph.models.test import TestNode, AssertionNode, TestStepNode
+    from codegraph.models.compound import ClassNode
+    from codegraph.models.member import AttributeNode
+    from codegraph.models.literal import LiteralNode
+    from codegraph_requirements.models.requirement import LLR
+
+    if scope is None:
+        scope = get_identity_scope()
+    if scope is None:
+        raise ValueError(
+            "key_decomposition_nodes requires an identity scope — pass "
+            "scope= explicitly or wrap the persist call in identity_scope(...)"
+        )
+
+    def probe_key(cls, qname, parents=None):
+        probe = cls(
+            qualified_name=qname,
+            name=qname.rsplit("::", 1)[-1] if "::" in qname else qname,
+            source="test",
+        )
+        return resolve_identity_for(probe, scope, parents=parents).key()
+
+    key_of: dict[str, str] = {}
+
+    def _parent_of(child_qname: str, parent_type: str) -> str:
+        """Qname of the *parent_type* node whose COMPOSES edge targets child_qname."""
+        child_type = next(
+            (
+                n.get("type", "")
+                for n in nodes
+                if (n.get("qualified_name", "") or n.get("name", "")) == child_qname
+            ),
+            "",
+        )
+        for n in nodes:
+            if n.get("type") != parent_type:
+                continue
+            for e in n.get("edges", []):
+                if (
+                    e.get("relation_type") == "COMPOSES"
+                    and e.get("target_type") == child_type
+                    and (e.get("target_uid") or "") == child_qname
+                ):
+                    return n.get("qualified_name", "") or n.get("name", "")
+        return ""
+
+    # Pass 1: LLR keys (parent = the owning HLR)
+    for n in nodes:
+        if n.get("type") == "LLR":
+            qn = n.get("qualified_name", "") or n.get("name", "")
+            key_of[qn] = probe_key(LLR, qn, {"parent_hlr_key": parent_hlr_key})
+
+    # Pass 2: TestNode keys (parent = owning LLR)
+    for n in nodes:
+        if n.get("type") != "TestNode":
+            continue
+        qn = n.get("qualified_name", "") or n.get("name", "")
+        parent = _parent_of(qn, "LLR")
+        key_of[qn] = probe_key(
+            TestNode, qn, {"parent_key": key_of.get(parent, parent_hlr_key)}
+        )
+
+    # Pass 3: Assertion/TestStep keys (parent = owning TestNode)
+    for n in nodes:
+        t = n.get("type")
+        if t not in ("AssertionNode", "TestStepNode"):
+            continue
+        qn = n.get("qualified_name", "") or n.get("name", "")
+        parent = _parent_of(qn, "TestNode")
+        cls = AssertionNode if t == "AssertionNode" else TestStepNode
+        key_of[qn] = probe_key(
+            cls, qn, {"parent_key": key_of.get(parent, parent_hlr_key)}
+        )
+
+    def scaffold_key(ttype: str, qn: str) -> str:
+        if ttype == "AttributeNode":
+            return probe_key(AttributeNode, qn)
+        if ttype == "LiteralNode":
+            return probe_key(LiteralNode, qn)
+        if ttype == "ClassNode":
+            return probe_key(ClassNode, qn)
+        raise KeyError(ttype)
+
+    for n in nodes:
+        qn = n.get("qualified_name", "") or n.get("name", "")
+        n["canonical_key"] = key_of[qn]
+        for e in n.get("edges", []):
+            if "target_uid" not in e:
+                continue
+            ref = e.pop("target_uid")
+            ttype = e.get("target_type", "")
+            if ref in key_of:
+                e["target_key"] = key_of[ref]
+            else:
+                e["target_key"] = scaffold_key(ttype, ref)
+                e["target_ref"] = ref
+    return nodes
+
+
 # ══════════════════════════════════════════════════════════════════════════
 # Persistence
 # ══════════════════════════════════════════════════════════════════════════
@@ -150,7 +281,7 @@ def persist_decomposition(
     deterministic ``uid``).
 
     Args:
-        hlr_uid: The HLR's ``uid`` (hex UUID string).
+        hlr_uid: The HLR's canonical key (``cg:v1:...``).
         decomposition: A validated ``DecomposedRequirementSchema`` from
             the decompose agent.
 
@@ -167,8 +298,8 @@ def persist_decomposition(
 
     result = DecompositionResult()
 
-    # --- Load the HLR by uid ---
-    hlr = HLR.nodes.get_or_none(uid=hlr_uid)
+    # --- Load the HLR by canonical key (WP A — sole identity) ---
+    hlr = get_backend().graph.find_by_key(hlr_uid)
     if hlr is None:
         raise ValueError(f"HLR '{hlr_uid}' not found")
 
@@ -180,10 +311,14 @@ def persist_decomposition(
     nodes = list(decomposition.nodes)
     # Normalize: add qualified_name to LLR nodes that lack it.
     # Legacy decompose outputs only include "name"; deserialize needs
-    # qualified_name as the identity field to derive a stable key.
+    # qualified_name as the identity field.
     for n in nodes:
         if n.get("type") == "LLR" and not n.get("qualified_name"):
             n["qualified_name"] = n.get("name", "")
+    # WP A/B: assign canonical keys and convert edge refs to target_key.
+    key_decomposition_nodes(
+        nodes, parent_hlr_key=hlr.canonical_key or hlr_uid
+    )
     graph = LayerGraph.deserialize(nodes, create_missing=True)
 
     # --- Validate scaffold graph: no orphaned scaffold nodes ---
@@ -216,7 +351,7 @@ def persist_decomposition(
             qn = getattr(node, "qualified_name", None) or ""
             result.scaffold_map[qn] = {
                 "type": type(node).__name__,
-                "uid": getattr(node, "_uid_value", lambda: None)() or "",
+                "canonical_key": getattr(node, "canonical_key", "") or "",
                 "kind": getattr(node, "kind", None) or "",
             }
             # For member nodes with a parent qualifier, record the parent
@@ -331,11 +466,11 @@ def _validate_scaffold_graph(graph) -> list[str]:
     # --- Safe iterative walk of all entries with cycle detection ---
     all_entries = _safe_all_entries(graph)
 
-    # Collect all scaffold node UIDs that are directly referenced by
+    # Collect all scaffold node canonical keys that are directly referenced by
     # Condition/Action edges (LEFT_OPERAND, RIGHT_OPERAND, CALLEE, etc.)
     directly_referenced: set[str] = set()
 
-    # Map: parent ClassNode UID -> set of child UIDs (via COMPOSES)
+    # Map: parent ClassNode key -> set of child keys (via COMPOSES)
     parent_to_children: dict[str, set[str]] = {}
 
     for entry in all_entries:
@@ -344,16 +479,16 @@ def _validate_scaffold_graph(graph) -> list[str]:
         if not is_scaffold:
             continue
 
-        node_uid = node._uid_value() or ""
+        node_uid = node.canonical_key or ""
 
         # Track COMPOSES children for parent ClassNodes
         if isinstance(node, ClassNode):
             for child_type, type_children in entry.children.items():
                 for child_key, child_entry in type_children.items():
-                    child_uid = child_entry.node._uid_value() or ""
+                    child_uid = child_entry.node.canonical_key or ""
                     parent_to_children.setdefault(node_uid, set()).add(child_uid)
 
-    # Now check which scaffold UIDs are directly referenced by
+    # Now check which scaffold keys are directly referenced by
     # AssertionNode/TestStepNode
     flat_index = _safe_flat_index(graph, all_entries)
     for entry in all_entries:
@@ -363,7 +498,7 @@ def _validate_scaffold_graph(graph) -> list[str]:
             if node_type_name in ("AssertionNode", "TestStepNode"):
                 target_entry = flat_index.get(target_key)
                 if target_entry:
-                    target_uid = target_entry.node._uid_value() or ""
+                    target_uid = target_entry.node.canonical_key or ""
                     if target_uid:
                         directly_referenced.add(target_uid)
 
@@ -374,7 +509,7 @@ def _validate_scaffold_graph(graph) -> list[str]:
         if not is_scaffold:
             continue
 
-        node_uid = node._uid_value() or ""
+        node_uid = node.canonical_key or ""
         node_qn = getattr(node, "qualified_name", "") or ""
         node_type_name = type(node).__name__
 

@@ -24,8 +24,8 @@
         "edges": [
           {
             "relation_type": "VERIFIES",
-            "target_uid": "calc::CalculatorEngine::set_target",
-            "target_type": "MethodNode"
+            "target_type": "MethodNode",
+            "target_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=calc%3A%3ACalculatorEngine%3A%3Aset_target:canonical_signature=lang%3Acpp%7C%28%29"
           }
         ],
         "composes": [
@@ -42,15 +42,16 @@
             "edges": [
               {
                 "relation_type": "OF_TYPE",
-                "target_uid": "calc::CalculatorEngine",
-                "target_type": "ClassNode"
+                "target_type": "ClassNode",
+                "target_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=calc%3A%3ACalculatorEngine"
               },
               {
                 "relation_type": "DEFINED_IN",
                 "target_type": "TestStepNode"
               }
             ],
-            "source": "test"
+            "source": "test",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:test-fixture:parent_key=cg%3Av1%3Arepository%3Acodegraph-suite%252Fcodegraph%3Atest%3Aparent_key%3Dcg%253Av1%253Arepository%253Acodegraph-suite%25252Fcodegraph%253Anamespace%253Aqualified_name%253Dtests%25253A%25253Atest_member%3Aqualified_name%3Dtests%253A%253Atest_member%253A%253ATestUpdate%253A%253Atest_single_field:qualified_name=tests%3A%3Atest_member%3A%3ATestUpdate%3A%3Atest_single_field%3A%3Afixture_engine"
           },
           {
             "type": "AssertionNode",
@@ -67,16 +68,17 @@
             "edges": [
               {
                 "relation_type": "LEFT_OPERAND",
-                "target_uid": "calc::CalculatorEngine::result",
-                "target_type": "AttributeNode"
+                "target_type": "AttributeNode",
+                "target_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=calc%3A%3ACalculatorEngine%3A%3Aresult"
               },
               {
                 "relation_type": "RIGHT_OPERAND",
-                "target_uid": "literal::30",
-                "target_type": "LiteralNode"
+                "target_type": "LiteralNode",
+                "target_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:literal:qualified_name=literal%3A%3A30"
               }
             ],
-            "source": "test"
+            "source": "test",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:assertion:parent_key=cg%3Av1%3Arepository%3Acodegraph-suite%252Fcodegraph%3Atest%3Aparent_key%3Dcg%253Av1%253Arepository%253Acodegraph-suite%25252Fcodegraph%253Anamespace%253Aqualified_name%253Dtests%25253A%25253Atest_member%3Aqualified_name%3Dtests%253A%253Atest_member%253A%253ATestUpdate%253A%253Atest_single_field:qualified_name=tests%3A%3Atest_member%3A%3ATestUpdate%3A%3Atest_single_field%3A%3Apost_0"
           },
           {
             "type": "TestStepNode",
@@ -91,16 +93,19 @@
             "edges": [
               {
                 "relation_type": "CALLEE",
-                "target_uid": "calc::CalculatorEngine::set_target",
-                "target_type": "MethodNode"
+                "target_type": "MethodNode",
+                "target_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=calc%3A%3ACalculatorEngine%3A%3Aset_target:canonical_signature=lang%3Acpp%7C%28%29"
               }
             ],
-            "source": "test"
+            "source": "test",
+            "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:test-step:parent_key=cg%3Av1%3Arepository%3Acodegraph-suite%252Fcodegraph%3Atest%3Aparent_key%3Dcg%253Av1%253Arepository%253Acodegraph-suite%25252Fcodegraph%253Anamespace%253Aqualified_name%253Dtests%25253A%25253Atest_member%3Aqualified_name%3Dtests%253A%253Atest_member%253A%253ATestUpdate%253A%253Atest_single_field:qualified_name=tests%3A%3Atest_member%3A%3ATestUpdate%3A%3Atest_single_field%3A%3Astep_0"
           }
         ],
-        "source": "test"
+        "source": "test",
+        "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:test:parent_key=cg%3Av1%3Arepository%3Acodegraph-suite%252Fcodegraph%3Anamespace%3Aqualified_name%3Dtests%253A%253Atest_member:qualified_name=tests%3A%3Atest_member%3A%3ATestUpdate%3A%3Atest_single_field"
       }
     ],
-    "source": "test"
+    "source": "test",
+    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:namespace:qualified_name=tests%3A%3Atest_member"
   }
 ]

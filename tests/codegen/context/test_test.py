@@ -13,6 +13,14 @@ from pathlib import Path
 from codegraph.codegen import generate
 from codegraph.graph import LayerGraph
 
+from tests.codegen.context.conftest import key_document as _kd
+
+
+def _deser(data):
+    return LayerGraph.deserialize(_kd(data))
+
+
+
 GOLDEN = Path(__file__).resolve().parent.parent / "golden" / "design_layergraph.json"
 
 _SPLIT = json.loads(GOLDEN.read_text())
@@ -34,7 +42,7 @@ def _test_node(**overrides):
 
 def _test_graph(children):
     """An HLR → LLR → TestNode graph (the design-pipeline arrangement)."""
-    return LayerGraph.deserialize([{
+    return _deser([{
         "type": "HLR", "name": "HLR", "qualified_name": "HLR",
         "source": "test", "tags": ["design"],
         "composes": [{
@@ -81,7 +89,7 @@ class TestTestContext:
 
     def test_operands_resolve(self):
         """LEFT_OPERAND/RIGHT_OPERAND → value/name via the flat index."""
-        graph = LayerGraph.deserialize([
+        graph = _deser([
             {"type": "LiteralNode", "name": "true", "value": "true",
              "qualified_name": "literal::true", "source": "test", "tags": ["design"],
              "uid": "lit-1"},

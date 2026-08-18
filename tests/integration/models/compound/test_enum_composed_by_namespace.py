@@ -47,7 +47,7 @@ def test_enum_composed_by_namespace():
     # Asserts that the enum node's 'parents' list contains exactly one element,
     # confirming the namespace is the sole parent, which ensures correct hierarchical
     # linking.
-    assert parents[0]._uid_value() == ns_node._uid_value()
+    assert parents[0].canonical_key == ns_node.canonical_key
 
 
 if __name__ == "__main__":

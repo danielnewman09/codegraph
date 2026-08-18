@@ -10,6 +10,14 @@ from __future__ import annotations
 
 from codegraph.codegen.context import member
 
+from codegraph.graph import LayerGraph
+from tests.codegen.context.conftest import key_document as _kd
+
+
+def _deser(data):
+    return LayerGraph.deserialize(_kd(data))
+
+
 
 def _method(**overrides):
     data = {
@@ -224,11 +232,12 @@ class TestPhase2:
         """HAS_PARAMETER references (typed, positional) drive the params
         list; argsstring supplies defaults; types are normalized."""
         from codegraph.graph import LayerGraph
+
         from codegraph.codegen.context import BuildState
 
         p_url = "uid-param-url"
         p_allow = "uid-param-allow"
-        graph = LayerGraph.deserialize([
+        graph = _deser([
             {
                 "type": "ParameterNode", "node_type": "ParameterNode",
                 "name": "url", "type": "std::string", "position": 0,

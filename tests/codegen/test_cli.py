@@ -1,6 +1,13 @@
+from __future__ import annotations
+from codegraph.graph import LayerGraph
+from tests.codegen.context.conftest import key_document as _kd
+
+
+def _deser(data):
+    return LayerGraph.deserialize(_kd(data))
+
 """codegraph-codegen CLI tests (dry-run planning, tree writing)."""
 
-from __future__ import annotations
 
 from pathlib import Path
 

@@ -6,6 +6,17 @@ from pathlib import Path
 from codegraph.models.implementation import ImplementationNode
 from codegraph.models.tags import CodeGraphNode
 
+
+def _key_parented(node):
+    """Compute a canonical key for a parent-relative node (WP A)."""
+    from codegraph.identity import IdentityScope, resolve_identity_for
+
+    scope = IdentityScope.repository("codegraph-suite", "codegraph")
+    node.canonical_key = resolve_identity_for(
+        node, scope, parents={"parent_callable_key": "parent"}
+    ).key()
+    return node
+
 class TestImplementationNodeModel:
     """Test ImplementationNode creation and field defaults."""
 
@@ -23,27 +34,33 @@ class TestImplementationNodeModel:
         # the default value is correctly set as expected.
         assert node.kind == "implementation"
 
-    def test_uid_auto_generated(self):
-        """uid is deterministic (source + identity) — never random."""
-        # codegraph:test-desc implementation.test_implementation_node.TestImplementationNodeModel.test_uid_auto_generated::step_0
-        # An ImplementationNode without source cannot derive a uid — reading it raises.
-        node = ImplementationNode()
-        try:
-            _ = node.uid
-            raise AssertionError("uid without source must raise")
-        except ValueError:
-            pass
-        # codegraph:test-desc implementation.test_implementation_node.TestImplementationNodeModel.test_uid_auto_generated::post_0
-        # With source + qualified_name the uid is a deterministic SHA-1 hash.
-        node = ImplementationNode(
-            qualified_name="Widget::draw",
-            source="test",
-        )
-        uid = node.uid
-        assert isinstance(uid, str)
-        assert len(uid) == 40
-        assert node.uid == uid
-        assert node.qualified_name == "Widget::draw"
+    def test_canonical_key_deterministic(self):
+        """canonical_key is deterministic given a parent (WP A)."""
+        # codegraph:test-desc implementation.test_implementation_node.TestImplementationNodeModel.test_canonical_key_deterministic::step_0
+        # An ImplementationNode's key is derived from (parent_callable_key, kind)
+        # under a fixed scope — no random component.
+        from codegraph.identity import IdentityScope, resolve_identity_for
+
+        scope = IdentityScope.repository("codegraph-suite", "codegraph")
+        parents = {"parent_callable_key": "parent"}
+
+        def key_for():
+            return resolve_identity_for(
+                ImplementationNode(
+                    qualified_name="Widget::draw",
+                    kind="implementation",
+                    source="test",
+                ),
+                scope, parents=parents,
+            ).key()
+
+        k1 = key_for()
+        k2 = key_for()
+        # codegraph:test-desc implementation.test_implementation_node.TestImplementationNodeModel.test_canonical_key_deterministic::post_0
+        # The key is deterministic and versioned (cg:v1).
+        assert k1 == k2
+        assert k1.startswith("cg:v1:")
+        assert "implementation" in k1
 
     def test_qualified_name_explicit_set(self):
         """qualified_name can be explicitly set to match the parent member."""
@@ -168,7 +185,7 @@ class TestImplementationNodeModel:
             qualified_name="Widget::draw",
             implementation="void draw() { render(); }",
         source="test",)
-        serialized = node.serialize()
+        serialized = _key_parented(node).serialize()
         # codegraph:test-desc implementation.test_implementation_node.TestImplementationNodeModel.test_serialize_includes_implementation::post_0
         # Confirms that the key 'implementation' exists in the serialized output,
         # ensuring that the serialization process includes the implementation content
@@ -194,7 +211,7 @@ class TestImplementationNodeModel:
             qualified_name="Widget::draw",
             impl_embedding=[0.1, 0.2, 0.3],
         source="test",)
-        serialized = node.serialize()
+        serialized = _key_parented(node).serialize()
         # codegraph:test-desc implementation.test_implementation_node.TestImplementationNodeModel.test_serialize_excludes_embedding::post_0
         # Verifies that the serialized output does not contain the 'impl_embedding' key,
         # confirming that the ImplementationNode.serialize method correctly excludes the

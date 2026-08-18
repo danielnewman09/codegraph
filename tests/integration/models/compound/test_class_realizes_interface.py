@@ -81,7 +81,7 @@ def test_class_realizes_interface():
     # codegraph:test-desc compound.test_class_realizes_interface.test_class_realizes_interface::post_4
     # Asserts that the target UID of the 'realizes' edge matches the interface_node's
     # UID; this verifies the edge points to the correct interface instance.
-    assert realizes_edges[0]["target_uid"] == interface_node._uid_value()
+    assert realizes_edges[0]["target_key"] == interface_node.canonical_key
 
     # codegraph:test-desc compound.test_class_realizes_interface.test_class_realizes_interface::step_3
     # Fetches the 'connected' nodes from the 'realizes' edges to validate the target of
@@ -94,7 +94,7 @@ def test_class_realizes_interface():
     # codegraph:test-desc compound.test_class_realizes_interface.test_class_realizes_interface::post_6
     # Verifies equality between the 'connected' list and the expected edges; this
     # confirms that the roundtripped node's edge data matches the original.
-    assert connected[0]._uid_value() == interface_node._uid_value()
+    assert connected[0].canonical_key == interface_node.canonical_key
 
 
 if __name__ == "__main__":

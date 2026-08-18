@@ -13,6 +13,14 @@ from pathlib import Path
 from codegraph.codegen.context import CodegenContextBuilder
 from codegraph.graph import LayerGraph
 
+from tests.codegen.context.conftest import key_document as _kd
+
+
+def _deser(data):
+    return LayerGraph.deserialize(_kd(data))
+
+
+
 GOLDEN_DIR = Path(__file__).resolve().parent.parent / "golden"
 
 SYNTHETIC = [
@@ -88,7 +96,7 @@ SYNTHETIC = [
 
 class TestBuildDesign:
     def test_file_synthesis_and_skip_counts(self):
-        graph = LayerGraph.deserialize(SYNTHETIC)
+        graph = _deser(SYNTHETIC)
         out = CodegenContextBuilder().build(graph)
         # one header per compound: MigrationManager + MigrationErrorCode
         assert set(out.files) == {
@@ -100,7 +108,7 @@ class TestBuildDesign:
         assert out.graph_tags == frozenset({"design"})
 
     def test_file_context_shape(self):
-        graph = LayerGraph.deserialize(SYNTHETIC)
+        graph = _deser(SYNTHETIC)
         out = CodegenContextBuilder().build(graph)
         ctx = out.files["include/cpp_sqlite/MigrationManager.hpp"]
         assert ctx["type"] == "FileNode"
@@ -117,7 +125,7 @@ class TestBuildDesign:
         assert cls["sections"][0]["members"][0]["declaration"] == "MigrationResult apply()"
 
     def test_std_library_references_not_emitted(self):
-        graph = LayerGraph.deserialize([{
+        graph = _deser([{
             "type": "NamespaceNode",
             "name": "std",
             "qualified_name": "std",
@@ -141,7 +149,7 @@ class TestBuildGoldens:
     """Real-data smoke: the builders handle both fixture encodings."""
 
     def test_split_golden(self):
-        graph = LayerGraph.deserialize(
+        graph = _deser(
             json.loads((GOLDEN_DIR / "design_layergraph.json").read_text())
         )
         out = CodegenContextBuilder().build(graph)
@@ -157,7 +165,7 @@ class TestBuildGoldens:
 
     def test_full_decl_golden_d9_dedup(self):
         """D9: nested duplicate structs are excluded from top-level files."""
-        graph = LayerGraph.deserialize(
+        graph = _deser(
             json.loads((GOLDEN_DIR / "design_layergraph_full_decl.json").read_text())
         )
         out = CodegenContextBuilder().build(graph)
@@ -170,7 +178,7 @@ class TestBuildGoldens:
         assert out.skipped.get("AttributeNode", 0) == 23  # spec's stranded figure
 
     def test_full_decl_verbatim_emission(self):
-        graph = LayerGraph.deserialize(
+        graph = _deser(
             json.loads((GOLDEN_DIR / "design_layergraph_full_decl.json").read_text())
         )
         out = CodegenContextBuilder().build(graph)
@@ -185,7 +193,7 @@ class TestBuildGoldens:
 
 class TestBuildAsBuilt:
     def test_file_node_passthrough(self):
-        graph = LayerGraph.deserialize([
+        graph = _deser([
             {
                 "type": "FileNode",
                 "name": "Migration.hpp",
@@ -233,7 +241,7 @@ class TestNamespaceNesting:
             }
             for qn in qnames
         ]
-        graph = LayerGraph.deserialize([
+        graph = _deser([
             {
                 "type": "FileNode",
                 "name": "x.hpp",

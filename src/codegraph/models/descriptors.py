@@ -281,7 +281,7 @@ class RelationshipManager:
                 continue
             if not self._target_matches(edge):
                 continue
-            target = backend.graph.find_by_uid(edge.target_uid)
+            target = backend.graph.find_by_key(edge.target_key)
             if target is not None:
                 targets.append(target)
         return targets

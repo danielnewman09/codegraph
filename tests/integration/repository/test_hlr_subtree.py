@@ -39,6 +39,14 @@ def _walk_all_entries(graph: LayerGraph):
 # ── Seed helpers ───────────────────────────────────────────────────────────
 
 
+def _save_parented(node, parent_key, field="parent_key"):
+    """Save a parent-relative node with explicit parent context (WP A)."""
+    node.canonical_key = node.resolve_canonical_key(
+        parents={field: parent_key}
+    )
+    return node.save()
+
+
 def _seed_hlr_subtree():
     """Create a minimal HLR subtree in Neo4j.
 
@@ -156,7 +164,8 @@ def _seed_hlr_subtree():
         description="The Engine shall expose a compute operation that returns the correct result for valid inputs and signals an error for invalid inputs.",
         tags=["design"],
         source="test",
-    ).save()
+    )
+    _save_parented(llr, hlr.canonical_key, field="parent_hlr_key")
     hlr.llrs.connect(llr)
 
     # ── Create verification nodes ─────────────────────────────────────
@@ -170,7 +179,8 @@ def _seed_hlr_subtree():
         description="Verify compute returns correct result.",
         tags=["design"],
         source="test",
-    ).save()
+    )
+    _save_parented(test1, llr.canonical_key)
     llr.verification_methods.connect(test1)
 
     # pre-condition: is_ready == true
@@ -182,7 +192,8 @@ def _seed_hlr_subtree():
         description="Engine is ready before compute.",
         tags=["design"],
         source="test",
-    ).save()
+    )
+    _save_parented(pre1, test1.canonical_key)
     test1.assertions.connect(pre1)
     pre1.left_operand_attribute.connect(is_ready)
     pre1.right_operand_literal.connect(lit_true)
@@ -196,7 +207,8 @@ def _seed_hlr_subtree():
         description="Result equals 42 after compute.",
         tags=["design"],
         source="test",
-    ).save()
+    )
+    _save_parented(post1, test1.canonical_key)
     test1.assertions.connect(post1)
     post1.left_operand_attribute.connect(result_attr)
     post1.right_operand_literal.connect(lit_42)
@@ -208,7 +220,8 @@ def _seed_hlr_subtree():
         description="Invoke the compute operation.",
         tags=["design"],
         source="test",
-    ).save()
+    )
+    _save_parented(step1, test1.canonical_key)
     test1.steps.connect(step1)
     # CALLEE to scaffold AttributeNode — use raw Cypher since
     # TestStepNode has RelationshipTo for MethodNode/FunctionNode/ClassNode
@@ -224,7 +237,8 @@ def _seed_hlr_subtree():
         description="Verify compute signals error for invalid input.",
         tags=["design"],
         source="test",
-    ).save()
+    )
+    _save_parented(test2, llr.canonical_key)
     llr.verification_methods.connect(test2)
 
     post2 = AssertionNode(
@@ -235,13 +249,14 @@ def _seed_hlr_subtree():
         description="Error state indicates fault.",
         tags=["design"],
         source="test",
-    ).save()
+    )
+    _save_parented(post2, test2.canonical_key)
     test2.assertions.connect(post2)
     post2.left_operand_attribute.connect(error_state)
     post2.right_operand_attribute.connect(error_fault)
 
-    # Return the HLR's refid (the uid)
-    return hlr.uid
+    # Return the HLR's refid (the canonical key)
+    return hlr.canonical_key
 
 
 # ── Tests ──────────────────────────────────────────────────────────────────

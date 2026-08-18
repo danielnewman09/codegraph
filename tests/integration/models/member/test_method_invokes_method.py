@@ -88,7 +88,7 @@ def test_method_invokes_method():
     # codegraph:test-desc member.test_method_invokes_method.test_method_invokes_method::post_4
     # Verifies that the target UID of the invokes edge matches the callee's UID,
     # ensuring the edge correctly points to the expected method.
-    assert invokes_edges[0]["target_uid"] == callee._uid_value()
+    assert invokes_edges[0]["target_key"] == callee.canonical_key
 
     # codegraph:test-desc member.test_method_invokes_method.test_method_invokes_method::step_3
     # Retrieves connected nodes from the roundtripped MethodNode, advancing the test to
@@ -101,7 +101,7 @@ def test_method_invokes_method():
     # codegraph:test-desc member.test_method_invokes_method.test_method_invokes_method::post_6
     # Verifies that the connected node matches the expected value, ensuring the
     # completeness and correctness of the relationship after deserialization.
-    assert connected[0]._uid_value() == callee._uid_value()
+    assert connected[0].canonical_key == callee.canonical_key
 
 
 if __name__ == "__main__":

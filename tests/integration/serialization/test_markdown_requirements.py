@@ -8,6 +8,14 @@ properties, and composition hierarchy.
 import pytest
 
 from codegraph.graph import LayerGraph, CompositeEntry
+from tests.integration.serialization._keying import key_graph as _kg
+
+
+class _KeyedLayerGraph(LayerGraph):
+    """LayerGraph that stamps canonical keys on construction (WP A)."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _kg(self), CompositeEntry
 from codegraph.export.markdown import export_markdown, import_markdown
 
 
@@ -105,7 +113,7 @@ def _make_requirements_graph() -> LayerGraph:
         },
     )
 
-    return LayerGraph(
+    return _KeyedLayerGraph(
         tags=frozenset({"design"}),
         entries={"Calculation Engine": comp_entry},
     )
@@ -506,7 +514,7 @@ def _make_test_verification_graph() -> LayerGraph:
 
     all_entries = {"Test Feature": hlr_entry, **scaffold_entries}
 
-    return LayerGraph(tags=frozenset({"design"}), entries=all_entries)
+    return _KeyedLayerGraph(tags=frozenset({"design"}), entries=all_entries)
 
 
 class TestVerificationEdgeRoundTrip:

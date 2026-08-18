@@ -65,7 +65,7 @@ def get_linked_memory_nodes(
     code_node: CodeGraphNode, relation_type: str
 ) -> list[CodeGraphNode]:
     """Return all memory nodes linking to *code_node* via *relation_type*."""
-    uid = code_node._uid_value()
+    uid = code_node.canonical_key
     if not uid:
         return []
     results = get_backend().memory.find_for_code_node(uid)
@@ -79,7 +79,7 @@ def get_all_memory_for_code_node(
     code_node: CodeGraphNode
 ) -> list[CodeGraphNode]:
     """Return all memory nodes linked to *code_node* via any relationship type."""
-    uid = code_node._uid_value()
+    uid = code_node.canonical_key
     if not uid:
         return []
     return [

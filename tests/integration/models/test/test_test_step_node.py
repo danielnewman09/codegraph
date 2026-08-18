@@ -5,7 +5,17 @@ from pathlib import Path
 
 from codegraph.models.test import TestStepNode
 from codegraph.models.tags import CodeGraphNode
-from codegraph.uid import compute_uid
+
+
+def _key_parented(node):
+    """Compute a canonical key for a parent-relative test node (WP A)."""
+    from codegraph.identity import IdentityScope, resolve_identity_for
+
+    scope = IdentityScope.repository("codegraph-suite", "codegraph")
+    node.canonical_key = resolve_identity_for(
+        node, scope, parents={"parent_key": "parent"}
+    ).key()
+    return node
 
 class TestTestStepNodeModel:
     """Test TestStepNode creation and field defaults."""
@@ -28,26 +38,31 @@ class TestTestStepNodeModel:
     # Verifies that a new TestStepNode automatically receives a unique identifier upon
     # creation, ensuring each node can be reliably distinguished and referenced in test
     # workflows.
-    def test_uid_auto_generated(self):
-        """uid is deterministic (source + identity) — never random."""
-        # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_uid_auto_generated::step_0
-        # A TestStepNode without source cannot derive a uid — reading it raises.
-        node = TestStepNode()
-        try:
-            _ = node.uid
-            raise AssertionError("uid without source must raise")
-        except ValueError:
-            pass
-        # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_uid_auto_generated::post_0
-        # With source + qualified_name the uid is a deterministic SHA-1 hash.
-        node = TestStepNode(
-            qualified_name="tests::test_update::test_single::step_0",
-            source="test",
-        )
-        uid = node.uid
-        assert isinstance(uid, str)
-        assert len(uid) == 40
-        assert node.uid == uid
+    def test_canonical_key_deterministic(self):
+        """canonical_key is deterministic for identical identity tuples."""
+        # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_canonical_key_deterministic::step_0
+        # A TestStepNode's canonical key is derived from its identity fields
+        # under a fixed scope + parent — no random component.
+        from codegraph.identity import IdentityScope, resolve_identity_for
+
+        scope = IdentityScope.repository("codegraph-suite", "codegraph")
+        parents = {"parent_key": "parent"}
+
+        def key_for():
+            return resolve_identity_for(
+                TestStepNode(
+                    qualified_name="tests::test_update::test_single::step_0",
+                    source="test",
+                ),
+                scope, parents=parents,
+            ).key()
+
+        k1 = key_for()
+        k2 = key_for()
+        # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_canonical_key_deterministic::post_0
+        # The key is deterministic and versioned (cg:v1).
+        assert k1 == k2
+        assert k1.startswith("cg:v1:")
 
     # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_order_defaults_to_zero
     # This test verifies that the default value of the 'order' attribute in a
@@ -190,7 +205,7 @@ class TestTestStepNodeModel:
             description="Call engine.set_target(30)",
             order=0,
         source="test",)
-        serialized = node.serialize()
+        serialized = _key_parented(node).serialize()
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_serialize_includes_description::post_0
         # Verifies that the serialized output correctly retains the step's description
         # text, confirming that the serialize method preserves meaningful human-readable
@@ -214,7 +229,7 @@ class TestTestStepNodeModel:
         node = TestStepNode(
             qualified_name="tests::test_update::test_single::step_0",
         source="test",)
-        serialized = node.serialize()
+        serialized = _key_parented(node).serialize()
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_serialize_includes_type_discriminator::post_0
         # Verifies that the serialized output contains a 'type' field set to
         # 'TestStepNode', confirming that the serialization process correctly includes
@@ -232,7 +247,7 @@ class TestTestStepNodeModel:
             body_start=45,
             body_end=48,
         source="test",)
-        serialized = node.serialize()
+        serialized = _key_parented(node).serialize()
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_serialize_excludes_body_start_end::post_0
         # Verifies that 'body_start' is not included in the serialized output,
         # confirming it is not part of LLM fields and thus correctly excluded from
@@ -254,7 +269,7 @@ class TestTestStepNodeModel:
             body_start=45,
             body_end=48,
         source="test",)
-        serialized = node.serialize(fields="all")
+        serialized = _key_parented(node).serialize(fields="all")
         # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_serialize_all_includes_body_start_end::post_0
         # Verifies that when serializing with fields set to 'all', the body_start
         # attribute in the serialized output is correctly set to 45, confirming that the
@@ -328,27 +343,29 @@ class TestTestStepNodeModel:
         # body range fields.
         assert node.body_end == 48
 
-    def test_deserialize_computes_uid(self):
-        """deserialize() computes deterministic uid from qualified_name."""
-        # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_deserialize_computes_uid::step_0
+    def test_deserialize_restores_canonical_key(self):
+        """deserialize() restores the canonical_key from serialized data."""
+        # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_deserialize_restores_canonical_key::step_0
         # Sets up the test environment by obtaining a node instance through the test
         # fixture, establishing the subject under test before the deserialization
         # verification.
         qn = "tests::test_update::test_single::step_0"
+        key = (
+            "cg:v1:repository:codegraph-suite%2Fcodegraph:test-step:"
+            "parent_key=parent:qualified_name=" + qn.replace(":", "%3A")
+        )
         data = {
             "type": "TestStepNode",
             "qualified_name": qn,
             "source": "test",
             "kind": "test_step",
             "order": 0,
+            "canonical_key": key,
         }
         node = CodeGraphNode.deserialize(data)
-        expected_uid = compute_uid("test", qn)
-        # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_deserialize_computes_uid::post_0
-        # Confirms that the node's UID matches the expected UID, verifying that the
-        # deterministic UID computation (compute_uid) is correctly integrated during
-        # deserialization.
-        assert node.uid == expected_uid
+        # codegraph:test-desc test.test_test_step_node.TestTestStepNodeModel.test_deserialize_restores_canonical_key::post_0
+        # Confirms that the node's canonical key is restored from the serialized data.
+        assert node.canonical_key == key
 
     def test_fixture_roundtrip(self):
         """Verify test_step_node_full.json deserializes correctly."""

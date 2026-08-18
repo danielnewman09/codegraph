@@ -12,6 +12,12 @@ from pathlib import Path
 
 from codegraph.codegen import CodegenResult, generate, generate_from_layer_graph
 from codegraph.graph import LayerGraph
+from tests.codegen.context.conftest import key_document as _kd
+
+# TODO move this into a conftest to avoid repetition
+def _deser(data):
+    return LayerGraph.deserialize(_kd(data))
+
 
 GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
 
@@ -26,7 +32,7 @@ class TestGenerate:
         assert "include/cpp_sqlite/Migration.hpp" in result.files
 
     def test_generate_from_layer_graph(self):
-        graph = LayerGraph.deserialize(FULL_DECL)
+        graph = _deser(FULL_DECL)
         result = generate_from_layer_graph(graph)
         assert "include/cpp_sqlite/Migration.hpp" in result.files
 
@@ -105,7 +111,7 @@ class TestSplitGoldenRender:
 class TestAsBuiltSource:
     def test_source_file_renders_definitions(self):
         """As-built .cpp: body-carrying members render out-of-line defns."""
-        graph = LayerGraph.deserialize([
+        graph = _deser([
             {
                 "type": "FileNode",
                 "name": "DBDAOBase.cpp",

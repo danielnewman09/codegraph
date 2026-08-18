@@ -23,7 +23,7 @@ def hierarchy():
     cls.save()
 
     # Link class into namespace via COMPOSES
-    get_backend().graph.merge_relationship(ns.uid, "COMPOSES", cls.uid)
+    get_backend().graph.merge_relationship(ns.canonical_key, "COMPOSES", cls.canonical_key)
 
     # Create memories at each level
     # Namespace-level constraint
@@ -209,7 +209,7 @@ class TestEdgeCases:
         cls = ClassNode(qualified_name="emptyapp::EmptyClass", source="test")
         cls.save()
 
-        get_backend().graph.merge_relationship(ns.uid, "COMPOSES", cls.uid)
+        get_backend().graph.merge_relationship(ns.canonical_key, "COMPOSES", cls.canonical_key)
 
         result = memory_context("emptyapp::EmptyClass")
         assert result["error"] is None

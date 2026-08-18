@@ -14,19 +14,43 @@ from codegraph.models.member import MethodNode, AttributeNode
 from codegraph.models.namespace import NamespaceNode
 from codegraph.models.descriptors import PropertyRegistry
 from codegraph.backends import get_backend
-from codegraph.uid import compute_uid, normalize_argsstring
-
-def _uid(qname: str, argsstring: str | None = None, source: str = "calculator") -> str:
-    """Compute the deterministic uid for a fixture node.
-
-    Prepends *source* so that UIDs match the model's ``_compute_uid()``
-    which includes the source tag (changed from the original algorithm).
-    """
-    if argsstring is not None:
-        return compute_uid(source, qname, normalize_argsstring(argsstring))
-    return compute_uid(source, qname)
 
 FIXTURE = Path(__file__).resolve().parent / "data" / "design_graph.json"
+
+
+def _walk_fixture(data):
+    """Yield every node dict from the fixture, including composes children."""
+    for item in data:
+        yield item
+        composes = item.get("composes")
+        if isinstance(composes, list):
+            yield from _walk_fixture(composes)
+
+
+_FIXTURE_DATA = json.loads(FIXTURE.read_text(encoding="utf-8"))
+
+
+def _key(qname: str, argsstring: str | None = None,
+         cls: type | None = None) -> str:
+    """Canonical key for *qname*: from the fixture when present, else
+    computed from a type probe under a fixed repository scope."""
+    from codegraph.identity import IdentityScope, resolve_identity_for
+
+    for entry in _walk_fixture(_FIXTURE_DATA):
+        if entry.get("qualified_name") == qname:
+            return entry["canonical_key"]
+    scope = IdentityScope.repository("codegraph-suite", "calculator")
+    probe_cls = cls or MethodNode if argsstring is not None else (
+        cls or ClassNode
+    )
+    probe = probe_cls(
+        qualified_name=qname,
+        name=qname.rsplit("::", 1)[-1],
+        source="calculator",
+        path=qname,
+        argsstring=argsstring or (),
+    )
+    return resolve_identity_for(probe, scope).key()
 
 pytestmark = pytest.mark.usefixtures("setup_neomodel")
 
@@ -447,7 +471,7 @@ class TestGetByNeighbourhood:
         # graph elements are available for neighbourhood traversal.
         result = repo.get_by_neighbourhood("calc::CalculatorEngine::add")
         # The method should NOT be a root entry
-        method_entry = _find_entry(result, _uid("calc::CalculatorEngine::add", "(double a, double b)"))
+        method_entry = _find_entry(result, _key("calc::CalculatorEngine::add", "(double a, double b)"))
         # codegraph:test-desc repository.test_graph_repository.TestGetByNeighbourhood.test_method_seed_discovers_parent_class::post_0
         # Confirms that the method entry returned by the neighbourhood query is not
         # None, ensuring the seed MethodNode was successfully located in the graph.
@@ -457,13 +481,13 @@ class TestGetByNeighbourhood:
         # Verifies that the parent ClassNode (engine_entry) does not contain a stray
         # MethodNode entry in its children, ensuring the query correctly excludes
         # unrelated nodes from the result set.
-        assert _uid("calc::CalculatorEngine::add", "(double a, double b)") not in result.entries
+        assert _key("calc::CalculatorEngine::add", "(double a, double b)") not in result.entries
         # The parent class should be in the graph
         # codegraph:test-desc repository.test_graph_repository.TestGetByNeighbourhood.test_method_seed_discovers_parent_class::step_1
         # Executes `GraphRepository.get_by_neighbourhood` with the MethodNode as seed,
         # retrieving the parent class and its children to verify that the neighbourhood
         # query correctly discovers the ancestor hierarchy.
-        engine_entry = _find_entry(result, _uid("calc::CalculatorEngine"))
+        engine_entry = _find_entry(result, _key("calc::CalculatorEngine"))
         # codegraph:test-desc repository.test_graph_repository.TestGetByNeighbourhood.test_method_seed_discovers_parent_class::post_2
         # Checks that the engine_entry (parent ClassNode) is not None, confirming that
         # the neighbourhood query successfully discovered the parent class from the
@@ -479,7 +503,7 @@ class TestGetByNeighbourhood:
         # Verifies that another specific method (`add`) is included as a child
         # MethodNode of the parent ClassNode, confirming that the neighbourhood query
         # retrieves all sibling methods in the parent class.
-        assert _uid("calc::CalculatorEngine::add", "(double a, double b)") in engine_entry.children["MethodNode"]
+        assert _key("calc::CalculatorEngine::add", "(double a, double b)") in engine_entry.children["MethodNode"]
 
     def test_class_seed_discovers_parent_namespace(self, repo, seeded_graph):
         """When a ClassNode is the seed, the parent NamespaceNode should be
@@ -489,7 +513,7 @@ class TestGetByNeighbourhood:
         # seed to obtain the parent NamespaceNode entry, preparing the data needed for
         # subsequent assertions.
         result = repo.get_by_neighbourhood("calc::CalculatorEngine")
-        calc_entry = _find_entry(result, _uid("calc"))
+        calc_entry = _find_entry(result, _key("calc"))
         # codegraph:test-desc repository.test_graph_repository.TestGetByNeighbourhood.test_class_seed_discovers_parent_namespace::post_0
         # Checks that the retrieved namespace entry exists and is not null, ensuring the
         # query successfully found the parent namespace for the given class seed.
@@ -503,7 +527,7 @@ class TestGetByNeighbourhood:
         # Confirms that a specific class node (CalculatorEngine) appears as a child of
         # its parent namespace entry, validating that the neighbourhood lookup returns
         # the expected hierarchical relationship.
-        assert _uid("calc::CalculatorEngine") in calc_entry.children["ClassNode"]
+        assert _key("calc::CalculatorEngine") in calc_entry.children["ClassNode"]
 
 # ── get_by_kind ──────────────────────────────────────────────────────────────
 

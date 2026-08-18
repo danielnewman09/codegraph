@@ -53,7 +53,7 @@ def test_method_composed_by_class():
     # codegraph:test-desc member.test_method_composed_by_parent.test_method_composed_by_class::post_1
     # Asserts that the sole parent of the method_node is the expected class_node,
     # verifying that the parent-child link points to the correct class.
-    assert parents[0]._uid_value() == class_node._uid_value()
+    assert parents[0].canonical_key == class_node.canonical_key
 
 
 # codegraph:test-desc member.test_method_composed_by_parent.test_method_composed_by_interface
@@ -93,7 +93,7 @@ def test_method_composed_by_interface():
     # codegraph:test-desc member.test_method_composed_by_parent.test_method_composed_by_interface::post_1
     # Verifies that the method node equals the expected method, ensuring the correct
     # method is identified as being composed by the interface.
-    assert parents[0]._uid_value() == interface_node._uid_value()
+    assert parents[0].canonical_key == interface_node.canonical_key
 
 
 if __name__ == "__main__":

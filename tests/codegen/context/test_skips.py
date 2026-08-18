@@ -14,6 +14,14 @@ import pytest
 
 from codegraph.codegen.context import BUILDERS, SKIP_REASONS
 
+from codegraph.graph import LayerGraph
+from tests.codegen.context.conftest import key_document as _kd
+
+
+def _deser(data):
+    return LayerGraph.deserialize(_kd(data))
+
+
 SKIP_SAMPLE_DICTS = {
     "LiteralNode": {"type": "LiteralNode", "value": "30", "value_type": "int",
                     "qualified_name": "literal::30", "source": "test", "tags": ["design"]},
@@ -40,8 +48,9 @@ class TestDeclaredSkips:
     def test_skip_builder_returns_none(self, node_type, deserialize_graph):
         from codegraph.graph import LayerGraph
 
+
         data = [SKIP_SAMPLE_DICTS[node_type]]
-        graph = LayerGraph.deserialize(data)
+        graph = _deser(data)
         entry = next(iter(graph._all_entries()))
         builder = BUILDERS[node_type]
         assert builder(entry, None) is None

@@ -58,7 +58,7 @@ def _build_test(entry, state) -> dict:
         "kind": node.kind or "test",
         "name": node.name or "",
         "qualified_name": node.qualified_name or "",
-        "uid": node.uid or "",
+        "uid": node.canonical_key or "",
         "description": (node.description
                          or getattr(node, "brief_description", "") or ""),
         "steps": steps,
@@ -75,7 +75,7 @@ def _build_step(entry, state) -> dict:
         "kind": node.kind or "test_step",
         "name": node.name or "",
         "qualified_name": node.qualified_name or "",
-        "uid": node.uid or "",
+        "uid": node.canonical_key or "",
         "description": (node.description or ""),
         "order": node.order or 0,
     }
@@ -102,7 +102,7 @@ def _build_assertion(entry, state) -> dict:
         "kind": node.kind or "assertion",
         "name": node.name or "",
         "qualified_name": node.qualified_name or "",
-        "uid": node.uid or "",
+        "uid": node.canonical_key or "",
         "operator": node.operator or "",
         "phase": node.phase or "",
         "left_operand": operands.get("LEFT_OPERAND", ""),

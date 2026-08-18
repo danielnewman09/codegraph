@@ -114,7 +114,7 @@ def record_memory(
             "action": "error",
             "type": None,
             "qualified_name": qualified_name,
-            "uid": None,
+            "canonical_key": None,
             "content": content,
             "tags": tags or [],
             "confidence": confidence,
@@ -130,7 +130,7 @@ def record_memory(
             "action": "error",
             "type": node_cls.__name__,
             "qualified_name": qualified_name,
-            "uid": None,
+            "canonical_key": None,
             "content": content,
             "tags": tags or [],
             "confidence": confidence,
@@ -143,7 +143,7 @@ def record_memory(
             "action": "error",
             "type": node_cls.__name__,
             "qualified_name": qualified_name,
-            "uid": None,
+            "canonical_key": None,
             "content": content,
             "tags": tags or [],
             "confidence": confidence,
@@ -156,7 +156,7 @@ def record_memory(
             "action": "error",
             "type": node_cls.__name__,
             "qualified_name": qualified_name,
-            "uid": None,
+            "canonical_key": None,
             "content": content,
             "tags": tags or [],
             "confidence": confidence,
@@ -178,7 +178,7 @@ def record_memory(
             "action": "error",
             "type": node_cls.__name__,
             "qualified_name": qualified_name,
-            "uid": existing.uid,
+            "canonical_key": existing.canonical_key,
             "content": existing.content,
             "tags": list(existing.tags) if existing.tags else [],
             "confidence": existing.confidence,
@@ -194,7 +194,7 @@ def record_memory(
             "action": "error",
             "type": node_cls.__name__,
             "qualified_name": qualified_name,
-            "uid": None,
+            "canonical_key": None,
             "content": content,
             "tags": tags or [],
             "confidence": confidence,
@@ -210,7 +210,7 @@ def record_memory(
             "action": "ambiguous",
             "type": node_cls.__name__,
             "qualified_name": qualified_name,
-            "uid": None,
+            "canonical_key": None,
             "content": content,
             "tags": tags or [],
             "confidence": confidence,
@@ -220,7 +220,7 @@ def record_memory(
                      f"to target a specific one.",
             "matches": [
                 {
-                    "uid": n.uid,
+                    "canonical_key": n.canonical_key,
                     "content": n.content[:200] if n.content else "",
                     "confidence": n.confidence,
                     "tags": list(n.tags) if n.tags else [],
@@ -278,7 +278,7 @@ def record_memory(
         "action": action,
         "type": node_cls.__name__,
         "qualified_name": node.qualified_name,
-        "uid": node.uid,
+        "canonical_key": node.canonical_key,
         "content": node.content,
         "tags": list(node.tags) if node.tags else [],
         "confidence": node.confidence,
@@ -303,7 +303,7 @@ def _find_existing(
         - None if no match
     """
     if uid:
-        return get_backend().graph.find_by_uid(uid)
+        return get_backend().graph.find_by_key(uid)
 
     # Search by qualified_name — detect duplicate matches
     matches = get_backend().graph.find_all_by_qualified_name(
@@ -330,7 +330,7 @@ def _link_supersedes(new_decision: MemoryNode, old_qname: str) -> None:
     if old is None or isinstance(old, list):
         return  # silently skip if old decision not found
     get_backend().memory.merge_edge(
-        new_decision.uid, "SUPERSEDES", old.uid,
+        new_decision.canonical_key, "SUPERSEDES", old.canonical_key,
         source_label="DecisionNode", target_label="DecisionNode",
     )
 
@@ -341,7 +341,7 @@ def _link_refines(rationale: MemoryNode, decision_qname: str) -> None:
     if target is None or isinstance(target, list):
         return
     get_backend().memory.merge_edge(
-        rationale.uid, "REFINES", target.uid,
+        rationale.canonical_key, "REFINES", target.canonical_key,
         source_label="RationaleNode", target_label="DecisionNode",
     )
 
@@ -352,6 +352,6 @@ def _link_contradicts(assumption: MemoryNode, other_qname: str) -> None:
     if target is None or isinstance(target, list):
         return
     get_backend().memory.merge_edge(
-        assumption.uid, "CONTRADICTS", target.uid,
+        assumption.canonical_key, "CONTRADICTS", target.canonical_key,
         source_label="AssumptionNode", target_label="AssumptionNode",
     )

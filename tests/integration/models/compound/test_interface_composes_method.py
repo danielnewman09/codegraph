@@ -87,7 +87,7 @@ def test_interface_composes_method():
     # Verifies that the target unique identifier (UID) of the composes edge matches the
     # UID of the method_node. This ensures the composition edge points to the correct
     # method instance.
-    assert composes_edges[0]["target_uid"] == method_node._uid_value()
+    assert composes_edges[0]["target_key"] == method_node.canonical_key
 
     # codegraph:test-desc compound.test_interface_composes_method.test_interface_composes_method::step_3
     # Performs the final action by extracting the composition edges and connected nodes
@@ -102,7 +102,7 @@ def test_interface_composes_method():
     # codegraph:test-desc compound.test_interface_composes_method.test_interface_composes_method::post_6
     # Verifies that the connected node's UID matches the method_node's UID. This ensures
     # the reconstructed composition points to the correct method node.
-    assert connected[0]._uid_value() == method_node._uid_value()
+    assert connected[0].canonical_key == method_node.canonical_key
 
 
 if __name__ == "__main__":

@@ -36,10 +36,10 @@ def test_hlr_save_and_query():
 
     hlr = _make_hlr()
     hlr.save()
-    assert hlr.uid
+    assert hlr.canonical_key
 
     # Query via the .nodes shim
-    found = HLR.nodes.get_or_none(uid=hlr.uid)
+    found = HLR.nodes.get_or_none(canonical_key=hlr.canonical_key)
     assert found is not None
     assert found.qualified_name == "smoke.REQ-1"
     assert found.description == "The system shall smoke test."
@@ -49,7 +49,7 @@ def test_hlr_save_and_query():
 
     # get() raises DoesNotExist when missing
     with pytest.raises(HLR.DoesNotExist):
-        HLR.nodes.get(uid="nonexistent-uid-1234")
+        HLR.nodes.get(canonical_key="nonexistent-uid-1234")
 
     # find_all via backend
     all_hlrs = HLR.nodes.all()
@@ -68,26 +68,30 @@ def test_llr_relationship_lifecycle():
         source="smoke",
         tags=["design"],
     )
+    # WP A: parent-relative — resolve the key from the owning HLR.
+    llr.canonical_key = llr.resolve_canonical_key(
+        parents={"parent_hlr_key": hlr.canonical_key}
+    )
     llr.save()
 
     # Connect via the manager shim
     hlr.llrs.connect(llr)
     connected = hlr.llrs.all()
-    assert any(c.uid == llr.uid for c in connected), "llrs.all() missing LLR"
+    assert any(c.canonical_key == llr.canonical_key for c in connected), "llrs.all() missing LLR"
 
     # Backend traversal agrees
     from codegraph.backends import get_backend
 
     children = get_backend().get_composed_children(hlr)
-    assert any(c.uid == llr.uid for c in children)
+    assert any(c.canonical_key == llr.canonical_key for c in children)
 
     # Incoming traversal: llr.hlr
     parents = llr.hlr.all()
-    assert any(p.uid == hlr.uid for p in parents)
+    assert any(p.canonical_key == hlr.canonical_key for p in parents)
 
     # Disconnect
     hlr.llrs.disconnect(llr)
-    assert not any(c.uid == llr.uid for c in hlr.llrs.all())
+    assert not any(c.canonical_key == llr.canonical_key for c in hlr.llrs.all())
 
 
 def test_hlr_delete_cascades():
@@ -101,15 +105,18 @@ def test_hlr_delete_cascades():
         description="child",
         source="smoke",
     )
+    llr.canonical_key = llr.resolve_canonical_key(
+        parents={"parent_hlr_key": hlr.canonical_key}
+    )
     llr.save()
     hlr.llrs.connect(llr)
 
-    llr_uid = llr.uid
-    hlr_uid = hlr.uid
+    llr_uid = llr.canonical_key
+    hlr_uid = hlr.canonical_key
     hlr.delete()
 
-    assert get_backend().graph.find_by_uid(hlr_uid) is None
-    assert get_backend().graph.find_by_uid(llr_uid) is None
+    assert get_backend().graph.find_by_key(hlr_uid) is None
+    assert get_backend().graph.find_by_key(llr_uid) is None
 
 
 def test_decision_node_crud_and_edges():
@@ -123,12 +130,12 @@ def test_decision_node_crud_and_edges():
         confidence=0.9,
     )
     d.save()
-    assert d.uid
+    assert d.canonical_key
     assert d.decided_at is not None, "decided_at should be set on save"
     assert d.updated_at is not None, "updated_at should be set on save"
     assert d.source == "memory"
 
-    found = DecisionNode.nodes.get_or_none(uid=d.uid)
+    found = DecisionNode.nodes.get_or_none(canonical_key=d.canonical_key)
     assert found is not None
     assert found.content == "We chose X over Y."
     assert found.confidence == 0.9
@@ -145,11 +152,11 @@ def test_decision_node_crud_and_edges():
     from codegraph.backends import get_backend
 
     get_backend().memory.merge_edge(
-        d2.uid, "SUPERSEDES", d.uid,
+        d2.canonical_key, "SUPERSEDES", d.canonical_key,
         source_label="DecisionNode", target_label="DecisionNode",
     )
     superseded = d2.supersedes.all()
-    assert any(s.uid == d.uid for s in superseded)
+    assert any(s.canonical_key == d.canonical_key for s in superseded)
 
 
 def test_record_memory_tool_end_to_end():
@@ -162,7 +169,7 @@ def test_record_memory_tool_end_to_end():
         source="smoke",
     )
     assert result["action"] in ("created", "updated")
-    assert result["uid"]
+    assert result["canonical_key"]
     assert result["error"] is None
 
     # Update path

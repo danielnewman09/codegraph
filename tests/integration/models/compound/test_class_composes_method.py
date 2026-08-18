@@ -81,7 +81,7 @@ def test_class_composes_method():
     # codegraph:test-desc compound.test_class_composes_method.test_class_composes_method::post_4
     # Verifies that the target UID of the composition edge matches the original
     # MethodNode's UID, ensuring the relationship points to the correct instance.
-    assert composes_edges[0]["target_uid"] == method_node._uid_value()
+    assert composes_edges[0]["target_key"] == method_node.canonical_key
 
     # codegraph:test-desc compound.test_class_composes_method.test_class_composes_method::step_3
     # Checks that the deserialized node is connected to exactly one other node,
@@ -95,7 +95,7 @@ def test_class_composes_method():
     # Verifies that the connected node's identity matches the original MethodNode,
     # ensuring the composition edge connects to the right object in the reconstructed
     # graph.
-    assert connected[0]._uid_value() == method_node._uid_value()
+    assert connected[0].canonical_key == method_node.canonical_key
 
 
 if __name__ == "__main__":

@@ -5,7 +5,17 @@ from pathlib import Path
 
 from codegraph.models.test import TestNode
 from codegraph.models.tags import CodeGraphNode
-from codegraph.uid import compute_uid
+
+
+def _key_parented(node):
+    """Compute a canonical key for a parent-relative test node (WP A)."""
+    from codegraph.identity import IdentityScope, resolve_identity_for
+
+    scope = IdentityScope.repository("codegraph-suite", "codegraph")
+    node.canonical_key = resolve_identity_for(
+        node, scope, parents={"parent_key": "parent"}
+    ).key()
+    return node
 
 class TestTestNodeModel:
     """Test TestNode creation and field defaults."""
@@ -24,27 +34,31 @@ class TestTestNodeModel:
         # 'test', confirming the expected default behavior of the model.
         assert node.kind == "test"
 
-    def test_uid_auto_generated(self):
-        """uid is deterministic (source + identity) — never random."""
-        # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_uid_auto_generated::step_0
-        # A TestNode without source cannot derive a uid — reading it raises
-        # (random auto-generated uids are impossible).
-        node = TestNode()
-        try:
-            _ = node.uid
-            raise AssertionError("uid without source must raise")
-        except ValueError:
-            pass
-        # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_uid_auto_generated::post_0
-        # With source + qualified_name the uid is a deterministic SHA-1 hash.
-        node = TestNode(
-            qualified_name="tests::test_update::test_single_field",
-            source="test",
-        )
-        uid = node.uid
-        assert isinstance(uid, str)
-        assert len(uid) == 40
-        assert node.uid == uid  # stable across reads
+    def test_canonical_key_deterministic(self):
+        """canonical_key is deterministic for identical identity tuples."""
+        # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_canonical_key_deterministic::step_0
+        # A TestNode's canonical key is derived from its identity fields
+        # under a fixed scope + parent — no random component.
+        from codegraph.identity import IdentityScope, resolve_identity_for
+
+        scope = IdentityScope.repository("codegraph-suite", "codegraph")
+        parents = {"parent_key": "parent"}
+
+        def key_for():
+            return resolve_identity_for(
+                TestNode(
+                    qualified_name="tests::test_update::test_single_field",
+                    source="test",
+                ),
+                scope, parents=parents,
+            ).key()
+
+        k1 = key_for()
+        k2 = key_for()
+        # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_canonical_key_deterministic::post_0
+        # The key is deterministic and versioned (cg:v1).
+        assert k1 == k2
+        assert k1.startswith("cg:v1:")
 
     # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_qualified_name_explicit_set
     # Verifies that directly setting the qualified_name attribute on a TestNode yields
@@ -232,7 +246,7 @@ class TestTestNodeModel:
             qualified_name="tests::test_update::test_single_field",
             test_name="test_single_field",
         source="test",)
-        serialized = node.serialize()
+        serialized = _key_parented(node).serialize()
         # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_serialize_includes_test_name::post_0
         # Verifies that the serialized output contains a 'test_name' field equal to
         # 'test_single_field', confirming that the serialize method correctly embeds the
@@ -251,7 +265,7 @@ class TestTestNodeModel:
             qualified_name="tests::test_update::test_single_field",
             doc_embedding=[0.1, 0.2, 0.3],
         source="test",)
-        serialized = node.serialize()
+        serialized = _key_parented(node).serialize()
         # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_serialize_excludes_embedding::post_0
         # Verifies that the serialized output does not contain the 'doc_embedding'
         # field, ensuring that the embedding data is intentionally excluded from
@@ -266,7 +280,7 @@ class TestTestNodeModel:
         # Sets up the test environment and instantiates the TestNode object, preparing
         # it for serialization.
         node = TestNode(qualified_name="tests::test_update::test_single_field", source="test",)
-        serialized = node.serialize()
+        serialized = _key_parented(node).serialize()
         # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_serialize_includes_type_discriminator::post_0
         # Verifies that the serialized output contains a 'type' field equal to
         # 'TestNode', ensuring the type discriminator is included to support polymorphic
@@ -312,24 +326,28 @@ class TestTestNodeModel:
         # method type.
         assert node.method == "automated"
 
-    def test_deserialize_computes_uid(self):
-        """deserialize() computes deterministic uid from qualified_name."""
-        # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_deserialize_computes_uid::step_0
-        # Calls the deserialize() method on the node, which sets up the node's uid for
-        # subsequent verification.
+    def test_deserialize_restores_canonical_key(self):
+        """deserialize() restores the canonical_key from serialized data."""
+        # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_deserialize_restores_canonical_key::step_0
+        # Calls the deserialize() method on the node, which restores the canonical key
+        # for subsequent verification.
+        qn = "tests::test_update::test_single_field"
+        key = (
+            "cg:v1:repository:codegraph-suite%2Fcodegraph:test:"
+            "parent_key=parent:qualified_name=" + qn.replace(":", "%3A")
+        )
         data = {
             "type": "TestNode",
-            "qualified_name": "tests::test_update::test_single_field",
+            "qualified_name": qn,
             "source": "test",
             "kind": "test",
+            "canonical_key": key,
         }
         node = CodeGraphNode.deserialize(data)
-        expected_uid = compute_uid("test", "tests::test_update::test_single_field")
-        # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_deserialize_computes_uid::post_0
-        # Checks that after deserialization, the node's uid matches the expected
-        # deterministic uid computed from the qualified name, ensuring consistent and
-        # reproducible identification.
-        assert node.uid == expected_uid
+        # codegraph:test-desc test.test_test_node.TestTestNodeModel.test_deserialize_restores_canonical_key::post_0
+        # Checks that after deserialization, the node's canonical key matches the key
+        # carried by the serialized data.
+        assert node.canonical_key == key
 
     def test_fixture_roundtrip(self):
         """Verify test_node_full.json deserializes correctly."""

@@ -62,7 +62,7 @@ def memory_context(
             "error": f"No code node found with qualified_name {qualified_name!r}",
         }
 
-    target_uid = target_node._uid_value()
+    target_uid = target_node.canonical_key
     labels = backend.graph.get_labels(target_uid) if target_uid else set()
     kind = _kind_from_labels(labels)
 

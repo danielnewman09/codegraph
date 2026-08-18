@@ -930,7 +930,7 @@ class InMemoryMemoryRepository:
         uid = memory_uid
         for e in self._backend._edges_out.get(uid, []):
             if e.relation_type == rel_type:
-                return self._backend._nodes.get(e.target_uid)
+                return self._backend._nodes.get(e.target_key)
         return None
 
     def search_semantic(

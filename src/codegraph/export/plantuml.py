@@ -907,7 +907,7 @@ class PlantUMLExporter:
                                 continue
                         child_node = child_entry.node
                         self._member_parent_aliases[
-                            child_node._uid_value()
+                            child_node.canonical_key
                         ] = alias
                         child_qname = getattr(child_node, "qualified_name", None) or ""
                         if child_qname:
@@ -917,7 +917,7 @@ class PlantUMLExporter:
                 for child_entry in entry.children["EnumValueNode"].values():
                     child_node = child_entry.node
                     self._member_parent_aliases[
-                        child_node._uid_value()
+                        child_node.canonical_key
                     ] = alias
                     child_qname = getattr(child_node, "qualified_name", None) or ""
                     if child_qname:
@@ -1002,7 +1002,7 @@ class PlantUMLExporter:
             if prefix not in self._collapsed_prefixes:
                 self._collapsed_prefixes[prefix] = _sanitize_alias(prefix).strip("_")
 
-            key = node._uid_value()
+            key = node.canonical_key
             if key:
                 self._collapsed_keys.add(key)
                 self._collapsed_key_prefix[key] = prefix
@@ -1041,7 +1041,7 @@ class PlantUMLExporter:
         """Return True if *entry* belongs to a collapsed namespace."""
         if not self._collapsed_keys:
             return False
-        key = entry.node._uid_value()
+        key = entry.node.canonical_key
         return key in self._collapsed_keys if key else False
 
     def _entry_is_root(self, entry: CompositeEntry) -> bool:
@@ -1228,7 +1228,7 @@ class PlantUMLExporter:
                     # Record this member's parent alias for redirecting
                     # arrows that target member nodes (which are never
                     # standalone PlantUML elements).
-                    child_key = child_entry.node._uid_value()
+                    child_key = child_entry.node.canonical_key
                     if child_key:
                         self._member_parent_aliases[child_key] = alias
                     # Emit member-level references (INVOKES, DEPENDS_ON, etc.)
@@ -1715,7 +1715,53 @@ class PlantUMLImporter:
             if errors:
                 raise PlantUMLParseError(errors)
 
+        # WP A: assign canonical keys to every imported node under the
+        # ACTIVE identity scope (parent-relative children use their
+        # parent's key).  Mirrors the markdown importer.
+        self._assign_canonical_keys(root_entries)
+
         return LayerGraph(tags=frozenset(self._tags), entries=root_entries)
+
+    def _assign_canonical_keys(self, root_entries: dict) -> None:
+        """WP A: compute canonical keys for every node in the tree.
+
+        Uses the active identity scope; when none is available the
+        nodes are left unkeyed (saving such a graph raises
+        ``IdentityError`` — canonical identity is mandatory).
+        """
+        from codegraph.identity import get_identity_scope, resolve_identity_for
+
+        scope = get_identity_scope()
+        if scope is None:
+            return
+
+        def walk(entries, parent_key=None):
+            for entry in entries:
+                node = entry.node
+                t = type(node).__name__
+                parents = {}
+                if t == "LLR":
+                    parents["parent_hlr_key"] = parent_key or "cg:v1:root"
+                elif t in (
+                    "TestNode", "TestFixtureNode",
+                    "AssertionNode", "TestStepNode",
+                ):
+                    parents["parent_key"] = parent_key or "cg:v1:root"
+                elif t in ("ParameterNode", "ImplementationNode"):
+                    parents["parent_callable_key"] = parent_key or "cg:v1:root"
+                elif t == "SourceFragmentNode":
+                    parents["file_key"] = parent_key or "cg:v1:root"
+                node.canonical_key = resolve_identity_for(
+                    node, scope, parents=parents
+                ).key()
+                children = [
+                    e
+                    for type_children in entry.children.values()
+                    for e in type_children.values()
+                ]
+                walk(children, node.canonical_key)
+
+        walk(list(root_entries.values()))
 
     def _diag(self, line: int, severity: str, message: str) -> None:
         """Record a parse diagnostic."""

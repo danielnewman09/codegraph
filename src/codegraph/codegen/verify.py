@@ -122,7 +122,7 @@ def _compound_qnames(graph, kinds: frozenset[str]) -> set[str]:
 def _uid_counts(graph) -> dict[str, int]:
     counts: dict[str, int] = {}
     for entry in graph._all_entries():
-        uid = getattr(entry.node, "uid", None)
+        uid = getattr(entry.node, "canonical_key", None)
         if uid:
             counts[uid] = counts.get(uid, 0) + 1
     return counts
@@ -236,7 +236,7 @@ def verify(
     if dup_uids:
         uid_to_qname: dict[str, str] = {}
         for entry in design_graph._all_entries():
-            uid = getattr(entry.node, "uid", None)
+            uid = getattr(entry.node, "canonical_key", None)
             qn = getattr(entry.node, "qualified_name", "") or ""
             if uid in dup_uids and qn:
                 uid_to_qname[uid] = qn

@@ -113,7 +113,7 @@ def test_method_defined_in_file():
     # codegraph:test-desc member.test_method_defined_in_file.test_method_defined_in_file::post_7
     # Verifies that the edge from the method node correctly references the file_node's
     # UID, confirming the 'defined_in' relationship points to the right file.
-    assert edge["target_uid"] == file_node._uid_value()
+    assert edge["target_key"] == file_node.canonical_key
 
     # 6. Verify the live graph agrees
     # codegraph:test-desc member.test_method_defined_in_file.test_method_defined_in_file::step_4
@@ -128,7 +128,7 @@ def test_method_defined_in_file():
     # codegraph:test-desc member.test_method_defined_in_file.test_method_defined_in_file::post_9
     # Verifies that the UID of the connected node matches the file_node's UID,
     # confirming that the deserialized node's file association is consistent.
-    assert connected[0]._uid_value() == file_node._uid_value()
+    assert connected[0].canonical_key == file_node.canonical_key
 
 
 if __name__ == "__main__":

@@ -54,7 +54,7 @@ def test_attribute_composed_by_class():
     # codegraph:test-desc member.test_attribute_composed_by_class.test_attribute_composed_by_class::post_1
     # Verifies that the attr_node's parent relationship equals the expected class_node,
     # ensuring the attribute is correctly associated with its containing class.
-    assert parents[0]._uid_value() == class_node._uid_value()
+    assert parents[0].canonical_key == class_node.canonical_key
 
 
 if __name__ == "__main__":

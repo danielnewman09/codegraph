@@ -45,7 +45,7 @@ def test_interface_composed_by_namespace():
     # codegraph:test-desc compound.test_interface_composed_by_namespace.test_interface_composed_by_namespace::post_1
     # Verifies that the parent relationship matches the expected value, confirming the
     # interface is correctly linked to its namespace.
-    assert parents[0]._uid_value() == ns_node._uid_value()
+    assert parents[0].canonical_key == ns_node.canonical_key
 
 
 if __name__ == "__main__":

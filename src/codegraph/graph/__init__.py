@@ -788,7 +788,6 @@ class LayerGraph:
 
     @staticmethod
     def _create_missing_scaffold(
-        cls,
         edge: dict,
         key_to_entry: dict[str, CompositeEntry],
         key_to_key: dict[str, str],
@@ -901,7 +900,7 @@ class LayerGraph:
                         "target_type": "ClassNode",
                         "relation_type": "COMPOSES",
                     }
-                    parent_key = cls._create_missing_scaffold(
+                    parent_key = LayerGraph._create_missing_scaffold(
                         parent_edge, key_to_entry, key_to_key
                     )
                 if parent_key is not None:

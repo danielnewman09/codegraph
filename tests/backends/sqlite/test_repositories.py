@@ -27,26 +27,55 @@ def _make_tree(b):
     return ns, cls, m
 
 
+# TODO understand why this is necessary
+def _save_keyed(node, scope, parents=None):
+    """Compute the canonical key (with parent context when needed) and
+    save under *scope* — canonical identity is mandatory (WP A)."""
+    from codegraph.identity import resolve_identity_for
+
+    node.canonical_key = resolve_identity_for(
+        node, scope, parents=parents
+    ).key()
+    return node.save()
+
+# TODO understand why this is necessary
+def _keyed_standalone(node, scope):
+    """Key a parent-relative node with a synthetic parent key (tests that
+    only need a stable identity)."""
+    from codegraph.identity import resolve_identity_for
+
+    node.canonical_key = resolve_identity_for(
+        node, scope,
+        parents={"parent_key": "cg:v1:project:codegraph-suite:"
+                                "requirement-hlr:qualified_name=test-hlr"},
+    ).key()
+    return node.save()
+
+
 def _make_hlr_tree(b):
-    hlr = HLR(
-        name="HLR-1", source="req", qualified_name="AG-HLR-01",
-        tags=["requirements", "design"], description="System must compute",
-    ).save()
-    llr = LLR(
-        name="LLR-1", source="req", qualified_name="AG-LLR-01",
-        tags=["requirements", "design"], description="Add must be int",
-    ).save()
-    test = TestNode(
-        name="test_add", source="req", qualified_name="AG-LLR-01::test_add",
-        test_name="test_add", tags=["design"], description="add returns sum",
-    ).save()
-    step = TestStepNode(
-        name="s1", source="req", qualified_name="AG-LLR-01::test_add::s1",
-        order=1, tags=["design"],
-    ).save()
-    b.connect(hlr, "COMPOSES", llr)
-    b.connect(llr, "COMPOSES", test)
-    b.connect(test, "COMPOSES", step)
+    from codegraph.identity import IdentityScope, identity_scope
+
+    scope = IdentityScope.project("codegraph-suite")
+    with identity_scope(scope):
+        hlr = _save_keyed(HLR(
+            name="HLR-1", source="req", qualified_name="AG-HLR-01",
+            tags=["requirements", "design"], description="System must compute",
+        ), scope)
+        llr = _save_keyed(LLR(
+            name="LLR-1", source="req", qualified_name="AG-LLR-01",
+            tags=["requirements", "design"], description="Add must be int",
+        ), scope, parents={"parent_hlr_key": hlr.canonical_key})
+        test = _save_keyed(TestNode(
+            name="test_add", source="req", qualified_name="AG-LLR-01::test_add",
+            test_name="test_add", tags=["design"], description="add returns sum",
+        ), scope, parents={"parent_key": llr.canonical_key})
+        step = _save_keyed(TestStepNode(
+            name="s1", source="req", qualified_name="AG-LLR-01::test_add::s1",
+            order=1, tags=["design"],
+        ), scope, parents={"parent_key": test.canonical_key})
+        b.connect(hlr, "COMPOSES", llr)
+        b.connect(llr, "COMPOSES", test)
+        b.connect(test, "COMPOSES", step)
     return hlr, llr, test, step
 
 
@@ -82,9 +111,15 @@ def test_list_sources_counts_all_kinds():
 
 def test_layer_graph_roundtrip():
     b = get_backend()
-    ns = NamespaceNode(name="calc", source="demo", qualified_name="calc", kind="namespace", tags=["design"])
-    cls = ClassNode(name="Calculator", source="demo", qualified_name="calc::Calculator", kind="class", tags=["design"])
-    m = MethodNode(name="add", source="demo", qualified_name="calc::Calculator::add", kind="method", tags=["design"])
+    # Canonical identity is mandatory: save first so nodes carry keys.
+    ns = NamespaceNode(name="calc", source="demo", qualified_name="calc",
+                       kind="namespace", tags=["design"]).save()
+    cls = ClassNode(name="Calculator", source="demo",
+                    qualified_name="calc::Calculator", kind="class",
+                    tags=["design"]).save()
+    m = MethodNode(name="add", source="demo",
+                   qualified_name="calc::Calculator::add", kind="method",
+                   tags=["design"]).save()
     m_entry = CompositeEntry(node=m)
     cls_entry = CompositeEntry(node=cls, children={"MethodNode": {LayerGraph._node_key(m): m_entry}})
     ns_entry = CompositeEntry(node=ns, children={"ClassNode": {LayerGraph._node_key(cls): cls_entry}})
@@ -118,13 +153,18 @@ def test_bulk_save_incremental_preserves_labels_and_tags():
     b = get_backend()
 
     # Batch 1: an HLR carrying the HLR label + design tag.
+    from codegraph.identity import IdentityScope, resolve_identity_for
+
+    scope = IdentityScope.project("codegraph-suite")
     hlr = HLR(
         name="Database Migration Manager", source="markdown-import",
         kind="hlr", tags=["design"],
+        qualified_name="Database Migration Manager",
     )
+    hlr.canonical_key = resolve_identity_for(hlr, scope).key()
     g1 = LayerGraph(
         tags=frozenset({"design"}),
-        entries={LayerGraph._node_key(hlr): CompositeEntry(node=hlr)},
+        entries={hlr.canonical_key: CompositeEntry(node=hlr)},
     )
     g1.to_backend(b)
 
@@ -133,9 +173,10 @@ def test_bulk_save_incremental_preserves_labels_and_tags():
         name="Migration", source="scaffold",
         qualified_name="Migration", kind="class", tags=["scaffold"],
     )
+    cls.canonical_key = resolve_identity_for(cls, scope).key()
     g2 = LayerGraph(
         tags=frozenset({"scaffold"}),
-        entries={LayerGraph._node_key(cls): CompositeEntry(node=cls)},
+        entries={cls.canonical_key: CompositeEntry(node=cls)},
     )
     g2.to_backend(b)
 
@@ -200,10 +241,10 @@ def test_memory_repository_lifecycle():
         tags=["design"], content="CodeGraphNode must never import neomodel.",
     ).save()
 
-    b.memory.link_to_code_node(d.uid, cls.uid, "MOTIVATES")
-    b.memory.link_to_code_node(c.uid, cls.uid, "CONSTRAINS")
+    b.memory.link_to_code_node(d.canonical_key, cls.canonical_key, "MOTIVATES")
+    b.memory.link_to_code_node(c.canonical_key, cls.canonical_key, "CONSTRAINS")
 
-    found = b.memory.find_for_code_node(cls.uid)
+    found = b.memory.find_for_code_node(cls.canonical_key)
     assert {r["rel_type"] for r in found} == {"MOTIVATES", "CONSTRAINS"}
     assert {r["node"].qualified_name for r in found} == {
         "memory::db-choice", "memory::no-neo4j",
@@ -214,8 +255,8 @@ def test_memory_repository_lifecycle():
     by_tag = [n.qualified_name for n in b.memory.find_by_tag("design")]
     assert "memory::db-choice" in by_tag and "memory::no-neo4j" in by_tag
 
-    linked = b.memory.find_linked_code_node(d.uid)
-    assert linked == {"uid": cls.uid, "qualified_name": "calc::Calculator", "rel_type": "MOTIVATES"}
+    linked = b.memory.find_linked_code_node(d.canonical_key)
+    assert linked == {"uid": cls.canonical_key, "qualified_name": "calc::Calculator", "rel_type": "MOTIVATES"}
     assert b.memory.find_linked_code_node("nope") is None
 
 
@@ -224,25 +265,25 @@ def test_memory_to_memory_edges_excluded_from_linked_code():
     _, cls, _ = _make_tree(b)
     d1 = DecisionNode(name="d1", source="memory", qualified_name="memory::d1", content="a").save()
     d2 = DecisionNode(name="d2", source="memory", qualified_name="memory::d2", content="b").save()
-    b.memory.link_to_code_node(d1.uid, cls.uid, "MOTIVATES")
-    b.memory.merge_edge(d2.uid, "SUPERSEDES", d1.uid, source_label="DecisionNode", target_label="DecisionNode")
+    b.memory.link_to_code_node(d1.canonical_key, cls.canonical_key, "MOTIVATES")
+    b.memory.merge_edge(d2.canonical_key, "SUPERSEDES", d1.canonical_key, source_label="DecisionNode", target_label="DecisionNode")
     # d2's only non-meta link is the SUPERSEDES edge → no code node
-    assert b.memory.find_linked_code_node(d2.uid) is None
+    assert b.memory.find_linked_code_node(d2.canonical_key) is None
     # d1 still links to the class
-    assert b.memory.find_linked_code_node(d1.uid)["uid"] == cls.uid
+    assert b.memory.find_linked_code_node(d1.canonical_key)["uid"] == cls.canonical_key
 
 
 def test_linked_to_ancestors_and_descendants():
     b = get_backend()
     ns, _, m = _make_tree(b)
     d = DecisionNode(name="d", source="memory", qualified_name="memory::d", content="x").save()
-    b.memory.link_to_code_node(d.uid, m.uid, "MOTIVATES")
+    b.memory.link_to_code_node(d.canonical_key, m.canonical_key, "MOTIVATES")
 
     # Ancestors of the method (ns + cls) have no memory → empty (the
     # method itself is not an ancestor of itself).
-    assert b.memory.find_linked_to_ancestors(m.uid) == []
+    assert b.memory.find_linked_to_ancestors(m.canonical_key) == []
     # Descendants of the namespace include the method → memory found.
-    found = b.memory.find_linked_to_descendants(ns.uid)
+    found = b.memory.find_linked_to_descendants(ns.canonical_key)
     assert [n.qualified_name for n in found] == ["memory::d"]
 
 
@@ -286,20 +327,27 @@ def test_search_semantic_vector():
     g_hits = b.graph.search_vector(vec, index_name="x")
     assert g_hits[0]["node"].qualified_name == "memory::d2"
     # embedding is rehydrated on read
-    assert len(b.graph.find_by_uid(b.graph.find_all_by_kind("memory")[0].uid).doc_embedding) == 8
+    assert len(b.graph.find_by_key(b.graph.find_all_by_kind("memory")[0].canonical_key).doc_embedding) == 8
 
 
 # ── Requirements repository ──────────────────────────────────────────────
 
 
 def test_hlr_tree():
+    from codegraph.identity import IdentityScope, identity_scope
+
     b = get_backend()
     hlr, _, test, step = _make_hlr_tree(b)
-    target = TestNode(name="t", source="req", qualified_name="req::target", test_name="t", tags=["design"]).save()
-    b.graph.merge_relationship(test.uid, "VERIFIES", target.uid)
-    b.graph.merge_relationship(step.uid, "CALLEE", target.uid)
+    scope = IdentityScope.project("codegraph-suite")
+    with identity_scope(scope):
+        target = _keyed_standalone(
+            TestNode(name="t", source="req", qualified_name="req::target",
+                     test_name="t", tags=["design"]), scope,
+        )
+    b.graph.merge_relationship(test.canonical_key, "VERIFIES", target.canonical_key)
+    b.graph.merge_relationship(step.canonical_key, "CALLEE", target.canonical_key)
 
-    tree = b.requirements.get_hlr_tree(hlr.uid)
+    tree = b.requirements.get_hlr_tree(hlr.canonical_key)
     assert tree["hlr"]["name"] == "HLR-1"
     assert tree["hlr"]["description"] == "System must compute"
     assert len(tree["llrs"]) == 1
@@ -313,27 +361,40 @@ def test_hlr_tree():
 
 
 def test_scaffold_lifecycle():
+    from codegraph.identity import IdentityScope, identity_scope
+
     b = get_backend()
     hlr, _, test, step = _make_hlr_tree(b)
-    scaff = TestNode(name="s", source="req", qualified_name="req::scaffold", test_name="s", tags=["scaffold"]).save()
-    b.graph.merge_relationship(test.uid, "VERIFIES", scaff.uid)
+    scope = IdentityScope.project("codegraph-suite")
+    with identity_scope(scope):
+        scaff = _keyed_standalone(
+            TestNode(name="s", source="req", qualified_name="req::scaffold",
+                     test_name="s", tags=["scaffold"]), scope,
+        )
+        b.graph.merge_relationship(test.canonical_key, "VERIFIES", scaff.canonical_key)
 
-    assert b.requirements.find_scaffold_uids() == [scaff.uid]
-    # directly_referenced matches AssertionNode/TestStepNode sources via
-    # LEFT_OPERAND/RIGHT_OPERAND/CALLEE — VERIFIES doesn't count.
-    assert b.requirements.find_scaffold_uids(directly_referenced=True) == []
-    step = TestStepNode(name="st", source="req", qualified_name="req::step", order=1, tags=["design"]).save()
-    b.graph.merge_relationship(step.uid, "CALLEE", scaff.uid)
-    assert b.requirements.find_scaffold_uids(directly_referenced=True) == [scaff.uid]
-    assert b.requirements.find_scaffold_uids(with_edges=["VERIFIES"]) == [scaff.uid]
-    assert b.requirements.find_scaffold_uids(without_edges=True) == []
-    # a scaffold without any edges is an orphan
-    orphan = TestNode(name="o", source="req", qualified_name="req::orphan", test_name="o", tags=["scaffold"]).save()
-    assert b.requirements.find_scaffold_uids(without_edges=True) == [orphan.uid]
+        assert b.requirements.find_scaffold_uids() == [scaff.canonical_key]
+        # directly_referenced matches AssertionNode/TestStepNode sources via
+        # LEFT_OPERAND/RIGHT_OPERAND/CALLEE — VERIFIES doesn't count.
+        assert b.requirements.find_scaffold_uids(directly_referenced=True) == []
+        step2 = _keyed_standalone(
+            TestStepNode(name="st", source="req", qualified_name="req::step",
+                         order=1, tags=["design"]), scope,
+        )
+        b.graph.merge_relationship(step2.canonical_key, "CALLEE", scaff.canonical_key)
+        assert b.requirements.find_scaffold_uids(directly_referenced=True) == [scaff.canonical_key]
+        assert b.requirements.find_scaffold_uids(with_edges=["VERIFIES"]) == [scaff.canonical_key]
+        assert b.requirements.find_scaffold_uids(without_edges=True) == []
+        # a scaffold without any edges is an orphan
+        orphan = _keyed_standalone(
+            TestNode(name="o", source="req", qualified_name="req::orphan",
+                     test_name="o", tags=["scaffold"]), scope,
+        )
+    assert b.requirements.find_scaffold_uids(without_edges=True) == [orphan.canonical_key]
 
-    b.requirements.retag_scaffold_to_design(scaff.uid)
-    assert b.requirements.find_scaffold_uids() == [orphan.uid]
-    b.requirements.delete_scaffold(orphan.uid)
+    b.requirements.retag_scaffold_to_design(scaff.canonical_key)
+    assert b.requirements.find_scaffold_uids() == [orphan.canonical_key]
+    b.requirements.delete_scaffold(orphan.canonical_key)
     assert b.requirements.find_scaffold_uids() == []
 
 
@@ -342,7 +403,7 @@ def test_scaffold_parents_of_referenced():
     parent = ClassNode(name="P", source="demo", qualified_name="demo::P", kind="class", tags=["scaffold"]).save()
     child = ClassNode(name="C", source="demo", qualified_name="demo::C", kind="class", tags=["scaffold"]).save()
     b.connect(parent, "COMPOSES", child)
-    assert b.requirements.find_scaffold_parents_of_referenced([child.uid]) == [parent.uid]
+    assert b.requirements.find_scaffold_parents_of_referenced([child.canonical_key]) == [parent.canonical_key]
     assert b.requirements.find_scaffold_parents_of_referenced([]) == []
     assert b.requirements.find_scaffold_parents_of_referenced(["nope"]) == []
 
@@ -350,43 +411,52 @@ def test_scaffold_parents_of_referenced():
 def test_unresolved_verifications_and_callees():
     b = get_backend()
     hlr, _, test, step = _make_hlr_tree(b)
-    scaff = TestNode(name="s", source="req", qualified_name="req::scaffold", test_name="s", tags=["scaffold"]).save()
-    b.graph.merge_relationship(test.uid, "VERIFIES", scaff.uid)
-    b.graph.merge_relationship(step.uid, "CALLEE", scaff.uid)
+    from codegraph.identity import IdentityScope
 
-    unres_v = b.requirements.find_unresolved_verifications(hlr.uid)
+    scope = IdentityScope.repository("codegraph-suite", "codegraph")
+    scaff = _keyed_standalone(TestNode(
+        name="s", source="req", qualified_name="req::scaffold",
+        test_name="s", tags=["scaffold"],
+    ), scope)
+    b.graph.merge_relationship(test.canonical_key, "VERIFIES", scaff.canonical_key)
+    b.graph.merge_relationship(step.canonical_key, "CALLEE", scaff.canonical_key)
+
+    unres_v = b.requirements.find_unresolved_verifications(hlr.canonical_key)
     assert unres_v and unres_v[0]["test_qname"] == test.qualified_name
     assert unres_v[0]["target_qname"] == "req::scaffold"
     assert unres_v[0]["llr_name"] == "LLR-1"
-    unres_c = b.requirements.find_unresolved_callee_steps(hlr.uid)
+    unres_c = b.requirements.find_unresolved_callee_steps(hlr.canonical_key)
     assert unres_c and unres_c[0]["step_qname"] == step.qualified_name
     assert unres_c[0]["target_qname"] == "req::scaffold"
 
     # resolve via merge_verification / replace_callee
-    real = TestNode(name="r", source="req", qualified_name="req::real", test_name="r", tags=["design"]).save()
+    real = _keyed_standalone(TestNode(
+        name="r", source="req", qualified_name="req::real",
+        test_name="r", tags=["design"],
+    ), scope)
     b.requirements.merge_verification(test.qualified_name, real.qualified_name)
     b.requirements.replace_callee(step.qualified_name, real.qualified_name)
-    tree = b.requirements.get_hlr_tree(hlr.uid)
+    tree = b.requirements.get_hlr_tree(hlr.canonical_key)
     t0 = tree["llrs"][0]["tests"][0]
     assert "req::real" in t0["verifies_targets"]
     assert t0["step_callees"][0]["callee_target"] == "req::real"
-    assert b.requirements.find_unresolved_callee_steps(hlr.uid) == []
+    assert b.requirements.find_unresolved_callee_steps(hlr.canonical_key) == []
 
 
 def test_merge_depends_on():
     b = get_backend()
     hlr = HLR(name="HLR-1", source="req", qualified_name="AG-HLR-01", tags=["requirements"], description="a").save()
     HLR(name="HLR-2", source="req", qualified_name="AG-HLR-02", tags=["requirements"], description="b").save()
-    info = b.requirements.merge_depends_on(hlr.uid, "HLR-2", description="needs HLR-2")
+    info = b.requirements.merge_depends_on(hlr.canonical_key, "HLR-2", description="needs HLR-2")
     assert info["relation"] == "DEPENDS_ON"
     assert info["target"] == "HLR-2"
-    assert b.requirements.merge_depends_on(hlr.uid, "NOPE") is None
+    assert b.requirements.merge_depends_on(hlr.canonical_key, "NOPE") is None
 
 
 def test_hlr_subtree_layer_graph():
     b = get_backend()
     hlr, _, _, _ = _make_hlr_tree(b)
-    g = b.graph.get_hlr_subtree(hlr.uid)
+    g = b.graph.get_hlr_subtree(hlr.canonical_key)
     assert len(g.entries) >= 1
     assert b.graph.get_hlr_subtree("nope").tags == frozenset({"design"})
 
