@@ -9,6 +9,57 @@ and string-derived D8 flags.
 from __future__ import annotations
 
 from codegraph.codegen.context import compound
+from codegraph.identity import IdentityScope, resolve_identity_for
+from codegraph.models.compound import ClassNode, ConceptNode, EnumNode, InterfaceNode
+from codegraph.models.member import AttributeNode, EnumValueNode, MethodNode
+
+
+_SCOPE = IdentityScope.repository("codegraph-suite", "codegraph")
+
+
+def _class_key(qn, *, kind="class"):
+    return resolve_identity_for(
+        ClassNode(name=qn.rsplit("::", 1)[-1], qualified_name=qn, kind=kind),
+        _SCOPE,
+    ).key()
+
+
+def _interface_key(qn):
+    return resolve_identity_for(
+        InterfaceNode(name=qn.rsplit("::", 1)[-1], qualified_name=qn), _SCOPE
+    ).key()
+
+
+def _enum_key(qn):
+    return resolve_identity_for(
+        EnumNode(name=qn.rsplit("::", 1)[-1], qualified_name=qn), _SCOPE
+    ).key()
+
+
+def _attribute_key(qn):
+    return resolve_identity_for(
+        AttributeNode(name=qn.rsplit("::", 1)[-1], qualified_name=qn), _SCOPE
+    ).key()
+
+
+def _method_key(qn, argsstring=""):
+    return resolve_identity_for(
+        MethodNode(name=qn.rsplit("::", 1)[-1], qualified_name=qn,
+                   argsstring=argsstring),
+        _SCOPE,
+    ).key()
+
+
+def _concept_key(qn):
+    return resolve_identity_for(
+        ConceptNode(name=qn.rsplit("::", 1)[-1], qualified_name=qn), _SCOPE
+    ).key()
+
+
+def _enum_value_key(qn):
+    return resolve_identity_for(
+        EnumValueNode(name=qn.rsplit("::", 1)[-1], qualified_name=qn), _SCOPE
+    ).key()
 
 
 def _class(name="MigrationManager", qn="cpp_sqlite::MigrationManager", **overrides):
@@ -20,6 +71,7 @@ def _class(name="MigrationManager", qn="cpp_sqlite::MigrationManager", **overrid
         "source": "test",
         "tags": ["design"],
         "visibility": "",
+        "canonical_key": _class_key(qn, kind=overrides.get("kind", "class")),
     }
     data.update(overrides)
     return data
@@ -40,6 +92,7 @@ class TestClassLike:
         graph, state = make_state([_class(composes=[
             {
                 "type": "AttributeNode",
+                "canonical_key": _attribute_key("cpp_sqlite::MigrationManager::db_"),
                 "name": "db_",
                 "qualified_name": "cpp_sqlite::MigrationManager::db_",
                 "kind": "attribute",
@@ -49,6 +102,7 @@ class TestClassLike:
             },
             {
                 "type": "MethodNode",
+                "canonical_key": _method_key("cpp_sqlite::MigrationManager::apply"),
                 "name": "apply",
                 "qualified_name": "cpp_sqlite::MigrationManager::apply",
                 "kind": "method",
@@ -73,6 +127,7 @@ class TestClassLike:
         graph, state = make_state([_class(composes=[
             {
                 "type": "AttributeNode",
+                "canonical_key": _attribute_key("cpp_sqlite::MigrationManager::x"),
                 "name": "x",
                 "qualified_name": "cpp_sqlite::MigrationManager::x",
                 "kind": "attribute",
@@ -89,6 +144,7 @@ class TestClassLike:
         graph, state = make_state([_class(composes=[
             {
                 "type": "ClassNode",
+                "canonical_key": _class_key("cpp_sqlite::MigrationManager::MigrationResult", kind="struct"),
                 "name": "MigrationResult",
                 "qualified_name": "cpp_sqlite::MigrationManager::MigrationResult",
                 "kind": "struct",
@@ -96,6 +152,7 @@ class TestClassLike:
                 "composes": [
                     {
                         "type": "AttributeNode",
+                        "canonical_key": _attribute_key("cpp_sqlite::MigrationManager::MigrationResult::is_consistent"),
                         "name": "is_consistent",
                         "qualified_name": "cpp_sqlite::MigrationManager::MigrationResult::is_consistent",
                         "kind": "attribute",
@@ -121,6 +178,7 @@ class TestClassLike:
             "kind": "interface",
             "source": "test",
             "tags": ["design"],
+            "canonical_key": _interface_key("cpp_sqlite::ITransferObject"),
         }])
         ctx = compound.build_context(find_entry(graph, type_name="InterfaceNode"), state)
         assert ctx["kind"] == "interface"
@@ -135,7 +193,7 @@ class TestClassLike:
         # Flat format: edges resolve via identity fields (qualified_name).
         graph, state = make_state([
             _class(name="Derived", qn="cpp_sqlite::Derived", edges=[
-                {"relation_type": "INHERITS_FROM", "target_uid": "cpp_sqlite::Base",
+                {"relation_type": "INHERITS_FROM", "target_key": _class_key("cpp_sqlite::Base"),
                  "target_type": "ClassNode"},
             ]),
             _class(name="Base", qn="cpp_sqlite::Base"),
@@ -147,7 +205,7 @@ class TestClassLike:
     def test_interfaces_from_realizes_reference(self, make_state, find_entry):
         graph, state = make_state([
             _class(name="Printer", qn="cpp_sqlite::Printer", edges=[
-                {"relation_type": "REALIZES", "target_uid": "cpp_sqlite::IPrintable",
+                {"relation_type": "REALIZES", "target_key": _interface_key("cpp_sqlite::IPrintable"),
                  "target_type": "InterfaceNode"},
             ]),
             {
@@ -157,6 +215,7 @@ class TestClassLike:
                 "kind": "interface",
                 "source": "test",
                 "tags": ["design"],
+                "canonical_key": _interface_key("cpp_sqlite::IPrintable"),
             },
         ])
         ctx = compound.build_context(find_entry(graph, type_name="ClassNode", name="Printer"), state)
@@ -166,7 +225,7 @@ class TestClassLike:
         # Flat format: type_parameter slot + TEMPLATE_PARAM edge.
         graph, state = make_state([
             _class(name="DataAccessObject", qn="cpp_sqlite::DataAccessObject", edges=[
-                {"relation_type": "TEMPLATE_PARAM", "target_uid": "T",
+                {"relation_type": "TEMPLATE_PARAM", "target_key": _class_key("T", kind="type_parameter"),
                  "target_type": "ClassNode"},
             ]),
             {
@@ -176,6 +235,7 @@ class TestClassLike:
                 "kind": "type_parameter",
                 "source": "test",
                 "tags": ["design"],
+                "canonical_key": _class_key("T", kind="type_parameter"),
             },
         ])
         ctx = compound.build_context(find_entry(graph, type_name="ClassNode", name="DataAccessObject"), state)
@@ -232,9 +292,9 @@ class TestForwardDecls:
     def test_depends_on_class_targets_forward_declared(self, make_state, find_entry):
         graph, state = make_state([
             _class(name="MigrationManager", qn="cpp_sqlite::MigrationManager", edges=[
-                {"relation_type": "DEPENDS_ON", "target_uid": "cpp_sqlite::Migration",
+                {"relation_type": "DEPENDS_ON", "target_key": _class_key("cpp_sqlite::Migration"),
                  "target_type": "ClassNode"},
-                {"relation_type": "DEPENDS_ON", "target_uid": "cpp_sqlite::Database",
+                {"relation_type": "DEPENDS_ON", "target_key": _class_key("cpp_sqlite::Database"),
                  "target_type": "ClassNode"},
             ]),
             _class(name="Migration", qn="cpp_sqlite::Migration"),
@@ -249,20 +309,22 @@ class TestForwardDecls:
     def test_struct_keyword_and_cross_namespace_qualified(self, make_state, find_entry):
         graph, state = make_state([
             _class(name="MigrationManager", qn="cpp_sqlite::MigrationManager", edges=[
-                {"relation_type": "DEPENDS_ON", "target_uid": "cpp_sqlite::MigrationResult",
+                {"relation_type": "DEPENDS_ON", "target_key": _class_key("cpp_sqlite::MigrationResult", kind="struct"),
                  "target_type": "ClassNode"},
-                {"relation_type": "DEPENDS_ON", "target_uid": "util::Registry",
+                {"relation_type": "DEPENDS_ON", "target_key": _class_key("util::Registry"),
                  "target_type": "ClassNode"},
             ]),
             {
                 "type": "ClassNode", "name": "MigrationResult",
                 "qualified_name": "cpp_sqlite::MigrationResult", "kind": "struct",
                 "source": "test", "tags": ["design"],
+                "canonical_key": _class_key("cpp_sqlite::MigrationResult", kind="struct"),
             },
             {
                 "type": "ClassNode", "name": "Registry",
                 "qualified_name": "util::Registry", "kind": "class",
                 "source": "test", "tags": ["design"],
+                "canonical_key": _class_key("util::Registry"),
             },
         ])
         ctx = compound.build_context(find_entry(graph, type_name="ClassNode", name="MigrationManager"), state)
@@ -277,28 +339,31 @@ class TestForwardDecls:
             _class(name="MigrationManager", qn="cpp_sqlite::MigrationManager", composes=[
                 {
                     "type": "ClassNode", "name": "MigrationResult",
+                    "canonical_key": _class_key("cpp_sqlite::MigrationResult", kind="struct"),
                     "qualified_name": "cpp_sqlite::MigrationResult", "kind": "struct",
                     "source": "test", "tags": ["design"],
                 },
             ], edges=[
-                {"relation_type": "DEPENDS_ON", "target_uid": "std::vector",
+                {"relation_type": "DEPENDS_ON", "target_key": _class_key("std::vector"),
                  "target_type": "ClassNode"},
-                {"relation_type": "DEPENDS_ON", "target_uid": "cpp_sqlite::MigrationErrorCode",
+                {"relation_type": "DEPENDS_ON", "target_key": _enum_key("cpp_sqlite::MigrationErrorCode"),
                  "target_type": "EnumNode"},
-                {"relation_type": "DEPENDS_ON", "target_uid": "cpp_sqlite::MigrationManager",
+                {"relation_type": "DEPENDS_ON", "target_key": _class_key("cpp_sqlite::MigrationManager"),
                  "target_type": "ClassNode"},
-                {"relation_type": "DEPENDS_ON", "target_uid": "cpp_sqlite::MigrationResult",
+                {"relation_type": "DEPENDS_ON", "target_key": _class_key("cpp_sqlite::MigrationResult", kind="struct"),
                  "target_type": "ClassNode"},
             ]),
             {
                 "type": "ClassNode", "name": "vector",
                 "qualified_name": "std::vector", "kind": "class",
                 "source": "test", "tags": ["design"],
+                "canonical_key": _class_key("std::vector"),
             },
             {
                 "type": "EnumNode", "name": "MigrationErrorCode",
                 "qualified_name": "cpp_sqlite::MigrationErrorCode", "kind": "enum",
                 "source": "test", "tags": ["design"],
+                "canonical_key": _enum_key("cpp_sqlite::MigrationErrorCode"),
             },
         ])
         ctx = compound.build_context(find_entry(graph, type_name="ClassNode", name="MigrationManager"), state)
@@ -320,6 +385,7 @@ class TestEnums:
             "kind": "enum",
             "source": "test",
             "tags": ["design"],
+            "canonical_key": _enum_key("cpp_sqlite::MigrationErrorCode"),
             "composes": [
                 {
                     "type": "EnumValueNode",
@@ -327,6 +393,7 @@ class TestEnums:
                     "qualified_name": "cpp_sqlite::MigrationErrorCode::Success",
                     "kind": "enumvalue",
                     "source": "test",
+                    "canonical_key": _enum_value_key("cpp_sqlite::MigrationErrorCode::Success"),
                 },
                 {
                     "type": "EnumValueNode",
@@ -335,6 +402,7 @@ class TestEnums:
                     "kind": "enumvalue",
                     "initializer": "1",
                     "source": "test",
+                    "canonical_key": _enum_value_key("cpp_sqlite::MigrationErrorCode::DuplicateVersion"),
                 },
             ],
         }])
@@ -354,6 +422,7 @@ class TestConcepts:
             "initializer": "template<typename T> concept cpp_sqlite::ValidTransferObject = TransferObject<T> && DefaultConstruct",
             "source": "test",
             "tags": ["design"],
+            "canonical_key": _concept_key("cpp_sqlite::ValidTransferObject"),
         }])
         ctx = compound.build_context(find_entry(graph, type_name="ConceptNode"), state)
         assert ctx["initializer"].startswith("template<typename T> concept")

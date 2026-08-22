@@ -83,11 +83,11 @@ class GraphView(Enum):
             file-reference edges are omitted.
         PUBLIC_API: Public API surface only.  Collapses external
             dependencies like COLLAPSED, but also hides private
-            members, removes concept nodes and file nodes, and
-            drops file-reference edges.  Shows only the public-facing
-            classes, public members, and public functions.
+            members, test scaffolding, concept nodes, and file nodes,
+            and drops file-reference edges.  Shows only the
+            public-facing classes, public members, and public functions.
         DESIGN_API: Design-layer view.  Shows the architectural design
-            (classes, structs, enums, methods, attributes) but hides
+            (classes, structs, enums, methods, attributes) and hides
             test scaffolding — TestNode, AssertionNode, TestStepNode,
             TestFixtureNode, and LiteralNode nodes are omitted along
             with their edges.
@@ -290,8 +290,8 @@ _NESTING_REL_TYPES: set[str] = {
 _STRUCTURAL_REL_TYPES: set[str] = _NESTING_REL_TYPES | {"TEMPLATE_PARAM"}
 
 #: Node types that are design/test scaffolding, not architecture.
-#: DESIGN_API hides these by TYPE (the design agent may tag them
-#: ``design``, so a tag-based filter is not reliable).
+#: PUBLIC_API and DESIGN_API hide these by TYPE (the design agent may tag
+#: them ``design``, so a tag-based filter is not reliable).
 _SCAFFOLDING_TYPES: frozenset[str] = frozenset({
     "TestNode", "TestStepNode", "AssertionNode", "TestFixtureNode",
     "LiteralNode", "HLR", "LLR",
@@ -331,6 +331,23 @@ def _short_display_name(node) -> str:
     return name
 
 
+def _escape_quoted_label(value: str) -> str:
+    """Escape arbitrary text for a double-quoted PlantUML label.
+
+    Node names can originate from source literals and therefore contain
+    quotes, backslashes, and physical line breaks.  Emitting those bytes
+    directly terminates or splits the PlantUML declaration.  Keep each
+    declaration on one source line and let PlantUML render control
+    characters through its escape syntax.
+    """
+    return (value.replace("\\", "\\\\")
+                 .replace('"', '\\"')
+                 .replace("\r\n", "\\n")
+                 .replace("\r", "\\n")
+                 .replace("\n", "\\n")
+                 .replace("\t", "\\t"))
+
+
 def _sanitize_alias(name: str) -> str:
     """Convert a qualified name to a valid PlantUML alias.
 
@@ -354,9 +371,9 @@ def _sanitize_alias(name: str) -> str:
     """
     # Replace :: first (namespace separator → double underscore)
     sanitized = name.replace("::", "__")
-    # Replace other special chars with single underscore
-    for ch in "./()<> ,=&*\"'{};!":
-        sanitized = sanitized.replace(ch, "_")
+    # PlantUML aliases are identifiers, so source-derived text must not leak
+    # control characters, backslashes, punctuation, or operators into them.
+    sanitized = re.sub(r"[^A-Za-z0-9_]", "_", sanitized)
     # Collapse consecutive underscores from special-char runs
     # (e.g. "foo(())bar"  →  "foo___bar"  → "foo_bar").
     # We must NOT collapse __ from namespace separators though.
@@ -481,8 +498,8 @@ class PlantUMLExporter:
             * ``COLLAPSED`` — full source code but external deps
               collapsed into packages; file nodes / file edges omitted.
             * ``PUBLIC_API`` — like COLLAPSED but also hides private
-              members, concept nodes, and file nodes.  Shows only the
-              public-facing API surface.
+              members, test scaffolding, concept nodes, and file nodes.
+              Shows only the public-facing API surface.
     """
 
     def __init__(self, graph: LayerGraph, fields: str = "llm",
@@ -519,7 +536,7 @@ class PlantUMLExporter:
         # classes only show the members actually referenced.
         self._allowed_classes: set[str] = set()
         self._allowed_members: dict[str, set[str]] = {}
-        # Node keys (uid hashes) carrying the "test" tag.
+        # Canonical node keys carrying the "test" tag.
         # DESIGN_API hides these — they are test scaffolding, not
         # architectural design elements. The tag is set by the design
         # agent during node creation.
@@ -565,13 +582,13 @@ class PlantUMLExporter:
     def _show_tests(self) -> bool:
         """True when test-tagged nodes should be included.
 
-        DESIGN_API hides any node carrying the ``"test"`` tag —
+        PUBLIC_API and DESIGN_API hide any node carrying the ``"test"`` tag —
         TestNode, AssertionNode, TestStepNode, TestFixtureNode,
         and any AttributeNode/LiteralNode used as test fixtures.
         The ``"test"`` tag is set by the design agent during node
         creation, not inferred from node type.
         """
-        return self.view != GraphView.DESIGN_API
+        return self.view not in (GraphView.PUBLIC_API, GraphView.DESIGN_API)
 
     def _build_test_tagged_keys(self) -> set[str]:
         """Build a precomputed set of node keys that carry the ``"test"`` tag.
@@ -1082,8 +1099,8 @@ class PlantUMLExporter:
         ):
             return []
 
-        # Design/test scaffolding is hidden from DESIGN_API by node
-        # TYPE — the design agent may tag these ``design``, so the
+        # Design/test scaffolding is hidden from PUBLIC_API/DESIGN_API by
+        # node TYPE — the design agent may tag these ``design``, so the
         # legacy tag-based check below is not sufficient.
         if node_type in _SCAFFOLDING_TYPES and not self._show_tests():
             return []
@@ -1110,9 +1127,11 @@ class PlantUMLExporter:
             return []
         if node_type == "ConceptNode" and not self._show_concepts():
             return []
-        if node_type == "ParameterNode":
-            # Parameters are function-signature detail rendered inside
-            # the member line — never standalone PlantUML elements.
+        if node_type in ("ParameterNode", "LiteralNode"):
+            # Parameters and assertion literals are implementation/
+            # verification detail, never standalone UML elements.  Raw
+            # literals can also contain entire source snippets, making an
+            # architectural diagram enormous and meaningless.
             return []
         tags = getattr(node, "tags", []) or []
         if "test" in tags and not self._show_tests():
@@ -1169,7 +1188,7 @@ class PlantUMLExporter:
         prefix = "  " * indent
         keyword = _NODE_TYPE_TO_PLANTUML.get(type(node).__name__, "package")
         stereotype = _NODE_TYPE_TO_STEREOTYPE.get(type(node).__name__)
-        display_name = _short_display_name(node)
+        display_name = _escape_quoted_label(_short_display_name(node))
 
         lines: list[str] = []
         if stereotype:
@@ -1195,7 +1214,7 @@ class PlantUMLExporter:
         prefix = "  " * indent
         keyword = _NODE_TYPE_TO_PLANTUML.get(node_type, "class")
         stereotype = _NODE_TYPE_TO_STEREOTYPE.get(node_type)
-        display_name = _short_display_name(node)
+        display_name = _escape_quoted_label(_short_display_name(node))
 
         lines: list[str] = []
         stereo = f" <<{stereotype}>>" if stereotype else ""
@@ -1317,7 +1336,7 @@ class PlantUMLExporter:
         """Emit an enum with its values."""
         node = entry.node
         prefix = "  " * indent
-        display_name = _short_display_name(node)
+        display_name = _escape_quoted_label(_short_display_name(node))
 
         lines: list[str] = []
         lines.append(f'{prefix}enum "{display_name}" as {alias} {{')
@@ -1340,7 +1359,7 @@ class PlantUMLExporter:
         # _short_display_name would strip "hpp" as a namespace segment
         # since dot-splitting can't distinguish extensions from
         # Python-style qualified names.
-        display_name = node.name
+        display_name = _escape_quoted_label(node.name)
 
         lines: list[str] = []
         lines.append(f'{prefix}note "{display_name}" as {alias}')
@@ -1435,9 +1454,9 @@ class PlantUMLExporter:
             # Parameters are function-signature detail (rendered inside
             # the member line), never standalone PlantUML elements.
             return
-        # Design/test scaffolding targets are hidden from DESIGN_API by
-        # TYPE (the agent may tag them ``design``) — keep the legacy
-        # tag-based check as well for older data.
+        # Design/test scaffolding targets are hidden from
+        # PUBLIC_API/DESIGN_API by TYPE (the agent may tag them ``design``)
+        # — keep the legacy tag-based check as well for older data.
         if target_type in _SCAFFOLDING_TYPES and not self._show_tests():
             return
         if self._target_has_tag(target_key, "test") and not self._show_tests():
@@ -2038,8 +2057,8 @@ def export_plantuml(graph: LayerGraph, fields: str = "llm",
             * ``COLLAPSED`` — full source code but external deps
               collapsed into packages; file nodes / file edges omitted.
             * ``PUBLIC_API`` — like COLLAPSED but also hides private
-              members, concept nodes, and file nodes.  Shows only the
-              public-facing API surface.
+              members, test scaffolding, concept nodes, and file nodes.
+              Shows only the public-facing API surface.
         scope_class: When set (fully-qualified class name), emit only
             that class and its 1-hop neighbours.
 
@@ -2093,14 +2112,17 @@ def import_plantuml(text: str, tags: frozenset[str] | None = None,
 
 
 #: Text markers that appear in the SVG page PlantUML emits when a diagram
-#: has a syntax error.  A ``plantuml -tsvg`` run returns exit code 0 even
-#: on syntax errors — it renders the *error page* (the offending source
-#: echoed as text plus a red ``Syntax Error?`` footer) instead of failing —
-#: so exit codes alone never catch a broken diagram.
+#: has a syntax error or the Graphviz layout engine crashes.  A
+#: ``plantuml -tsvg`` run can return exit code 0 in both cases — it renders
+#: an *error page* instead of failing — so exit codes alone never catch a
+#: broken diagram.
 _PLANTUML_ERROR_MARKERS = (
     "Syntax Error",
     "Error line",
     "Assumed diagram type",
+    "An error has occurred",
+    "has crashed",
+    "UnparsableGraphvizException",
 )
 
 
@@ -2114,8 +2136,8 @@ def validate_plantuml_svg(svg_text: str) -> list[str]:
     silently.  This validator rejects error pages three ways:
 
       1. The text must parse as well-formed XML.
-      2. It must not contain PlantUML error markers (``Syntax Error``,
-         ``Error line``, ``Assumed diagram type``).
+      2. It must not contain PlantUML error markers (syntax errors and
+         Graphviz/layout crash pages).
       3. It must not render as a nearly-empty canvas (error pages
          for small diagrams are tiny; real diagrams draw boxes,
          arrows and labels and are never that small).

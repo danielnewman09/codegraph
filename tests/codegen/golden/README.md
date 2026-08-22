@@ -7,8 +7,22 @@ this directory read **only** these files — never sibling-repo paths.
 
 | File | Encoding | Nodes | Provenance |
 |---|---|---|---|
-| `design_layergraph.json` | full declaration **minus leading qualifiers / pure-virtual markers** (`type_signature` = `'int getVersion() const'`; `argsstring` degraded `'()'`; attributes carry plain types) | 181 | Current design-agent generator output. Copy of `tests/pipelines/unit_test_data/design_layergraph.json` (written by `tests/pipelines/test_design_migration_manager.py`), which mirrors `../doxygen-dependency-parser/tests/data/design_layergraph.json` |
-| `design_layergraph_full_decl.json` | full declaration (`type_signature` = complete C++ declaration, spec D8, e.g. `'virtual int getVersion() const = 0'`) | 155 | Committed revision of `doxygen-dependency-parser/tests/data/design_layergraph.json` (git HEAD, sha `c4df38f7d4395347`), extracted via `git show HEAD:tests/data/design_layergraph.json`. Pins the D8 verbatim-emission path and D9 duplicate-uid dedup (10 dup uids). Refreshed only deliberately |
+| `design_layergraph.json` | full declaration **minus leading qualifiers / pure-virtual markers** | 179 | Parser-owned design export, copied after semantic comparison |
+| `design_layergraph_full_decl.json` | full declaration (`type_signature` = complete C++ declaration) | 155 | Reviewed full-declaration fixture; repeated placements share canonical identity |
+
+## Artifact ownership
+
+The parser repository owns generated design and cpp-sqlite exports. Codegraph
+keeps consumer copies; `scripts/sync_codegen_fixtures.py check` is the
+non-mutating gate for byte identity, canonical-only wire fields, relationship
+endpoints, and source-copy provenance.
+
+| Artifact | Owner | Consumer |
+|---|---|---|
+| Design LayerGraph | parser design export | Codegraph codegen goldens |
+| One-hop graph | parser cpp-sqlite integration export | Codegraph fixpoint tests |
+| Implementation graph | parser export workflow | Codegraph implementation tests |
+| cpp-sqlite sources | parser fixture repository | Codegraph byte-fidelity tests |
 
 ## Sync convention (R1)
 
@@ -21,7 +35,8 @@ golden never drifts silently:
   refresh `design_layergraph.json` here. Mirrors the manual step.
 - `pull` — copy the canonical sister-repo file here when the sister
   repo regenerates it.
-- `check` — byte-compare golden vs canonical; fail with drift report.
+- `check` — byte-compare synchronized artifacts and fail on drift; it never
+  uses modification times or rewrites files.
 
 Run the generator with `CODEGRAPH_SYNC_FIXTURES=1` to auto-copy on
 test completion.

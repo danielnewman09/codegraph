@@ -41,12 +41,18 @@ FIXTURE_DIR = Path(__file__).resolve().parent / "unit_test_data"
 PLANTUML_JAR = Path(__file__).resolve().parent.parent.parent.parent / "tools" / "plantuml.jar"
 
 def _plantuml_available() -> bool:
-    """Check whether the PlantUML jar exists and java is on PATH."""
+    """Check whether PlantUML can actually compile a minimal diagram."""
     if not PLANTUML_JAR.is_file():
         return False
     try:
-        subprocess.run(["java", "-version"], capture_output=True, timeout=5)
-        return True
+        result = subprocess.run(
+            ["java", "-jar", str(PLANTUML_JAR), "-pipe", "-tpng",
+             "-charset", "UTF-8"],
+            input=b"@startuml\nAlice -> Bob\n@enduml\n",
+            capture_output=True,
+            timeout=10,
+        )
+        return result.returncode == 0 and bool(result.stdout)
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return False
 

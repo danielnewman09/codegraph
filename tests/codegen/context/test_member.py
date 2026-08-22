@@ -11,17 +11,17 @@ from __future__ import annotations
 from codegraph.codegen.context import member
 
 from codegraph.graph import LayerGraph
-from tests.codegen.context.conftest import key_document as _kd
 
 
 def _deser(data):
-    return LayerGraph.deserialize(_kd(data))
+    return LayerGraph.deserialize(data)
 
 
 
 def _method(**overrides):
     data = {
         "type": "MethodNode",
+        "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Aapply:canonical_signature=lang%3Acpp%7C%28%29',
         "name": "apply",
         "qualified_name": "cpp_sqlite::MigrationManager::apply",
         "kind": "method",
@@ -122,6 +122,7 @@ class TestCallableMembers:
     def test_function_role(self, make_state, find_entry):
         graph, state = make_state([{
             "type": "FunctionNode",
+            "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:function:qualified_name=cpp_sqlite%3A%3Ahelper:canonical_signature=lang%3Acpp%7C%28int%29',
             "name": "helper",
             "qualified_name": "cpp_sqlite::helper",
             "kind": "function",
@@ -151,6 +152,7 @@ class TestAttributes:
     def test_plain_attribute(self, make_state, find_entry):
         graph, state = make_state([{
             "type": "AttributeNode",
+            "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Amigrations_',
             "name": "migrations_",
             "qualified_name": "cpp_sqlite::MigrationManager::migrations_",
             "kind": "attribute",
@@ -171,6 +173,7 @@ class TestAttributes:
     def test_typedef_definition_verbatim(self, make_state, find_entry):
         graph, state = make_state([{
             "type": "AttributeNode",
+            "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3Asqlite3',
             "name": "sqlite3",
             "qualified_name": "cpp_sqlite::sqlite3",
             "kind": "typedef",
@@ -185,6 +188,7 @@ class TestAttributes:
     def test_typedef_using_fallback(self, make_state, find_entry):
         graph, state = make_state([{
             "type": "AttributeNode",
+            "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3ACallback',
             "name": "Callback",
             "qualified_name": "cpp_sqlite::Callback",
             "kind": "typedef",
@@ -235,21 +239,37 @@ class TestPhase2:
 
         from codegraph.codegen.context import BuildState
 
-        p_url = "uid-param-url"
-        p_allow = "uid-param-allow"
+        method_key = (
+            "cg:v1:repository:codegraph-suite%2Fcodegraph:method:"
+            "qualified_name=cpp_sqlite%3A%3ADatabase%3A%3ADatabase:"
+            "canonical_signature=lang%3Acpp%7Cconstructor%7C%28"
+            "std%3A%3Astring%2Cbool%29"
+        )
+        p_url = (
+            "cg:v1:repository:codegraph-suite%2Fcodegraph:parameter:"
+            "parent_callable_key=cg%3Av1%3Arepository%3Acodegraph-suite%252F"
+            "codegraph%253Amethod%253Aqualified_name%253Dcpp_sqlite%25253A"
+            "%25253ADatabase%25253A%25253ADatabase%253Acanonical_signature%253D"
+            "lang%25253Acpp%25257Cconstructor%25257C%252528std%25253A%25253A"
+            "string%25252Cbool%252529:position="
+        )
+        p_allow = p_url + "1"
         graph = _deser([
             {
                 "type": "ParameterNode", "node_type": "ParameterNode",
                 "name": "url", "type": "std::string", "position": 0,
-                "uid": p_url, "source": "test", "tags": ["as-built"],
+                "canonical_key": p_url, "parent_callable_key": method_key,
+                "source": "test", "tags": ["as-built"],
             },
             {
                 "type": "ParameterNode", "node_type": "ParameterNode",
                 "name": "allowWrite", "type": "bool", "position": 1,
-                "uid": p_allow, "source": "test", "tags": ["as-built"],
+                "canonical_key": p_allow, "parent_callable_key": method_key,
+                "source": "test", "tags": ["as-built"],
             },
             {
                 "type": "MethodNode",
+                "canonical_key": method_key,
                 "name": "Database",
                 "qualified_name": "cpp_sqlite::Database::Database",
                 "kind": "function",
@@ -257,9 +277,9 @@ class TestPhase2:
                 "argsstring": "(std::string url, bool allowWrite)",
                 "source": "test", "tags": ["as-built"],
                 "edges": [
-                    {"relation_type": "HAS_PARAMETER", "target_uid": p_url,
+                    {"relation_type": "HAS_PARAMETER", "target_key": p_url,
                      "target_type": "ParameterNode"},
-                    {"relation_type": "HAS_PARAMETER", "target_uid": p_allow,
+                    {"relation_type": "HAS_PARAMETER", "target_key": p_allow,
                      "target_type": "ParameterNode"},
                 ],
             },
@@ -276,6 +296,7 @@ class TestPhase2:
     def test_attribute_type_normalized_and_static(self, make_state, find_entry):
         graph, state = make_state([{
             "type": "AttributeNode",
+            "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3AGetRepeatedFieldParams%3A%3AkIsSpecialization',
             "name": "kIsSpecialization",
             "qualified_name": "cpp_sqlite::GetRepeatedFieldParams::kIsSpecialization",
             "kind": "variable",
@@ -293,6 +314,7 @@ class TestPhase2:
         owning compound's own scope is stripped for member rendering."""
         graph, state = make_state([{
             "type": "AttributeNode",
+            "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3AForeignKeyTypeT%3C%20ForeignKey%3C%20T%20%3E%20%3E%3A%3Atype',
             "name": "type",
             "qualified_name": "cpp_sqlite::ForeignKeyTypeT< ForeignKey< T > >::type",
             "kind": "typedef",
@@ -311,6 +333,7 @@ class TestEnumValues:
     def test_enum_value_with_initializer(self, make_state, find_entry):
         graph, state = make_state([{
             "type": "EnumValueNode",
+            "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:enum-value:qualified_name=palette%3A%3AColor%3A%3ARed',
             "name": "Red",
             "qualified_name": "palette::Color::Red",
             "kind": "enumvalue",
@@ -324,6 +347,7 @@ class TestEnumValues:
     def test_enum_value_implicit(self, make_state, find_entry):
         graph, state = make_state([{
             "type": "EnumValueNode",
+            "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:enum-value:qualified_name=cpp_sqlite%3A%3AMigrationErrorCode%3A%3ASuccess',
             "name": "Success",
             "qualified_name": "cpp_sqlite::MigrationErrorCode::Success",
             "kind": "enumvalue",
@@ -338,6 +362,7 @@ class TestDefines:
     def test_define_definition_verbatim(self, make_state, find_entry):
         graph, state = make_state([{
             "type": "DefineNode",
+            "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:define:qualified_name=CODEGRAPH_VERSION',
             "name": "CODEGRAPH_VERSION",
             "qualified_name": "CODEGRAPH_VERSION",
             "kind": "define",

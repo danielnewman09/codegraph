@@ -52,7 +52,7 @@ class TestExplorerApi:
         assert "MigrationManager" in classes
         mm = classes["MigrationManager"]
         # badges: the verification scope for MigrationManager
-        assert mm["requirements"] == 4
+        assert mm["requirements"] == 5
         assert mm["tests"] == 9
         # classes without tests carry zero badges, not missing keys
         assert classes["Database"]["tests"] == 0

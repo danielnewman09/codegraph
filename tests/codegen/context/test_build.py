@@ -9,15 +9,15 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from urllib.parse import quote
 
 from codegraph.codegen.context import CodegenContextBuilder
 from codegraph.graph import LayerGraph
 
-from tests.codegen.context.conftest import key_document as _kd
 
 
 def _deser(data):
-    return LayerGraph.deserialize(_kd(data))
+    return LayerGraph.deserialize(data)
 
 
 
@@ -26,6 +26,7 @@ GOLDEN_DIR = Path(__file__).resolve().parent.parent / "golden"
 SYNTHETIC = [
     {
         "type": "NamespaceNode",
+        "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:namespace:qualified_name=cpp_sqlite',
         "name": "cpp_sqlite",
         "qualified_name": "cpp_sqlite",
         "kind": "namespace",
@@ -34,6 +35,7 @@ SYNTHETIC = [
         "composes": [
             {
                 "type": "ClassNode",
+                "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=cpp_sqlite%3A%3AMigrationManager',
                 "name": "MigrationManager",
                 "qualified_name": "cpp_sqlite::MigrationManager",
                 "kind": "class",
@@ -43,6 +45,7 @@ SYNTHETIC = [
                 "composes": [
                     {
                         "type": "MethodNode",
+                        "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Aapply:canonical_signature=lang%3Acpp%7C%28%29',
                         "name": "apply",
                         "qualified_name": "cpp_sqlite::MigrationManager::apply",
                         "kind": "method",
@@ -54,6 +57,7 @@ SYNTHETIC = [
                     },
                     {
                         "type": "AttributeNode",
+                        "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Adb_',
                         "name": "db_",
                         "qualified_name": "cpp_sqlite::MigrationManager::db_",
                         "kind": "attribute",
@@ -66,6 +70,7 @@ SYNTHETIC = [
             },
             {
                 "type": "EnumNode",
+                "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:enum:qualified_name=cpp_sqlite%3A%3AMigrationErrorCode',
                 "name": "MigrationErrorCode",
                 "qualified_name": "cpp_sqlite::MigrationErrorCode",
                 "kind": "enum",
@@ -76,6 +81,7 @@ SYNTHETIC = [
     },
     {
         "type": "AttributeNode",  # orphaned stub (D10)
+        "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=MigrationManager%3A%3Aversion1_reapplied',
         "name": "version1_reapplied",
         "qualified_name": "MigrationManager::version1_reapplied",
         "kind": "attribute",
@@ -85,6 +91,7 @@ SYNTHETIC = [
     },
     {
         "type": "LiteralNode",
+        "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:literal:qualified_name=literal%3A%3Atrue',
         "value": "true",
         "value_type": "boolean",
         "qualified_name": "literal::true",
@@ -127,6 +134,7 @@ class TestBuildDesign:
     def test_std_library_references_not_emitted(self):
         graph = _deser([{
             "type": "NamespaceNode",
+            "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:namespace:qualified_name=std',
             "name": "std",
             "qualified_name": "std",
             "kind": "namespace",
@@ -134,6 +142,7 @@ class TestBuildDesign:
             "tags": ["design"],
             "composes": [{
                 "type": "ClassNode",
+                "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=std%3A%3Avector',
                 "name": "vector",
                 "qualified_name": "std::vector",
                 "kind": "class",
@@ -196,6 +205,7 @@ class TestBuildAsBuilt:
         graph = _deser([
             {
                 "type": "FileNode",
+                "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:file:normalized_repository_path=cpp_sqlite%2Fsrc%2Fcpp_sqlite%2FMigration.hpp',
                 "name": "Migration.hpp",
                 "path": "cpp_sqlite/src/cpp_sqlite/Migration.hpp",
                 "language": "C++",
@@ -204,6 +214,7 @@ class TestBuildAsBuilt:
             },
             {
                 "type": "ClassNode",
+                "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=cpp_sqlite%3A%3AMigration',
                 "name": "Migration",
                 "qualified_name": "cpp_sqlite::Migration",
                 "kind": "class",
@@ -232,6 +243,10 @@ class TestNamespaceNesting:
         nodes = [
             {
                 "type": "ClassNode",
+                "canonical_key": (
+                    "cg:v1:repository:codegraph-suite%2Fcodegraph:class:"
+                    f"qualified_name={quote(qn, safe='')}"
+                ),
                 "name": qn.split("::")[-1],
                 "qualified_name": qn,
                 "kind": "struct",
@@ -244,6 +259,7 @@ class TestNamespaceNesting:
         graph = _deser([
             {
                 "type": "FileNode",
+                "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:file:normalized_repository_path=inc%2Fx.hpp",
                 "name": "x.hpp",
                 "path": "inc/x.hpp",
                 "source": "test",

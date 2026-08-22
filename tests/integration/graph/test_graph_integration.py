@@ -158,7 +158,7 @@ def test_graph_integration():
             # Asserts that the target entry for each edge exists in the graph. This
             # ensures that every relationship points to a valid node, confirming graph
             # integrity.
-            assert target_entry is not None, f"Missing target {edge['target_local_id']}"
+            assert target_entry is not None, f"Missing target {edge['target_key']}"
             target = target_entry.node
             found = [
                 e for e in saved.serialize()["edges"]
@@ -171,7 +171,7 @@ def test_graph_integration():
             # correctly represented in the graph after reconstruction.
             assert len(found) >= 1, (
                 f"Missing edge: {type(saved).__name__} -[:{edge['relation_type']}]-> "
-                f"{edge['target_type']} {edge['target_local_id']}"
+                f"{edge['target_type']} {edge['target_key']}"
             )
 
     # codegraph:test-desc test_graph_integration.test_graph_integration::step_4

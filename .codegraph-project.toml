@@ -1,0 +1,17 @@
+schema_version = 1
+
+[project]
+id = "codegraph-suite"
+database = "/Users/danielnewman/.pi/agent/codegraph/projects/e3b0c44298fc1c14/codegraph.sqlite3"
+
+[[repositories]]
+name = "codegraph"
+path = "."
+source = "codegraph"
+index = true
+
+[[repositories]]
+name = "doxygen-dependency-parser"
+path = "../Doxygen-Dependency-Parser"
+source = "doxygen-index"
+index = true

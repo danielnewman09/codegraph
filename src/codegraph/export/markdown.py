@@ -662,7 +662,53 @@ class MarkdownImporter:
             if errors:
                 raise PlantUMLParseError(errors)
 
+        # WP A: assign canonical keys to every imported node under the
+        # ACTIVE identity scope.  Parent-relative children (LLR, test
+        # nodes) use their parent entry's canonical key as context.
+        self._assign_canonical_keys(root_entries)
+
         return LayerGraph(tags=frozenset(self._tags), entries=root_entries)
+
+    def _assign_canonical_keys(self, root_entries: dict) -> None:
+        """WP A: compute canonical keys for every node in the tree.
+
+        Uses the active identity scope; when none is available the
+        nodes are left unkeyed (saving such a graph raises
+        ``IdentityError`` — canonical identity is mandatory).
+        """
+        from codegraph.identity import get_identity_scope, resolve_identity_for
+
+        scope = get_identity_scope()
+        if scope is None:
+            return
+
+        def walk(entries, parent_key=None):
+            for entry in entries:
+                node = entry.node
+                t = type(node).__name__
+                parents = {}
+                if t == "LLR":
+                    parents["parent_hlr_key"] = parent_key or "cg:v1:root"
+                elif t in (
+                    "TestNode", "TestFixtureNode",
+                    "AssertionNode", "TestStepNode",
+                ):
+                    parents["parent_key"] = parent_key or "cg:v1:root"
+                elif t in ("ParameterNode", "ImplementationNode"):
+                    parents["parent_callable_key"] = parent_key or "cg:v1:root"
+                elif t == "SourceFragmentNode":
+                    parents["file_key"] = parent_key or "cg:v1:root"
+                node.canonical_key = resolve_identity_for(
+                    node, scope, parents=parents
+                ).key()
+                children = [
+                    e
+                    for type_children in entry.children.values()
+                    for e in type_children.values()
+                ]
+                walk(children, node.canonical_key)
+
+        walk(list(root_entries.values()))
 
     # ── Diagnostics ──────────────────────────────────────────────────
 

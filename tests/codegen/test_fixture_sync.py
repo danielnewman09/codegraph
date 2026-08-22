@@ -19,11 +19,10 @@ from pathlib import Path
 import pytest
 
 from codegraph.graph import LayerGraph
-from tests.codegen.context.conftest import key_document as _kd
 
 
 def _deser(data):
-    return LayerGraph.deserialize(_kd(data))
+    return LayerGraph.deserialize(data)
 
 
 GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
@@ -92,25 +91,11 @@ class TestGoldensExistAndDeserialize:
         assert graph.entries, f"{path.name} produced no root entries"
 
     def test_split_golden_is_current_generator_output(self):
-        """The golden tracks the design-agent staging copy — unless the
-        staging copy was regenerated after the golden was pinned.
-
-        The pipeline copy is the LLM design-agent's staging output
-        (``tests/pipelines/test_design_migration_manager.py`` writes it);
-        Daniel deliberately re-pins the golden with
-        ``scripts/sync_codegen_fixtures.py push``.  When the LLM re-runs
-        and rewrites the staging copy after the last pin, the golden
-        intentionally lags until the next deliberate push — that is the
-        documented workflow, not a drift failure.
-        """
-        if PIPELINE_COPY.stat().st_mtime > GOLDEN_SPLIT.stat().st_mtime:
-            pytest.skip(
-                "pipeline staging copy regenerated after the golden was pinned "
-                "— run scripts/sync_codegen_fixtures.py push to re-pin"
-            )
+        """The reviewed golden must match the generator artifact byte-for-byte."""
         assert GOLDEN_SPLIT.read_bytes() == PIPELINE_COPY.read_bytes(), (
             "golden/design_layergraph.json diverged from the pipeline "
-            "generator output — run scripts/sync_codegen_fixtures.py push"
+            "generator output — run scripts/sync_codegen_fixtures.py push; "
+            f"paths: {GOLDEN_SPLIT} and {PIPELINE_COPY}"
         )
 
     def test_split_golden_size(self):
@@ -171,17 +156,17 @@ class TestEncodingContract:
         )
         assert get_version["is_virtual"] is False
 
-    def test_duplicate_uids_present_in_full_decl(self):
-        """D9: the committed fixture carries 10 duplicate uids."""
-        uids = {}
+    def test_duplicate_canonical_keys_present_in_full_decl(self):
+        """Repeated placements retain one canonical identity each."""
+        keys = {}
 
         def walk(items: list[dict]) -> None:
             for entry in items:
-                uids[entry["uid"]] = uids.get(entry["uid"], 0) + 1
+                keys[entry["canonical_key"]] = keys.get(entry["canonical_key"], 0) + 1
                 walk(entry.get("composes", []))
 
         walk(_load(GOLDEN_FULL_DECL))
-        duplicates = {u: c for u, c in uids.items() if c > 1}
+        duplicates = {u: c for u, c in keys.items() if c > 1}
         assert len(duplicates) == 10
 
 
@@ -291,6 +276,28 @@ class TestSyncScript:
         # the source copy was refreshed and the hash re-recorded
         assert (sync_module.IMPL_SRC / rel).read_text() == "int refreshed;\n"
         assert sync_module.check() == 0
+
+    def test_hash_refresh_preserves_path_only_manifest_block(
+        self, sync_module, tmp_path: Path
+    ):
+        """Hash refresh must not overwrite the human-readable manifest."""
+        self._setup(sync_module, tmp_path)
+        rel = sync_module.MANIFEST.read_text().strip()
+        old_digest = "a" * 64
+        new_digest = "b" * 64
+        sync_module.PROVENANCE.write_text(
+            "## Production manifest\n\n"
+            f"```\n{rel}\n```\n\n"
+            "## Golden source-copy hashes\n\n"
+            f"```\n{old_digest}  {rel}\n```\n",
+            encoding="utf-8",
+        )
+
+        sync_module._write_provenance_hashes({rel: new_digest})
+        text = sync_module.PROVENANCE.read_text(encoding="utf-8")
+        assert f"```\n{rel}\n```" in text
+        assert f"```\n{new_digest}  {rel}\n```" in text
+        assert sync_module._provenance_hashes() == {rel: new_digest}
 
     def test_pull_prints_every_changed_target(self, sync_module, tmp_path: Path, capsys):
         _, _, _ = self._setup(sync_module, tmp_path)

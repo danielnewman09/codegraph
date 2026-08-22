@@ -202,6 +202,10 @@ class TestSanitizeAlias:
         assert "{" not in alias and "}" not in alias
         assert "event_handlers" in alias
 
+    def test_replaces_backslashes_and_line_breaks(self):
+        alias = _sanitize_alias("literal::/*!\\brief docs */\n")
+        assert alias == "literal__brief_docs"
+
 
 # ── validate_plantuml_svg ──────────────────────────────────────────────────
 
@@ -209,10 +213,9 @@ class TestSanitizeAlias:
 class TestValidatePlantumlSvg:
     """Sanity checks for PlantUML-produced SVGs.
 
-    PlantUML exits 0 even on syntax errors and emits an *error page*
-    (the offending source echoed as text plus a red ``Syntax Error?``
-    footer) as SVG instead of failing, so existence/``<svg>``/size
-    checks all pass on a broken diagram.
+    PlantUML exits 0 even on syntax errors or Graphviz layout crashes and
+    emits an *error page* as SVG instead of failing, so
+    existence/``<svg>``/size checks all pass on a broken diagram.
     """
 
     @staticmethod
@@ -241,6 +244,18 @@ class TestValidatePlantumlSvg:
             "</g></svg>"
         )
 
+    @staticmethod
+    def _crash_page_svg() -> str:
+        """Shape of the SVG PlantUML emits when Graphviz cannot lay out
+        a large diagram."""
+        return (
+            '<svg xmlns="http://www.w3.org/2000/svg"><g>'
+            '<text x="5" y="17">An error has occurred : '
+            'net.sourceforge.plantuml.dot.UnparsableGraphvizException</text>'
+            '<text x="5" y="59">PlantUML (1.2026.6) has crashed.</text>'
+            "</g></svg>"
+        )
+
     # codegraph:test-desc test_plantuml.TestValidatePlantumlSvg.test_valid_svg_passes
     # Verifies that a well-formed SVG without error markers is accepted.
     def test_valid_svg_passes(self):
@@ -257,6 +272,15 @@ class TestValidatePlantumlSvg:
         # failure message tells the caller the diagram failed to render.
         problems = validate_plantuml_svg(self._error_page_svg())
         assert any("Syntax Error" in p for p in problems)
+
+    # codegraph:test-desc test_plantuml.TestValidatePlantumlSvg.test_graphviz_crash_page_rejected
+    # Verifies that a Graphviz/PlantUML crash page is rejected instead of
+    # being mistaken for a successful SVG render.
+    def test_graphviz_crash_page_rejected(self):
+        # codegraph:test-desc test_plantuml.TestValidatePlantumlSvg.test_graphviz_crash_page_rejected::post_0
+        # Asserts the problem list names the Graphviz failure marker.
+        problems = validate_plantuml_svg(self._crash_page_svg())
+        assert any("UnparsableGraphvizException" in p for p in problems)
 
     # codegraph:test-desc test_plantuml.TestValidatePlantumlSvg.test_malformed_xml_rejected
     # Verifies the validator catches non-well-formed XML, not just error pages.
@@ -376,6 +400,27 @@ class TestExportBasicStructure:
         # directive, ensuring the output conforms to the PlantUML specification for
         # diagram end markers.
         assert puml.endswith("@enduml")
+
+    def test_source_derived_name_is_safe_plantuml(self):
+        """Arbitrary source-derived names remain one valid declaration."""
+        value = '/*!\\brief "Exact" source documentation */\nstruct Widget {};'
+        node = ClassNode(
+            name=value,
+            qualified_name=f"fixture::{value}",
+            source="test",
+            tags=["as-built"],
+        )
+        graph = _KeyedLayerGraph(
+            tags=frozenset({"as-built"}),
+            entries={node.qualified_name: CompositeEntry(node=node)},
+        )
+
+        puml = export_plantuml(graph)
+
+        declaration = next(line for line in puml.splitlines()
+                           if line.startswith('class "'))
+        assert r'/*!\\brief \"Exact\" source documentation */\nstruct Widget {};' in declaration
+        assert "\\" not in declaration.split(" as ", 1)[1]
 
     # codegraph:test-desc test_plantuml.TestExportBasicStructure.test_namespace_as_package
     # Verifies that the PlantUML export correctly represents a namespace as a package,

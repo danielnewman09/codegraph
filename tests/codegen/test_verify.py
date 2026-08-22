@@ -12,11 +12,16 @@ from __future__ import annotations
 
 from codegraph.codegen.verify import verify
 from codegraph.graph import LayerGraph
-from tests.codegen.context.conftest import key_document as _kd
+from codegraph.identity import IdentityScope, resolve_identity_for
+from codegraph.models.compound import ClassNode
+from codegraph.models.member import MethodNode
+
+
+_SCOPE = IdentityScope.repository("codegraph-suite", "codegraph")
 
 # TODO Move this into a conftest to avoid repetition
 def _deser(data):
-    return LayerGraph.deserialize(_kd(data))
+    return LayerGraph.deserialize(data)
 
 
 
@@ -30,16 +35,26 @@ def _class(name, qn, **extra):
         "type": "ClassNode", "name": name, "qualified_name": qn,
         "kind": "class", "source": "test", "tags": ["design"],
     }
+    probe = ClassNode(
+        name=name, qualified_name=qn, kind="class", source="test",
+    )
+    data["canonical_key"] = resolve_identity_for(probe, _SCOPE).key()
     data.update(extra)
     return data
 
 
 def _method(name, qn, ts, args, *, tags=("design",)):
-    return {
+    data = {
         "type": "MethodNode", "name": name, "qualified_name": qn,
         "kind": "function", "source": "test", "tags": list(tags),
         "type_signature": ts, "argsstring": args,
     }
+    probe = MethodNode(
+        name=name, qualified_name=qn, kind="function", source="test",
+        type_signature=ts, argsstring=args,
+    )
+    data["canonical_key"] = resolve_identity_for(probe, _SCOPE).key()
+    return data
 
 
 def _ns_class(name, qn, methods):
@@ -120,6 +135,7 @@ class TestVerify:
             _class("MigrationManager", "cpp_sqlite::MigrationManager"),
             {
                 "type": "EnumNode", "name": "Code",
+                "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:enum:qualified_name=cpp_sqlite%3A%3ACode',
                 "qualified_name": "cpp_sqlite::Code", "kind": "enum",
                 "source": "test", "tags": ["design"],
             },
@@ -141,6 +157,7 @@ class TestVerify:
         design = _deser([
             {
                 "type": "NamespaceNode", "name": "cpp_sqlite",
+                "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:namespace:qualified_name=cpp_sqlite',
                 "qualified_name": "cpp_sqlite", "kind": "namespace",
                 "source": "test", "tags": ["design"],
                 "composes": [

@@ -12,11 +12,10 @@ from pathlib import Path
 
 from codegraph.codegen import CodegenResult, generate, generate_from_layer_graph
 from codegraph.graph import LayerGraph
-from tests.codegen.context.conftest import key_document as _kd
 
 # TODO move this into a conftest to avoid repetition
 def _deser(data):
-    return LayerGraph.deserialize(_kd(data))
+    return LayerGraph.deserialize(data)
 
 
 GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
@@ -114,6 +113,7 @@ class TestAsBuiltSource:
         graph = _deser([
             {
                 "type": "FileNode",
+                "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:file:normalized_repository_path=cpp_sqlite%2Fsrc%2Fcpp_sqlite%2FDBDAOBase.cpp',
                 "name": "DBDAOBase.cpp",
                 "path": "cpp_sqlite/src/cpp_sqlite/DBDAOBase.cpp",
                 "language": "C++",
@@ -122,6 +122,7 @@ class TestAsBuiltSource:
             },
             {
                 "type": "ClassNode",
+                "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=cpp_sqlite%3A%3ADAOBase',
                 "name": "DAOBase",
                 "qualified_name": "cpp_sqlite::DAOBase",
                 "kind": "class",
@@ -131,6 +132,7 @@ class TestAsBuiltSource:
                 "composes": [
                     {
                         "type": "MethodNode",
+                        "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=cpp_sqlite%3A%3ADAOBase%3A%3AisInitialized:canonical_signature=lang%3Acpp%7C%28%29%7Cconst',
                         "name": "isInitialized",
                         "qualified_name": "cpp_sqlite::DAOBase::isInitialized",
                         "kind": "method",

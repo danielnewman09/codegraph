@@ -9,15 +9,15 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from urllib.parse import quote
 
 from codegraph.codegen import generate
 from codegraph.graph import LayerGraph
 
-from tests.codegen.context.conftest import key_document as _kd
 
 
 def _deser(data):
-    return LayerGraph.deserialize(_kd(data))
+    return LayerGraph.deserialize(data)
 
 
 
@@ -26,9 +26,14 @@ GOLDEN = Path(__file__).resolve().parent.parent / "golden" / "design_layergraph.
 _SPLIT = json.loads(GOLDEN.read_text())
 
 
-def _test_node(**overrides):
+def _test_node(*, parent_key, **overrides):
     data = {
         "type": "TestNode",
+        "canonical_key": (
+            "cg:v1:repository:codegraph-suite%2Fcodegraph:test:"
+            f"parent_key={quote(parent_key, safe='')}:"
+            "qualified_name=vm%3A%3Ans%3A%3Atest_thing"
+        ),
         "name": "test_thing",
         "qualified_name": "vm::ns::test_thing",
         "kind": "test",
@@ -42,13 +47,39 @@ def _test_node(**overrides):
 
 def _test_graph(children):
     """An HLR → LLR → TestNode graph (the design-pipeline arrangement)."""
+    hlr_key = (
+        "cg:v1:repository:codegraph-suite%2Fcodegraph:requirement-hlr:"
+        "qualified_name=HLR"
+    )
+    llr_key = (
+        "cg:v1:repository:codegraph-suite%2Fcodegraph:requirement-llr:"
+        "parent_hlr_key=" + quote(hlr_key, safe="") +
+        ":qualified_name=llr_x"
+    )
+    test_key = (
+        "cg:v1:repository:codegraph-suite%2Fcodegraph:test:"
+        "parent_key=" + quote(llr_key, safe="") +
+        ":qualified_name=vm%3A%3Ans%3A%3Atest_thing"
+    )
+    for child in children:
+        category = {
+            "TestStepNode": "test-step",
+            "AssertionNode": "assertion",
+        }[child["type"]]
+        child["canonical_key"] = (
+            "cg:v1:repository:codegraph-suite%2Fcodegraph:" + category + ":"
+            "parent_key=" + quote(test_key, safe="") +
+            ":qualified_name=" + quote(child["qualified_name"], safe="")
+        )
     return _deser([{
         "type": "HLR", "name": "HLR", "qualified_name": "HLR",
+        "canonical_key": hlr_key,
         "source": "test", "tags": ["design"],
         "composes": [{
             "type": "LLR", "name": "llr_x", "qualified_name": "llr_x",
+            "canonical_key": llr_key,
             "source": "test", "tags": ["design"],
-            "composes": [_test_node(composes=children)],
+            "composes": [_test_node(parent_key=llr_key, composes=children)],
         }],
     }])
 
@@ -57,19 +88,22 @@ class TestTestContext:
     def test_test_ctx_composes_steps_and_assertions(self):
         graph = _test_graph([
             {"type": "TestStepNode", "name": "s2", "qualified_name": "step::s2",
+            "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3As2',
              "kind": "test_step", "description": "Second", "order": "1",
              "source": "test", "tags": ["design"]},
             {"type": "TestStepNode", "name": "s1", "qualified_name": "step::s1",
+            "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3As1',
              "kind": "test_step", "description": "First", "order": "0",
              "source": "test", "tags": ["design"]},
             {"type": "AssertionNode", "name": "a1", "qualified_name": "cond::a1",
+            "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Aa1',
              "kind": "assertion", "operator": "==", "phase": "post",
              "source": "test", "tags": ["design"],
              "edges": [
                  {"relation_type": "LEFT_OPERAND", "target_type": "LiteralNode",
-                  "target_uid": "lit-1"},
+                  "target_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:literal:qualified_name=literal%3A%3Amissing"},
                  {"relation_type": "RIGHT_OPERAND", "target_type": "AttributeNode",
-                  "target_uid": "attr-1"},
+                  "target_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=missing"},
              ]},
         ])
         # literals/attrs resolve as operands
@@ -92,18 +126,20 @@ class TestTestContext:
         graph = _deser([
             {"type": "LiteralNode", "name": "true", "value": "true",
              "qualified_name": "literal::true", "source": "test", "tags": ["design"],
-             "uid": "lit-1"},
+             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:literal:qualified_name=literal%3A%3Atrue"},
             {"type": "AttributeNode", "name": "error_state",
              "qualified_name": "MigrationManager::error_state",
-             "source": "test", "tags": ["design"], "uid": "attr-1"},
+             "source": "test", "tags": ["design"],
+             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=MigrationManager%3A%3Aerror_state"},
             {"type": "AssertionNode", "name": "a1", "qualified_name": "cond::a1",
+            "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Aa1',
              "kind": "assertion", "operator": "is_true", "phase": "post",
              "source": "test", "tags": ["design"],
              "edges": [
                  {"relation_type": "LEFT_OPERAND", "target_type": "LiteralNode",
-                  "target_uid": "lit-1"},
+                  "target_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:literal:qualified_name=literal%3A%3Atrue"},
                  {"relation_type": "RIGHT_OPERAND", "target_type": "AttributeNode",
-                  "target_uid": "attr-1"},
+                  "target_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=MigrationManager%3A%3Aerror_state"},
              ]},
         ])
         from codegraph.codegen.context import BuildState

@@ -15,30 +15,37 @@ import pytest
 from codegraph.codegen.context import BUILDERS, SKIP_REASONS
 
 from codegraph.graph import LayerGraph
-from tests.codegen.context.conftest import key_document as _kd
 
 
 def _deser(data):
-    return LayerGraph.deserialize(_kd(data))
+    return LayerGraph.deserialize(data)
 
 
 SKIP_SAMPLE_DICTS = {
     "LiteralNode": {"type": "LiteralNode", "value": "30", "value_type": "int",
+    "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:literal:qualified_name=literal%3A%3A30',
                     "qualified_name": "literal::30", "source": "test", "tags": ["design"]},
     "HLR": {"type": "HLR", "name": "Database Migration Manager",
+    "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:requirement-hlr:qualified_name=Database%20Migration%20Manager',
             "qualified_name": "Database Migration Manager", "source": "test",
             "tags": ["design"]},
     "LLR": {"type": "LLR", "name": "llr_migration_apply",
+    "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:requirement-llr:parent_hlr_key=cg%3Av1%3Aroot:qualified_name=llr_migration_apply',
             "qualified_name": "llr_migration_apply", "source": "test", "tags": ["design"]},
     "TestFixtureNode": {"type": "TestFixtureNode", "name": "f1", "qualified_name": "f1",
+    "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:test-fixture:parent_key=cg%3Av1%3Aroot:qualified_name=f1',
                         "source": "test", "tags": ["design"]},
     "Component": {"type": "Component", "name": "comp", "qualified_name": "comp",
+    "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:component:qualified_name=comp',
                   "source": "test", "tags": ["design"]},
     "Dependency": {"type": "Dependency", "name": "dep", "qualified_name": "dep",
+    "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:dependency:manager_name=:qualified_name=dep',
                    "source": "test", "tags": ["design"]},
     "Language": {"type": "Language", "name": "cpp", "qualified_name": "cpp",
+    "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:language:qualified_name=cpp:version=',
                  "source": "test", "tags": ["design"]},
     "ProjectMeta": {"type": "ProjectMeta", "name": "proj", "qualified_name": "proj",
+    "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:project:singleton=project',
                     "source": "test", "tags": ["design"]},
 }
 

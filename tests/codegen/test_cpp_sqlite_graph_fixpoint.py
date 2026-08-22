@@ -34,11 +34,10 @@ import pytest
 
 from codegraph.codegen import generate
 from codegraph.graph import LayerGraph
-from tests.codegen.context.conftest import key_document as _kd
 
 
 def _deser(data):
-    return LayerGraph.deserialize(_kd(data))
+    return LayerGraph.deserialize(data)
 
 
 _HERE = Path(__file__).resolve().parent.parent / "unit_test_data"
@@ -72,17 +71,7 @@ def _find_clang_format() -> str | None:
 _CLANG_FORMAT = _find_clang_format()
 
 pytestmark = [
-    pytest.mark.integration,
-    pytest.mark.skipif(_DOXYGEN_INDEX is None, reason="doxygen-index not on PATH"),
-    pytest.mark.skipif(
-        not (IMPL_SRC / PROJECT_DIR / "cpp_sqlite" / "src").is_dir(),
-        reason="cpp-sqlite source copies not materialized",
-    ),
-    pytest.mark.skipif(
-        not (IMPL_SRC / PROJECT_DIR / ".doxygen-index.toml").is_file(),
-        reason="cpp-sqlite index config missing from source copies",
-    ),
-    pytest.mark.skipif(_CLANG_FORMAT is None, reason="clang-format required"),
+    pytest.mark.integration
 ]
 
 
@@ -246,7 +235,7 @@ def _relationships(data: list[dict]) -> list[tuple[str, str, str]]:
                 continue
             rels.add((from_key, "COMPOSES", _node_key(child)))
         for edge in node.get("edges", []) or []:
-            rels.add((from_key, edge.get("relation_type", "?"), edge.get("target_uid", "")))
+            rels.add((from_key, edge.get("relation_type", "?"), edge.get("target_key", "")))
     return sorted(rels)
 
 
@@ -294,11 +283,17 @@ def fixpoint_data(tmp_path_factory):
     # Generate the 14-file production tree.
     save_dir = tmp / "generated"
     generate(data_a, output_dir=save_dir)
-    # The generated tree needs the index config to be re-indexable.
-    config = IMPL_SRC / PROJECT_DIR / ".doxygen-index.toml"
-    target_config = save_dir / PROJECT_DIR / ".doxygen-index.toml"
-    target_config.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(config, target_config)
+    # The generated tree needs the project metadata to be re-indexable.  The
+    # code generator emits source files, not the Doxygen/Conan inputs that
+    # describe how that project is indexed.
+    metadata_dir = IMPL_SRC / PROJECT_DIR
+    target_metadata_dir = save_dir / PROJECT_DIR
+    target_metadata_dir.mkdir(parents=True, exist_ok=True)
+    for metadata_name in (".doxygen-index.toml", "conanfile.py", "conandata.yml"):
+        shutil.copy2(
+            metadata_dir / metadata_name,
+            target_metadata_dir / metadata_name,
+        )
 
     # Canonicalize the generated tree into a temp copy and index it.
     generated_canon = tmp / "generated-canon"

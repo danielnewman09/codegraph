@@ -31,7 +31,6 @@
         "module": "cpp_sqlite",
         "name": "BaseTransferObject",
         "qualified_name": "cpp_sqlite::BaseTransferObject",
-        "refid": "structcpp__sqlite_1_1_base_transfer_object",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -63,7 +62,6 @@
         "module": "cpp_sqlite",
         "name": "Database",
         "qualified_name": "cpp_sqlite::Database",
-        "refid": "classcpp__sqlite_1_1_database",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -102,7 +100,6 @@
         "module": "cpp_sqlite",
         "name": "DataAccessObject",
         "qualified_name": "cpp_sqlite::DataAccessObject",
-        "refid": "classcpp__sqlite_1_1_data_access_object",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -139,7 +136,6 @@
         "module": "cpp_sqlite",
         "name": "ForeignKeyTypeT< ForeignKey< T > >",
         "qualified_name": "cpp_sqlite::ForeignKeyTypeT< ForeignKey< T > >",
-        "refid": "structcpp__sqlite_1_1_foreign_key_type_t_3_01_foreign_key_3_01_t_01_4_01_4",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -171,7 +167,6 @@
         "module": "cpp_sqlite",
         "name": "ForeignKeyTypeT",
         "qualified_name": "cpp_sqlite::ForeignKeyTypeT",
-        "refid": "structcpp__sqlite_1_1_foreign_key_type_t",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -208,7 +203,6 @@
         "module": "cpp_sqlite",
         "name": "GetRepeatedFieldParams< RepeatedFieldTransferObject< T > >",
         "qualified_name": "cpp_sqlite::GetRepeatedFieldParams< RepeatedFieldTransferObject< T > >",
-        "refid": "structcpp__sqlite_1_1_get_repeated_field_params_3_01_repeated_field_transfer_object_3_01_t_01_4_01_4",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -245,7 +239,6 @@
         "module": "cpp_sqlite",
         "name": "ForeignKey",
         "qualified_name": "cpp_sqlite::ForeignKey",
-        "refid": "structcpp__sqlite_1_1_foreign_key",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -277,7 +270,6 @@
         "module": "cpp_sqlite",
         "name": "GetRepeatedFieldParams",
         "qualified_name": "cpp_sqlite::GetRepeatedFieldParams",
-        "refid": "structcpp__sqlite_1_1_get_repeated_field_params",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -317,7 +309,6 @@
         "module": "cpp_sqlite",
         "name": "IsForeignKeyT< ForeignKey< T > >",
         "qualified_name": "cpp_sqlite::IsForeignKeyT< ForeignKey< T > >",
-        "refid": "structcpp__sqlite_1_1_is_foreign_key_t_3_01_foreign_key_3_01_t_01_4_01_4",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -356,7 +347,6 @@
         "module": "cpp_sqlite",
         "name": "IsForeignKeyT",
         "qualified_name": "cpp_sqlite::IsForeignKeyT",
-        "refid": "structcpp__sqlite_1_1_is_foreign_key_t",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -396,7 +386,6 @@
         "module": "cpp_sqlite",
         "name": "vector< T, Allocator > >",
         "qualified_name": "cpp_sqlite::IsVector< std::vector< T, Allocator > >",
-        "refid": "structcpp__sqlite_1_1_is_vector_3_01std_1_1vector_3_01_t_00_01_allocator_01_4_01_4",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -430,7 +419,6 @@
         "module": "cpp_sqlite",
         "name": "IsVector",
         "qualified_name": "cpp_sqlite::IsVector",
-        "refid": "structcpp__sqlite_1_1_is_vector",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -462,7 +450,6 @@
         "module": "cpp_sqlite",
         "name": "Logger",
         "qualified_name": "cpp_sqlite::Logger",
-        "refid": "classcpp__sqlite_1_1_logger",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -494,7 +481,6 @@
         "module": "cpp_sqlite",
         "name": "RepeatedFieldTransferObject",
         "qualified_name": "cpp_sqlite::RepeatedFieldTransferObject",
-        "refid": "structcpp__sqlite_1_1_repeated_field_transfer_object",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -526,7 +512,6 @@
         "module": "cpp_sqlite",
         "name": "Transaction",
         "qualified_name": "cpp_sqlite::Transaction",
-        "refid": "classcpp__sqlite_1_1_transaction",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -565,7 +550,6 @@
         "module": "cpp_sqlite",
         "name": "TransactionError",
         "qualified_name": "cpp_sqlite::TransactionError",
-        "refid": "classcpp__sqlite_1_1_transaction_error",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -587,7 +571,6 @@
             "brief_description": "Return the migration version number (pure virtual).",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=cpp_sqlite%3A%3AMigration%3A%3AgetVersion:canonical_signature=lang%3Acpp%7C%28%29",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -603,7 +586,6 @@
             "line_number": null,
             "name": "getVersion",
             "qualified_name": "cpp_sqlite::Migration::getVersion",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -619,7 +601,6 @@
             "brief_description": "Apply the migration within a cpp-sqlite Transaction (pure virtual).",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=cpp_sqlite%3A%3AMigration%3A%3Aup:canonical_signature=lang%3Acpp%7C%28Transaction%26%29",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -635,7 +616,6 @@
             "line_number": null,
             "name": "up",
             "qualified_name": "cpp_sqlite::Migration::up",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -651,7 +631,6 @@
             "brief_description": "Roll back the migration within a cpp-sqlite Transaction (pure virtual).",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=cpp_sqlite%3A%3AMigration%3A%3Adown:canonical_signature=lang%3Acpp%7C%28Transaction%26%29",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -667,7 +646,6 @@
             "line_number": null,
             "name": "down",
             "qualified_name": "cpp_sqlite::Migration::down",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -695,7 +673,6 @@
         "module": "",
         "name": "Migration",
         "qualified_name": "cpp_sqlite::Migration",
-        "refid": "",
         "source": "markdown-import",
         "source_type": "",
         "tags": [
@@ -716,7 +693,6 @@
             "brief_description": "Test-observable error code of the most recent migration operation.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Aerror_state",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -728,7 +704,6 @@
             "line_number": null,
             "name": "error_state",
             "qualified_name": "cpp_sqlite::MigrationManager::error_state",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -743,7 +718,6 @@
             "brief_description": "Test-observable flag mirroring whether schema_versions has been created.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Ais_initialized",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -755,7 +729,6 @@
             "line_number": null,
             "name": "is_initialized",
             "qualified_name": "cpp_sqlite::MigrationManager::is_initialized",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -770,7 +743,6 @@
             "brief_description": "Test-observable snapshot of registered migration versions in ascending order.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Aregistered_versions",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -782,7 +754,6 @@
             "line_number": null,
             "name": "registered_versions",
             "qualified_name": "cpp_sqlite::MigrationManager::registered_versions",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -797,7 +768,6 @@
             "brief_description": "Test-observable flag indicating version 1 was not re-executed when a later migration failed.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Aversion1_reapplied",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -809,7 +779,6 @@
             "line_number": null,
             "name": "version1_reapplied",
             "qualified_name": "cpp_sqlite::MigrationManager::version1_reapplied",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -824,7 +793,6 @@
             "brief_description": "Test-observable record of migration versions executed by apply(), in execution order.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Aexecution_order",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -836,7 +804,6 @@
             "line_number": null,
             "name": "execution_order",
             "qualified_name": "cpp_sqlite::MigrationManager::execution_order",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -851,7 +818,6 @@
             "brief_description": "Test-observable flag indicating version 1 remained recorded as applied after a later migration failure.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Aversion1_recorded_on_fail",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -863,7 +829,6 @@
             "line_number": null,
             "name": "version1_recorded_on_fail",
             "qualified_name": "cpp_sqlite::MigrationManager::version1_recorded_on_fail",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -878,7 +843,6 @@
             "brief_description": "Test-observable flag set when apply() encounters a failing migration.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Aerror_on_fail",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -890,7 +854,6 @@
             "line_number": null,
             "name": "error_on_fail",
             "qualified_name": "cpp_sqlite::MigrationManager::error_on_fail",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -905,7 +868,6 @@
             "brief_description": "Test-observable flag indicating the version 1 schema objects still exist in the database after a failure.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Aversion1_schema_preserved",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -917,7 +879,6 @@
             "line_number": null,
             "name": "version1_schema_preserved",
             "qualified_name": "cpp_sqlite::MigrationManager::version1_schema_preserved",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -932,7 +893,6 @@
             "brief_description": "Test-observable count of schema mismatches reported by the last verify() call.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Amismatch_count",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -944,7 +904,6 @@
             "line_number": null,
             "name": "mismatch_count",
             "qualified_name": "cpp_sqlite::MigrationManager::mismatch_count",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -959,7 +918,6 @@
             "brief_description": "Test-observable version associated with the first schema mismatch reported by verify().",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Amismatch_version",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -971,7 +929,6 @@
             "line_number": null,
             "name": "mismatch_version",
             "qualified_name": "cpp_sqlite::MigrationManager::mismatch_version",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -986,7 +943,6 @@
             "brief_description": "Test-observable kind of the first schema mismatch reported by verify().",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Amismatch_kind",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -998,7 +954,6 @@
             "line_number": null,
             "name": "mismatch_kind",
             "qualified_name": "cpp_sqlite::MigrationManager::mismatch_kind",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -1013,7 +968,6 @@
             "brief_description": "Test-observable flag indicating at least one migration was applied by apply().",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Amigration_applied",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1025,7 +979,6 @@
             "line_number": null,
             "name": "migration_applied",
             "qualified_name": "cpp_sqlite::MigrationManager::migration_applied",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -1040,7 +993,6 @@
             "brief_description": "Test-observable flag indicating at least one migration down() was invoked during rollback.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Adown_called",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1052,7 +1004,6 @@
             "line_number": null,
             "name": "down_called",
             "qualified_name": "cpp_sqlite::MigrationManager::down_called",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -1067,7 +1018,6 @@
             "brief_description": "Test-observable flag set when rollback() encounters a failing down() call.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Aerror_on_rollback_fail",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1079,7 +1029,6 @@
             "line_number": null,
             "name": "error_on_rollback_fail",
             "qualified_name": "cpp_sqlite::MigrationManager::error_on_rollback_fail",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -1094,7 +1043,6 @@
             "brief_description": "Test-observable flag indicating version 1 schema objects survived a later migration failure.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Aversion1_preserved_on_fail",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1106,7 +1054,6 @@
             "line_number": null,
             "name": "version1_preserved_on_fail",
             "qualified_name": "cpp_sqlite::MigrationManager::version1_preserved_on_fail",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -1121,7 +1068,6 @@
             "brief_description": "Reference to the cpp_sqlite Database being migrated.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Adb_",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1133,7 +1079,6 @@
             "line_number": null,
             "name": "db_",
             "qualified_name": "cpp_sqlite::MigrationManager::db_",
-            "refid": "",
             "source": "cpp_sqlite",
             "tags": [
               "design"
@@ -1148,7 +1093,6 @@
             "brief_description": "Registered migrations kept sorted by version in ascending order.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Amigrations_",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1160,7 +1104,6 @@
             "line_number": null,
             "name": "migrations_",
             "qualified_name": "cpp_sqlite::MigrationManager::migrations_",
-            "refid": "",
             "source": "cpp_sqlite",
             "tags": [
               "design"
@@ -1175,7 +1118,6 @@
             "brief_description": "Whether the schema_versions tracking table has been created.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Ainitialized_",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1187,7 +1129,6 @@
             "line_number": null,
             "name": "initialized_",
             "qualified_name": "cpp_sqlite::MigrationManager::initialized_",
-            "refid": "",
             "source": "cpp_sqlite",
             "tags": [
               "design"
@@ -1203,7 +1144,6 @@
             "brief_description": "Register a migration. Duplicate versions return MigrationErrorCode::DuplicateVersion.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Aregister_migration:canonical_signature=lang%3Acpp%7C%28std%3A%3Aunique_ptr%3CMigration%3E%29",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1219,7 +1159,6 @@
             "line_number": null,
             "name": "register_migration",
             "qualified_name": "cpp_sqlite::MigrationManager::register_migration",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -1235,7 +1174,6 @@
             "brief_description": "Apply all unapplied migrations in version order, each in its own committed Transaction. Creates schema_versions table on first call. A failing migration rolls back only that migration's Transaction and returns MigrationErrorCode::MigrationFailed.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Aapply:canonical_signature=lang%3Acpp%7C%28%29",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1251,7 +1189,6 @@
             "line_number": null,
             "name": "apply",
             "qualified_name": "cpp_sqlite::MigrationManager::apply",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -1267,7 +1204,6 @@
             "brief_description": "Roll back migrations above target version in descending order, each in its own Transaction. Returns MigrationErrorCode::VersionNotFound if target matches no migration, MigrationErrorCode::NotInitialized if schema_versions is empty. Idempotent.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Arollback:canonical_signature=lang%3Acpp%7C%28int%29",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1283,7 +1219,6 @@
             "line_number": null,
             "name": "rollback",
             "qualified_name": "cpp_sqlite::MigrationManager::rollback",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -1299,7 +1234,6 @@
             "brief_description": "Compute SHA-256 checksum of live schema via sqlite_master and compare against stored checksum of the highest applied SchemaVersion. Returns mismatches if they differ.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Averify:canonical_signature=lang%3Acpp%7C%28%29",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1315,7 +1249,6 @@
             "line_number": null,
             "name": "verify",
             "qualified_name": "cpp_sqlite::MigrationManager::verify",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -1331,7 +1264,6 @@
             "brief_description": "Construct with a reference to the cpp_sqlite Database to manage.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3AMigrationManager:canonical_signature=lang%3Acpp%7Cconstructor%7C%28MigrationManager%28Database%26db%29%29",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1347,7 +1279,6 @@
             "line_number": null,
             "name": "MigrationManager",
             "qualified_name": "cpp_sqlite::MigrationManager::MigrationManager",
-            "refid": "",
             "source": "cpp_sqlite",
             "tags": [
               "design"
@@ -1363,7 +1294,6 @@
             "brief_description": "Return the versions of all registered migrations in ascending order.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3AgetRegisteredVersions:canonical_signature=lang%3Acpp%7C%28std%3A%3Avector%3Cint%3EgetRegisteredVersions%28%29%20const%29",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1379,7 +1309,6 @@
             "line_number": null,
             "name": "getRegisteredVersions",
             "qualified_name": "cpp_sqlite::MigrationManager::getRegisteredVersions",
-            "refid": "",
             "source": "cpp_sqlite",
             "tags": [
               "design"
@@ -1395,7 +1324,6 @@
             "brief_description": "Return the versions recorded as applied in the schema_versions tracking table, in ascending order.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3AgetAppliedVersions:canonical_signature=lang%3Acpp%7C%28std%3A%3Avector%3Cint%3EgetAppliedVersions%28%29%20const%29",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1411,7 +1339,6 @@
             "line_number": null,
             "name": "getAppliedVersions",
             "qualified_name": "cpp_sqlite::MigrationManager::getAppliedVersions",
-            "refid": "",
             "source": "cpp_sqlite",
             "tags": [
               "design"
@@ -1432,7 +1359,6 @@
                 "brief_description": "Whether the operation succeeded.",
                 "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3AMigrationResult%3A%3Asuccess",
                 "component_id": null,
-                "compound_refid": "",
                 "definition": "",
                 "detailed_description": "",
                 "doc_embedding": [],
@@ -1444,7 +1370,6 @@
                 "line_number": null,
                 "name": "success",
                 "qualified_name": "cpp_sqlite::MigrationResult::success",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -1459,7 +1384,6 @@
                 "brief_description": "Error code (Success on success).",
                 "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3AMigrationResult%3A%3Aerror",
                 "component_id": null,
-                "compound_refid": "",
                 "definition": "",
                 "detailed_description": "",
                 "doc_embedding": [],
@@ -1471,7 +1395,6 @@
                 "line_number": null,
                 "name": "error",
                 "qualified_name": "cpp_sqlite::MigrationResult::error",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -1504,7 +1427,6 @@
             "module": "",
             "name": "MigrationResult",
             "qualified_name": "cpp_sqlite::MigrationResult",
-            "refid": "",
             "source": "markdown-import",
             "source_type": "",
             "tags": [
@@ -1531,7 +1453,6 @@
                     "brief_description": "The migration version this mismatch relates to.",
                     "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3ASchemaMismatch%3A%3Aversion",
                     "component_id": null,
-                    "compound_refid": "",
                     "definition": "",
                     "detailed_description": "",
                     "doc_embedding": [],
@@ -1543,7 +1464,6 @@
                     "line_number": null,
                     "name": "version",
                     "qualified_name": "cpp_sqlite::SchemaMismatch::version",
-                    "refid": "",
                     "source": "markdown-import",
                     "tags": [
                       "design"
@@ -1558,7 +1478,6 @@
                     "brief_description": "What kind of drift was detected.",
                     "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3ASchemaMismatch%3A%3Akind",
                     "component_id": null,
-                    "compound_refid": "",
                     "definition": "",
                     "detailed_description": "",
                     "doc_embedding": [],
@@ -1570,7 +1489,6 @@
                     "line_number": null,
                     "name": "kind",
                     "qualified_name": "cpp_sqlite::SchemaMismatch::kind",
-                    "refid": "",
                     "source": "markdown-import",
                     "tags": [
                       "design"
@@ -1585,7 +1503,6 @@
                     "brief_description": "Human-readable description of the mismatch.",
                     "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3ASchemaMismatch%3A%3Adetail",
                     "component_id": null,
-                    "compound_refid": "",
                     "definition": "",
                     "detailed_description": "",
                     "doc_embedding": [],
@@ -1597,7 +1514,6 @@
                     "line_number": null,
                     "name": "detail",
                     "qualified_name": "cpp_sqlite::SchemaMismatch::detail",
-                    "refid": "",
                     "source": "markdown-import",
                     "tags": [
                       "design"
@@ -1630,7 +1546,6 @@
                 "module": "",
                 "name": "SchemaMismatch",
                 "qualified_name": "cpp_sqlite::SchemaMismatch",
-                "refid": "",
                 "source": "markdown-import",
                 "source_type": "",
                 "tags": [
@@ -1645,7 +1560,6 @@
                 "brief_description": "Detected schema mismatches (empty if consistent).",
                 "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3ASchemaVerificationResult%3A%3Amismatches",
                 "component_id": null,
-                "compound_refid": "",
                 "definition": "",
                 "detailed_description": "",
                 "doc_embedding": [],
@@ -1657,7 +1571,6 @@
                 "line_number": null,
                 "name": "mismatches",
                 "qualified_name": "cpp_sqlite::SchemaVerificationResult::mismatches",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -1672,7 +1585,6 @@
                 "brief_description": "True if no mismatches were found.",
                 "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3ASchemaVerificationResult%3A%3Ais_consistent",
                 "component_id": null,
-                "compound_refid": "",
                 "definition": "",
                 "detailed_description": "",
                 "doc_embedding": [],
@@ -1684,7 +1596,6 @@
                 "line_number": null,
                 "name": "is_consistent",
                 "qualified_name": "cpp_sqlite::SchemaVerificationResult::is_consistent",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -1717,7 +1628,6 @@
             "module": "",
             "name": "SchemaVerificationResult",
             "qualified_name": "cpp_sqlite::SchemaVerificationResult",
-            "refid": "",
             "source": "markdown-import",
             "source_type": "",
             "tags": [
@@ -1790,7 +1700,6 @@
         "module": "",
         "name": "MigrationManager",
         "qualified_name": "cpp_sqlite::MigrationManager",
-        "refid": "",
         "source": "markdown-import",
         "source_type": "",
         "tags": [
@@ -1811,7 +1720,6 @@
             "brief_description": "Migration version number.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3ASchemaVersion%3A%3Aversion",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1823,7 +1731,6 @@
             "line_number": null,
             "name": "version",
             "qualified_name": "cpp_sqlite::SchemaVersion::version",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -1838,7 +1745,6 @@
             "brief_description": "ISO 8601 timestamp of application.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3ASchemaVersion%3A%3Aapplied_at",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1850,7 +1756,6 @@
             "line_number": null,
             "name": "applied_at",
             "qualified_name": "cpp_sqlite::SchemaVersion::applied_at",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -1865,7 +1770,6 @@
             "brief_description": "SHA-256 hash of the database schema (sqlite_master SQL concatenation) after applying this migration.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3ASchemaVersion%3A%3Achecksum",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1877,7 +1781,6 @@
             "line_number": null,
             "name": "checksum",
             "qualified_name": "cpp_sqlite::SchemaVersion::checksum",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -1899,7 +1802,6 @@
         "module": "",
         "name": "SchemaVersion",
         "qualified_name": "cpp_sqlite::SchemaVersion",
-        "refid": "",
         "source": "markdown-import",
         "source_type": "",
         "tags": [
@@ -1920,7 +1822,6 @@
             "brief_description": "Whether the operation succeeded.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3AMigrationResult%3A%3Asuccess",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1932,7 +1833,6 @@
             "line_number": null,
             "name": "success",
             "qualified_name": "cpp_sqlite::MigrationResult::success",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -1947,7 +1847,6 @@
             "brief_description": "Error code (Success on success).",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3AMigrationResult%3A%3Aerror",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1959,7 +1858,6 @@
             "line_number": null,
             "name": "error",
             "qualified_name": "cpp_sqlite::MigrationResult::error",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -1992,7 +1890,6 @@
         "module": "",
         "name": "MigrationResult",
         "qualified_name": "cpp_sqlite::MigrationResult",
-        "refid": "",
         "source": "markdown-import",
         "source_type": "",
         "tags": [
@@ -2013,7 +1910,6 @@
             "brief_description": "The migration version this mismatch relates to.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3ASchemaMismatch%3A%3Aversion",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -2025,7 +1921,6 @@
             "line_number": null,
             "name": "version",
             "qualified_name": "cpp_sqlite::SchemaMismatch::version",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -2040,7 +1935,6 @@
             "brief_description": "What kind of drift was detected.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3ASchemaMismatch%3A%3Akind",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -2052,7 +1946,6 @@
             "line_number": null,
             "name": "kind",
             "qualified_name": "cpp_sqlite::SchemaMismatch::kind",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -2067,7 +1960,6 @@
             "brief_description": "Human-readable description of the mismatch.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3ASchemaMismatch%3A%3Adetail",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -2079,7 +1971,6 @@
             "line_number": null,
             "name": "detail",
             "qualified_name": "cpp_sqlite::SchemaMismatch::detail",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -2112,7 +2003,6 @@
         "module": "",
         "name": "SchemaMismatch",
         "qualified_name": "cpp_sqlite::SchemaMismatch",
-        "refid": "",
         "source": "markdown-import",
         "source_type": "",
         "tags": [
@@ -2139,7 +2029,6 @@
                 "brief_description": "The migration version this mismatch relates to.",
                 "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3ASchemaMismatch%3A%3Aversion",
                 "component_id": null,
-                "compound_refid": "",
                 "definition": "",
                 "detailed_description": "",
                 "doc_embedding": [],
@@ -2151,7 +2040,6 @@
                 "line_number": null,
                 "name": "version",
                 "qualified_name": "cpp_sqlite::SchemaMismatch::version",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -2166,7 +2054,6 @@
                 "brief_description": "What kind of drift was detected.",
                 "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3ASchemaMismatch%3A%3Akind",
                 "component_id": null,
-                "compound_refid": "",
                 "definition": "",
                 "detailed_description": "",
                 "doc_embedding": [],
@@ -2178,7 +2065,6 @@
                 "line_number": null,
                 "name": "kind",
                 "qualified_name": "cpp_sqlite::SchemaMismatch::kind",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -2193,7 +2079,6 @@
                 "brief_description": "Human-readable description of the mismatch.",
                 "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3ASchemaMismatch%3A%3Adetail",
                 "component_id": null,
-                "compound_refid": "",
                 "definition": "",
                 "detailed_description": "",
                 "doc_embedding": [],
@@ -2205,7 +2090,6 @@
                 "line_number": null,
                 "name": "detail",
                 "qualified_name": "cpp_sqlite::SchemaMismatch::detail",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -2238,7 +2122,6 @@
             "module": "",
             "name": "SchemaMismatch",
             "qualified_name": "cpp_sqlite::SchemaMismatch",
-            "refid": "",
             "source": "markdown-import",
             "source_type": "",
             "tags": [
@@ -2253,7 +2136,6 @@
             "brief_description": "Detected schema mismatches (empty if consistent).",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3ASchemaVerificationResult%3A%3Amismatches",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -2265,7 +2147,6 @@
             "line_number": null,
             "name": "mismatches",
             "qualified_name": "cpp_sqlite::SchemaVerificationResult::mismatches",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -2280,7 +2161,6 @@
             "brief_description": "True if no mismatches were found.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=cpp_sqlite%3A%3ASchemaVerificationResult%3A%3Ais_consistent",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -2292,7 +2172,6 @@
             "line_number": null,
             "name": "is_consistent",
             "qualified_name": "cpp_sqlite::SchemaVerificationResult::is_consistent",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -2325,7 +2204,6 @@
         "module": "",
         "name": "SchemaVerificationResult",
         "qualified_name": "cpp_sqlite::SchemaVerificationResult",
-        "refid": "",
         "source": "markdown-import",
         "source_type": "",
         "tags": [
@@ -2355,7 +2233,6 @@
         "module": "cpp_sqlite",
         "name": "CopyableTransferObject",
         "qualified_name": "cpp_sqlite::CopyableTransferObject",
-        "refid": "conceptcpp__sqlite_1_1_copyable_transfer_object",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -2390,7 +2267,6 @@
         "module": "cpp_sqlite",
         "name": "isString",
         "qualified_name": "cpp_sqlite::isString",
-        "refid": "conceptcpp__sqlite_1_1is_string",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -2470,7 +2346,6 @@
         "module": "cpp_sqlite",
         "name": "ValidTransferObject",
         "qualified_name": "cpp_sqlite::ValidTransferObject",
-        "refid": "conceptcpp__sqlite_1_1_valid_transfer_object",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -2505,7 +2380,6 @@
         "module": "cpp_sqlite",
         "name": "DefaultConstructibleTransferObject",
         "qualified_name": "cpp_sqlite::DefaultConstructibleTransferObject",
-        "refid": "conceptcpp__sqlite_1_1_default_constructible_transfer_object",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -2540,7 +2414,6 @@
         "module": "cpp_sqlite",
         "name": "isIntegral",
         "qualified_name": "cpp_sqlite::isIntegral",
-        "refid": "conceptcpp__sqlite_1_1is_integral",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -2590,7 +2463,6 @@
         "module": "cpp_sqlite",
         "name": "TransferObject",
         "qualified_name": "cpp_sqlite::TransferObject",
-        "refid": "conceptcpp__sqlite_1_1_transfer_object",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -2625,7 +2497,6 @@
         "module": "cpp_sqlite",
         "name": "floatingPoint",
         "qualified_name": "cpp_sqlite::floatingPoint",
-        "refid": "conceptcpp__sqlite_1_1floating_point",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -2655,7 +2526,6 @@
         "module": "cpp_sqlite",
         "name": "MovableTransferObject",
         "qualified_name": "cpp_sqlite::MovableTransferObject",
-        "refid": "conceptcpp__sqlite_1_1_movable_transfer_object",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -2685,7 +2555,6 @@
         "module": "cpp_sqlite",
         "name": "IsRepeatedFieldTransferObject",
         "qualified_name": "cpp_sqlite::IsRepeatedFieldTransferObject",
-        "refid": "conceptcpp__sqlite_1_1_is_repeated_field_transfer_object",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -2725,7 +2594,6 @@
         "module": "cpp_sqlite",
         "name": "isSupportedDBType",
         "qualified_name": "cpp_sqlite::isSupportedDBType",
-        "refid": "conceptcpp__sqlite_1_1is_supported_d_b_type",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -2755,7 +2623,6 @@
         "module": "cpp_sqlite",
         "name": "IsForeignKey",
         "qualified_name": "cpp_sqlite::IsForeignKey",
-        "refid": "conceptcpp__sqlite_1_1_is_foreign_key",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -2790,7 +2657,6 @@
         "module": "cpp_sqlite",
         "name": "isBlob",
         "qualified_name": "cpp_sqlite::isBlob",
-        "refid": "conceptcpp__sqlite_1_1is_blob",
         "source": "cpp-sqlite",
         "source_type": "header",
         "tags": [
@@ -2810,7 +2676,6 @@
             "brief_description": "Operation completed successfully.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:enum-value:qualified_name=cpp_sqlite%3A%3AMigrationErrorCode%3A%3ASuccess",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -2821,7 +2686,6 @@
             "line_number": null,
             "name": "Success",
             "qualified_name": "cpp_sqlite::MigrationErrorCode::Success",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -2835,7 +2699,6 @@
             "brief_description": "A migration with this version is already registered.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:enum-value:qualified_name=cpp_sqlite%3A%3AMigrationErrorCode%3A%3ADuplicateVersion",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -2846,7 +2709,6 @@
             "line_number": null,
             "name": "DuplicateVersion",
             "qualified_name": "cpp_sqlite::MigrationErrorCode::DuplicateVersion",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -2860,7 +2722,6 @@
             "brief_description": "A migration's up() method threw an exception.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:enum-value:qualified_name=cpp_sqlite%3A%3AMigrationErrorCode%3A%3AMigrationFailed",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -2871,7 +2732,6 @@
             "line_number": null,
             "name": "MigrationFailed",
             "qualified_name": "cpp_sqlite::MigrationErrorCode::MigrationFailed",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -2885,7 +2745,6 @@
             "brief_description": "A migration's down() method threw an exception.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:enum-value:qualified_name=cpp_sqlite%3A%3AMigrationErrorCode%3A%3ARollbackFailed",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -2896,7 +2755,6 @@
             "line_number": null,
             "name": "RollbackFailed",
             "qualified_name": "cpp_sqlite::MigrationErrorCode::RollbackFailed",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -2910,7 +2768,6 @@
             "brief_description": "Target version does not match any registered migration.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:enum-value:qualified_name=cpp_sqlite%3A%3AMigrationErrorCode%3A%3AVersionNotFound",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -2921,7 +2778,6 @@
             "line_number": null,
             "name": "VersionNotFound",
             "qualified_name": "cpp_sqlite::MigrationErrorCode::VersionNotFound",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -2935,7 +2791,6 @@
             "brief_description": "No migrations have been applied (schema_versions is empty).",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:enum-value:qualified_name=cpp_sqlite%3A%3AMigrationErrorCode%3A%3ANotInitialized",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -2946,7 +2801,6 @@
             "line_number": null,
             "name": "NotInitialized",
             "qualified_name": "cpp_sqlite::MigrationErrorCode::NotInitialized",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -2965,7 +2819,6 @@
         "module": "",
         "name": "MigrationErrorCode",
         "qualified_name": "cpp_sqlite::MigrationErrorCode",
-        "refid": "",
         "source": "markdown-import",
         "source_type": "",
         "tags": [
@@ -2985,7 +2838,6 @@
             "brief_description": "A table expected by the migration does not exist.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:enum-value:qualified_name=cpp_sqlite%3A%3AMismatchKind%3A%3AMissingTable",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -2996,7 +2848,6 @@
             "line_number": null,
             "name": "MissingTable",
             "qualified_name": "cpp_sqlite::MismatchKind::MissingTable",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -3010,7 +2861,6 @@
             "brief_description": "A table exists that is not expected by any migration.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:enum-value:qualified_name=cpp_sqlite%3A%3AMismatchKind%3A%3AExtraTable",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -3021,7 +2871,6 @@
             "line_number": null,
             "name": "ExtraTable",
             "qualified_name": "cpp_sqlite::MismatchKind::ExtraTable",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -3035,7 +2884,6 @@
             "brief_description": "A column definition differs from the expected schema.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:enum-value:qualified_name=cpp_sqlite%3A%3AMismatchKind%3A%3AColumnDifference",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -3046,7 +2894,6 @@
             "line_number": null,
             "name": "ColumnDifference",
             "qualified_name": "cpp_sqlite::MismatchKind::ColumnDifference",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -3060,7 +2907,6 @@
             "brief_description": "Live schema checksum does not match the stored checksum.",
             "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:enum-value:qualified_name=cpp_sqlite%3A%3AMismatchKind%3A%3AChecksumMismatch",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -3071,7 +2917,6 @@
             "line_number": null,
             "name": "ChecksumMismatch",
             "qualified_name": "cpp_sqlite::MismatchKind::ChecksumMismatch",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -3090,7 +2935,6 @@
         "module": "",
         "name": "MismatchKind",
         "qualified_name": "cpp_sqlite::MismatchKind",
-        "refid": "",
         "source": "markdown-import",
         "source_type": "",
         "tags": [
@@ -3105,7 +2949,6 @@
     "kind": "namespace",
     "name": "cpp_sqlite",
     "qualified_name": "cpp_sqlite",
-    "refid": "namespacecpp__sqlite",
     "source": "cpp-sqlite",
     "tags": [
       "as-built",
@@ -3119,7 +2962,6 @@
     "brief_description": "",
     "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=DuplicateVersionError",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -3131,7 +2973,6 @@
     "line_number": null,
     "name": "DuplicateVersionError",
     "qualified_name": "DuplicateVersionError",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
@@ -3148,7 +2989,6 @@
     "kind": "literal",
     "name": "true",
     "qualified_name": "literal::true",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
@@ -3165,7 +3005,6 @@
     "kind": "literal",
     "name": "1",
     "qualified_name": "literal::1",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
@@ -3182,7 +3021,6 @@
     "kind": "literal",
     "name": "3",
     "qualified_name": "literal::3",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
@@ -3199,7 +3037,6 @@
     "kind": "literal",
     "name": "false",
     "qualified_name": "literal::false",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
@@ -3214,7 +3051,6 @@
     "brief_description": "",
     "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=MigrationManager%3A%3Aversion2_recorded",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -3226,7 +3062,6 @@
     "line_number": null,
     "name": "version2_recorded",
     "qualified_name": "MigrationManager::version2_recorded",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
@@ -3241,7 +3076,6 @@
     "brief_description": "",
     "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=MigrationManager%3A%3Aversion3_recorded",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -3253,7 +3087,6 @@
     "line_number": null,
     "name": "version3_recorded",
     "qualified_name": "MigrationManager::version3_recorded",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
@@ -3270,7 +3103,6 @@
     "kind": "literal",
     "name": "0",
     "qualified_name": "literal::0",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
@@ -3285,7 +3117,6 @@
     "brief_description": "",
     "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=MigrationManager%3A%3Aversion2_not_recorded_on_fail",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -3297,7 +3128,6 @@
     "line_number": null,
     "name": "version2_not_recorded_on_fail",
     "qualified_name": "MigrationManager::version2_not_recorded_on_fail",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
@@ -3312,7 +3142,6 @@
     "brief_description": "",
     "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=UnexpectedTable",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -3324,7 +3153,6 @@
     "line_number": null,
     "name": "UnexpectedTable",
     "qualified_name": "UnexpectedTable",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
@@ -3339,7 +3167,6 @@
     "brief_description": "",
     "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=MigrationManager%3A%3Aversion3_not_recorded",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -3351,7 +3178,6 @@
     "line_number": null,
     "name": "version3_not_recorded",
     "qualified_name": "MigrationManager::version3_not_recorded",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
@@ -3366,7 +3192,6 @@
     "brief_description": "",
     "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=MigrationManager%3A%3Aversions_1_2_remain",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -3378,7 +3203,6 @@
     "line_number": null,
     "name": "versions_1_2_remain",
     "qualified_name": "MigrationManager::versions_1_2_remain",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
@@ -3393,7 +3217,6 @@
     "brief_description": "",
     "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=MigrationManager%3A%3Aversion2_still_exists_on_fail",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -3405,7 +3228,6 @@
     "line_number": null,
     "name": "version2_still_exists_on_fail",
     "qualified_name": "MigrationManager::version2_still_exists_on_fail",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
@@ -3444,7 +3266,6 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::reg_dup_error_is_duplicate",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -3472,7 +3293,6 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::reg_dup_original_retained",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -3500,7 +3320,6 @@
                 "order": "0",
                 "phase": "pre",
                 "qualified_name": "cond::pre::reg_dup_first_migration_registered",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -3517,7 +3336,6 @@
                 "name": "reg_dup_invoke_register_second",
                 "order": "0",
                 "qualified_name": "step::reg_dup_invoke_register_second",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -3534,7 +3352,6 @@
                 "name": "reg_dup_invoke_register_first",
                 "order": "0",
                 "qualified_name": "step::reg_dup_invoke_register_first",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -3551,7 +3368,6 @@
             "method": "automated",
             "name": "test_duplicate_version_rejected",
             "qualified_name": "vm::migration_registration::test_duplicate_version_rejected",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -3584,7 +3400,6 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::reg_sort_order_correct",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -3612,7 +3427,6 @@
                 "order": "0",
                 "phase": "pre",
                 "qualified_name": "cond::pre::reg_sort_no_migrations",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -3629,7 +3443,6 @@
                 "name": "reg_sort_register_three",
                 "order": "0",
                 "qualified_name": "step::reg_sort_register_three",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -3646,7 +3459,6 @@
             "method": "automated",
             "name": "test_sorted_by_version",
             "qualified_name": "vm::migration_registration::test_sorted_by_version",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -3661,7 +3473,6 @@
         "kind": "llr",
         "name": "llr_migration_registration",
         "qualified_name": "llr_migration_registration",
-        "refid": "",
         "source": "markdown-import",
         "tags": [
           "requirements"
@@ -3695,7 +3506,6 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::apply_pending_count_correct",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -3723,7 +3533,6 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::apply_pending_version3_recorded",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -3751,7 +3560,6 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::apply_pending_version2_recorded",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -3779,7 +3587,6 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::apply_pending_version1_not_reapplied",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -3807,7 +3614,6 @@
                 "order": "0",
                 "phase": "pre",
                 "qualified_name": "cond::pre::apply_pending_version1_preexists",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -3824,7 +3630,6 @@
                 "name": "apply_pending_invoke_apply",
                 "order": "0",
                 "qualified_name": "step::apply_pending_invoke_apply",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -3841,7 +3646,6 @@
                 "name": "apply_pending_prepopulate_schema_versions",
                 "order": "0",
                 "qualified_name": "step::apply_pending_prepopulate_schema_versions",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -3858,7 +3662,6 @@
                 "name": "apply_pending_register_migrations",
                 "order": "0",
                 "qualified_name": "step::apply_pending_register_migrations",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -3875,7 +3678,6 @@
             "method": "automated",
             "name": "test_applies_only_pending",
             "qualified_name": "vm::migration_apply::test_applies_only_pending",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -3908,7 +3710,6 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::apply_fail_earlier_schema_preserved",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -3936,7 +3737,6 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::apply_fail_error_signaled",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -3964,7 +3764,6 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::apply_fail_version2_not_recorded",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -3992,7 +3791,6 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::apply_fail_version1_recorded",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4020,7 +3818,6 @@
                 "order": "0",
                 "phase": "pre",
                 "qualified_name": "cond::pre::apply_fail_migrations_registered",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4037,7 +3834,6 @@
                 "name": "apply_fail_invoke_apply",
                 "order": "0",
                 "qualified_name": "step::apply_fail_invoke_apply",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4054,7 +3850,6 @@
                 "name": "apply_fail_register_migrations",
                 "order": "0",
                 "qualified_name": "step::apply_fail_register_migrations",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4071,7 +3866,6 @@
             "method": "automated",
             "name": "test_up_failure_rolls_back",
             "qualified_name": "vm::migration_apply::test_up_failure_rolls_back",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -4104,7 +3898,6 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::apply_order_is_ascending",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4132,7 +3925,6 @@
                 "order": "0",
                 "phase": "pre",
                 "qualified_name": "cond::pre::apply_order_migrations_registered",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4149,7 +3941,6 @@
                 "name": "apply_order_invoke_apply",
                 "order": "0",
                 "qualified_name": "step::apply_order_invoke_apply",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4166,7 +3957,6 @@
                 "name": "apply_order_register_migrations",
                 "order": "0",
                 "qualified_name": "step::apply_order_register_migrations",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4183,7 +3973,6 @@
             "method": "automated",
             "name": "test_apply_in_order",
             "qualified_name": "vm::migration_apply::test_apply_in_order",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -4198,7 +3987,6 @@
         "kind": "llr",
         "name": "llr_migration_apply",
         "qualified_name": "llr_migration_apply",
-        "refid": "",
         "source": "markdown-import",
         "tags": [
           "requirements"
@@ -4232,7 +4020,6 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::verify_mismatch_kind_extra_table",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4260,7 +4047,6 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::verify_mismatch_version_is_1",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4288,7 +4074,6 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::verify_mismatch_count_is_1",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4316,7 +4101,6 @@
                 "order": "0",
                 "phase": "pre",
                 "qualified_name": "cond::pre::verify_migration_applied",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4333,7 +4117,6 @@
                 "name": "verify_invoke_verify",
                 "order": "0",
                 "qualified_name": "step::verify_invoke_verify",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4350,7 +4133,6 @@
                 "name": "verify_add_unexpected_table",
                 "order": "0",
                 "qualified_name": "step::verify_add_unexpected_table",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4367,7 +4149,6 @@
                 "name": "verify_register_and_apply_migration",
                 "order": "0",
                 "qualified_name": "step::verify_register_and_apply_migration",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4384,7 +4165,6 @@
             "method": "automated",
             "name": "test_mismatch_detected",
             "qualified_name": "vm::schema_verify::test_mismatch_detected",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -4417,7 +4197,6 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::verify_consistent_no_mismatches",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4445,7 +4224,6 @@
                 "order": "0",
                 "phase": "pre",
                 "qualified_name": "cond::pre::verify_consistent_migration_applied",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4462,7 +4240,6 @@
                 "name": "verify_consistent_invoke_verify",
                 "order": "0",
                 "qualified_name": "step::verify_consistent_invoke_verify",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4479,7 +4256,6 @@
                 "name": "verify_consistent_apply_migration",
                 "order": "0",
                 "qualified_name": "step::verify_consistent_apply_migration",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4496,7 +4272,6 @@
             "method": "automated",
             "name": "test_consistent_schema",
             "qualified_name": "vm::schema_verify::test_consistent_schema",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -4511,7 +4286,6 @@
         "kind": "llr",
         "name": "llr_schema_verification",
         "qualified_name": "llr_schema_verification",
-        "refid": "",
         "source": "markdown-import",
         "tags": [
           "requirements"
@@ -4545,7 +4319,6 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::rollback_version3_not_in_table",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4573,7 +4346,6 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::rollback_versions_1_and_2_remain",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4601,7 +4373,6 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::rollback_down_called",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4629,7 +4400,6 @@
                 "order": "0",
                 "phase": "pre",
                 "qualified_name": "cond::pre::rollback_three_migrations_applied",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4646,7 +4416,6 @@
                 "name": "rollback_invoke_rollback",
                 "order": "0",
                 "qualified_name": "step::rollback_invoke_rollback",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4663,7 +4432,6 @@
                 "name": "rollback_apply_three_migrations",
                 "order": "0",
                 "qualified_name": "step::rollback_apply_three_migrations",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4680,7 +4448,6 @@
             "method": "automated",
             "name": "test_rollback_to_version",
             "qualified_name": "vm::rollback::test_rollback_to_version",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -4713,7 +4480,6 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::rollback_fail_version1_preserved",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4741,7 +4507,6 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::rollback_fail_version2_still_exists",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4769,7 +4534,6 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::rollback_fail_error_signaled",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4797,7 +4561,6 @@
                 "order": "0",
                 "phase": "pre",
                 "qualified_name": "cond::pre::rollback_fail_two_applied",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4814,7 +4577,6 @@
                 "name": "rollback_fail_invoke_rollback",
                 "order": "0",
                 "qualified_name": "step::rollback_fail_invoke_rollback",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4831,7 +4593,6 @@
                 "name": "rollback_fail_apply_migrations",
                 "order": "0",
                 "qualified_name": "step::rollback_fail_apply_migrations",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
@@ -4848,7 +4609,6 @@
             "method": "automated",
             "name": "test_down_failure_aborts",
             "qualified_name": "vm::rollback::test_down_failure_aborts",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -4863,7 +4623,6 @@
         "kind": "llr",
         "name": "llr_migration_rollback",
         "qualified_name": "llr_migration_rollback",
-        "refid": "",
         "source": "markdown-import",
         "tags": [
           "requirements"
@@ -4876,7 +4635,6 @@
     "kind": "hlr",
     "name": "Database Migration Manager",
     "qualified_name": "Database Migration Manager",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "requirements"
@@ -4904,7 +4662,6 @@
         "module": "std",
         "name": "unique_ptr",
         "qualified_name": "std::unique_ptr",
-        "refid": "cppreference:cpp/memory/unique_ptr",
         "source": "cppreference",
         "source_type": "header",
         "tags": [
@@ -4930,7 +4687,6 @@
         "module": "std",
         "name": "vector",
         "qualified_name": "std::vector",
-        "refid": "cppreference:cpp/container/vector",
         "source": "cppreference",
         "source_type": "header",
         "tags": [
@@ -4945,7 +4701,6 @@
     "kind": "namespace",
     "name": "std",
     "qualified_name": "std",
-    "refid": "namespacestd",
     "source": "cpp-sqlite",
     "tags": [
       "as-built"

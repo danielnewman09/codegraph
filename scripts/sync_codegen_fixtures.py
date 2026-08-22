@@ -23,9 +23,12 @@ Usage::
 from __future__ import annotations
 
 import hashlib
+import re
 import shutil
 import sys
 from pathlib import Path
+
+from codegraph.identity import CanonicalIdentity
 
 ROOT = Path(__file__).resolve().parent.parent
 # The actual workspace repository.  Keep this spelling explicit: macOS may
@@ -69,6 +72,14 @@ TEST_FILES = frozenset({
     "tests/fixtures/cpp-sqlite/cpp_sqlite/test/testDatabase.hpp",
 })
 
+_FORBIDDEN_NODE_FIELDS = frozenset({
+    "uid", "refid", "compound_refid", "member_refid", "parent_refid",
+    "child_refid", "from_refid", "to_refid",
+})
+_FORBIDDEN_EDGE_FIELDS = frozenset({
+    "uid", "target_uid", "refid", "from_refid", "to_refid",
+})
+
 
 def _production_relpaths() -> list[str]:
     """The 14 production paths from the manifest (relative to IMPL_SRC)."""
@@ -83,6 +94,7 @@ def _provenance_hashes() -> dict[str, str]:
     """Parse the golden source-copy hashes recorded in the provenance file."""
     if not PROVENANCE.is_file():
         return {}
+    production_paths = set(_production_relpaths())
     hashes: dict[str, str] = {}
     in_block = False
     for line in PROVENANCE.read_text(encoding="utf-8").splitlines():
@@ -92,29 +104,50 @@ def _provenance_hashes() -> dict[str, str]:
         if not in_block:
             continue
         parts = line.split(None, 1)
-        if len(parts) == 2 and len(parts[0]) == 64:
+        if (
+            len(parts) == 2
+            and re.fullmatch(r"[0-9a-f]{64}", parts[0])
+            and parts[1].strip() in production_paths
+        ):
             hashes[parts[1].strip()] = parts[0]
     return hashes
 
 
 def _write_provenance_hashes(hashes: dict[str, str]) -> None:
-    """Rewrite the provenance hash block (check never calls this; pull does
-    after refreshing the source copies)."""
+    """Rewrite every source-hash block (``pull`` only).
+
+    A provenance document may contain more than one hash block.  Update only
+    fenced blocks containing strict hash/path records so path-only manifest
+    blocks remain documentation rather than being converted into hashes.
+    """
     lines = PROVENANCE.read_text(encoding="utf-8").splitlines()
-    start = end = None
+    production_paths = set(_production_relpaths())
+    ranges: list[tuple[int, int]] = []
+    start: int | None = None
     for idx, line in enumerate(lines):
-        if line.strip() == "```" and start is None:
+        if line.strip() != "```":
+            continue
+        if start is None:
             start = idx
-        elif line.strip() == "```" and start is not None:
-            end = idx
-            break
-    if start is None or end is None:
+        else:
+            block = lines[start + 1:idx]
+            if any(
+                (parts := item.split(None, 1))
+                and len(parts) == 2
+                and re.fullmatch(r"[0-9a-f]{64}", parts[0])
+                and parts[1].strip() in production_paths
+                for item in block
+            ):
+                ranges.append((start, idx))
+            start = None
+    if not ranges:
         raise SystemExit(f"provenance hash block not found: {PROVENANCE}")
     block = ["```"]
     for rel in _production_relpaths():
         block.append(f"{hashes[rel]}  {rel}")
     block.append("```")
-    lines[start:end + 1] = block
+    for start, end in reversed(ranges):
+        lines[start:end + 1] = block
     PROVENANCE.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -151,6 +184,88 @@ def _same(a: Path, b: Path) -> bool:
     return a.read_bytes() == b.read_bytes()
 
 
+def _validate_portable_json(path: Path) -> list[str]:
+    """Validate a JSON graph without modifying it.
+
+    This deliberately shares the strict canonical decoder with runtime graph
+    deserialization.  It catches stale generated artifacts before a fixture
+    refresh can make them appear authoritative.
+    """
+    if not path.is_file() or path.suffix.lower() != ".json":
+        return []
+    try:
+        import json
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return [f"{path}: cannot read JSON: {exc}"]
+    if not isinstance(data, list):
+        return []
+
+    problems: list[str] = []
+    nodes: dict[str, str] = {}
+    entries: list[dict] = []
+
+    def walk(entry: object) -> None:
+        if not isinstance(entry, dict):
+            problems.append(f"{path}: graph entry is not an object")
+            return
+        entries.append(entry)
+        bad = _FORBIDDEN_NODE_FIELDS & set(entry)
+        if bad:
+            problems.append(f"{path}: node has forbidden fields {sorted(bad)}")
+        key = entry.get("canonical_key")
+        if not isinstance(key, str) or not key:
+            problems.append(f"{path}: node is missing canonical_key")
+        else:
+            try:
+                CanonicalIdentity.from_key(key)
+            except ValueError as exc:
+                problems.append(f"{path}: invalid canonical_key {key!r}: {exc}")
+            import json as _json
+            fingerprint = _json.dumps(
+                {k: v for k, v in entry.items()
+                 if k not in _FORBIDDEN_NODE_FIELDS | {"canonical_key"}},
+                sort_keys=True,
+            )
+            previous = nodes.get(key)
+            if previous is not None and previous != fingerprint:
+                problems.append(
+                    f"{path}: distinct nodes share canonical_key {key!r}"
+                )
+            nodes.setdefault(key, fingerprint)
+        for edge in entry.get("edges", []):
+            if not isinstance(edge, dict):
+                problems.append(f"{path}: edge is not an object")
+                continue
+            bad_edge = _FORBIDDEN_EDGE_FIELDS & set(edge)
+            if bad_edge:
+                problems.append(f"{path}: edge has forbidden fields {sorted(bad_edge)}")
+            target = edge.get("target_key")
+            if target:
+                try:
+                    CanonicalIdentity.from_key(target)
+                except ValueError as exc:
+                    problems.append(f"{path}: invalid edge target_key {target!r}: {exc}")
+            elif not edge.get("target_ref"):
+                problems.append(f"{path}: edge has no target_key or explicit target_ref")
+        for child in entry.get("composes", []):
+            walk(child)
+
+    for entry in data:
+        walk(entry)
+    for entry in entries:
+        for edge in entry.get("edges", []):
+            target = edge.get("target_key")
+            if target and target not in nodes and not (
+                edge.get("target_ref") or edge.get("external") is True
+            ):
+                problems.append(
+                    f"{path}: in-document endpoint does not resolve and is not "
+                    f"classified external: {target}"
+                )
+    return problems
+
+
 def _sync_impl_source() -> None:
     """Sync the committed source copies under ``cpp_sqlite_impl_src`` with
     the sister repo's fixture directory — the project's source files
@@ -169,11 +284,13 @@ def _sync_impl_source() -> None:
         dst = IMPL_SRC / "tests/fixtures/cpp-sqlite" / rel.relative_to(SISTER_FIXTURE_SRC)
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(rel, dst)
-    config = SISTER_FIXTURE_SRC / ".doxygen-index.toml"
-    if config.is_file():
-        dst = IMPL_SRC / "tests/fixtures/cpp-sqlite" / ".doxygen-index.toml"
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(config, dst)
+    fixture_root = IMPL_SRC / "tests/fixtures/cpp-sqlite"
+    for metadata_name in (".doxygen-index.toml", "conanfile.py", "conandata.yml"):
+        metadata = SISTER_FIXTURE_SRC / metadata_name
+        if metadata.is_file():
+            dst = fixture_root / metadata_name
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(metadata, dst)
 
 
 def check() -> int:
@@ -197,7 +314,8 @@ def check() -> int:
             print("DRIFT: impl export != sister repo (run pull)")
             failures += 1
     else:
-        print(f"note: sister repo not at {SISTER} — skipping cross-repo checks")
+        print(f"ERROR: sister repo not at {SISTER} — cross-repo checks cannot be performed")
+        failures += 1
     if not GOLDEN.exists():
         print("DRIFT: golden missing")
         failures += 1
@@ -216,6 +334,13 @@ def check() -> int:
         failures += 1
     if not source_problems:
         print("source copies: provenance hashes match")
+    artifacts = [GOLDEN, ONE_HOP, IMPL]
+    if SISTER.exists():
+        artifacts.extend((SISTER_CANONICAL, SISTER_ONE_HOP, SISTER_IMPL))
+    for artifact in artifacts:
+        for problem in _validate_portable_json(artifact):
+            print(problem)
+            failures += 1
     print("OK" if not failures else f"{failures} drift(s)")
     return 1 if failures else 0
 
@@ -225,7 +350,8 @@ def push() -> int:
         print(f"generator output not found: {PIPELINE_COPY}")
         print("run tests/pipelines/test_design_migration_manager.py first")
         return 1
-    if SISTER.exists():
+    sister_available = SISTER.exists()
+    if sister_available:
         shutil.copy2(PIPELINE_COPY, SISTER_CANONICAL)
         print(f"pushed → {SISTER_CANONICAL}")
     else:
@@ -238,7 +364,9 @@ def push() -> int:
     if SISTER_FIXTURE_SRC.exists():
         _sync_impl_source()
         print(f"synced → {IMPL_SRC}")
-    return check()
+    # A local push is useful in a single-repository sandbox; the authoritative
+    # ``check`` command remains strict and reports a missing sister repository.
+    return check() if sister_available else 0
 
 
 def pull() -> int:

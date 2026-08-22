@@ -5,6 +5,48 @@ from __future__ import annotations
 from codegraph.codegen.context import file as file_builder
 from codegraph.codegen.context import namespace as namespace_builder
 from codegraph.codegen.context import parameter as parameter_builder
+from codegraph.identity import IdentityScope, resolve_identity_for
+from codegraph.models.compound import ClassNode
+from codegraph.models.file import FileNode
+from codegraph.models.member import MethodNode
+from codegraph.models.parameter import ParameterNode
+from codegraph.models.namespace import NamespaceNode
+
+
+_SCOPE = IdentityScope.repository("codegraph-suite", "codegraph")
+
+
+def _file_key(path):
+    return resolve_identity_for(
+        FileNode(name=path.rsplit("/", 1)[-1], path=path, qualified_name=path),
+        _SCOPE,
+    ).key()
+
+
+def _namespace_key(qn):
+    return resolve_identity_for(
+        NamespaceNode(name=qn.rsplit("::", 1)[-1], qualified_name=qn), _SCOPE
+    ).key()
+
+
+def _class_key(qn):
+    return resolve_identity_for(
+        ClassNode(name=qn.rsplit("::", 1)[-1], qualified_name=qn), _SCOPE
+    ).key()
+
+
+def _method_key(qn):
+    return resolve_identity_for(
+        MethodNode(name=qn.rsplit("::", 1)[-1], qualified_name=qn), _SCOPE
+    ).key()
+
+
+def _parameter_key(parent_key, position):
+    return resolve_identity_for(
+        ParameterNode(name="x", position=position),
+        _SCOPE,
+        parents={"parent_callable_key": parent_key},
+    ).key()
 
 
 class TestFileNode:
@@ -20,6 +62,7 @@ class TestFileNode:
             "language": "C++",  # legacy Doxygen casing — must normalize
             "source": "test",
             "tags": ["as-built"],
+            "canonical_key": _file_key("include/cpp_sqlite/DataAccessObject.hpp"),
         }])
         ctx = file_builder.build_context(find_entry(graph, type_name="FileNode"), state)
         assert ctx["path"] == "include/cpp_sqlite/DataAccessObject.hpp"
@@ -39,8 +82,9 @@ class TestFileNode:
                 "language": "cpp",
                 "source": "test",
                 "tags": ["as-built"],
+                "canonical_key": _file_key("include/app/main.hpp"),
                 "edges": [
-                    {"relation_type": "INCLUDES", "target_uid": "include/lib/base.hpp",
+                    {"relation_type": "INCLUDES", "target_key": _file_key("include/lib/base.hpp"),
                      "target_type": "FileNode"},
                 ],
             },
@@ -51,6 +95,7 @@ class TestFileNode:
                 "language": "cpp",
                 "source": "test",
                 "tags": ["as-built"],
+                "canonical_key": _file_key("include/lib/base.hpp"),
             },
         ])
         ctx = file_builder.build_context(find_entry(graph, type_name="FileNode", name="main.hpp"), state)
@@ -66,6 +111,7 @@ class TestNamespaceNode:
             "kind": "namespace",
             "source": "test",
             "tags": ["design"],
+            "canonical_key": _namespace_key("cpp_sqlite"),
             "composes": [
                 {
                     "type": "ClassNode",
@@ -74,6 +120,7 @@ class TestNamespaceNode:
                     "kind": "class",
                     "source": "test",
                     "tags": ["design"],
+                    "canonical_key": _class_key("cpp_sqlite::MigrationManager"),
                 },
             ],
         }])
@@ -90,6 +137,7 @@ class TestNamespaceNode:
             "kind": "namespace",
             "source": "test",
             "tags": ["design"],
+            "canonical_key": _namespace_key("app"),
             "composes": [{
                 "type": "NamespaceNode",
                 "name": "inner",
@@ -97,6 +145,7 @@ class TestNamespaceNode:
                 "kind": "namespace",
                 "source": "test",
                 "tags": ["design"],
+                "canonical_key": _namespace_key("app::inner"),
             }],
         }])
         ctx = namespace_builder.build_context(find_entry(graph, type_name="NamespaceNode"), state)
@@ -114,7 +163,8 @@ class TestParameterNode:
             "type": "const std::string&",
             "default_value": "\"hello\"",
             "position": 2,
-            "member_refid": "cpp_sqlite::apply",
+            "parent_callable_key": _method_key("cpp_sqlite::apply"),
+            "canonical_key": _parameter_key(_method_key("cpp_sqlite::apply"), 2),
             "source": "test",
             "tags": ["as-built"],
         }])

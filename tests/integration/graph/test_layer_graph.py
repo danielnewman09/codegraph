@@ -40,7 +40,7 @@ def _key(qname: str, argsstring: str | None = None,
         name=qname.rsplit("::", 1)[-1],
         source="calculator",
         path=qname,
-        argsstring=argsstring or (),
+        argsstring=argsstring or "",
     )
     return resolve_identity_for(probe, scope).key()
 
@@ -571,12 +571,13 @@ class TestRoundtrip:
             saved = entry.node
             for edge in node_data.get("edges", []):
                 total_fixture_edges += 1
-                target_entry = flat.get(edge.get("target_key") or edge["target_local_id"])
+                target_key = edge["target_key"]
+                target_entry = flat.get(target_key)
                 # codegraph:test-desc test_layer_graph.TestRoundtrip.test_edge_persistence::post_1
                 # Verifies that every target entry referenced by an edge exists in the
                 # deserialized graph, ensuring that edge targets are not lost during the
                 # round-trip.
-                assert target_entry is not None, f"Missing target {edge.get('target_key') or edge['target_local_id']}"
+                assert target_entry is not None, f"Missing target {target_key}"
                 target = target_entry.node
                 found = [
                     e for e in saved.serialize()["edges"]
@@ -589,7 +590,7 @@ class TestRoundtrip:
                 # validating edge structure preservation.
                 assert len(found) >= 1, (
                     f"Missing edge: {type(saved).__name__} -[:{edge['relation_type']}]-> "
-                    f"{edge['target_type']} {edge.get('target_key') or edge['target_local_id']}"
+                    f"{edge['target_type']} {target_key}"
                 )
 
         # codegraph:test-desc test_layer_graph.TestRoundtrip.test_edge_persistence::step_1
@@ -620,7 +621,7 @@ class TestSerializeFields:
              "qualified_name": "ns::Engine::run", "tags": ["design"],
              "canonical_key": _key("ns::Engine::run", ""),
              "edges": [{"relation_type": "COMPOSES", "target_type": "MethodNode",
-                         "target_local_id": _key("ns::Engine::run", "")}]},
+                         "target_key": _key("ns::Engine::run", "")}]},
         ]
         graph = LayerGraph.deserialize(data)
         output = graph.serialize()
@@ -709,7 +710,7 @@ class TestSerializeFields:
         # refid property.
         data = [
             {"type": "FileNode", "name": "main.h", "path": "/src/main.h",
-             "refid": "file-main", "source": "calculator",
+             "source": "calculator",
              "canonical_key": _key("/src/main.h", cls=FileNode)},
         ]
         graph = LayerGraph.deserialize(data)
@@ -727,7 +728,7 @@ class TestSerializeFields:
             {"type": "NamespaceNode", "name": "ns", "kind": "namespace",
              "qualified_name": "ns", "canonical_key": _key("ns", cls=NamespaceNode),
              "edges": [{"relation_type": "COMPOSES", "target_type": "ClassNode",
-                         "target_local_id": _key("ns::Widget")}]},
+                         "target_key": _key("ns::Widget")}]},
             {"type": "ClassNode", "name": "Widget", "kind": "class",
              "qualified_name": "ns::Widget", "module": "mymod",
              "canonical_key": _key("ns::Widget", cls=ClassNode)},

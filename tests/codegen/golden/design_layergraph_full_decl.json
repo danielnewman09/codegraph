@@ -4,7 +4,6 @@
     "body_start": 0,
     "brief_description": "",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -16,14 +15,12 @@
     "line_number": null,
     "name": "error_state",
     "qualified_name": "MigrationManager::error_state",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "AttributeNode",
     "type_signature": "",
-    "uid": "71378026994c2f2e0c5b2487e6bff89183821ab7",
     "visibility": "",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aerror_state"
   },
@@ -32,7 +29,6 @@
     "body_start": 0,
     "brief_description": "",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -44,14 +40,12 @@
     "line_number": null,
     "name": "DuplicateVersionError",
     "qualified_name": "DuplicateVersionError",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "AttributeNode",
     "type_signature": "",
-    "uid": "8137f2f72d997c77f1790d67ec0acd9b95026603",
     "visibility": "",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=DuplicateVersionError"
   },
@@ -60,7 +54,6 @@
     "body_start": 0,
     "brief_description": "",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -72,14 +65,12 @@
     "line_number": null,
     "name": "is_initialized",
     "qualified_name": "MigrationManager::is_initialized",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "AttributeNode",
     "type_signature": "",
-    "uid": "4adb062509e00ede2a6036b3a0669312d57df96a",
     "visibility": "",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Ais_initialized"
   },
@@ -88,7 +79,6 @@
     "body_start": 0,
     "brief_description": "",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -100,14 +90,12 @@
     "line_number": null,
     "name": "registered_versions",
     "qualified_name": "MigrationManager::registered_versions",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "AttributeNode",
     "type_signature": "",
-    "uid": "cc1d8cfd3166a849f5cb722fea1953a764a5aad7",
     "visibility": "",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aregistered_versions"
   },
@@ -116,7 +104,6 @@
     "body_start": 0,
     "brief_description": "",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -128,14 +115,12 @@
     "line_number": null,
     "name": "version1_reapplied",
     "qualified_name": "MigrationManager::version1_reapplied",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "AttributeNode",
     "type_signature": "",
-    "uid": "f4a8bbc168a1d94832d30af799a9a749565c42d9",
     "visibility": "",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversion1_reapplied"
   },
@@ -144,7 +129,6 @@
     "body_start": 0,
     "brief_description": "",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -156,14 +140,12 @@
     "line_number": null,
     "name": "version2_recorded",
     "qualified_name": "MigrationManager::version2_recorded",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "AttributeNode",
     "type_signature": "",
-    "uid": "c4a7155f92b2512e432f72cfee84fdebb036a0bb",
     "visibility": "",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversion2_recorded"
   },
@@ -172,7 +154,6 @@
     "body_start": 0,
     "brief_description": "",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -184,14 +165,12 @@
     "line_number": null,
     "name": "version3_recorded",
     "qualified_name": "MigrationManager::version3_recorded",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "AttributeNode",
     "type_signature": "",
-    "uid": "287fe11f47bcecc1600e22be2aa0d6cb73855abb",
     "visibility": "",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversion3_recorded"
   },
@@ -200,7 +179,6 @@
     "body_start": 0,
     "brief_description": "",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -212,14 +190,12 @@
     "line_number": null,
     "name": "execution_order",
     "qualified_name": "MigrationManager::execution_order",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "AttributeNode",
     "type_signature": "",
-    "uid": "520e07ce12ee008ebbb4b4783864231c7ac14dda",
     "visibility": "",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aexecution_order"
   },
@@ -228,7 +204,6 @@
     "body_start": 0,
     "brief_description": "",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -240,14 +215,12 @@
     "line_number": null,
     "name": "version1_recorded_on_fail",
     "qualified_name": "MigrationManager::version1_recorded_on_fail",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "AttributeNode",
     "type_signature": "",
-    "uid": "2bddec4cf45764e50d46cfa2659a1f2be78213b9",
     "visibility": "",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversion1_recorded_on_fail"
   },
@@ -256,7 +229,6 @@
     "body_start": 0,
     "brief_description": "",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -268,14 +240,12 @@
     "line_number": null,
     "name": "version2_not_recorded_on_fail",
     "qualified_name": "MigrationManager::version2_not_recorded_on_fail",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "AttributeNode",
     "type_signature": "",
-    "uid": "685281acf5ce4fc95e08a303f9fb82afcfb20b1c",
     "visibility": "",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversion2_not_recorded_on_fail"
   },
@@ -284,7 +254,6 @@
     "body_start": 0,
     "brief_description": "",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -296,14 +265,12 @@
     "line_number": null,
     "name": "error_on_fail",
     "qualified_name": "MigrationManager::error_on_fail",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "AttributeNode",
     "type_signature": "",
-    "uid": "8b0e92a68faa3598a24406c12922a1a187ffe5b6",
     "visibility": "",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aerror_on_fail"
   },
@@ -312,7 +279,6 @@
     "body_start": 0,
     "brief_description": "",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -324,14 +290,12 @@
     "line_number": null,
     "name": "version1_schema_preserved",
     "qualified_name": "MigrationManager::version1_schema_preserved",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "AttributeNode",
     "type_signature": "",
-    "uid": "ab5036f45500d42c31c2711501e8f7046b152ad1",
     "visibility": "",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversion1_schema_preserved"
   },
@@ -340,7 +304,6 @@
     "body_start": 0,
     "brief_description": "",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -352,14 +315,12 @@
     "line_number": null,
     "name": "mismatch_count",
     "qualified_name": "MigrationManager::mismatch_count",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "AttributeNode",
     "type_signature": "",
-    "uid": "09badcbbdf39d32b0d6b8dbef327e2b89c6a216e",
     "visibility": "",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Amismatch_count"
   },
@@ -368,7 +329,6 @@
     "body_start": 0,
     "brief_description": "",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -380,14 +340,12 @@
     "line_number": null,
     "name": "mismatch_version",
     "qualified_name": "MigrationManager::mismatch_version",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "AttributeNode",
     "type_signature": "",
-    "uid": "228dbbd4a9c20e6083cd92501a51126277eb0fe6",
     "visibility": "",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Amismatch_version"
   },
@@ -396,7 +354,6 @@
     "body_start": 0,
     "brief_description": "",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -408,14 +365,12 @@
     "line_number": null,
     "name": "mismatch_kind",
     "qualified_name": "MigrationManager::mismatch_kind",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "AttributeNode",
     "type_signature": "",
-    "uid": "3e3a75d52a9165834a7380c9bc47c39d3507ee69",
     "visibility": "",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Amismatch_kind"
   },
@@ -424,7 +379,6 @@
     "body_start": 0,
     "brief_description": "",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -436,14 +390,12 @@
     "line_number": null,
     "name": "UnexpectedTable",
     "qualified_name": "UnexpectedTable",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "AttributeNode",
     "type_signature": "",
-    "uid": "2e90ccfcf6266c16889993fab3b6ed4f461457e8",
     "visibility": "",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=UnexpectedTable"
   },
@@ -452,7 +404,6 @@
     "body_start": 0,
     "brief_description": "",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -464,14 +415,12 @@
     "line_number": null,
     "name": "migration_applied",
     "qualified_name": "MigrationManager::migration_applied",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "AttributeNode",
     "type_signature": "",
-    "uid": "eefea8a6bb880cad6a95d9ff0d8e5d59a6d30f47",
     "visibility": "",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Amigration_applied"
   },
@@ -480,7 +429,6 @@
     "body_start": 0,
     "brief_description": "",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -492,14 +440,12 @@
     "line_number": null,
     "name": "version3_not_recorded",
     "qualified_name": "MigrationManager::version3_not_recorded",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "AttributeNode",
     "type_signature": "",
-    "uid": "ed2a4158bb4e681f1d9f89f38d123fc13a0dbcdc",
     "visibility": "",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversion3_not_recorded"
   },
@@ -508,7 +454,6 @@
     "body_start": 0,
     "brief_description": "",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -520,14 +465,12 @@
     "line_number": null,
     "name": "versions_1_2_remain",
     "qualified_name": "MigrationManager::versions_1_2_remain",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "AttributeNode",
     "type_signature": "",
-    "uid": "ddf850e15cc89924ed9c362bbc9372cbae892376",
     "visibility": "",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversions_1_2_remain"
   },
@@ -536,7 +479,6 @@
     "body_start": 0,
     "brief_description": "",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -548,14 +490,12 @@
     "line_number": null,
     "name": "down_called",
     "qualified_name": "MigrationManager::down_called",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "AttributeNode",
     "type_signature": "",
-    "uid": "17aecaa5c47e422d10c81e91689d687f5e8b4590",
     "visibility": "",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Adown_called"
   },
@@ -564,7 +504,6 @@
     "body_start": 0,
     "brief_description": "",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -576,14 +515,12 @@
     "line_number": null,
     "name": "error_on_rollback_fail",
     "qualified_name": "MigrationManager::error_on_rollback_fail",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "AttributeNode",
     "type_signature": "",
-    "uid": "2a7c3547166a9ba6a952ac912034d5aa322e0158",
     "visibility": "",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aerror_on_rollback_fail"
   },
@@ -592,7 +529,6 @@
     "body_start": 0,
     "brief_description": "",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -604,14 +540,12 @@
     "line_number": null,
     "name": "version2_still_exists_on_fail",
     "qualified_name": "MigrationManager::version2_still_exists_on_fail",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "AttributeNode",
     "type_signature": "",
-    "uid": "88631b67b8b7f908f5c83a57ee757cf076a99c85",
     "visibility": "",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversion2_still_exists_on_fail"
   },
@@ -620,7 +554,6 @@
     "body_start": 0,
     "brief_description": "",
     "component_id": null,
-    "compound_refid": "",
     "definition": "",
     "detailed_description": "",
     "doc_embedding": [],
@@ -632,14 +565,12 @@
     "line_number": null,
     "name": "version1_preserved_on_fail",
     "qualified_name": "MigrationManager::version1_preserved_on_fail",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "AttributeNode",
     "type_signature": "",
-    "uid": "ddc18b0965a6fe25e99d0fe126f3613045d07cd9",
     "visibility": "",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=MigrationManager%3A%3Aversion1_preserved_on_fail"
   },
@@ -657,7 +588,6 @@
             "body_start": 0,
             "brief_description": "Return the migration version number (pure virtual).",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -673,14 +603,12 @@
             "line_number": null,
             "name": "getVersion",
             "qualified_name": "cpp_sqlite::Migration::getVersion",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
             ],
             "type": "MethodNode",
             "type_signature": "virtual int getVersion() const = 0",
-            "uid": "29f67e1663a2461975a1072ff157b3e4320a8893",
             "visibility": "public",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=cpp_sqlite%3A%3AMigration%3A%3AgetVersion:canonical_signature=lang%3Acpp%7C%28%29"
           },
@@ -690,7 +618,6 @@
             "body_start": 0,
             "brief_description": "Apply the migration within a cpp-sqlite Transaction (pure virtual).",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -706,14 +633,12 @@
             "line_number": null,
             "name": "up",
             "qualified_name": "cpp_sqlite::Migration::up",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
             ],
             "type": "MethodNode",
             "type_signature": "virtual void up(cpp_sqlite::Transaction& transaction) = 0",
-            "uid": "6679261e94b4f04e6dc1bb2f0f333c8b48155dbb",
             "visibility": "public",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=cpp_sqlite%3A%3AMigration%3A%3Aup:canonical_signature=lang%3Acpp%7C%28Transaction%26%29"
           },
@@ -723,7 +648,6 @@
             "body_start": 0,
             "brief_description": "Roll back the migration within a cpp-sqlite Transaction (pure virtual).",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -739,14 +663,12 @@
             "line_number": null,
             "name": "down",
             "qualified_name": "cpp_sqlite::Migration::down",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
             ],
             "type": "MethodNode",
             "type_signature": "virtual void down(cpp_sqlite::Transaction& transaction) = 0",
-            "uid": "82f0e6095e0f9e068023169bd797e292a33394a2",
             "visibility": "public",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=cpp_sqlite%3A%3AMigration%3A%3Adown:canonical_signature=lang%3Acpp%7C%28Transaction%26%29"
           },
@@ -756,7 +678,6 @@
             "body_start": 0,
             "brief_description": "Virtual destructor so derived migrations are destroyed polymorphically.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -772,14 +693,12 @@
             "line_number": null,
             "name": "~Migration",
             "qualified_name": "cpp_sqlite::Migration::~Migration",
-            "refid": "",
             "source": "cpp_sqlite",
             "tags": [
               "design"
             ],
             "type": "MethodNode",
             "type_signature": "virtual ~Migration() = default",
-            "uid": "1b329d0b0a2052d30a3202d47709507dcb86d215",
             "visibility": "public",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=cpp_sqlite%3A%3AMigration%3A%3A~Migration:canonical_signature=lang%3Acpp%7Cdestructor%7C%28%29"
           }
@@ -802,14 +721,12 @@
         "module": "",
         "name": "Migration",
         "qualified_name": "cpp_sqlite::Migration",
-        "refid": "",
         "source": "markdown-import",
         "source_type": "",
         "tags": [
           "design"
         ],
         "type": "ClassNode",
-        "uid": "b9212531b58fb98bf3a8277b8630bf06a29a4e7d",
         "visibility": "",
         "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3AMigration"
       },
@@ -828,7 +745,6 @@
                 "body_start": 0,
                 "brief_description": "Whether the operation succeeded.",
                 "component_id": null,
-                "compound_refid": "",
                 "definition": "",
                 "detailed_description": "",
                 "doc_embedding": [],
@@ -840,14 +756,12 @@
                 "line_number": null,
                 "name": "success",
                 "qualified_name": "cpp_sqlite::MigrationResult::success",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AttributeNode",
                 "type_signature": "bool",
-                "uid": "eb894fad73fc7f70810146b9f22b0b5b43e6cebe",
                 "visibility": "public",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3AMigrationResult%3A%3Asuccess"
               },
@@ -856,7 +770,6 @@
                 "body_start": 0,
                 "brief_description": "Error code (Success on success).",
                 "component_id": null,
-                "compound_refid": "",
                 "definition": "",
                 "detailed_description": "",
                 "doc_embedding": [],
@@ -868,14 +781,12 @@
                 "line_number": null,
                 "name": "error",
                 "qualified_name": "cpp_sqlite::MigrationResult::error",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AttributeNode",
                 "type_signature": "cpp_sqlite::MigrationErrorCode",
-                "uid": "015dd44375d42e36a31cc8ac77537eb03f222ee2",
                 "visibility": "public",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3AMigrationResult%3A%3Aerror"
               }
@@ -903,14 +814,12 @@
             "module": "",
             "name": "MigrationResult",
             "qualified_name": "cpp_sqlite::MigrationResult",
-            "refid": "",
             "source": "markdown-import",
             "source_type": "",
             "tags": [
               "design"
             ],
             "type": "ClassNode",
-            "uid": "88cca5e78a9de7e712e125fecdbb9daa3ef774f1",
             "visibility": "",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3AMigrationResult"
           },
@@ -929,7 +838,6 @@
                     "body_start": 0,
                     "brief_description": "The migration version this mismatch relates to.",
                     "component_id": null,
-                    "compound_refid": "",
                     "definition": "",
                     "detailed_description": "",
                     "doc_embedding": [],
@@ -941,14 +849,12 @@
                     "line_number": null,
                     "name": "version",
                     "qualified_name": "cpp_sqlite::SchemaMismatch::version",
-                    "refid": "",
                     "source": "markdown-import",
                     "tags": [
                       "design"
                     ],
                     "type": "AttributeNode",
                     "type_signature": "int",
-                    "uid": "0cf7896bf187e53d307a80a6e0171e6c89f62b5b",
                     "visibility": "public",
                     "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaMismatch%3A%3Aversion"
                   },
@@ -957,7 +863,6 @@
                     "body_start": 0,
                     "brief_description": "What kind of drift was detected.",
                     "component_id": null,
-                    "compound_refid": "",
                     "definition": "",
                     "detailed_description": "",
                     "doc_embedding": [],
@@ -969,14 +874,12 @@
                     "line_number": null,
                     "name": "kind",
                     "qualified_name": "cpp_sqlite::SchemaMismatch::kind",
-                    "refid": "",
                     "source": "markdown-import",
                     "tags": [
                       "design"
                     ],
                     "type": "AttributeNode",
                     "type_signature": "cpp_sqlite::MismatchKind",
-                    "uid": "cfee220e7835e4276fb981783d22ac1f829aa992",
                     "visibility": "public",
                     "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaMismatch%3A%3Akind"
                   },
@@ -985,7 +888,6 @@
                     "body_start": 0,
                     "brief_description": "Human-readable description of the mismatch.",
                     "component_id": null,
-                    "compound_refid": "",
                     "definition": "",
                     "detailed_description": "",
                     "doc_embedding": [],
@@ -997,14 +899,12 @@
                     "line_number": null,
                     "name": "detail",
                     "qualified_name": "cpp_sqlite::SchemaMismatch::detail",
-                    "refid": "",
                     "source": "markdown-import",
                     "tags": [
                       "design"
                     ],
                     "type": "AttributeNode",
                     "type_signature": "std::string",
-                    "uid": "941bb3c1c67c085054ec3668ae83b864fcfb8d24",
                     "visibility": "public",
                     "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaMismatch%3A%3Adetail"
                   }
@@ -1032,14 +932,12 @@
                 "module": "",
                 "name": "SchemaMismatch",
                 "qualified_name": "cpp_sqlite::SchemaMismatch",
-                "refid": "",
                 "source": "markdown-import",
                 "source_type": "",
                 "tags": [
                   "design"
                 ],
                 "type": "ClassNode",
-                "uid": "f9662d8539e788f8330c4b8cc85e69f9edaa49c6",
                 "visibility": "",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3ASchemaMismatch"
               },
@@ -1048,7 +946,6 @@
                 "body_start": 0,
                 "brief_description": "Detected schema mismatches (empty if consistent).",
                 "component_id": null,
-                "compound_refid": "",
                 "definition": "",
                 "detailed_description": "",
                 "doc_embedding": [],
@@ -1060,14 +957,12 @@
                 "line_number": null,
                 "name": "mismatches",
                 "qualified_name": "cpp_sqlite::SchemaVerificationResult::mismatches",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AttributeNode",
                 "type_signature": "std::vector<cpp_sqlite::SchemaMismatch>",
-                "uid": "1200cc165e968003d649875a2b29fa7d406c0e77",
                 "visibility": "public",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaVerificationResult%3A%3Amismatches"
               },
@@ -1076,7 +971,6 @@
                 "body_start": 0,
                 "brief_description": "True if no mismatches were found.",
                 "component_id": null,
-                "compound_refid": "",
                 "definition": "",
                 "detailed_description": "",
                 "doc_embedding": [],
@@ -1088,14 +982,12 @@
                 "line_number": null,
                 "name": "is_consistent",
                 "qualified_name": "cpp_sqlite::SchemaVerificationResult::is_consistent",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AttributeNode",
                 "type_signature": "bool",
-                "uid": "9e701e92190567100a303f40681d52912284a1ba",
                 "visibility": "public",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaVerificationResult%3A%3Ais_consistent"
               }
@@ -1123,14 +1015,12 @@
             "module": "",
             "name": "SchemaVerificationResult",
             "qualified_name": "cpp_sqlite::SchemaVerificationResult",
-            "refid": "",
             "source": "markdown-import",
             "source_type": "",
             "tags": [
               "design"
             ],
             "type": "ClassNode",
-            "uid": "dadd4ca4efa858d7b73d7613274a871e1c0b3b61",
             "visibility": "",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3ASchemaVerificationResult"
           },
@@ -1140,7 +1030,6 @@
             "body_start": 0,
             "brief_description": "Register a migration. Duplicate versions return MigrationErrorCode::DuplicateVersion.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1156,14 +1045,12 @@
             "line_number": null,
             "name": "register_migration",
             "qualified_name": "cpp_sqlite::MigrationManager::register_migration",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
             ],
             "type": "MethodNode",
             "type_signature": "MigrationResult register_migration(std::unique_ptr<cpp_sqlite::Migration> migration)",
-            "uid": "caafe196f2f2324e182b00551f20547456690de6",
             "visibility": "public",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Aregister_migration:canonical_signature=lang%3Acpp%7C%28std%3A%3Aunique_ptr%3CMigration%3E%29"
           },
@@ -1173,7 +1060,6 @@
             "body_start": 0,
             "brief_description": "Apply all unapplied migrations in version order, each in its own committed Transaction. Creates schema_versions table on first call. Failing migration rolls back only that migration's Transaction.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1189,14 +1075,12 @@
             "line_number": null,
             "name": "apply",
             "qualified_name": "cpp_sqlite::MigrationManager::apply",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
             ],
             "type": "MethodNode",
             "type_signature": "MigrationResult apply()",
-            "uid": "824b89a53334811e4c7894a7814824476b436d71",
             "visibility": "public",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Aapply:canonical_signature=lang%3Acpp%7C%28%29"
           },
@@ -1206,7 +1090,6 @@
             "body_start": 0,
             "brief_description": "Roll back migrations above target version in descending order, each in its own Transaction. Returns MigrationErrorCode::VersionNotFound if target matches no migration, MigrationErrorCode::NotInitialized if schema_versions is empty. Idempotent.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1222,14 +1105,12 @@
             "line_number": null,
             "name": "rollback",
             "qualified_name": "cpp_sqlite::MigrationManager::rollback",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
             ],
             "type": "MethodNode",
             "type_signature": "MigrationResult rollback(int target_version)",
-            "uid": "475d6362a76e67d0e47ebb098e100afbb235f58b",
             "visibility": "public",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Arollback:canonical_signature=lang%3Acpp%7C%28int%29"
           },
@@ -1239,7 +1120,6 @@
             "body_start": 0,
             "brief_description": "Compute SHA-256 checksum of live schema via sqlite_master and compare against the stored checksum of the highest applied SchemaVersion. Returns mismatches if they differ.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1255,14 +1135,12 @@
             "line_number": null,
             "name": "verify",
             "qualified_name": "cpp_sqlite::MigrationManager::verify",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
             ],
             "type": "MethodNode",
             "type_signature": "SchemaVerificationResult verify()",
-            "uid": "8278c352841b5b7195ab919c5a34fc88e5b71fd0",
             "visibility": "public",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Averify:canonical_signature=lang%3Acpp%7C%28%29"
           },
@@ -1272,7 +1150,6 @@
             "body_start": 0,
             "brief_description": "Construct with a reference to the cpp_sqlite Database to manage.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1288,14 +1165,12 @@
             "line_number": null,
             "name": "MigrationManager",
             "qualified_name": "cpp_sqlite::MigrationManager::MigrationManager",
-            "refid": "",
             "source": "cpp_sqlite",
             "tags": [
               "design"
             ],
             "type": "MethodNode",
             "type_signature": "MigrationManager(cpp_sqlite::Database& db)",
-            "uid": "b8238fc2cde888fd4f256f47a852d217b6b1f95e",
             "visibility": "public",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3AMigrationManager:canonical_signature=lang%3Acpp%7Cconstructor%7C%28%29"
           },
@@ -1305,7 +1180,6 @@
             "body_start": 0,
             "brief_description": "Create the schema_versions tracking table if it does not exist.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1321,14 +1195,12 @@
             "line_number": null,
             "name": "ensure_schema_versions_table",
             "qualified_name": "cpp_sqlite::MigrationManager::ensure_schema_versions_table",
-            "refid": "",
             "source": "cpp_sqlite",
             "tags": [
               "design"
             ],
             "type": "MethodNode",
             "type_signature": "void ensure_schema_versions_table()",
-            "uid": "1e30fdfa2e3514bac081e6406b53cb235a28dacb",
             "visibility": "private",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Aensure_schema_versions_table:canonical_signature=lang%3Acpp%7C%28%29"
           },
@@ -1338,7 +1210,6 @@
             "body_start": 0,
             "brief_description": "Read applied migrations from the schema_versions tracking table.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1354,14 +1225,12 @@
             "line_number": null,
             "name": "load_applied_versions",
             "qualified_name": "cpp_sqlite::MigrationManager::load_applied_versions",
-            "refid": "",
             "source": "cpp_sqlite",
             "tags": [
               "design"
             ],
             "type": "MethodNode",
             "type_signature": "std::vector<cpp_sqlite::SchemaVersion> load_applied_versions()",
-            "uid": "b63ccac33683acbf287c12a8be9034286a616fd8",
             "visibility": "private",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Aload_applied_versions:canonical_signature=lang%3Acpp%7C%28%29"
           },
@@ -1371,7 +1240,6 @@
             "body_start": 0,
             "brief_description": "Compute SHA-256 over the concatenated sqlite_master SQL of the live schema.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1387,14 +1255,12 @@
             "line_number": null,
             "name": "compute_schema_checksum",
             "qualified_name": "cpp_sqlite::MigrationManager::compute_schema_checksum",
-            "refid": "",
             "source": "cpp_sqlite",
             "tags": [
               "design"
             ],
             "type": "MethodNode",
             "type_signature": "std::string compute_schema_checksum()",
-            "uid": "efd3e73cf5a436b8a27e9b5c32d774aadf4abf65",
             "visibility": "private",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:method:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Acompute_schema_checksum:canonical_signature=lang%3Acpp%7C%28%29"
           },
@@ -1403,7 +1269,6 @@
             "body_start": 0,
             "brief_description": "Reference to the managed cpp_sqlite Database.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1415,14 +1280,12 @@
             "line_number": null,
             "name": "db_",
             "qualified_name": "cpp_sqlite::MigrationManager::db_",
-            "refid": "",
             "source": "cpp_sqlite",
             "tags": [
               "design"
             ],
             "type": "AttributeNode",
             "type_signature": "cpp_sqlite::Database&",
-            "uid": "23e3c5c965df2c15afb9b0efc7df3ab9c2f97a47",
             "visibility": "private",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Adb_"
           },
@@ -1431,7 +1294,6 @@
             "body_start": 0,
             "brief_description": "Registered migrations kept in ascending version order.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1443,14 +1305,12 @@
             "line_number": null,
             "name": "migrations_",
             "qualified_name": "cpp_sqlite::MigrationManager::migrations_",
-            "refid": "",
             "source": "cpp_sqlite",
             "tags": [
               "design"
             ],
             "type": "AttributeNode",
             "type_signature": "std::vector<std::unique_ptr<cpp_sqlite::Migration>>",
-            "uid": "61bb83209b4cd7a432073e5ef5740e4442e48f81",
             "visibility": "private",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Amigrations_"
           },
@@ -1459,7 +1319,6 @@
             "body_start": 0,
             "brief_description": "In-memory view of the schema_versions tracking table (version, applied_at, checksum).",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1471,14 +1330,12 @@
             "line_number": null,
             "name": "schema_versions_",
             "qualified_name": "cpp_sqlite::MigrationManager::schema_versions_",
-            "refid": "",
             "source": "cpp_sqlite",
             "tags": [
               "design"
             ],
             "type": "AttributeNode",
             "type_signature": "std::vector<cpp_sqlite::SchemaVersion>",
-            "uid": "42c8603619d61cb3d8a4e4bd53ceccb82658488a",
             "visibility": "private",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3AMigrationManager%3A%3Aschema_versions_"
           }
@@ -1551,14 +1408,12 @@
         "module": "",
         "name": "MigrationManager",
         "qualified_name": "cpp_sqlite::MigrationManager",
-        "refid": "",
         "source": "markdown-import",
         "source_type": "",
         "tags": [
           "design"
         ],
         "type": "ClassNode",
-        "uid": "770b4b285466feafcd8a61cc55b815499920daad",
         "visibility": "",
         "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3AMigrationManager"
       },
@@ -1572,7 +1427,6 @@
             "body_start": 0,
             "brief_description": "Migration version number.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1584,14 +1438,12 @@
             "line_number": null,
             "name": "version",
             "qualified_name": "cpp_sqlite::SchemaVersion::version",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
             ],
             "type": "AttributeNode",
             "type_signature": "int",
-            "uid": "cb636bd059170ae0c634a25a000a5236adcd39e4",
             "visibility": "public",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaVersion%3A%3Aversion"
           },
@@ -1600,7 +1452,6 @@
             "body_start": 0,
             "brief_description": "ISO 8601 timestamp of application.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1612,14 +1463,12 @@
             "line_number": null,
             "name": "applied_at",
             "qualified_name": "cpp_sqlite::SchemaVersion::applied_at",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
             ],
             "type": "AttributeNode",
             "type_signature": "std::string",
-            "uid": "0ae6f5997f08ce296414d248f77e2d2bf12cae5f",
             "visibility": "public",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaVersion%3A%3Aapplied_at"
           },
@@ -1628,7 +1477,6 @@
             "body_start": 0,
             "brief_description": "SHA-256 hash of the database schema (sqlite_master SQL concatenation) after applying this migration.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1640,14 +1488,12 @@
             "line_number": null,
             "name": "checksum",
             "qualified_name": "cpp_sqlite::SchemaVersion::checksum",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
             ],
             "type": "AttributeNode",
             "type_signature": "std::string",
-            "uid": "be17162f3b1b4b3ba7f456f64b4e116246cde913",
             "visibility": "public",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaVersion%3A%3Achecksum"
           }
@@ -1664,14 +1510,12 @@
         "module": "",
         "name": "SchemaVersion",
         "qualified_name": "cpp_sqlite::SchemaVersion",
-        "refid": "",
         "source": "markdown-import",
         "source_type": "",
         "tags": [
           "design"
         ],
         "type": "ClassNode",
-        "uid": "26d4c7f84a47a5e784f347a8f9c1d2a316aec1ba",
         "visibility": "",
         "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3ASchemaVersion"
       },
@@ -1685,7 +1529,6 @@
             "body_start": 0,
             "brief_description": "Whether the operation succeeded.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1697,14 +1540,12 @@
             "line_number": null,
             "name": "success",
             "qualified_name": "cpp_sqlite::MigrationResult::success",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
             ],
             "type": "AttributeNode",
             "type_signature": "bool",
-            "uid": "eb894fad73fc7f70810146b9f22b0b5b43e6cebe",
             "visibility": "public",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3AMigrationResult%3A%3Asuccess"
           },
@@ -1713,7 +1554,6 @@
             "body_start": 0,
             "brief_description": "Error code (Success on success).",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1725,14 +1565,12 @@
             "line_number": null,
             "name": "error",
             "qualified_name": "cpp_sqlite::MigrationResult::error",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
             ],
             "type": "AttributeNode",
             "type_signature": "cpp_sqlite::MigrationErrorCode",
-            "uid": "015dd44375d42e36a31cc8ac77537eb03f222ee2",
             "visibility": "public",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3AMigrationResult%3A%3Aerror"
           }
@@ -1760,14 +1598,12 @@
         "module": "",
         "name": "MigrationResult",
         "qualified_name": "cpp_sqlite::MigrationResult",
-        "refid": "",
         "source": "markdown-import",
         "source_type": "",
         "tags": [
           "design"
         ],
         "type": "ClassNode",
-        "uid": "88cca5e78a9de7e712e125fecdbb9daa3ef774f1",
         "visibility": "",
         "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3AMigrationResult"
       },
@@ -1781,7 +1617,6 @@
             "body_start": 0,
             "brief_description": "The migration version this mismatch relates to.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1793,14 +1628,12 @@
             "line_number": null,
             "name": "version",
             "qualified_name": "cpp_sqlite::SchemaMismatch::version",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
             ],
             "type": "AttributeNode",
             "type_signature": "int",
-            "uid": "0cf7896bf187e53d307a80a6e0171e6c89f62b5b",
             "visibility": "public",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaMismatch%3A%3Aversion"
           },
@@ -1809,7 +1642,6 @@
             "body_start": 0,
             "brief_description": "What kind of drift was detected.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1821,14 +1653,12 @@
             "line_number": null,
             "name": "kind",
             "qualified_name": "cpp_sqlite::SchemaMismatch::kind",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
             ],
             "type": "AttributeNode",
             "type_signature": "cpp_sqlite::MismatchKind",
-            "uid": "cfee220e7835e4276fb981783d22ac1f829aa992",
             "visibility": "public",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaMismatch%3A%3Akind"
           },
@@ -1837,7 +1667,6 @@
             "body_start": 0,
             "brief_description": "Human-readable description of the mismatch.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -1849,14 +1678,12 @@
             "line_number": null,
             "name": "detail",
             "qualified_name": "cpp_sqlite::SchemaMismatch::detail",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
             ],
             "type": "AttributeNode",
             "type_signature": "std::string",
-            "uid": "941bb3c1c67c085054ec3668ae83b864fcfb8d24",
             "visibility": "public",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaMismatch%3A%3Adetail"
           }
@@ -1884,14 +1711,12 @@
         "module": "",
         "name": "SchemaMismatch",
         "qualified_name": "cpp_sqlite::SchemaMismatch",
-        "refid": "",
         "source": "markdown-import",
         "source_type": "",
         "tags": [
           "design"
         ],
         "type": "ClassNode",
-        "uid": "f9662d8539e788f8330c4b8cc85e69f9edaa49c6",
         "visibility": "",
         "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3ASchemaMismatch"
       },
@@ -1910,7 +1735,6 @@
                 "body_start": 0,
                 "brief_description": "The migration version this mismatch relates to.",
                 "component_id": null,
-                "compound_refid": "",
                 "definition": "",
                 "detailed_description": "",
                 "doc_embedding": [],
@@ -1922,14 +1746,12 @@
                 "line_number": null,
                 "name": "version",
                 "qualified_name": "cpp_sqlite::SchemaMismatch::version",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AttributeNode",
                 "type_signature": "int",
-                "uid": "0cf7896bf187e53d307a80a6e0171e6c89f62b5b",
                 "visibility": "public",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaMismatch%3A%3Aversion"
               },
@@ -1938,7 +1760,6 @@
                 "body_start": 0,
                 "brief_description": "What kind of drift was detected.",
                 "component_id": null,
-                "compound_refid": "",
                 "definition": "",
                 "detailed_description": "",
                 "doc_embedding": [],
@@ -1950,14 +1771,12 @@
                 "line_number": null,
                 "name": "kind",
                 "qualified_name": "cpp_sqlite::SchemaMismatch::kind",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AttributeNode",
                 "type_signature": "cpp_sqlite::MismatchKind",
-                "uid": "cfee220e7835e4276fb981783d22ac1f829aa992",
                 "visibility": "public",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaMismatch%3A%3Akind"
               },
@@ -1966,7 +1785,6 @@
                 "body_start": 0,
                 "brief_description": "Human-readable description of the mismatch.",
                 "component_id": null,
-                "compound_refid": "",
                 "definition": "",
                 "detailed_description": "",
                 "doc_embedding": [],
@@ -1978,14 +1796,12 @@
                 "line_number": null,
                 "name": "detail",
                 "qualified_name": "cpp_sqlite::SchemaMismatch::detail",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AttributeNode",
                 "type_signature": "std::string",
-                "uid": "941bb3c1c67c085054ec3668ae83b864fcfb8d24",
                 "visibility": "public",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaMismatch%3A%3Adetail"
               }
@@ -2013,14 +1829,12 @@
             "module": "",
             "name": "SchemaMismatch",
             "qualified_name": "cpp_sqlite::SchemaMismatch",
-            "refid": "",
             "source": "markdown-import",
             "source_type": "",
             "tags": [
               "design"
             ],
             "type": "ClassNode",
-            "uid": "f9662d8539e788f8330c4b8cc85e69f9edaa49c6",
             "visibility": "",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3ASchemaMismatch"
           },
@@ -2029,7 +1843,6 @@
             "body_start": 0,
             "brief_description": "Detected schema mismatches (empty if consistent).",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -2041,14 +1854,12 @@
             "line_number": null,
             "name": "mismatches",
             "qualified_name": "cpp_sqlite::SchemaVerificationResult::mismatches",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
             ],
             "type": "AttributeNode",
             "type_signature": "std::vector<cpp_sqlite::SchemaMismatch>",
-            "uid": "1200cc165e968003d649875a2b29fa7d406c0e77",
             "visibility": "public",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaVerificationResult%3A%3Amismatches"
           },
@@ -2057,7 +1868,6 @@
             "body_start": 0,
             "brief_description": "True if no mismatches were found.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -2069,14 +1879,12 @@
             "line_number": null,
             "name": "is_consistent",
             "qualified_name": "cpp_sqlite::SchemaVerificationResult::is_consistent",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
             ],
             "type": "AttributeNode",
             "type_signature": "bool",
-            "uid": "9e701e92190567100a303f40681d52912284a1ba",
             "visibility": "public",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:attribute:qualified_name=cpp_sqlite%3A%3ASchemaVerificationResult%3A%3Ais_consistent"
           }
@@ -2104,14 +1912,12 @@
         "module": "",
         "name": "SchemaVerificationResult",
         "qualified_name": "cpp_sqlite::SchemaVerificationResult",
-        "refid": "",
         "source": "markdown-import",
         "source_type": "",
         "tags": [
           "design"
         ],
         "type": "ClassNode",
-        "uid": "dadd4ca4efa858d7b73d7613274a871e1c0b3b61",
         "visibility": "",
         "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3ASchemaVerificationResult"
       },
@@ -2124,7 +1930,6 @@
             "body_start": 0,
             "brief_description": "Operation completed successfully.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -2134,13 +1939,11 @@
             "line_number": null,
             "name": "Success",
             "qualified_name": "cpp_sqlite::MigrationErrorCode::Success",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
             ],
             "type": "EnumValueNode",
-            "uid": "7a8431a81e16495ab89a7f4e13ad0f46c76b7f90",
             "visibility": "",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:enum-value:qualified_name=cpp_sqlite%3A%3AMigrationErrorCode%3A%3ASuccess"
           },
@@ -2149,7 +1952,6 @@
             "body_start": 0,
             "brief_description": "A migration with this version is already registered.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -2159,13 +1961,11 @@
             "line_number": null,
             "name": "DuplicateVersion",
             "qualified_name": "cpp_sqlite::MigrationErrorCode::DuplicateVersion",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
             ],
             "type": "EnumValueNode",
-            "uid": "a8ac562a12ec9356b94d0bf7b883c169f913ea40",
             "visibility": "",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:enum-value:qualified_name=cpp_sqlite%3A%3AMigrationErrorCode%3A%3ADuplicateVersion"
           },
@@ -2174,7 +1974,6 @@
             "body_start": 0,
             "brief_description": "A migration's up() method threw an exception.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -2184,13 +1983,11 @@
             "line_number": null,
             "name": "MigrationFailed",
             "qualified_name": "cpp_sqlite::MigrationErrorCode::MigrationFailed",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
             ],
             "type": "EnumValueNode",
-            "uid": "231f6fa1c6f2384b53a00dcb87a9b4c0b79e5bc8",
             "visibility": "",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:enum-value:qualified_name=cpp_sqlite%3A%3AMigrationErrorCode%3A%3AMigrationFailed"
           },
@@ -2199,7 +1996,6 @@
             "body_start": 0,
             "brief_description": "A migration's down() method threw an exception.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -2209,13 +2005,11 @@
             "line_number": null,
             "name": "RollbackFailed",
             "qualified_name": "cpp_sqlite::MigrationErrorCode::RollbackFailed",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
             ],
             "type": "EnumValueNode",
-            "uid": "331cf2fe4647943437ba5ae0deb43f75b1df5bb6",
             "visibility": "",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:enum-value:qualified_name=cpp_sqlite%3A%3AMigrationErrorCode%3A%3ARollbackFailed"
           },
@@ -2224,7 +2018,6 @@
             "body_start": 0,
             "brief_description": "Target version does not match any registered migration.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -2234,13 +2027,11 @@
             "line_number": null,
             "name": "VersionNotFound",
             "qualified_name": "cpp_sqlite::MigrationErrorCode::VersionNotFound",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
             ],
             "type": "EnumValueNode",
-            "uid": "cfc95af65955d382972cfab6b604522d58635d3c",
             "visibility": "",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:enum-value:qualified_name=cpp_sqlite%3A%3AMigrationErrorCode%3A%3AVersionNotFound"
           },
@@ -2249,7 +2040,6 @@
             "body_start": 0,
             "brief_description": "No migrations have been applied (schema_versions is empty).",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -2259,13 +2049,11 @@
             "line_number": null,
             "name": "NotInitialized",
             "qualified_name": "cpp_sqlite::MigrationErrorCode::NotInitialized",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
             ],
             "type": "EnumValueNode",
-            "uid": "0d43ce408285675cda18db3584e9c13ac24391ba",
             "visibility": "",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:enum-value:qualified_name=cpp_sqlite%3A%3AMigrationErrorCode%3A%3ANotInitialized"
           }
@@ -2280,14 +2068,12 @@
         "module": "",
         "name": "MigrationErrorCode",
         "qualified_name": "cpp_sqlite::MigrationErrorCode",
-        "refid": "",
         "source": "markdown-import",
         "source_type": "",
         "tags": [
           "design"
         ],
         "type": "EnumNode",
-        "uid": "b558c70b4289ab6e5bd6d15f9a8943d3f133d334",
         "visibility": "",
         "canonical_key": "cg:v1:repository:fixture%2Ffixture:enum:qualified_name=cpp_sqlite%3A%3AMigrationErrorCode"
       },
@@ -2300,7 +2086,6 @@
             "body_start": 0,
             "brief_description": "A table expected by the migration does not exist.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -2310,13 +2095,11 @@
             "line_number": null,
             "name": "MissingTable",
             "qualified_name": "cpp_sqlite::MismatchKind::MissingTable",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
             ],
             "type": "EnumValueNode",
-            "uid": "a54e289352088b3d7361a038c1bef238e3d9c874",
             "visibility": "",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:enum-value:qualified_name=cpp_sqlite%3A%3AMismatchKind%3A%3AMissingTable"
           },
@@ -2325,7 +2108,6 @@
             "body_start": 0,
             "brief_description": "A table exists that is not expected by any migration.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -2335,13 +2117,11 @@
             "line_number": null,
             "name": "ExtraTable",
             "qualified_name": "cpp_sqlite::MismatchKind::ExtraTable",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
             ],
             "type": "EnumValueNode",
-            "uid": "7f1af50e4937065e2613dd695e7e5c9124823805",
             "visibility": "",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:enum-value:qualified_name=cpp_sqlite%3A%3AMismatchKind%3A%3AExtraTable"
           },
@@ -2350,7 +2130,6 @@
             "body_start": 0,
             "brief_description": "A column definition differs from the expected schema.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -2360,13 +2139,11 @@
             "line_number": null,
             "name": "ColumnDifference",
             "qualified_name": "cpp_sqlite::MismatchKind::ColumnDifference",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
             ],
             "type": "EnumValueNode",
-            "uid": "0f2ff146272407930c47e7c2a0920c1cf8a5ae99",
             "visibility": "",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:enum-value:qualified_name=cpp_sqlite%3A%3AMismatchKind%3A%3AColumnDifference"
           },
@@ -2375,7 +2152,6 @@
             "body_start": 0,
             "brief_description": "Live schema checksum does not match the stored checksum.",
             "component_id": null,
-            "compound_refid": "",
             "definition": "",
             "detailed_description": "",
             "doc_embedding": [],
@@ -2385,13 +2161,11 @@
             "line_number": null,
             "name": "ChecksumMismatch",
             "qualified_name": "cpp_sqlite::MismatchKind::ChecksumMismatch",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
             ],
             "type": "EnumValueNode",
-            "uid": "90987d3cb462d53e97e437b9c3655cc89454a4c9",
             "visibility": "",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:enum-value:qualified_name=cpp_sqlite%3A%3AMismatchKind%3A%3AChecksumMismatch"
           }
@@ -2406,14 +2180,12 @@
         "module": "",
         "name": "MismatchKind",
         "qualified_name": "cpp_sqlite::MismatchKind",
-        "refid": "",
         "source": "markdown-import",
         "source_type": "",
         "tags": [
           "design"
         ],
         "type": "EnumNode",
-        "uid": "e87800f3a6464d347ce338581076eb1842951285",
         "visibility": "",
         "canonical_key": "cg:v1:repository:fixture%2Ffixture:enum:qualified_name=cpp_sqlite%3A%3AMismatchKind"
       }
@@ -2423,13 +2195,11 @@
     "kind": "namespace",
     "name": "cpp_sqlite",
     "qualified_name": "cpp_sqlite",
-    "refid": "namespacecpp__sqlite",
     "source": "cpp_sqlite",
     "tags": [
       "design"
     ],
     "type": "NamespaceNode",
-    "uid": "90da100e7fd16fbc6942c6068ff6f305ab02ab69",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:namespace:qualified_name=cpp_sqlite"
   },
   {
@@ -2439,13 +2209,11 @@
     "kind": "literal",
     "name": "true",
     "qualified_name": "literal::true",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "LiteralNode",
-    "uid": "94246dd625a7addc2b60aff9926573c10385306d",
     "value": "true",
     "value_type": "boolean",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3Atrue"
@@ -2457,13 +2225,11 @@
     "kind": "literal",
     "name": "1",
     "qualified_name": "literal::1",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "LiteralNode",
-    "uid": "ed69f003c463d0e9f09369ec9886ac4886bc06e6",
     "value": "1",
     "value_type": "int",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3A1"
@@ -2475,13 +2241,11 @@
     "kind": "literal",
     "name": "3",
     "qualified_name": "literal::3",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "LiteralNode",
-    "uid": "a10b9c0f15463837610d18567f8bce335d85cbb8",
     "value": "3",
     "value_type": "int",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3A3"
@@ -2493,13 +2257,11 @@
     "kind": "literal",
     "name": "false",
     "qualified_name": "literal::false",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "LiteralNode",
-    "uid": "50e8ec71e5657068e56386cf88072d769cfa5de5",
     "value": "false",
     "value_type": "boolean",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3Afalse"
@@ -2511,13 +2273,11 @@
     "kind": "literal",
     "name": "0",
     "qualified_name": "literal::0",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "design"
     ],
     "type": "LiteralNode",
-    "uid": "bbde3e0a8d001f3ed9af55c6d1caf739a01d49e3",
     "value": "0",
     "value_type": "int",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:literal:qualified_name=literal%3A%3A0"
@@ -2538,12 +2298,10 @@
     "module": "cpp_sqlite",
     "name": "Transaction",
     "qualified_name": "cpp_sqlite::Transaction",
-    "refid": "classcpp__sqlite_1_1_transaction",
     "source": "cpp_sqlite",
     "source_type": "header",
     "tags": [],
     "type": "ClassNode",
-    "uid": "523e24d119bc34003dc1dcecb3cd55b96f38a9e8",
     "visibility": "",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3ATransaction"
   },
@@ -2563,12 +2321,10 @@
     "module": "cpp_sqlite",
     "name": "Database",
     "qualified_name": "cpp_sqlite::Database",
-    "refid": "classcpp__sqlite_1_1_database",
     "source": "cpp_sqlite",
     "source_type": "header",
     "tags": [],
     "type": "ClassNode",
-    "uid": "b927d76a5a666d19ca90f227d5edf5bb4904f7b7",
     "visibility": "",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=cpp_sqlite%3A%3ADatabase"
   },
@@ -2591,14 +2347,12 @@
         "module": "std",
         "name": "unique_ptr",
         "qualified_name": "std::unique_ptr",
-        "refid": "cppreference:cpp/memory/unique_ptr",
         "source": "cppreference",
         "source_type": "header",
         "tags": [
           "dependency"
         ],
         "type": "ClassNode",
-        "uid": "93eb7592f33af1212c93227f9214fdf1610fc310",
         "visibility": "",
         "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=std%3A%3Aunique_ptr"
       },
@@ -2618,14 +2372,12 @@
         "module": "std",
         "name": "vector",
         "qualified_name": "std::vector",
-        "refid": "cppreference:cpp/container/vector",
         "source": "cppreference",
         "source_type": "header",
         "tags": [
           "dependency"
         ],
         "type": "ClassNode",
-        "uid": "8603e29fe52aa90c05a1d73f60227c1567b9fc8a",
         "visibility": "",
         "canonical_key": "cg:v1:repository:fixture%2Ffixture:class:qualified_name=std%3A%3Avector"
       }
@@ -2635,13 +2387,11 @@
     "kind": "namespace",
     "name": "std",
     "qualified_name": "std",
-    "refid": "namespacestd",
     "source": "cpp-sqlite",
     "tags": [
       "as-built"
     ],
     "type": "NamespaceNode",
-    "uid": "c3eaea02b6b5c72455bb8d160aa3c3ec74d74f78",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:namespace:qualified_name=std"
   },
   {
@@ -2670,13 +2420,11 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::reg_dup_error_is_duplicate",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "edc1eaa0df2ae9eddd2780bcbb46540d96594bd0",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Areg_dup_error_is_duplicate"
               },
               {
@@ -2699,13 +2447,11 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::reg_dup_original_retained",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "53d52d71c4a59357d82457b472360e8abff1f271",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Areg_dup_original_retained"
               },
               {
@@ -2728,13 +2474,11 @@
                 "order": "0",
                 "phase": "pre",
                 "qualified_name": "cond::pre::reg_dup_first_migration_registered",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "1a8f00272c1688c3805cd936fac2d0fc98267033",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apre%3A%3Areg_dup_first_migration_registered"
               },
               {
@@ -2746,13 +2490,11 @@
                 "name": "reg_dup_invoke_register_second",
                 "order": "0",
                 "qualified_name": "step::reg_dup_invoke_register_second",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "6c631ae302ed7d95583fa95a73b6d425df0ff022",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Areg_dup_invoke_register_second"
               },
               {
@@ -2764,13 +2506,11 @@
                 "name": "reg_dup_invoke_register_first",
                 "order": "0",
                 "qualified_name": "step::reg_dup_invoke_register_first",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "d92af71e88d7c089d3e82c49e96755457478b401",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Areg_dup_invoke_register_first"
               }
             ],
@@ -2783,7 +2523,6 @@
             "method": "automated",
             "name": "test_duplicate_version_rejected",
             "qualified_name": "vm::migration_registration::test_duplicate_version_rejected",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -2791,7 +2530,6 @@
             "test_module": "",
             "test_name": "test_register_migration_rejects_duplicate_version",
             "type": "TestNode",
-            "uid": "ca8394587618be93a4f1776d275338559bdf192e",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:test:parent_key=cg%3Av1%3Aroot:qualified_name=vm%3A%3Amigration_registration%3A%3Atest_duplicate_version_rejected"
           },
           {
@@ -2816,13 +2554,11 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::reg_sort_order_correct",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "5a8f0ad83674a385d2bf0f08dd47f548cbc37f68",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Areg_sort_order_correct"
               },
               {
@@ -2845,13 +2581,11 @@
                 "order": "0",
                 "phase": "pre",
                 "qualified_name": "cond::pre::reg_sort_no_migrations",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "cd4fbf56566e1e97c0449c81f224406b88b24d3d",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apre%3A%3Areg_sort_no_migrations"
               },
               {
@@ -2863,13 +2597,11 @@
                 "name": "reg_sort_register_three",
                 "order": "0",
                 "qualified_name": "step::reg_sort_register_three",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "057270d71fd0556a43e8558151aa2cfedaeccf0b",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Areg_sort_register_three"
               }
             ],
@@ -2882,7 +2614,6 @@
             "method": "automated",
             "name": "test_sorted_by_version",
             "qualified_name": "vm::migration_registration::test_sorted_by_version",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -2890,7 +2621,6 @@
             "test_module": "",
             "test_name": "test_register_migration_sorts_by_version",
             "type": "TestNode",
-            "uid": "26be269ccc36b65b1862d0b508ef1a6fd513ac47",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:test:parent_key=cg%3Av1%3Aroot:qualified_name=vm%3A%3Amigration_registration%3A%3Atest_sorted_by_version"
           }
         ],
@@ -2899,13 +2629,11 @@
         "kind": "llr",
         "name": "llr_migration_registration",
         "qualified_name": "llr_migration_registration",
-        "refid": "",
         "source": "markdown-import",
         "tags": [
           "requirements"
         ],
         "type": "LLR",
-        "uid": "ce92a3a5ac3fe411e894d04a4baff19146950736",
         "canonical_key": "cg:v1:repository:fixture%2Ffixture:requirement-llr:parent_hlr_key=cg%3Av1%3Arepository%3Acodegraph-suite%252Fcodegraph%3Arequirement-hlr%3Aqualified_name%3DHLR:qualified_name=llr_migration_registration"
       },
       {
@@ -2932,13 +2660,11 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::apply_pending_count_correct",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "7919a78e5ce53fd3b43c921b70881d0451f53dbd",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Aapply_pending_count_correct"
               },
               {
@@ -2961,13 +2687,11 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::apply_pending_version3_recorded",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "a491eb5aed31a5ebcbd8da8cd76306befd27df9e",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Aapply_pending_version3_recorded"
               },
               {
@@ -2990,13 +2714,11 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::apply_pending_version2_recorded",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "1bd6eefbfaa5a81bb833fbeb6e34adc0652c237c",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Aapply_pending_version2_recorded"
               },
               {
@@ -3019,13 +2741,11 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::apply_pending_version1_not_reapplied",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "c86ab8d2c1ee643f3590e0ce0f2386d3b2ea55a7",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Aapply_pending_version1_not_reapplied"
               },
               {
@@ -3048,13 +2768,11 @@
                 "order": "0",
                 "phase": "pre",
                 "qualified_name": "cond::pre::apply_pending_version1_preexists",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "3f030a87e186dc6c7cbed10fdeeaa1912f2e9553",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apre%3A%3Aapply_pending_version1_preexists"
               },
               {
@@ -3066,13 +2784,11 @@
                 "name": "apply_pending_invoke_apply",
                 "order": "0",
                 "qualified_name": "step::apply_pending_invoke_apply",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "2ac2ee63a1d46a1a74ee3e58557d65b1daee0e42",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Aapply_pending_invoke_apply"
               },
               {
@@ -3084,13 +2800,11 @@
                 "name": "apply_pending_prepopulate_schema_versions",
                 "order": "0",
                 "qualified_name": "step::apply_pending_prepopulate_schema_versions",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "674ff5db0b52d2a30bc227f509e4e81aaae062eb",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Aapply_pending_prepopulate_schema_versions"
               },
               {
@@ -3102,13 +2816,11 @@
                 "name": "apply_pending_register_migrations",
                 "order": "0",
                 "qualified_name": "step::apply_pending_register_migrations",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "bc68bc68d4ca90e22d1f67064f9d4ee46f8dcf3e",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Aapply_pending_register_migrations"
               }
             ],
@@ -3121,7 +2833,6 @@
             "method": "automated",
             "name": "test_applies_only_pending",
             "qualified_name": "vm::migration_apply::test_applies_only_pending",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -3129,7 +2840,6 @@
             "test_module": "",
             "test_name": "test_apply_migration_applies_only_pending",
             "type": "TestNode",
-            "uid": "fa579aea5f1ae19009e2e87b15d4fdc49635a3fe",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:test:parent_key=cg%3Av1%3Aroot:qualified_name=vm%3A%3Amigration_apply%3A%3Atest_applies_only_pending"
           },
           {
@@ -3154,13 +2864,11 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::apply_fail_earlier_schema_preserved",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "0d4a4336dbd433071462e7ee2510b9674ee2ea56",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Aapply_fail_earlier_schema_preserved"
               },
               {
@@ -3183,13 +2891,11 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::apply_fail_error_signaled",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "8f4daca149b7107a4c2ed0cc91cdff69d50269a7",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Aapply_fail_error_signaled"
               },
               {
@@ -3212,13 +2918,11 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::apply_fail_version2_not_recorded",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "e6e76836b0eb137c2a2f5987c66cd04dd142b090",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Aapply_fail_version2_not_recorded"
               },
               {
@@ -3241,13 +2945,11 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::apply_fail_version1_recorded",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "f620f533b45bb68d2013bf70e8fd0d4e370803d0",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Aapply_fail_version1_recorded"
               },
               {
@@ -3270,13 +2972,11 @@
                 "order": "0",
                 "phase": "pre",
                 "qualified_name": "cond::pre::apply_fail_migrations_registered",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "972643ff296009489f2f5a983df79e8a0b5bd781",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apre%3A%3Aapply_fail_migrations_registered"
               },
               {
@@ -3288,13 +2988,11 @@
                 "name": "apply_fail_invoke_apply",
                 "order": "0",
                 "qualified_name": "step::apply_fail_invoke_apply",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "6d50cb47f72cadd0e4e43f1773be84fbec71974b",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Aapply_fail_invoke_apply"
               },
               {
@@ -3306,13 +3004,11 @@
                 "name": "apply_fail_register_migrations",
                 "order": "0",
                 "qualified_name": "step::apply_fail_register_migrations",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "6f120d243ec3212a71750382b074f7994008a4fb",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Aapply_fail_register_migrations"
               }
             ],
@@ -3325,7 +3021,6 @@
             "method": "automated",
             "name": "test_up_failure_rolls_back",
             "qualified_name": "vm::migration_apply::test_up_failure_rolls_back",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -3333,7 +3028,6 @@
             "test_module": "",
             "test_name": "test_apply_migration_rolls_back_on_up_failure",
             "type": "TestNode",
-            "uid": "4ab61697f76ad3ea451ec1889eb89e4bc213f841",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:test:parent_key=cg%3Av1%3Aroot:qualified_name=vm%3A%3Amigration_apply%3A%3Atest_up_failure_rolls_back"
           },
           {
@@ -3358,13 +3052,11 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::apply_order_is_ascending",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "e581ab55838c03e3f91d7675061cd807569e997f",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Aapply_order_is_ascending"
               },
               {
@@ -3387,13 +3079,11 @@
                 "order": "0",
                 "phase": "pre",
                 "qualified_name": "cond::pre::apply_order_migrations_registered",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "b6c00d4814401758f11c31c7370ec53f25a35fb9",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apre%3A%3Aapply_order_migrations_registered"
               },
               {
@@ -3405,13 +3095,11 @@
                 "name": "apply_order_invoke_apply",
                 "order": "0",
                 "qualified_name": "step::apply_order_invoke_apply",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "3c82365c09ecbc786aff8f6114f69fd1acf17b5a",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Aapply_order_invoke_apply"
               },
               {
@@ -3423,13 +3111,11 @@
                 "name": "apply_order_register_migrations",
                 "order": "0",
                 "qualified_name": "step::apply_order_register_migrations",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "a80f307c51691c86a9d93e8b497a72aca4d7c696",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Aapply_order_register_migrations"
               }
             ],
@@ -3442,7 +3128,6 @@
             "method": "automated",
             "name": "test_apply_in_order",
             "qualified_name": "vm::migration_apply::test_apply_in_order",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -3450,7 +3135,6 @@
             "test_module": "",
             "test_name": "test_apply_migration_executes_in_version_order",
             "type": "TestNode",
-            "uid": "77e20b6c5f82cd4b78a5bba8ff2e14b1f98c28ed",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:test:parent_key=cg%3Av1%3Aroot:qualified_name=vm%3A%3Amigration_apply%3A%3Atest_apply_in_order"
           }
         ],
@@ -3459,13 +3143,11 @@
         "kind": "llr",
         "name": "llr_migration_apply",
         "qualified_name": "llr_migration_apply",
-        "refid": "",
         "source": "markdown-import",
         "tags": [
           "requirements"
         ],
         "type": "LLR",
-        "uid": "2f103555a2d6453a31ff5e4af2a6918d6d235d31",
         "canonical_key": "cg:v1:repository:fixture%2Ffixture:requirement-llr:parent_hlr_key=cg%3Av1%3Arepository%3Acodegraph-suite%252Fcodegraph%3Arequirement-hlr%3Aqualified_name%3DHLR:qualified_name=llr_migration_apply"
       },
       {
@@ -3492,13 +3174,11 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::verify_mismatch_kind_extra_table",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "4d48a900ececcfe57b95cac5e060af1293d4daa7",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Averify_mismatch_kind_extra_table"
               },
               {
@@ -3521,13 +3201,11 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::verify_mismatch_version_is_1",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "c66c43694d65f5d91f2a6e427b9b55df251568df",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Averify_mismatch_version_is_1"
               },
               {
@@ -3550,13 +3228,11 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::verify_mismatch_count_is_1",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "45a1e78baf0a9a7c3753763c8022f4fa8f8bfd69",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Averify_mismatch_count_is_1"
               },
               {
@@ -3579,13 +3255,11 @@
                 "order": "0",
                 "phase": "pre",
                 "qualified_name": "cond::pre::verify_migration_applied",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "6147c8eac31e8e7de5d8a31db2011f111abc18d3",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apre%3A%3Averify_migration_applied"
               },
               {
@@ -3597,13 +3271,11 @@
                 "name": "verify_invoke_verify",
                 "order": "0",
                 "qualified_name": "step::verify_invoke_verify",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "0d38745384f6ecd2b2283a6f3d1ac03b09888093",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Averify_invoke_verify"
               },
               {
@@ -3615,13 +3287,11 @@
                 "name": "verify_add_unexpected_table",
                 "order": "0",
                 "qualified_name": "step::verify_add_unexpected_table",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "fd95225f7344bf09be30e8f704b1eb8eb74cb4c5",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Averify_add_unexpected_table"
               },
               {
@@ -3633,13 +3303,11 @@
                 "name": "verify_register_and_apply_migration",
                 "order": "0",
                 "qualified_name": "step::verify_register_and_apply_migration",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "d343d23665cbaaaa62c3b2025aea9d9ac3d2923b",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Averify_register_and_apply_migration"
               }
             ],
@@ -3652,7 +3320,6 @@
             "method": "automated",
             "name": "test_mismatch_detected",
             "qualified_name": "vm::schema_verify::test_mismatch_detected",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -3660,7 +3327,6 @@
             "test_module": "",
             "test_name": "test_verify_detects_schema_mismatch",
             "type": "TestNode",
-            "uid": "685fcfdd88d96463a0850113f0f89923475678cf",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:test:parent_key=cg%3Av1%3Aroot:qualified_name=vm%3A%3Aschema_verify%3A%3Atest_mismatch_detected"
           },
           {
@@ -3685,13 +3351,11 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::verify_consistent_no_mismatches",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "0b428eb36032665672b6359e1777422d023575f5",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Averify_consistent_no_mismatches"
               },
               {
@@ -3714,13 +3378,11 @@
                 "order": "0",
                 "phase": "pre",
                 "qualified_name": "cond::pre::verify_consistent_migration_applied",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "5951adf3b54c0d8618bd02651b485c7bc2269dff",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apre%3A%3Averify_consistent_migration_applied"
               },
               {
@@ -3732,13 +3394,11 @@
                 "name": "verify_consistent_invoke_verify",
                 "order": "0",
                 "qualified_name": "step::verify_consistent_invoke_verify",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "02d01c0e209150ea760932a536299e2841d55b7f",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Averify_consistent_invoke_verify"
               },
               {
@@ -3750,13 +3410,11 @@
                 "name": "verify_consistent_apply_migration",
                 "order": "0",
                 "qualified_name": "step::verify_consistent_apply_migration",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "c1614c78df995760e29592e818230876b0392750",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Averify_consistent_apply_migration"
               }
             ],
@@ -3769,7 +3427,6 @@
             "method": "automated",
             "name": "test_consistent_schema",
             "qualified_name": "vm::schema_verify::test_consistent_schema",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -3777,7 +3434,6 @@
             "test_module": "",
             "test_name": "test_verify_reports_consistent_schema",
             "type": "TestNode",
-            "uid": "4f4ca4bfc45ad895ec2563a11eacca7947609ac0",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:test:parent_key=cg%3Av1%3Aroot:qualified_name=vm%3A%3Aschema_verify%3A%3Atest_consistent_schema"
           }
         ],
@@ -3786,13 +3442,11 @@
         "kind": "llr",
         "name": "llr_schema_verification",
         "qualified_name": "llr_schema_verification",
-        "refid": "",
         "source": "markdown-import",
         "tags": [
           "requirements"
         ],
         "type": "LLR",
-        "uid": "8a66a148c6789d8cb38892bbedb9dd1ce4325556",
         "canonical_key": "cg:v1:repository:fixture%2Ffixture:requirement-llr:parent_hlr_key=cg%3Av1%3Arepository%3Acodegraph-suite%252Fcodegraph%3Arequirement-hlr%3Aqualified_name%3DHLR:qualified_name=llr_schema_verification"
       },
       {
@@ -3819,13 +3473,11 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::rollback_version3_not_in_table",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "5bf02c03938f88733590b0849d2930a8c1a333b6",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Arollback_version3_not_in_table"
               },
               {
@@ -3848,13 +3500,11 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::rollback_versions_1_and_2_remain",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "57c5160d3e8d29af7b5d8ba0efcb20ed9b4c3277",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Arollback_versions_1_and_2_remain"
               },
               {
@@ -3877,13 +3527,11 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::rollback_down_called",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "16aea49e67b6746997969bc7440f43d914eda4fc",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Arollback_down_called"
               },
               {
@@ -3906,13 +3554,11 @@
                 "order": "0",
                 "phase": "pre",
                 "qualified_name": "cond::pre::rollback_three_migrations_applied",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "459eb78d15d31e49498b108c0f4fe2727c09b75f",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apre%3A%3Arollback_three_migrations_applied"
               },
               {
@@ -3924,13 +3570,11 @@
                 "name": "rollback_invoke_rollback",
                 "order": "0",
                 "qualified_name": "step::rollback_invoke_rollback",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "c6c1391256c92e6d95a85104f262e1f07a516746",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Arollback_invoke_rollback"
               },
               {
@@ -3942,13 +3586,11 @@
                 "name": "rollback_apply_three_migrations",
                 "order": "0",
                 "qualified_name": "step::rollback_apply_three_migrations",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "d51040eb20128f46fb2d36f8512d805c40281c23",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Arollback_apply_three_migrations"
               }
             ],
@@ -3961,7 +3603,6 @@
             "method": "automated",
             "name": "test_rollback_to_version",
             "qualified_name": "vm::rollback::test_rollback_to_version",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -3969,7 +3610,6 @@
             "test_module": "",
             "test_name": "test_rollback_rolls_back_to_target_version",
             "type": "TestNode",
-            "uid": "10c77f6d334bee8867b896e97bfc95ebac22f8ca",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:test:parent_key=cg%3Av1%3Aroot:qualified_name=vm%3A%3Arollback%3A%3Atest_rollback_to_version"
           },
           {
@@ -3994,13 +3634,11 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::rollback_fail_version1_preserved",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "078a37af4ea43a82f27a9c29c1946c27ed6b472f",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Arollback_fail_version1_preserved"
               },
               {
@@ -4023,13 +3661,11 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::rollback_fail_version2_still_exists",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "c9dc02192fe1949798d10188c799d403b66f937b",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Arollback_fail_version2_still_exists"
               },
               {
@@ -4052,13 +3688,11 @@
                 "order": "0",
                 "phase": "post",
                 "qualified_name": "cond::post::rollback_fail_error_signaled",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "8daa9a84720bd47019dd8aaab64d4dc99160040f",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apost%3A%3Arollback_fail_error_signaled"
               },
               {
@@ -4081,13 +3715,11 @@
                 "order": "0",
                 "phase": "pre",
                 "qualified_name": "cond::pre::rollback_fail_two_applied",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "AssertionNode",
-                "uid": "8d9dc5514d45f135dfcc7533fd02edfc0b5f134b",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:assertion:parent_key=cg%3Av1%3Aroot:qualified_name=cond%3A%3Apre%3A%3Arollback_fail_two_applied"
               },
               {
@@ -4099,13 +3731,11 @@
                 "name": "rollback_fail_invoke_rollback",
                 "order": "0",
                 "qualified_name": "step::rollback_fail_invoke_rollback",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "590371c94789589d4aaee728adc86f7195f1c64f",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Arollback_fail_invoke_rollback"
               },
               {
@@ -4117,13 +3747,11 @@
                 "name": "rollback_fail_apply_migrations",
                 "order": "0",
                 "qualified_name": "step::rollback_fail_apply_migrations",
-                "refid": "",
                 "source": "markdown-import",
                 "tags": [
                   "design"
                 ],
                 "type": "TestStepNode",
-                "uid": "35f35c16cad96e7473b19d67c766b3c1434a12a1",
                 "canonical_key": "cg:v1:repository:fixture%2Ffixture:test-step:parent_key=cg%3Av1%3Aroot:qualified_name=step%3A%3Arollback_fail_apply_migrations"
               }
             ],
@@ -4136,7 +3764,6 @@
             "method": "automated",
             "name": "test_down_failure_aborts",
             "qualified_name": "vm::rollback::test_down_failure_aborts",
-            "refid": "",
             "source": "markdown-import",
             "tags": [
               "design"
@@ -4144,7 +3771,6 @@
             "test_module": "",
             "test_name": "test_rollback_aborts_on_down_failure",
             "type": "TestNode",
-            "uid": "af58015a841018d8294e452dc145ced7d29dea95",
             "canonical_key": "cg:v1:repository:fixture%2Ffixture:test:parent_key=cg%3Av1%3Aroot:qualified_name=vm%3A%3Arollback%3A%3Atest_down_failure_aborts"
           }
         ],
@@ -4153,13 +3779,11 @@
         "kind": "llr",
         "name": "llr_migration_rollback",
         "qualified_name": "llr_migration_rollback",
-        "refid": "",
         "source": "markdown-import",
         "tags": [
           "requirements"
         ],
         "type": "LLR",
-        "uid": "4b2aedc573580beb4bd3df69840333e4447ebee0",
         "canonical_key": "cg:v1:repository:fixture%2Ffixture:requirement-llr:parent_hlr_key=cg%3Av1%3Arepository%3Acodegraph-suite%252Fcodegraph%3Arequirement-hlr%3Aqualified_name%3DHLR:qualified_name=llr_migration_rollback"
       }
     ],
@@ -4168,13 +3792,11 @@
     "kind": "hlr",
     "name": "Database Migration Manager",
     "qualified_name": "Database Migration Manager",
-    "refid": "",
     "source": "markdown-import",
     "tags": [
       "requirements"
     ],
     "type": "HLR",
-    "uid": "4d5ab0b66ad6ff20c194e6a17aa2fbd5c3e0c70c",
     "canonical_key": "cg:v1:repository:fixture%2Ffixture:requirement-hlr:qualified_name=Database%20Migration%20Manager"
   }
 ]

@@ -22,11 +22,16 @@ import tempfile
 from codegraph.codegen import generate
 from codegraph.codegen.planner import FilePlanner
 from codegraph.graph import LayerGraph
-from tests.codegen.context.conftest import key_document as _kd
+from codegraph.identity import IdentityScope, resolve_identity_for
+from codegraph.models.file import FileNode
+from codegraph.models.member import MethodNode
+
+
+_SCOPE = IdentityScope.repository("codegraph-suite", "codegraph")
 
 
 def _deser(data):
-    return LayerGraph.deserialize(_kd(data))
+    return LayerGraph.deserialize(data)
 
 
 
@@ -39,7 +44,6 @@ def _method(
     line_number: int = 0,
     type_signature: str = "void",
     argsstring: str = "()",
-    uid: str | None = None,
     body_start: int = 0,
 ) -> dict:
     data = {
@@ -56,18 +60,32 @@ def _method(
         data["line_number"] = line_number
     if body_start:
         data["body_start"] = body_start
-    if uid:
-        data["uid"] = uid
+    probe = MethodNode(
+        name=name,
+        qualified_name=qname,
+        kind="function",
+        type_signature=type_signature,
+        argsstring=argsstring,
+        source="test",
+    )
+    data["canonical_key"] = resolve_identity_for(probe, _SCOPE).key()
     return data
 
 
-def _file(name: str, path: str, *, uid: str | None = None, edges=None) -> dict:
+def _file(name: str, path: str, *, edges=None) -> dict:
     data = {
         "type": "FileNode", "name": name, "qualified_name": path, "path": path,
         "kind": "file", "language": "cpp", "source": "test", "tags": ["as-built"],
     }
-    if uid:
-        data["uid"] = uid
+    probe = FileNode(
+        name=name,
+        qualified_name=path,
+        path=path,
+        kind="file",
+        language="cpp",
+        source="test",
+    )
+    data["canonical_key"] = resolve_identity_for(probe, _SCOPE).key()
     if edges:
         data["edges"] = edges
     return data
@@ -87,11 +105,11 @@ def _two_files_with_include(spelling: str = '"y.hpp"') -> LayerGraph:
     """Two FileNodes linked by an INCLUDES edge carrying the spelling."""
     y = _file("y.hpp", "include/y.hpp")
     gy = _deser([y])
-    y_uid = next(iter(gy._all_entries())).node.canonical_key
+    y_key = next(iter(gy._all_entries())).node.canonical_key
     x = _file(
         "x.hpp", "include/x.hpp",
         edges=[{
-            "relation_type": "INCLUDES", "target_uid": y_uid,
+            "relation_type": "INCLUDES", "target_key": y_key,
             "target_type": "FileNode", "include": spelling, "local": True,
         }],
     )

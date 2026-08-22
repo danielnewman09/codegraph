@@ -47,7 +47,7 @@ from codegraph.backends.interface import Backend
 from codegraph.backends import get_backend
 
 from codegraph.constants import Tag, TAGS
-from codegraph.identity import KEY_VERSION, VERSION_PREFIX
+from codegraph.identity import KEY_VERSION, VERSION_PREFIX, parse_key
 from codegraph.identity.registry import KeyConflictError
 from codegraph.models.tags import CodeGraphNode, _type_discriminator
 from codegraph.models.descriptors import PropertyRegistry
@@ -60,6 +60,14 @@ from codegraph.models.descriptors import PropertyRegistry
 #: The envelope is how future formats present themselves; unknown
 #: versions fail clearly instead of being inferred from field presence.
 GRAPH_DOCUMENT_FORMAT_VERSION = 1
+
+_PORTABLE_NODE_FORBIDDEN_FIELDS = frozenset({
+    "uid", "refid", "compound_refid", "member_refid", "parent_refid",
+    "child_refid", "from_refid", "to_refid",
+})
+_PORTABLE_EDGE_FORBIDDEN_FIELDS = frozenset({
+    "uid", "target_uid", "refid", "from_refid", "to_refid",
+})
 
 
 class GraphDocumentError(ValueError):
@@ -193,6 +201,12 @@ class CompositeEntry:
         # TEMPLATE_PARAM reference implementation/type-parameter nodes
         # that are intentionally excluded from serialized graph views.
         serialized = self.node.serialize(fields=fields)
+        # ``refid`` and the parent-relative Doxygen locators are extraction
+        # details, not portable graph properties.  Canonical identity has
+        # already been resolved on the node and is the only identity field
+        # emitted on the wire.
+        for field_name in _PORTABLE_NODE_FORBIDDEN_FIELDS:
+            serialized.pop(field_name, None)
         edges = [
             e for e in serialized.get("edges", [])
             if e["relation_type"] not in (
@@ -218,6 +232,35 @@ class CompositeEntry:
             }
             edge.update(self.edge_attrs.get((rt, target_key), {}))
             edges.append(edge)
+
+        # LayerGraph references normally use canonical/local keys, but
+        # importers may retain qualified names until serialization.  Resolve
+        # either form to the target node's canonical key before exporting.
+        if canonical_by_local:
+            for edge in edges:
+                target_key = edge.get("target_key")
+                if target_key in canonical_by_local:
+                    edge["target_key"] = canonical_by_local[target_key]
+
+        for edge in edges:
+            forbidden = _PORTABLE_EDGE_FORBIDDEN_FIELDS & set(edge)
+            if forbidden:
+                raise ValueError(
+                    "portable LayerGraph edge contains forbidden fields: "
+                    f"{sorted(forbidden)}"
+                )
+            if not edge.get("target_key") and not edge.get("target_ref"):
+                raise ValueError(
+                    "portable LayerGraph edge has no canonical target_key"
+                )
+            if edge.get("target_key"):
+                try:
+                    parse_key(edge["target_key"])
+                except ValueError as exc:
+                    raise ValueError(
+                        f"portable LayerGraph edge has invalid target_key: "
+                        f"{edge['target_key']!r}"
+                    ) from exc
         serialized["edges"] = edges
 
         # Implementation data is opt-in: method bodies are stripped unless
@@ -371,6 +414,13 @@ class LayerGraph:
                 f"has no canonical_key — canonical-only graphs reject "
                 f"uid-bearing legacy data (WP B)"
             )
+        try:
+            parse_key(canonical)
+        except ValueError as exc:
+            raise ValueError(
+                f"{type(obj).__name__ if not isinstance(obj, dict) else 'document entry'} "
+                f"has invalid canonical_key {canonical!r}: {exc}"
+            ) from exc
         return canonical
 
     def resolve_target_name(
@@ -378,7 +428,7 @@ class LayerGraph:
         target_key: str,
         flat: dict[str, "CompositeEntry"] | None = None,
     ) -> str:
-        """Resolve a target key (uid hash) to a human-readable display name.
+        """Resolve a canonical target key to a human-readable display name.
 
         Looks up *target_key* in the flat entry index and returns the
         node's ``qualified_name`` if set, falling back to ``name``.
@@ -386,7 +436,7 @@ class LayerGraph:
         graph (e.g. a filtered-out neighbour).
 
         Args:
-            target_key: The target node's key (typically a uid hash).
+            target_key: The target node's canonical key.
             flat: Optional prebuilt flat key → entry index.  Callers
                 that resolve MANY targets (exporters) MUST pass a
                 cached index — the default builds the index from
@@ -554,18 +604,14 @@ class LayerGraph:
     ) -> str | None:
         """Resolve an edge target to a local key (WP B — canonical-only).
 
-        Precedence: ``target_local_id`` (flat-format artifact), then
-        ``target_key`` (exact canonical key).  An edge without a
+        ``target_key`` is the canonical endpoint.  An edge without a
         canonical target is unresolved — human-readable references use a
-        distinct ``target_ref`` field and must resolve before
-        persistence; they are never stored in ``target_key``.
+        distinct ``target_ref`` field and must resolve before persistence;
+        they are never stored in ``target_key``.
 
         Returns the resolved local key, or None when nothing matches.
         """
-        local = edge.get("target_local_id")
         key = edge.get("target_key") or ""
-        if local is not None:
-            return local
         return key_to_key.get(key) if key else None
 
     @classmethod
@@ -618,7 +664,7 @@ class LayerGraph:
         """Deserialize from the nested JSON format (entries with composes key).
 
         Two-phase approach:
-        1. Create all CompositeEntry instances and build uid mapping.
+        1. Create all CompositeEntry instances and build the canonical-key mapping.
         2. Resolve references using the complete mapping.
 
         Args:
@@ -666,7 +712,7 @@ class LayerGraph:
         *,
         create_missing: bool = False,
     ) -> "LayerGraph":
-        """Deserialize from the flat JSON format (edges with target_local_id).
+        """Deserialize from the flat JSON format (edges with target_key).
 
         Args:
             data: A list of dicts in flat format, where COMPOSES edges
@@ -716,7 +762,7 @@ class LayerGraph:
             source_entry = key_to_entry[source_key]
 
             for edge in node_data.get("edges", []):
-                # Canonical-only resolution: local id → canonical key.
+                # Canonical-only resolution: canonical key → local entry key.
                 target_key = cls._resolve_target_key(edge, key_to_key)
 
                 # Auto-create scaffold node for an unresolved canonical
@@ -955,6 +1001,8 @@ class LayerGraph:
         """
         if isinstance(data, dict):
             data = cls._unwrap_document(data)
+        if not isinstance(data, list):
+            raise GraphDocumentError("LayerGraph entries must be a list")
         # Detect format: nested if any entry has a "composes" key
         has_nested = any("composes" in entry for entry in data)
 
@@ -1223,6 +1271,9 @@ class LayerGraph:
             canonical = getattr(entry.node, "canonical_key", "") or ""
             if canonical:
                 canonical_by_local[key] = canonical
+                qname = getattr(entry.node, "qualified_name", "") or ""
+                if qname:
+                    canonical_by_local[qname] = canonical
         entries = [
             entry.serialize(
                 fields=fields,

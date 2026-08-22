@@ -20,11 +20,15 @@ from codegraph.codegen.context import CodegenContextBuilder, BuildState
 from codegraph.codegen.planner import FilePlanner
 from codegraph.codegen.pack import TemplatePack
 from codegraph.graph import LayerGraph
-from tests.codegen.context.conftest import key_document as _kd
+from codegraph.identity import IdentityScope, resolve_identity_for
+from codegraph.models.file import FileNode
+
+
+_SCOPE = IdentityScope.repository("codegraph-suite", "codegraph")
 
 # TODO Move this into a conftest to avoid repetition
 def _deser(data):
-    return LayerGraph.deserialize(_kd(data))
+    return LayerGraph.deserialize(data)
 
 
 
@@ -41,7 +45,7 @@ def _gen(nodes: list[dict]) -> dict:
 
 
 def _file_node(path: str) -> dict:
-    return {
+    data = {
         "type": "FileNode",
         "name": path.rsplit("/", 1)[-1],
         "path": path,
@@ -49,6 +53,12 @@ def _file_node(path: str) -> dict:
         "source": "test",
         "tags": ["as-built"],
     }
+    probe = FileNode(
+        name=data["name"], qualified_name=path, path=path,
+        language="C++", source="test",
+    )
+    data["canonical_key"] = resolve_identity_for(probe, _SCOPE).key()
+    return data
 
 
 class TestInClassBodies:
@@ -57,6 +67,7 @@ class TestInClassBodies:
             _file_node("src/A.hpp"),
             {
                 "type": "ClassNode",
+                "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=ns%3A%3AA',
                 "name": "A",
                 "qualified_name": "ns::A",
                 "kind": "class",
@@ -66,6 +77,7 @@ class TestInClassBodies:
                 "composes": [
                     {
                         "type": "MethodNode",
+                        "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=ns%3A%3AA%3A%3Aget:canonical_signature=lang%3Acpp%7C%28%29%7Cconst',
                         "name": "get",
                         "qualified_name": "ns::A::get",
                         "kind": "method",
@@ -100,6 +112,7 @@ class TestBlankSeparators:
             _file_node("src/A.hpp"),
             {
                 "type": "ClassNode",
+                "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=ns%3A%3AA',
                 "name": "A",
                 "qualified_name": "ns::A",
                 "kind": "class",
@@ -111,6 +124,7 @@ class TestBlankSeparators:
                 "composes": [
                     {
                         "type": "AttributeNode",
+                        "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=ns%3A%3AA%3A%3Ax',
                         "name": "x",
                         "qualified_name": "ns::A::x",
                         "kind": "attribute",
@@ -124,6 +138,7 @@ class TestBlankSeparators:
                     },
                     {
                         "type": "AttributeNode",
+                        "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:attribute:qualified_name=ns%3A%3AA%3A%3Ay',
                         "name": "y",
                         "qualified_name": "ns::A::y",
                         "kind": "attribute",
@@ -157,6 +172,7 @@ class TestHeaderOutOfLineBody:
             },
             {
                 "type": "ClassNode",
+                "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=ns%3A%3AA',
                 "name": "A",
                 "qualified_name": "ns::A",
                 "kind": "class",
@@ -168,6 +184,7 @@ class TestHeaderOutOfLineBody:
             },
             {
                 "type": "MethodNode",
+                "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:method:qualified_name=ns%3A%3AA%3A%3Arun:canonical_signature=lang%3Acpp%7C%28%29',
                 "name": "run",
                 "qualified_name": "ns::A::run",
                 "kind": "method",
@@ -209,6 +226,7 @@ class TestNamespaceRegions:
             },
             {
                 "type": "ClassNode",
+                "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=ns%3A%3AA',
                 "name": "A",
                 "qualified_name": "ns::A",
                 "kind": "class",
@@ -220,6 +238,7 @@ class TestNamespaceRegions:
             },
             {
                 "type": "SourceFragmentNode",
+                "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:source-fragment:file_key=cg%3Av1%3Aroot:start_line=6:end_line=6',
                 "name": "src/A.hpp#6-6",
                 "qualified_name": "src/A.hpp#6-6",
                 "kind": "unassigned_source_fragment",
@@ -268,6 +287,7 @@ class TestAsBuiltNeverInvents:
             _file_node("src/A.hpp"),
             {
                 "type": "ClassNode",
+                "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=ns%3A%3AA',
                 "name": "A",
                 "qualified_name": "ns::A",
                 "kind": "class",
@@ -278,11 +298,12 @@ class TestAsBuiltNeverInvents:
                 "tags": ["as-built"],
                 "edges": [
                     {"relation_type": "DEPENDS_ON", "target_type": "ClassNode",
-                     "target_uid": "b-uid"},
+                     "target_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=ns%3A%3AB'},
                 ],
             },
             {
                 "type": "ClassNode",
+                "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=ns%3A%3AB',
                 "name": "B",
                 "qualified_name": "ns::B",
                 "kind": "class",
@@ -312,6 +333,7 @@ class TestAsBuiltNeverInvents:
             },
             {
                 "type": "ClassNode",
+                "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=ns%3A%3AA',
                 "name": "A",
                 "qualified_name": "ns::A",
                 "kind": "class",
@@ -322,7 +344,7 @@ class TestAsBuiltNeverInvents:
                 "tags": ["as-built"],
                 "edges": [
                     {"relation_type": "INCLUDES", "target_type": "FileNode",
-                     "target_uid": "b.hpp"},
+                     "target_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:file:normalized_repository_path=b.hpp'},
                 ],
             },
         ])
@@ -341,6 +363,7 @@ class TestBaseSpelling:
             _file_node("src/E.hpp"),
             {
                 "type": "ClassNode",
+                "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=ns%3A%3AE',
                 "name": "E",
                 "qualified_name": "ns::E",
                 "kind": "class",
@@ -353,6 +376,7 @@ class TestBaseSpelling:
             },
             {
                 "type": "ClassNode",
+                "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=ns%3A%3AIsVector',
                 "name": "IsVector",
                 "qualified_name": "ns::IsVector",
                 "kind": "struct",
@@ -375,6 +399,7 @@ class TestNestedEnumRender:
             _file_node("src/W.hpp"),
             {
                 "type": "ClassNode",
+                "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=ns%3A%3AW',
                 "name": "W",
                 "qualified_name": "ns::W",
                 "kind": "class",
@@ -386,6 +411,7 @@ class TestNestedEnumRender:
                 "composes": [
                     {
                         "type": "EnumNode",
+                        "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:enum:qualified_name=ns%3A%3AW%3A%3AColor',
                         "name": "Color",
                         "qualified_name": "ns::W::Color",
                         "kind": "enum",
@@ -400,6 +426,7 @@ class TestNestedEnumRender:
                         "composes": [
                             {
                                 "type": "EnumValueNode",
+                                "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:enum-value:qualified_name=ns%3A%3AW%3A%3AColor%3A%3ARED',
                                 "name": "RED",
                                 "qualified_name": "ns::W::Color::RED",
                                 "kind": "enumvalue",
@@ -428,6 +455,7 @@ class TestBuildStateAsBuilt:
         design = _deser([
             {
                 "type": "NamespaceNode",
+                "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:namespace:qualified_name=ns',
                 "name": "ns",
                 "qualified_name": "ns",
                 "source": "test",
@@ -435,6 +463,7 @@ class TestBuildStateAsBuilt:
                 "composes": [
                     {
                         "type": "ClassNode",
+                        "canonical_key": 'cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=ns%3A%3AA',
                         "name": "A",
                         "qualified_name": "ns::A",
                         "kind": "class",

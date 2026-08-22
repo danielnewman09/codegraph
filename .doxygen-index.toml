@@ -4,6 +4,3 @@ language = "python"
 input_paths = ["src"]
 test_paths = ["tests"]
 requirements_dir = "codegraph/requirements/"
-
-[codegraph-html]
-output_dir = "codegraph"
