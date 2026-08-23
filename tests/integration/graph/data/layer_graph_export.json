@@ -8,6 +8,14 @@
     "edges": []
   },
   {
+    "name": "calculator_result.h",
+    "path": "/src/calc/calculator_result.h",
+    "source": "calculator",
+    "type": "FileNode",
+    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_result.h",
+    "edges": []
+  },
+  {
     "name": "icalculator.h",
     "path": "/src/calc/icalculator.h",
     "source": "calculator",
@@ -21,14 +29,6 @@
     "source": "calculator",
     "type": "FileNode",
     "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Foperation.h",
-    "edges": []
-  },
-  {
-    "name": "calculator_result.h",
-    "path": "/src/calc/calculator_result.h",
-    "source": "calculator",
-    "type": "FileNode",
-    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcalculator:file:normalized_repository_path=%2Fsrc%2Fcalc%2Fcalculator_result.h",
     "edges": []
   },
   {
