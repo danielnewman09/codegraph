@@ -8,7 +8,7 @@ and string-derived D8 flags.
 
 from __future__ import annotations
 
-from codegraph.codegen.context import compound
+from codegraph.codegen.context import BuildState, compound
 from codegraph.identity import IdentityScope, resolve_identity_for
 from codegraph.models.compound import ClassNode, ConceptNode, EnumNode, InterfaceNode
 from codegraph.models.member import AttributeNode, EnumValueNode, MethodNode
@@ -122,6 +122,47 @@ class TestClassLike:
             ("public", ["apply"]),
         ]
         assert ctx["visibility"] == "public"  # '' → public
+
+    def test_mixed_members_follow_source_order_not_type_bucket_order(
+        self, make_state, find_entry
+    ):
+        """Source spans must keep methods ahead of later attributes.
+
+        ``CompositeEntry.children`` is grouped by node type, so a backend
+        returning attributes first must not force the generated class into a
+        private-then-public layout when the source declares the method first.
+        """
+        graph, state = make_state([_class(composes=[
+            {
+                "type": "AttributeNode",
+                "canonical_key": _attribute_key("cpp_sqlite::Thing::state_"),
+                "name": "state_",
+                "qualified_name": "cpp_sqlite::Thing::state_",
+                "kind": "attribute",
+                "visibility": "private",
+                "start_line": 20,
+                "source": "test",
+            },
+            {
+                "type": "MethodNode",
+                "canonical_key": _method_key("cpp_sqlite::Thing::render"),
+                "name": "render",
+                "qualified_name": "cpp_sqlite::Thing::render",
+                "kind": "method",
+                "type_signature": "void render()",
+                "visibility": "public",
+                "start_line": 10,
+                "source": "test",
+            },
+        ])])
+
+        ctx = compound.build_context(
+            find_entry(graph, type_name="ClassNode"), state
+        )
+        assert [
+            (section["access"], [member["name"] for member in section["members"]])
+            for section in ctx["sections"]
+        ] == [("public", ["render"]), ("private", ["state_"])]
 
     def test_empty_visibility_is_public(self, make_state, find_entry):
         graph, state = make_state([_class(composes=[
@@ -410,6 +451,15 @@ class TestEnums:
         assert ctx["kind"] == "enum"
         assert [v["name"] for v in ctx["enumerators"]] == ["Success", "DuplicateVersion"]
         assert ctx["enumerators"][1]["initializer"] == "1"
+
+        roundtripped = make_state(graph.serialize(fields="all"))[0]
+        roundtrip_ctx = compound.build_context(
+            find_entry(roundtripped, type_name="EnumNode"),
+            BuildState(graph=roundtripped, flat=roundtripped._flat_index()),
+        )
+        assert [v["name"] for v in roundtrip_ctx["enumerators"]] == [
+            "Success", "DuplicateVersion"
+        ]
 
 
 class TestConcepts:

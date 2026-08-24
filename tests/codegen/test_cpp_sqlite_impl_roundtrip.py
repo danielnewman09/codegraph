@@ -21,10 +21,11 @@ must exercise):
    remain available as the later behavioral oracle but are outside the
    Priority 1 source-generation contract.
 
-Skipped when ``doxygen-index`` is unavailable or the source copies are
-not materialized (``unit_test_data/`` is gitignored — synced from the
-sister repo via ``scripts/sync_codegen_fixtures.py``).  Marked
-``integration`` — full-stack (external tool + sqlite backend).
+Required ``doxygen-index``, the synced source copies, and clang-format 17 are
+exercised directly; missing prerequisites fail the integration suite.
+``unit_test_data/`` is gitignored and synced from the sister repo via
+``scripts/sync_codegen_fixtures.py``. Marked ``integration`` — full-stack
+(external tool + sqlite backend).
 """
 
 from __future__ import annotations
@@ -39,6 +40,10 @@ import pytest
 from codegraph.codegen import generate
 from codegraph.codegen.fidelity import compare_manifest
 from codegraph.graph import LayerGraph
+from tests.codegen.external_tools import (
+    ExternalToolError,
+    run_index,
+)
 
 _HERE = Path(__file__).resolve().parent.parent / "unit_test_data"
 
@@ -89,23 +94,7 @@ def _find_clang_format() -> str | None:
 
 _CLANG_FORMAT = _find_clang_format()
 
-pytestmark = [
-    pytest.mark.integration,
-    pytest.mark.skipif(_DOXYGEN_INDEX is None, reason="doxygen-index not on PATH"),
-    pytest.mark.skipif(
-        not (IMPL_SRC / PROJECT_DIR / "cpp_sqlite" / "src").is_dir(),
-        reason="cpp-sqlite source copies not materialized "
-               "(run scripts/sync_codegen_fixtures.py pull)",
-    ),
-    pytest.mark.skipif(
-        not (IMPL_SRC / PROJECT_DIR / ".doxygen-index.toml").is_file(),
-        reason="cpp-sqlite index config missing from source copies",
-    ),
-    pytest.mark.skipif(
-        _CLANG_FORMAT is None,
-        reason="clang-format 17 is required for the byte-fidelity contract",
-    ),
-]
+pytestmark = [pytest.mark.integration]
 
 
 def _canonical_cpp(path: Path, content: bytes) -> bytes:
@@ -391,23 +380,26 @@ def _assert_no_residual_invasion(graph, source_root: Path, file_rel: str) -> Non
 
 
 @pytest.fixture(scope="module")
-def impl_graph(tmp_path_factory):
+def impl_graph(tmp_path_factory, conan_test_environment):
     """Step 1 — index the real cpp-sqlite source into a temp sqlite backend."""
     db_path = tmp_path_factory.mktemp("impl-rt") / "impl.sqlite3"
     out_dir = tmp_path_factory.mktemp("impl-rt-out")
-    env = {**os.environ, "CODEGRAPH_BACKEND": "sqlite", "SQLITE_PATH": str(db_path)}
-    proc = subprocess.run(
-        [_DOXYGEN_INDEX, "codegraph",
-         "--project-dir", PROJECT_DIR,
-         "--output-dir", str(out_dir),
-         "--neo4j", "--clear", "--yes"],
-        cwd=IMPL_SRC,
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=600,
-    )
-    assert proc.returncode == 0, f"doxygen-index failed:\n{proc.stderr[-2000:]}"
+    env = {
+        **conan_test_environment.env,
+        "CODEGRAPH_BACKEND": "sqlite",
+        "SQLITE_PATH": str(db_path),
+    }
+    try:
+        proc = run_index(
+            [_DOXYGEN_INDEX, "codegraph",
+             "--project-dir", PROJECT_DIR,
+             "--output-dir", str(out_dir),
+             "--neo4j", "--clear", "--yes"],
+            cwd=IMPL_SRC,
+            env=env,
+        )
+    except ExternalToolError as exc:
+        raise AssertionError(str(exc)) from exc
     assert db_path.exists(), "doxygen-index did not write the sqlite backend"
 
     from codegraph.backends import get_backend, set_backend

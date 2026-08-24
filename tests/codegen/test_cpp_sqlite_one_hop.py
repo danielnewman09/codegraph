@@ -133,6 +133,44 @@ class TestFixture:
         )
         assert parameter_roots == 30
 
+    def test_endpoint_states_survive_all_field_modes(self):
+        """Portable endpoint classification is independent of field width."""
+        graph = LayerGraph.deserialize(_load())
+
+        def edges(entries):
+            for entry in entries:
+                yield from entry.get("edges", [])
+                yield from edges(entry.get("composes", []))
+
+        for fields in ("llm", "all"):
+            serialized = graph.serialize(fields=fields)
+            all_edges = list(edges(serialized))
+            assert any(edge.get("external") is True for edge in all_edges)
+            assert all(
+                edge.get("target_key")
+                or (
+                    edge.get("target_ref")
+                    and edge.get("unresolved") is True
+                    and edge.get("diagnostic")
+                )
+                for edge in all_edges
+            )
+
+        implementation_graph = LayerGraph.deserialize(_load_impl())
+        implementation = implementation_graph.serialize(
+            fields="all", export_implementation=True,
+        )
+
+        def nodes(entries):
+            for entry in entries:
+                yield entry
+                yield from nodes(entry.get("composes", []))
+
+        assert any(
+            entry.get("type") == "MethodNode" and entry.get("body")
+            for entry in nodes(implementation)
+        )
+
 
 class TestGenerate:
     def test_renders_project_tree_verbatim(self):

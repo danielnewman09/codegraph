@@ -139,9 +139,10 @@ def key_decomposition_nodes(
     identity scope, and each edge's ``target_uid`` qname reference is
     converted to the target's ``target_key`` (canonical wire format).
     Parent chains (LLR → TestNode → Assertion/Step) are followed through
-    COMPOSES edges; scaffold targets not present in the list get
-    deterministic probe keys plus a ``target_ref`` so
-    ``LayerGraph.deserialize(create_missing=True)`` can materialize them.
+    COMPOSES edges; notional scaffold targets not present in the list retain
+    an unresolved ``target_ref`` so
+    ``LayerGraph.deserialize(create_missing=True)`` can materialize them
+    under the active identity scope.
 
     Idempotent: safe to call twice on the same node list.
 
@@ -159,9 +160,6 @@ def key_decomposition_nodes(
     """
     from codegraph.identity import get_identity_scope, resolve_identity_for
     from codegraph.models.test import TestNode, AssertionNode, TestStepNode
-    from codegraph.models.compound import ClassNode
-    from codegraph.models.member import AttributeNode
-    from codegraph.models.literal import LiteralNode
     from codegraph_requirements.models.requirement import LLR
 
     if scope is None:
@@ -232,15 +230,6 @@ def key_decomposition_nodes(
             cls, qn, {"parent_key": key_of.get(parent, parent_hlr_key)}
         )
 
-    def scaffold_key(ttype: str, qn: str) -> str:
-        if ttype == "AttributeNode":
-            return probe_key(AttributeNode, qn)
-        if ttype == "LiteralNode":
-            return probe_key(LiteralNode, qn)
-        if ttype == "ClassNode":
-            return probe_key(ClassNode, qn)
-        raise KeyError(ttype)
-
     for n in nodes:
         qn = n.get("qualified_name", "") or n.get("name", "")
         n["canonical_key"] = key_of[qn]
@@ -248,12 +237,16 @@ def key_decomposition_nodes(
             if "target_uid" not in e:
                 continue
             ref = e.pop("target_uid")
-            ttype = e.get("target_type", "")
             if ref in key_of:
                 e["target_key"] = key_of[ref]
             else:
-                e["target_key"] = scaffold_key(ttype, ref)
                 e["target_ref"] = ref
+                e.pop("target_key", None)
+                e["unresolved"] = True
+                e.setdefault(
+                    "diagnostic",
+                    "notional target is unresolved until scaffold materialization",
+                )
     return nodes
 
 

@@ -96,7 +96,10 @@ class TestEntryIdentity:
         graph2 = LayerGraph.deserialize(graph.serialize(fields="all"))
         keys = set(graph2.entries)
         assert keys == {ns.canonical_key, m.canonical_key}
-        ns2 = next(iter(graph2.entries.values()))
+        ns2 = next(
+            entry for entry in graph2.entries.values()
+            if isinstance(entry.node, NamespaceNode)
+        )
         assert "ClassNode" in ns2.children
         assert ns2.references == [("INVOKES", m.canonical_key, "MethodNode")]
 
@@ -154,7 +157,10 @@ class TestAmbiguityElimination:
         graph = LayerGraph.deserialize(data)
         # nested position wins: cls is a child, not a root
         assert len(graph.entries) == 1
-        ns_entry = next(iter(graph.entries.values()))
+        ns_entry = next(
+            entry for entry in graph.entries.values()
+            if isinstance(entry.node, NamespaceNode)
+        )
         assert "ClassNode" in ns_entry.children
 
 

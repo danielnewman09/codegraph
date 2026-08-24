@@ -855,13 +855,14 @@ def validate_decomposition(nodes: list[dict]) -> list[DecompositionViolation]:
         """Resolve an edge target to its node identity (qname).
 
         Canonical wire format carries ``target_key`` (the target node's
-        canonical key); legacy decompose outputs carry ``target_uid``
-        (the target's qualified name).  In-list targets resolve through
-        the canonical-key → qname map; scaffold targets (not present in
-        the node list) fall back to the raw reference string, which is
+        canonical key); unresolved portable edges carry ``target_ref``;
+        legacy decompose outputs carry ``target_uid`` (the target's
+        qualified name).  In-list targets resolve through the
+        canonical-key → qname map; scaffold targets (not present in the
+        node list) fall back to the raw reference string, which is
         consistent across edges to the same scaffold.
         """
-        ref = e.get("target_key") or e.get("target_uid") or ""
+        ref = e.get("target_key") or e.get("target_ref") or e.get("target_uid") or ""
         return key_to_qname.get(ref, ref)
 
     llr_to_tests: dict[str, list[str]] = {}

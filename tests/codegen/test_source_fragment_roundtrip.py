@@ -19,9 +19,9 @@ Asserts:
   (header and .cpp — the .cpp exercises the implementation-body path
   alongside fragments).
 
-Skipped when ``doxygen-index``, ``doxygen``, or clang-format 17 are
-unavailable.  Marked ``integration`` — full-stack (external tool +
-sqlite backend), ~1s.
+Required ``doxygen-index``, ``doxygen``, and clang-format 17 are exercised
+directly; missing tools fail the integration suite.  Marked ``integration`` —
+full-stack (external tool + sqlite backend), ~1s.
 """
 
 from __future__ import annotations
@@ -81,12 +81,7 @@ def _find_clang_format() -> str | None:
 
 _CLANG_FORMAT = _find_clang_format()
 
-pytestmark = [
-    pytest.mark.integration,
-    pytest.mark.skipif(shutil.which("doxygen") is None, reason="doxygen not on PATH"),
-    pytest.mark.skipif(_DOXYGEN_INDEX is None, reason="doxygen-index not on PATH"),
-    pytest.mark.skipif(_CLANG_FORMAT is None, reason="clang-format required"),
-]
+pytestmark = [pytest.mark.integration]
 
 
 def _canonical_cpp(path: Path, content: bytes) -> bytes:

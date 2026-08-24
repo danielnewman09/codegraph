@@ -1,5 +1,30 @@
 [
   {
+    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:file:normalized_repository_path=base_window.h",
+    "edges": [],
+    "end_line": 0,
+    "guard_leading_blank_lines": 0,
+    "include_directive_lines": [],
+    "include_directives": [],
+    "include_guard": "",
+    "kind": "file",
+    "language": "",
+    "leading_blank_lines": 0,
+    "name": "base_window.h",
+    "namespace_leading_blank_lines": 0,
+    "namespace_name": "",
+    "namespace_regions": [],
+    "namespace_trailing_blank_lines": 0,
+    "path": "base_window.h",
+    "qualified_name": "base_window.h",
+    "source": "markdown-import",
+    "start_line": 0,
+    "tags": [
+      "design"
+    ],
+    "type": "FileNode"
+  },
+  {
     "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:namespace:qualified_name=calc",
     "component_id": null,
     "composes": [
@@ -120,14 +145,14 @@
         "doc_embedding": [],
         "edges": [
           {
-            "relation_type": "REALIZES",
-            "target_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:interface:qualified_name=calc%3A%3AICalculator",
-            "target_type": "InterfaceNode"
-          },
-          {
             "relation_type": "DEPENDS_ON",
             "target_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=calc%3A%3ACalculatorResult",
             "target_type": "ClassNode"
+          },
+          {
+            "relation_type": "REALIZES",
+            "target_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:interface:qualified_name=calc%3A%3AICalculator",
+            "target_type": "InterfaceNode"
           }
         ],
         "end_line": 0,
@@ -440,6 +465,131 @@
     "type": "NamespaceNode"
   },
   {
+    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:file:normalized_repository_path=calculator_engine.h",
+    "edges": [],
+    "end_line": 0,
+    "guard_leading_blank_lines": 0,
+    "include_directive_lines": [],
+    "include_directives": [],
+    "include_guard": "",
+    "kind": "file",
+    "language": "",
+    "leading_blank_lines": 0,
+    "name": "calculator_engine.h",
+    "namespace_leading_blank_lines": 0,
+    "namespace_name": "",
+    "namespace_regions": [],
+    "namespace_trailing_blank_lines": 0,
+    "path": "calculator_engine.h",
+    "qualified_name": "calculator_engine.h",
+    "source": "markdown-import",
+    "start_line": 0,
+    "tags": [
+      "design"
+    ],
+    "type": "FileNode"
+  },
+  {
+    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:file:normalized_repository_path=calculator_result.h",
+    "edges": [],
+    "end_line": 0,
+    "guard_leading_blank_lines": 0,
+    "include_directive_lines": [],
+    "include_directives": [],
+    "include_guard": "",
+    "kind": "file",
+    "language": "",
+    "leading_blank_lines": 0,
+    "name": "calculator_result.h",
+    "namespace_leading_blank_lines": 0,
+    "namespace_name": "",
+    "namespace_regions": [],
+    "namespace_trailing_blank_lines": 0,
+    "path": "calculator_result.h",
+    "qualified_name": "calculator_result.h",
+    "source": "markdown-import",
+    "start_line": 0,
+    "tags": [
+      "design"
+    ],
+    "type": "FileNode"
+  },
+  {
+    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:file:normalized_repository_path=calculator_window.h",
+    "edges": [],
+    "end_line": 0,
+    "guard_leading_blank_lines": 0,
+    "include_directive_lines": [],
+    "include_directives": [],
+    "include_guard": "",
+    "kind": "file",
+    "language": "",
+    "leading_blank_lines": 0,
+    "name": "calculator_window.h",
+    "namespace_leading_blank_lines": 0,
+    "namespace_name": "",
+    "namespace_regions": [],
+    "namespace_trailing_blank_lines": 0,
+    "path": "calculator_window.h",
+    "qualified_name": "calculator_window.h",
+    "source": "markdown-import",
+    "start_line": 0,
+    "tags": [
+      "design"
+    ],
+    "type": "FileNode"
+  },
+  {
+    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:file:normalized_repository_path=icalculator.h",
+    "edges": [],
+    "end_line": 0,
+    "guard_leading_blank_lines": 0,
+    "include_directive_lines": [],
+    "include_directives": [],
+    "include_guard": "",
+    "kind": "file",
+    "language": "",
+    "leading_blank_lines": 0,
+    "name": "icalculator.h",
+    "namespace_leading_blank_lines": 0,
+    "namespace_name": "",
+    "namespace_regions": [],
+    "namespace_trailing_blank_lines": 0,
+    "path": "icalculator.h",
+    "qualified_name": "icalculator.h",
+    "source": "markdown-import",
+    "start_line": 0,
+    "tags": [
+      "design"
+    ],
+    "type": "FileNode"
+  },
+  {
+    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:file:normalized_repository_path=operation.h",
+    "edges": [],
+    "end_line": 0,
+    "guard_leading_blank_lines": 0,
+    "include_directive_lines": [],
+    "include_directives": [],
+    "include_guard": "",
+    "kind": "file",
+    "language": "",
+    "leading_blank_lines": 0,
+    "name": "operation.h",
+    "namespace_leading_blank_lines": 0,
+    "namespace_name": "",
+    "namespace_regions": [],
+    "namespace_trailing_blank_lines": 0,
+    "path": "operation.h",
+    "qualified_name": "operation.h",
+    "source": "markdown-import",
+    "start_line": 0,
+    "tags": [
+      "design"
+    ],
+    "type": "FileNode"
+  },
+  {
     "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:namespace:qualified_name=ui",
     "component_id": null,
     "composes": [
@@ -522,13 +672,13 @@
         "doc_embedding": [],
         "edges": [
           {
-            "relation_type": "INHERITS_FROM",
-            "target_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=ui%3A%3ABaseWindow",
+            "relation_type": "DEPENDS_ON",
+            "target_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=calc%3A%3ACalculatorEngine",
             "target_type": "ClassNode"
           },
           {
-            "relation_type": "DEPENDS_ON",
-            "target_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=calc%3A%3ACalculatorEngine",
+            "relation_type": "INHERITS_FROM",
+            "target_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:class:qualified_name=ui%3A%3ABaseWindow",
             "target_type": "ClassNode"
           }
         ],
@@ -566,155 +716,5 @@
       "design"
     ],
     "type": "NamespaceNode"
-  },
-  {
-    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:file:normalized_repository_path=calculator_engine.h",
-    "edges": [],
-    "end_line": 0,
-    "guard_leading_blank_lines": 0,
-    "include_directive_lines": [],
-    "include_directives": [],
-    "include_guard": "",
-    "kind": "file",
-    "language": "",
-    "leading_blank_lines": 0,
-    "name": "calculator_engine.h",
-    "namespace_leading_blank_lines": 0,
-    "namespace_name": "",
-    "namespace_regions": [],
-    "namespace_trailing_blank_lines": 0,
-    "path": "calculator_engine.h",
-    "qualified_name": "calculator_engine.h",
-    "source": "markdown-import",
-    "start_line": 0,
-    "tags": [
-      "design"
-    ],
-    "type": "FileNode"
-  },
-  {
-    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:file:normalized_repository_path=icalculator.h",
-    "edges": [],
-    "end_line": 0,
-    "guard_leading_blank_lines": 0,
-    "include_directive_lines": [],
-    "include_directives": [],
-    "include_guard": "",
-    "kind": "file",
-    "language": "",
-    "leading_blank_lines": 0,
-    "name": "icalculator.h",
-    "namespace_leading_blank_lines": 0,
-    "namespace_name": "",
-    "namespace_regions": [],
-    "namespace_trailing_blank_lines": 0,
-    "path": "icalculator.h",
-    "qualified_name": "icalculator.h",
-    "source": "markdown-import",
-    "start_line": 0,
-    "tags": [
-      "design"
-    ],
-    "type": "FileNode"
-  },
-  {
-    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:file:normalized_repository_path=operation.h",
-    "edges": [],
-    "end_line": 0,
-    "guard_leading_blank_lines": 0,
-    "include_directive_lines": [],
-    "include_directives": [],
-    "include_guard": "",
-    "kind": "file",
-    "language": "",
-    "leading_blank_lines": 0,
-    "name": "operation.h",
-    "namespace_leading_blank_lines": 0,
-    "namespace_name": "",
-    "namespace_regions": [],
-    "namespace_trailing_blank_lines": 0,
-    "path": "operation.h",
-    "qualified_name": "operation.h",
-    "source": "markdown-import",
-    "start_line": 0,
-    "tags": [
-      "design"
-    ],
-    "type": "FileNode"
-  },
-  {
-    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:file:normalized_repository_path=calculator_result.h",
-    "edges": [],
-    "end_line": 0,
-    "guard_leading_blank_lines": 0,
-    "include_directive_lines": [],
-    "include_directives": [],
-    "include_guard": "",
-    "kind": "file",
-    "language": "",
-    "leading_blank_lines": 0,
-    "name": "calculator_result.h",
-    "namespace_leading_blank_lines": 0,
-    "namespace_name": "",
-    "namespace_regions": [],
-    "namespace_trailing_blank_lines": 0,
-    "path": "calculator_result.h",
-    "qualified_name": "calculator_result.h",
-    "source": "markdown-import",
-    "start_line": 0,
-    "tags": [
-      "design"
-    ],
-    "type": "FileNode"
-  },
-  {
-    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:file:normalized_repository_path=base_window.h",
-    "edges": [],
-    "end_line": 0,
-    "guard_leading_blank_lines": 0,
-    "include_directive_lines": [],
-    "include_directives": [],
-    "include_guard": "",
-    "kind": "file",
-    "language": "",
-    "leading_blank_lines": 0,
-    "name": "base_window.h",
-    "namespace_leading_blank_lines": 0,
-    "namespace_name": "",
-    "namespace_regions": [],
-    "namespace_trailing_blank_lines": 0,
-    "path": "base_window.h",
-    "qualified_name": "base_window.h",
-    "source": "markdown-import",
-    "start_line": 0,
-    "tags": [
-      "design"
-    ],
-    "type": "FileNode"
-  },
-  {
-    "canonical_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:file:normalized_repository_path=calculator_window.h",
-    "edges": [],
-    "end_line": 0,
-    "guard_leading_blank_lines": 0,
-    "include_directive_lines": [],
-    "include_directives": [],
-    "include_guard": "",
-    "kind": "file",
-    "language": "",
-    "leading_blank_lines": 0,
-    "name": "calculator_window.h",
-    "namespace_leading_blank_lines": 0,
-    "namespace_name": "",
-    "namespace_regions": [],
-    "namespace_trailing_blank_lines": 0,
-    "path": "calculator_window.h",
-    "qualified_name": "calculator_window.h",
-    "source": "markdown-import",
-    "start_line": 0,
-    "tags": [
-      "design"
-    ],
-    "type": "FileNode"
   }
 ]

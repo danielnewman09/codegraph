@@ -48,7 +48,7 @@
               {
                 "relation_type": "DEFINED_IN",
                 "target_type": "TestStepNode",
-                "target_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:test-step:parent_key=cg%3Av1%3Arepository%3Acodegraph-suite%252Fcodegraph%3Atest%3Aparent_key%3Dcg%253Av1%253Arepository%253Acodegraph-suite%25252Fcodegraph%253Anamespace%253Aqualified_name%253Dtests%25253A%25253Atest_member%3Aqualified_name%3Dtests%253A%253Atest_member%253A%253ATestUpdate%253A%253Atest_single_field%3Aqualified_name%3Dtests%253A%253Atest_member%253A%253ATestUpdate%253A%253Atest_single_field%253A%253Astep_0"
+                "target_key": "cg:v1:repository:codegraph-suite%2Fcodegraph:test-step:parent_key=cg%3Av1%3Arepository%3Acodegraph-suite%252Fcodegraph%3Atest%3Aparent_key%3Dcg%253Av1%253Arepository%253Acodegraph-suite%25252Fcodegraph%253Anamespace%253Aqualified_name%253Dtests%25253A%25253Atest_member%3Aqualified_name%3Dtests%253A%253Atest_member%253A%253ATestUpdate%253A%253Atest_single_field:qualified_name=tests%3A%3Atest_member%3A%3ATestUpdate%3A%3Atest_single_field%3A%3Astep_0"
               }
             ],
             "source": "test",

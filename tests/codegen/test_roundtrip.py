@@ -11,8 +11,8 @@ Tier 1 (``TestTier1Roundtrip``) — the Phase-1 sync proof (§3.3):
         ▲                                                        │
         └──────────── Tier-1 qname subset check ◀────────────────┘
 
-Skipped when ``doxygen`` or ``doxygen-index`` are unavailable (CI
-without the C++ toolchain).  Marked ``integration`` — full-stack
+Required ``doxygen`` and ``doxygen-index`` tools are exercised directly;
+missing tools fail the integration suite.  Marked ``integration`` — full-stack
 (external tools + sqlite backend), ~1 min.
 """
 
@@ -45,11 +45,7 @@ _DOXYGEN_INDEX = shutil.which("doxygen-index") or (
     str(_LOCAL_DOXYGEN_INDEX) if _LOCAL_DOXYGEN_INDEX.is_file() else None
 )
 
-pytestmark = [
-    pytest.mark.integration,
-    pytest.mark.skipif(_DOXYGEN is None, reason="doxygen not on PATH"),
-    pytest.mark.skipif(_DOXYGEN_INDEX is None, reason="doxygen-index not on PATH"),
-]
+pytestmark = [pytest.mark.integration]
 
 
 @pytest.fixture(scope="module")

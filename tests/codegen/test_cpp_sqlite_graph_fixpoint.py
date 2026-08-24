@@ -34,6 +34,10 @@ import pytest
 
 from codegraph.codegen import generate
 from codegraph.graph import LayerGraph
+from tests.codegen.external_tools import (
+    ExternalToolError,
+    run_index,
+)
 
 
 def _deser(data):
@@ -70,9 +74,7 @@ def _find_clang_format() -> str | None:
 
 _CLANG_FORMAT = _find_clang_format()
 
-pytestmark = [
-    pytest.mark.integration
-]
+pytestmark = [pytest.mark.integration]
 
 
 def _load_manifest() -> tuple[str, ...]:
@@ -104,21 +106,25 @@ def _canonicalize_tree(src_root: Path, dst_root: Path) -> None:
         path.write_bytes(canonical)
 
 
-def _index_tree(tree_root: Path, db_path: Path, out_dir: Path) -> LayerGraph:
+def _index_tree(
+    tree_root: Path,
+    db_path: Path,
+    out_dir: Path,
+    conan_env: dict[str, str],
+) -> LayerGraph:
     """Run doxygen-index against *tree_root* and return the as-built graph."""
-    env = {**os.environ, "CODEGRAPH_BACKEND": "sqlite", "SQLITE_PATH": str(db_path)}
-    proc = subprocess.run(
-        [_DOXYGEN_INDEX, "codegraph",
-         "--project-dir", PROJECT_DIR,
-         "--output-dir", str(out_dir),
-         "--neo4j", "--clear", "--yes"],
-        cwd=tree_root,
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=600,
-    )
-    assert proc.returncode == 0, f"doxygen-index failed:\n{proc.stderr[-3000:]}"
+    env = {**conan_env, "CODEGRAPH_BACKEND": "sqlite", "SQLITE_PATH": str(db_path)}
+    try:
+        proc = run_index(
+            [_DOXYGEN_INDEX, "codegraph",
+             "--project-dir", PROJECT_DIR,
+             "--output-dir", str(out_dir),
+             "--neo4j", "--clear", "--yes"],
+            cwd=tree_root,
+            env=env,
+        )
+    except ExternalToolError as exc:
+        raise AssertionError(str(exc)) from exc
     assert db_path.exists(), "doxygen-index did not write the sqlite backend"
     from codegraph.backends import get_backend, set_backend
     from codegraph.backends.sqlite import SqliteBackend, SqliteConfig
@@ -270,14 +276,16 @@ def _compare_graphs(data_a: list[dict], data_b: list[dict]) -> list[str]:
 
 
 @pytest.fixture(scope="module")
-def fixpoint_data(tmp_path_factory):
+def fixpoint_data(tmp_path_factory, conan_test_environment):
     """Golden graph + generated-tree graph (both serialized exports)."""
     tmp = tmp_path_factory.mktemp("fixpoint")
 
     # Canonicalize the golden tree into a temp copy and index it.
     golden_canon = tmp / "golden-canon"
     _canonicalize_tree(IMPL_SRC, golden_canon)
-    graph_a = _index_tree(golden_canon, tmp / "a.sqlite3", tmp / "out-a")
+    graph_a = _index_tree(
+        golden_canon, tmp / "a.sqlite3", tmp / "out-a", conan_test_environment.env
+    )
     data_a = graph_a.serialize(fields="all", export_implementation=True)
 
     # Generate the 14-file production tree.
@@ -298,7 +306,9 @@ def fixpoint_data(tmp_path_factory):
     # Canonicalize the generated tree into a temp copy and index it.
     generated_canon = tmp / "generated-canon"
     _canonicalize_tree(save_dir, generated_canon)
-    graph_b = _index_tree(generated_canon, tmp / "b.sqlite3", tmp / "out-b")
+    graph_b = _index_tree(
+        generated_canon, tmp / "b.sqlite3", tmp / "out-b", conan_test_environment.env
+    )
     data_b = graph_b.serialize(fields="all", export_implementation=True)
     return data_a, data_b, save_dir
 
