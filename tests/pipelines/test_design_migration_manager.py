@@ -35,6 +35,7 @@ DATA_DIR = Path(__file__).parent / "data" / "cpp_sqlite"
 from codegraph.graph import LayerGraph
 from codegraph.export.format import export_graph
 from codegraph.constants import TAGS
+from codegraph.identity import CanonicalIdentity
 
 
 def _requires_openai():
@@ -74,6 +75,45 @@ def ingest_as_built():
 
     entries = list(graph._all_entries())
     log.info("Parsed %d entries from JSON", len(entries))
+
+    # Validate the bounded canonical view before storage so persistence cannot
+    # silently discard legacy endpoints. Canonical out-of-view targets are
+    # allowed only when explicitly external.
+    serialized = graph.serialize(fields="all")
+    node_keys: set[str] = set()
+
+    def walk(items):
+        for item in items:
+            key = item.get("canonical_key")
+            assert isinstance(key, str) and key
+            CanonicalIdentity.from_key(key)
+            node_keys.add(key)
+            yield item
+            yield from walk(item.get("composes", []))
+
+    serialized_nodes = list(walk(serialized))
+    unresolved = []
+    for node in serialized_nodes:
+        for edge in node.get("edges", []):
+            target = edge.get("target_key")
+            if (
+                not isinstance(target, str)
+                or (
+                    target not in node_keys
+                    and edge.get("external") is not True
+                )
+                or "target_ref" in edge
+                or edge.get("unresolved") is True
+                or "diagnostic" in edge
+            ):
+                unresolved.append((
+                    node.get("qualified_name") or node.get("name"),
+                    edge,
+                ))
+    assert not unresolved, (
+        "as-built view has unresolved relationships before "
+        f"persistence ({len(unresolved)}): {unresolved[:5]}"
+    )
 
     graph.to_neo4j()
     log.info("Persisted %d entries to Neo4j (as-built)", len(entries))
@@ -398,13 +438,30 @@ class TestDesignMigrationManager:
                 if isinstance(composes, list):
                     yield from _iter_exported(composes)
 
+        items = list(_iter_exported(exported))
+        exported_keys = {item.get("canonical_key") for item in items}
+        for item in items:
+            canonical_key = item.get("canonical_key")
+            assert isinstance(canonical_key, str) and canonical_key
+            CanonicalIdentity.from_key(canonical_key)
+            for edge in item.get("edges", []) or []:
+                assert "target_uid" not in edge
+                assert "target_ref" not in edge
+                assert edge.get("unresolved") is not True
+                assert "diagnostic" not in edge
+                target_key = edge.get("target_key")
+                assert isinstance(target_key, str) and target_key
+                CanonicalIdentity.from_key(target_key)
+                if target_key not in exported_keys:
+                    assert edge.get("external") is True
+
         untagged = [
             (
                 n.get("qualified_name") or n.get("name") or "<unnamed>",
-                n.get("uid"),
+                n.get("canonical_key"),
                 n.get("type") or n.get("kind"),
             )
-            for n in _iter_exported(exported)
+            for n in items
             if not n.get("tags")
         ]
         assert not untagged, (
@@ -419,40 +476,41 @@ class TestDesignMigrationManager:
         # against unrelated requirements/scaffold trees (e.g. the HLR
         # composing its LLRs) leaking into the design export via
         # ``bulk_load_by_tag``'s namespace-parent pass. ──
-        items = list(_iter_exported(exported))
-        uid_to_item = {n["uid"]: n for n in items if n.get("uid")}
+        key_to_item = {
+            n["canonical_key"]: n for n in items if n.get("canonical_key")
+        }
 
         adjacent: dict[str, set[str]] = {}
         for item in items:
-            uid = item.get("uid")
-            assert uid
-            neighbors = adjacent.setdefault(uid, set())
+            key = item.get("canonical_key")
+            assert key
+            neighbors = adjacent.setdefault(key, set())
             for child in item.get("composes", []) or []:
-                cuid = child.get("uid")
-                if cuid:
-                    neighbors.add(cuid)
-                    adjacent.setdefault(cuid, set()).add(uid)
+                child_key = child.get("canonical_key")
+                if child_key:
+                    neighbors.add(child_key)
+                    adjacent.setdefault(child_key, set()).add(key)
             for edge in item.get("edges", []) or []:
-                tuid = edge.get("target_uid")
-                if tuid:
-                    neighbors.add(tuid)
-                    adjacent.setdefault(tuid, set()).add(uid)
+                target_key = edge.get("target_key")
+                if target_key:
+                    neighbors.add(target_key)
+                    adjacent.setdefault(target_key, set()).add(key)
 
-        design_uids = {
-            uid
-            for uid in adjacent
-            if "design" in (uid_to_item.get(uid, {}).get("tags") or [])
+        design_keys = {
+            key
+            for key in adjacent
+            if "design" in (key_to_item.get(key, {}).get("tags") or [])
         }
         not_design_closed: list[tuple] = []
-        for uid, neighbors in adjacent.items():
-            item = uid_to_item.get(uid)
+        for key, neighbors in adjacent.items():
+            item = key_to_item.get(key)
             if item is None:
                 continue  # edge target outside the export
             if (item.get("type") or item.get("kind")) == "NamespaceNode":
                 continue  # namespaces are structural
             if "design" in (item.get("tags") or []):
                 continue
-            if neighbors & design_uids:
+            if neighbors & design_keys:
                 continue
             not_design_closed.append(
                 (
@@ -460,7 +518,7 @@ class TestDesignMigrationManager:
                     or item.get("name")
                     or "<unnamed>",
                     item.get("tags"),
-                    uid[:12],
+                    key[:48],
                 )
             )
         assert not not_design_closed, (

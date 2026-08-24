@@ -58,6 +58,7 @@ markers = [
     "neo4j: marks tests that require a running Neo4j instance",
     "slow: marks tests that require an LLM call (OPENAI_API_KEY)",
     "browser: marks tests that require a Playwright headless browser",
+    "agents: marks tests that require the agent dependencies",
 ]
 
 [tool.coverage.run]

@@ -22,8 +22,12 @@ pip install codegraph
 For development:
 
 ```bash
-pip install codegraph[dev]
+pip install 'codegraph[dev]'
 ```
+
+The LangGraph-based agent framework is included in the base package
+dependencies. A missing or broken agent dependency fails collection when the
+agent lane is run.
 
 ### PlantUML (optional)
 
@@ -284,98 +288,12 @@ java -jar tools/plantuml.jar -tpng diagram.puml
 Or programmatically via the test suite, which compiles exported
 PlantUML to PNG files in `unit_test_data/`.
 
-## HTML Visualization
+## Interactive Visualization
 
-`codegraph-html` is a command-line tool that reads a code-graph JSON
-file and produces a self-contained interactive HTML visualisation using
-[Cytoscape.js](https://js.cytoscape.org/).  No Neo4j connection required —
-it loads directly from JSON.
-
-### Configuration
-
-The tool reads a config file from the project directory, in priority
-order:
-
-1. **`.codegraph.toml`** (standalone codegraph config):
-
-   ```toml
-   [project]
-   name = "design"
-   output_dir = "build/docs"
-   ```
-
-2. **`.doxygen-index.toml`** (the config used by
-   [Doxygen-Dependency-Parser](https://github.com/danielnewman09/Doxygen-Dependency-Parser)'s
-   `doxygen-index` tool). When `.codegraph.toml` is absent, the HTML
-   output directory is taken from the optional `[codegraph-html]`
-   section (defaulting to `"codegraph"`), and the project name from
-   `[project].name`:
-
-   ```toml
-   [project]
-   name = "codegraph"
-   language = "python"
-   input_paths = ["src"]
-
-   [codegraph-html]
-   output_dir = "codegraph"
-   ```
-
-This lets a project keep a single `.doxygen-index.toml` for both the
-parser and the HTML renderer.
-
-- **`name`** — the project / graph name, used for the input JSON filename
-  (`{output_dir}/{name}.json`) and the default output HTML filename
-  (`{output_dir}/{name}.html`).
-- **`output_dir`** — directory containing the code-graph JSON file.
-
-### Usage
-
-```bash
-# Auto-detect .codegraph.toml or .doxygen-index.toml in the current dir
-codegraph-html
-
-# Use a config file in another directory
-codegraph-html --project-dir ../my-project
-
-# Override the output path
-codegraph-html --output custom.html
-
-# Use compact layout
-codegraph-html --size small
-```
-
-### Example workflow
-
-```bash
-# 1. Generate a code-graph JSON (e.g. via LayerGraph.serialize())
-python -c '
-import json
-from codegraph import LayerGraph
-graph = LayerGraph.from_neo4j("design")
-with open("build/docs/design.json", "w") as f:
-    json.dump(graph.serialize(), f, indent=2)
-'
-
-# 2. Render as HTML
-codegraph-html
-# → writes build/docs/design.html
-```
-
-### Python API
-
-You can also call the export functions directly:
-
-```python
-from codegraph.viz import export_html_from_json
-
-# Load from JSON file → HTML (no Neo4j needed)
-export_html_from_json("path/to/graph.json", "output.html")
-
-# Or fetch from Neo4j by tag → HTML
-from codegraph.viz import export_html
-export_html("design", "design.html")
-```
+Use the Explorer API and server for current interactive graph browsing. The
+retired static Cytoscape HTML exporter and its command are no longer part of
+the public surface. PlantUML, Markdown, and JSON remain
+available through the export APIs.
 
 ## CodeGraphNode API
 
@@ -544,12 +462,27 @@ Full documentation: [`docs/operations/neo4j-backup.md`](docs/operations/neo4j-ba
 ## Testing
 
 ```bash
-# Run all tests (requires Neo4j)
-pytest
+# Run the complete suite. Required dependencies are failures when unavailable.
+python -m pytest -q
+
+# Select the agent lane explicitly when iterating on it
+python -m pytest -q -m agents
 
 # Run with coverage
-pytest --cov=codegraph --cov-report=term-missing
+python -m pytest --cov=codegraph --cov-report=term-missing
 ```
+
+The C++ codegen fidelity and graph-fixpoint tests create a disposable Conan 2
+home under pytest's temporary directory. They clone only the pinned recipe
+metadata and host/Debug package artifacts from a read-only source cache, write
+`conan-tool-inventory.json`, and never use the engineer's normal cache as
+`CONAN_HOME`. See
+[`docs/testing/reproducible-verification.md`](docs/testing/reproducible-verification.md)
+for setup, tool revisions, and failure classification.
+
+The LangChain and LangGraph agent dependencies are required base dependencies,
+so a missing or broken installation fails agent collection instead of being
+converted into a skip.
 
 Neo4j credentials are loaded from a `.env` file via `python-dotenv`:
 
