@@ -10,9 +10,8 @@ Fixed architectural decisions enforced here:
 - Shared logical keys: design and as-built observations of the same
   logical code entity share one canonical key and coexist through tags
   and provenance (decision 1).  No logical-entity/observation split.
-- ``canonical_key`` beside legacy ``uid`` (decision 2) — this module
-  only *computes* the canonical key; the model property and backends are
-  later packages.
+- ``canonical_key`` is the storage identity after the canonical-only cutover;
+  this module computes and validates it while backends persist it.
 - Explicit scope (decision 3): ``project`` / ``repository`` /
   ``ecosystem`` via :class:`codegraph.identity.scope.IdentityScope`.
 - Versioned percent-encoded key grammar (decision 4), see

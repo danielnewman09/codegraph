@@ -10,6 +10,7 @@ persistence to Neo4j, and querying from Neo4j by tag.
 from __future__ import annotations
 
 import logging
+import json
 from dataclasses import dataclass, field
 from typing import Iterator
 
@@ -47,7 +48,12 @@ from codegraph.backends.interface import Backend
 from codegraph.backends import get_backend
 
 from codegraph.constants import Tag, TAGS
-from codegraph.identity import KEY_VERSION, VERSION_PREFIX, parse_key
+from codegraph.identity import (
+    CanonicalIdentity,
+    KEY_VERSION,
+    VERSION_PREFIX,
+    parse_key,
+)
 from codegraph.identity.registry import KeyConflictError
 from codegraph.models.tags import CodeGraphNode, _type_discriminator
 from codegraph.models.descriptors import PropertyRegistry
@@ -68,6 +74,142 @@ _PORTABLE_NODE_FORBIDDEN_FIELDS = frozenset({
 _PORTABLE_EDGE_FORBIDDEN_FIELDS = frozenset({
     "uid", "target_uid", "refid", "from_refid", "to_refid",
 })
+
+
+def _validate_portable_edge_shape(edge: dict, *, context: str = "") -> None:
+    """Validate the endpoint shape of one portable relationship.
+
+    A portable edge has either a strict canonical ``target_key`` or an
+    explicit ``target_ref``.  The latter is an unresolved extraction result;
+    it is not a second spelling of ``target_key`` and must never be marked
+    external.  Scope-aware classification is applied later, once the
+    selected and complete key sets are known.
+    """
+    if not isinstance(edge, dict):
+        raise GraphDocumentError(
+            f"{context}: edge must be an object"
+            if context else "edge must be an object"
+        )
+    forbidden = _PORTABLE_EDGE_FORBIDDEN_FIELDS & set(edge)
+    if forbidden:
+        raise GraphDocumentError(
+            f"{context}: portable edge contains forbidden fields "
+            f"{sorted(forbidden)}"
+            if context
+            else f"portable edge contains forbidden fields {sorted(forbidden)}"
+        )
+    if not isinstance(edge.get("relation_type"), str) or not edge["relation_type"]:
+        raise GraphDocumentError(
+            f"{context}: edge is missing relation_type"
+            if context else "edge is missing relation_type"
+        )
+    if not isinstance(edge.get("target_type"), str) or not edge["target_type"]:
+        raise GraphDocumentError(
+            f"{context}: edge is missing target_type"
+            if context else "edge is missing target_type"
+        )
+
+    target_key = edge.get("target_key")
+    target_ref = edge.get("target_ref")
+    if target_key:
+        if not isinstance(target_key, str):
+            raise GraphDocumentError(
+                f"{context}: edge target_key must be a string"
+                if context else "edge target_key must be a string"
+            )
+        try:
+            CanonicalIdentity.from_key(target_key)
+        except Exception as exc:
+            raise GraphDocumentError(
+                f"{context}: invalid edge target_key {target_key!r}: {exc}"
+                if context
+                else f"invalid edge target_key {target_key!r}: {exc}"
+            ) from exc
+        if target_ref:
+            raise GraphDocumentError(
+                f"{context}: edge cannot carry both target_key and target_ref"
+                if context else "edge cannot carry both target_key and target_ref"
+            )
+        if edge.get("unresolved") is True:
+            raise GraphDocumentError(
+                f"{context}: an unresolved edge cannot carry target_key"
+                if context else "an unresolved edge cannot carry target_key"
+            )
+    else:
+        if not isinstance(target_ref, str) or not target_ref:
+            raise GraphDocumentError(
+                f"{context}: edge has no target_key or explicit target_ref"
+                if context
+                else "edge has no target_key or explicit target_ref"
+            )
+        if edge.get("external") is True:
+            raise GraphDocumentError(
+                f"{context}: external requires a valid target_key"
+                if context else "external requires a valid target_key"
+            )
+
+    for field_name in ("external", "unresolved"):
+        if field_name in edge and not isinstance(edge[field_name], bool):
+            raise GraphDocumentError(
+                f"{context}: edge {field_name} must be boolean"
+                if context
+                else f"edge {field_name} must be boolean"
+            )
+    if "diagnostic" in edge and (
+        not isinstance(edge["diagnostic"], str) or not edge["diagnostic"].strip()
+    ):
+        raise GraphDocumentError(
+            f"{context}: edge diagnostic must be a non-empty string"
+            if context else "edge diagnostic must be a non-empty string"
+        )
+
+
+def _classify_portable_edge(
+    edge: dict,
+    *,
+    selected_keys: set[str],
+    complete_keys: set[str],
+    context: str = "",
+) -> dict:
+    """Return one edge in the portable endpoint state for this export."""
+    result = dict(edge)
+    _validate_portable_edge_shape(result, context=context)
+    target_key = result.get("target_key")
+    if not target_key:
+        result["unresolved"] = True
+        result.setdefault(
+            "diagnostic",
+            "target could not be resolved during graph extraction",
+        )
+        return result
+
+    if target_key in selected_keys:
+        # A target that is present in the document is never external.  Drop
+        # stale classification metadata when a graph is re-exported at a
+        # wider scope.
+        result.pop("external", None)
+        result.pop("unresolved", None)
+        result.pop("diagnostic", None)
+        return result
+
+    if target_key in complete_keys or result.get("external") is True:
+        result["external"] = True
+        result.pop("unresolved", None)
+        result.pop("diagnostic", None)
+        return result
+
+    # Keep the original endpoint as human-readable diagnostic data, but do
+    # not emit it as target_key: a canonical-looking key that does not
+    # resolve is not made legal by an external marker.
+    result["target_ref"] = target_key
+    result.pop("target_key", None)
+    result.pop("external", None)
+    result["unresolved"] = True
+    result.setdefault(
+        "diagnostic",
+        "canonical target is absent from the selected and complete graph",
+    )
+    return result
 
 
 class GraphDocumentError(ValueError):
@@ -157,6 +299,7 @@ class CompositeEntry:
     children: dict[str, dict[str, "CompositeEntry"]] = field(default_factory=dict)
     references: list[tuple[str, str, str]] = field(default_factory=list)
     edge_attrs: dict[tuple[str, str], dict] = field(default_factory=dict)
+    unresolved_edges: list[dict] = field(default_factory=list)
 
     def serialize(
         self,
@@ -164,6 +307,8 @@ class CompositeEntry:
         *,
         export_implementation: bool = False,
         canonical_by_local: dict[str, str] | None = None,
+        selected_keys: set[str] | None = None,
+        complete_keys: set[str] | None = None,
     ) -> dict:
         """Recursively serialize this CompositeEntry and its composed children.
 
@@ -191,6 +336,11 @@ class CompositeEntry:
             canonical_by_local: Map of local node key → canonical key
                 (``cg:v1:...``); reference edges emit ``target_key`` from
                 it (WP B — canonical keys only).
+            selected_keys: Keys emitted in this document.  Used to ensure
+                an in-document target is never also marked external.
+            complete_keys: Keys known to exist in the complete graph.  A
+                valid key outside ``selected_keys`` is emitted with
+                ``external: true``.
 
         Returns:
             A dict representing the entry with nested children.
@@ -218,7 +368,24 @@ class CompositeEntry:
         # neomodel relationship managers.  This is essential for graphs
         # that were deserialized from JSON (e.g. subgraph views) where
         # the node is not connected to Neo4j.
-        seen_targets = {(e["relation_type"], e["target_key"]) for e in edges}
+        selected_keys = selected_keys or set()
+        complete_keys = complete_keys or set()
+
+        # Relationship attributes captured on the LayerGraph (notably
+        # ``external`` and include spelling) must also update edges emitted
+        # by the node's backend serializer.
+        for edge in edges:
+            target_key = edge.get("target_key")
+            attrs = self.edge_attrs.get(
+                (edge.get("relation_type"), target_key), {}
+            )
+            if attrs:
+                edge.update(attrs)
+
+        seen_targets = {
+            (e.get("relation_type"), e.get("target_key") or e.get("target_ref"))
+            for e in edges
+        }
         for rt, target_key, target_type in self.references:
             if rt in ("COMPOSES", "HAS_IMPLEMENTATION", "TEMPLATE_PARAM"):
                 continue
@@ -233,6 +400,29 @@ class CompositeEntry:
             edge.update(self.edge_attrs.get((rt, target_key), {}))
             edges.append(edge)
 
+        for edge in self.unresolved_edges:
+            identity = (
+                edge.get("relation_type"),
+                edge.get("target_key") or edge.get("target_ref"),
+            )
+            if identity not in seen_targets:
+                edges.append(dict(edge))
+                seen_targets.add(identity)
+
+        # Relationship managers and backend queries do not guarantee order.
+        # Sort before classification so portable JSON has a stable byte order
+        # even when the same graph is loaded through different backends.
+        edges.sort(
+            key=lambda edge: (
+                edge.get("relation_type", ""),
+                edge.get("target_key") or edge.get("target_ref") or "",
+                edge.get("target_type", "") or "",
+                bool(edge.get("external", False)),
+                bool(edge.get("unresolved", False)),
+                repr(sorted(edge.items())),
+            )
+        )
+
         # LayerGraph references normally use canonical/local keys, but
         # importers may retain qualified names until serialization.  Resolve
         # either form to the target node's canonical key before exporting.
@@ -242,26 +432,20 @@ class CompositeEntry:
                 if target_key in canonical_by_local:
                     edge["target_key"] = canonical_by_local[target_key]
 
+        classified_edges = []
         for edge in edges:
-            forbidden = _PORTABLE_EDGE_FORBIDDEN_FIELDS & set(edge)
-            if forbidden:
-                raise ValueError(
-                    "portable LayerGraph edge contains forbidden fields: "
-                    f"{sorted(forbidden)}"
+            classified_edges.append(
+                _classify_portable_edge(
+                    edge,
+                    selected_keys=selected_keys,
+                    complete_keys=complete_keys,
+                    context=(
+                        f"{type(self.node).__name__} "
+                        f"{getattr(self.node, 'qualified_name', '') or self.node.name}"
+                    ),
                 )
-            if not edge.get("target_key") and not edge.get("target_ref"):
-                raise ValueError(
-                    "portable LayerGraph edge has no canonical target_key"
-                )
-            if edge.get("target_key"):
-                try:
-                    parse_key(edge["target_key"])
-                except ValueError as exc:
-                    raise ValueError(
-                        f"portable LayerGraph edge has invalid target_key: "
-                        f"{edge['target_key']!r}"
-                    ) from exc
-        serialized["edges"] = edges
+            )
+        serialized["edges"] = classified_edges
 
         # Implementation data is opt-in: method bodies are stripped unless
         # the exporter explicitly asks for them (and even then an empty
@@ -271,15 +455,22 @@ class CompositeEntry:
             if not export_implementation or not body:
                 serialized.pop("body", None)
 
-        # Inline composed children under "composes"
+        # Inline composed children under "composes".  ``children`` is built
+        # from parser/backend result order; that order is semantic for enum
+        # values, declarations, parameters, and source-layout fragments.
+        # Keep both the type buckets and each bucket's insertion order.  The
+        # relationship arrays above are intentionally sorted because their
+        # order has no code-generation meaning.
         if self.children:
             composes: list[dict] = []
-            for type_children in self.children.values():
-                for child_entry in type_children.values():
+            for type_name, type_children in self.children.items():
+                for child_key, child_entry in type_children.items():
                     composes.append(child_entry.serialize(
                         fields=fields,
                         export_implementation=export_implementation,
                         canonical_by_local=canonical_by_local,
+                        selected_keys=selected_keys,
+                        complete_keys=complete_keys,
                     ))
             serialized["composes"] = composes
 
@@ -303,6 +494,8 @@ class LayerGraph:
             (e.g. frozenset({"design"}), frozenset({"design", "as-built"})).
         entries: Dict mapping stable local keys to CompositeEntry instances
             for root-level nodes only.
+        known_keys: Canonical keys observed in the complete source graph,
+            including valid endpoints omitted from this selected view.
     """
 
     tags: frozenset[str]  # e.g. frozenset({"design"}) or frozenset({"design", "as-built"})
@@ -316,6 +509,22 @@ class LayerGraph:
             )
 
     entries: dict[str, CompositeEntry] = field(default_factory=dict)
+
+    # Canonical keys known to exist in the complete source graph.  This is
+    # deliberately wider than the selected entries: a scoped export uses it
+    # to distinguish a valid excluded endpoint from a genuinely unresolved
+    # extraction result.
+    known_keys: frozenset[str] = field(default_factory=frozenset)
+
+    # Scoped views retain their focal compound as the first serialized root;
+    # ordinary backend exports use the stable provenance/key ordering below.
+    _preferred_root_key: str | None = field(default=None, repr=False, compare=False)
+
+    # Full portable exports may contain a composition DAG rather than a
+    # tree: a canonical node can be composed by more than one parent.  Flat
+    # wire documents retain each node once and carry COMPOSES as logical
+    # edges; deserialization still builds the normal composition indexes.
+    _wire_layout: str = field(default="nested", repr=False, compare=False)
 
     # ── Helpers ────────────────────────────────────────────────────────
 
@@ -637,8 +846,29 @@ class LayerGraph:
         source_entry = key_to_entry[source_key]
 
         for edge in data.get("edges", []):
+            _validate_portable_edge_shape(edge, context="nested deserialize")
             target_key = cls._resolve_target_key(edge, key_to_key)
-            if target_key is None:
+            if target_key is None or edge.get("external") is True:
+                if target_key is not None and edge.get("external") is True:
+                    raise GraphDocumentError(
+                        "nested deserialize: an in-document target cannot also be external"
+                    )
+                raw_target_key = edge.get("target_key")
+                if raw_target_key:
+                    source_entry.references.append(
+                        (edge["relation_type"], raw_target_key, edge["target_type"])
+                    )
+                    attrs = {
+                        k: v for k, v in edge.items()
+                        if k not in ("relation_type", "target_key",
+                                     "target_local_id", "target_type")
+                    }
+                    if attrs:
+                        source_entry.edge_attrs[
+                            (edge["relation_type"], raw_target_key)
+                        ] = attrs
+                else:
+                    source_entry.unresolved_edges.append(dict(edge))
                 continue
             source_entry.references.append(
                 (edge["relation_type"], target_key, edge["target_type"])
@@ -703,7 +933,11 @@ class LayerGraph:
             for key, entry in key_to_entry.items()
             if key not in child_keys
         }
-        return cls(tags=tags or frozenset({"design"}), entries=root_entries)
+        return cls(
+            tags=tags or frozenset({"design"}),
+            entries=root_entries,
+            known_keys=frozenset(key_to_entry),
+        )
 
     @classmethod
     def _deserialize_flat(
@@ -762,25 +996,65 @@ class LayerGraph:
             source_entry = key_to_entry[source_key]
 
             for edge in node_data.get("edges", []):
+                _validate_portable_edge_shape(edge, context="flat deserialize")
                 # Canonical-only resolution: canonical key → local entry key.
                 target_key = cls._resolve_target_key(edge, key_to_key)
 
-                # Auto-create scaffold node for an unresolved canonical
-                # target when the caller explicitly asks.
+                # Auto-create a scaffold only for an explicit unresolved
+                # notional reference.  A canonical target that is absent
+                # from this document is not enough to invent a second key
+                # algorithm; it remains an unresolved endpoint unless the
+                # producer supplied ``target_ref``.
+                created_scaffold = False
                 if (
                     target_key is None
                     and create_missing
-                    and edge.get("target_key")
+                    and edge.get("target_ref")
+                    and edge.get("external") is not True
                 ):
                     target_key = cls._create_missing_scaffold(
                         edge, key_to_entry, key_to_key
                     )
+                    created_scaffold = target_key is not None
+
+                # Once a target_ref has materialized into a canonical local
+                # entry it is no longer an unresolved portable endpoint.
+                # Do not retain the source diagnostic metadata in
+                # edge_attrs, or serialization would emit both endpoint
+                # fields on the next round trip.
+                if created_scaffold:
+                    edge = dict(edge)
+                    edge["target_key"] = target_key
+                    edge.pop("target_ref", None)
+                    edge.pop("unresolved", None)
+                    edge.pop("diagnostic", None)
 
                 if target_key is None:
+                    raw_target_key = edge.get("target_key")
+                    if raw_target_key:
+                        source_entry.references.append(
+                            (edge["relation_type"], raw_target_key, edge["target_type"])
+                        )
+                        attrs = {
+                            k: v for k, v in edge.items()
+                            if k not in ("relation_type", "target_key",
+                                         "target_local_id", "target_type")
+                        }
+                        if attrs:
+                            source_entry.edge_attrs[
+                                (edge["relation_type"], raw_target_key)
+                            ] = attrs
+                    else:
+                        source_entry.unresolved_edges.append(dict(edge))
                     continue
 
                 relation_type = edge["relation_type"]
                 target_type = edge["target_type"]
+
+                if edge.get("external") is True:
+                    raise GraphDocumentError(
+                        "flat deserialize: an in-document target cannot also be external"
+                    )
 
                 if relation_type == "COMPOSES":
                     # Nest target as a child under the source entry
@@ -812,7 +1086,28 @@ class LayerGraph:
             if key not in child_keys
         }
 
-        return cls(tags=tags or frozenset({"design"}), entries=root_entries)
+        compose_parent_counts: dict[str, int] = {}
+        for node_data in data:
+            for edge in node_data.get("edges", []):
+                if edge.get("relation_type") == "COMPOSES" and edge.get("target_key"):
+                    target_key = edge["target_key"]
+                    compose_parent_counts[target_key] = (
+                        compose_parent_counts.get(target_key, 0) + 1
+                    )
+
+        return cls(
+            tags=tags or frozenset({"design"}),
+            entries=root_entries,
+            known_keys=frozenset(key_to_entry),
+            # Ordinary flat documents with a tree-shaped COMPOSES relation
+            # retain the established nested serialization contract. A true
+            # DAG (shared composition targets) keeps the lossless flat layout.
+            _wire_layout=(
+                "flat"
+                if any(count > 1 for count in compose_parent_counts.values())
+                else "nested"
+            ),
+        )
 
     @staticmethod
     def _classify_literal(value: str) -> str:
@@ -919,8 +1214,12 @@ class LayerGraph:
             return None
         scaffold_key = scaffold_node.canonical_key
 
-        key_to_entry[scaffold_key] = CompositeEntry(node=scaffold_node)
-        key_to_key[scaffold_key] = scaffold_key
+        # Repeated references to the same notional target are one scaffold,
+        # not replacement entries.  This keeps deserialization idempotent and
+        # lets later edges resolve to the exact same canonical entry.
+        if scaffold_key not in key_to_entry:
+            key_to_entry[scaffold_key] = CompositeEntry(node=scaffold_node)
+            key_to_key[scaffold_key] = scaffold_key
 
         # For member types with a "::"-separated qualified_name, also
         # create a parent ClassNode scaffold (if not already present)
@@ -1088,6 +1387,20 @@ class LayerGraph:
 
         nodes: dict[str, CodeGraphNode] = {}
         key_to_key: dict[str, str] = {}
+        known_keys: set[str] = set()
+
+        # Backend implementations do not promise row ordering.  Sort before
+        # resolving duplicate qualified names so the representative canonical
+        # node is selected deterministically across SQLite/Neo4j loads.
+        matched_nodes = sorted(
+            backend.bulk_load_by_tag(tag),
+            key=lambda node: (
+                cls._node_key(node),
+                type(node).__name__,
+                getattr(node, "qualified_name", "") or "",
+                getattr(node, "name", "") or "",
+            ),
+        )
 
         # ImplementationNode is deliberately excluded from LayerGraphs
         # (see its model docstring: "LayerGraph construction skips
@@ -1126,6 +1439,9 @@ class LayerGraph:
                     )
             nodes[key] = node
             key_to_key[key] = key
+            known_keys.add(
+                getattr(node, "canonical_key", "") or key
+            )
 
         key_to_entry: dict[str, CompositeEntry] = {}
         duplicate_to_canonical: dict[str, str] = {}
@@ -1153,6 +1469,27 @@ class LayerGraph:
         children_by_key = backend.get_composed_children_bulk(node_list)
         edges_by_key = backend.get_edges_bulk(node_list)
 
+        def _child_sort_key(
+            indexed_child: tuple[int, CodeGraphNode],
+        ) -> tuple[int, int, int]:
+            """Order composed declarations by source position when known.
+
+            Backend relationship queries are intentionally unordered.  A
+            canonical-key sort is deterministic but changes declaration
+            order for enum values and mixed class members, which is
+            observable in generated source.  Indexed source spans are the
+            semantic order; backend/parser order is preserved when a node
+            has no source location.
+            """
+            index, child = indexed_child
+            start_line = int(getattr(child, "start_line", 0) or 0)
+            line_number = int(getattr(child, "line_number", 0) or 0)
+            return (
+                0 if start_line or line_number else 1,
+                start_line or line_number,
+                index,
+            )
+
         for key, node in nodes.items():
             canonical_key = duplicate_to_canonical.get(key, key)
             entry = key_to_entry.get(canonical_key)
@@ -1160,11 +1497,39 @@ class LayerGraph:
                 continue
 
             key = cls._node_key(node)
-            children = children_by_key.get(key, [])
-            edges = edges_by_key.get(key, [])
+            children = [
+                child for _index, child in sorted(
+                    enumerate(children_by_key.get(key, [])),
+                    key=_child_sort_key,
+                )
+            ]
+            edges = sorted(
+                edges_by_key.get(key, []),
+                key=lambda edge: (
+                    edge.relation_type,
+                    edge.target_key or "",
+                    edge.target_type or "",
+                    bool(edge.is_outgoing),
+                    repr(getattr(edge, "attributes", {}) or {}),
+                ),
+            )
             if not children and not edges:
-                children = backend.get_composed_children(node)
-                edges = backend.get_all_edges(node)
+                children = [
+                    child for _index, child in sorted(
+                        enumerate(backend.get_composed_children(node)),
+                        key=_child_sort_key,
+                    )
+                ]
+                edges = sorted(
+                    backend.get_all_edges(node),
+                    key=lambda edge: (
+                        edge.relation_type,
+                        edge.target_key or "",
+                        edge.target_type or "",
+                        bool(edge.is_outgoing),
+                        repr(getattr(edge, "attributes", {}) or {}),
+                    ),
+                )
 
             for child in children:
                 child_key = cls._node_key(child)
@@ -1182,7 +1547,8 @@ class LayerGraph:
                 if not edge.is_outgoing:
                     continue
                 target_key = edge.target_key
-                if target_key and target_key in key_to_entry:
+                if target_key:
+                    known_keys.add(target_key)
                     entry.references.append(
                         (edge.relation_type, target_key, edge.target_type)
                     )
@@ -1203,6 +1569,12 @@ class LayerGraph:
                 for ref in dup_entry.references:
                     if ref not in existing_refs:
                         canon_entry.references.append(ref)
+                        existing_refs.add(ref)
+                canon_entry.edge_attrs.update(dup_entry.edge_attrs)
+                canon_entry.unresolved_edges.extend(
+                    edge for edge in dup_entry.unresolved_edges
+                    if edge not in canon_entry.unresolved_edges
+                )
 
         root_entries = {
             key: entry
@@ -1212,7 +1584,11 @@ class LayerGraph:
 
         _require_tags(tag, (e.node for e in key_to_entry.values()))
 
-        graph = cls(tags=frozenset({tag}), entries=root_entries)
+        graph = cls(
+            tags=frozenset({tag}),
+            entries=root_entries,
+            known_keys=frozenset(known_keys),
+        )
         graph._prune_empty_namespaces()
         return graph
 
@@ -1223,6 +1599,138 @@ class LayerGraph:
         self.to_backend(get_backend())
 
     # ── Serialization ──────────────────────────────────────────────────
+
+    def _serialize_flat(
+        self,
+        fields: str,
+        *,
+        export_implementation: bool,
+    ) -> list[dict]:
+        """Serialize a canonical-key graph once per node.
+
+        This is the lossless wire form for full backend exports.  The normal
+        nested serializer is intentionally retained for bounded/tree views;
+        this path only activates for documents read from flat input and
+        preserves shared COMPOSES targets without duplicate node records.
+        """
+        flat = self._flat_index()
+        result: list[dict] = []
+        for key, entry in sorted(flat.items(), key=lambda item: (
+            0 if "as-built" in (getattr(item[1].node, "tags", None) or [])
+            else 1 if "design" in (getattr(item[1].node, "tags", None) or [])
+            else 2,
+            item[0],
+        )):
+            serialized = entry.node.serialize(fields=fields)
+            for field_name in _PORTABLE_NODE_FORBIDDEN_FIELDS:
+                serialized.pop(field_name, None)
+            # A deserialized node can have an element id after a persistence
+            # round-trip; do not leak backend-fetched edges into this wire
+            # representation.  The LayerGraph reference/child indexes below
+            # are the complete logical edge source.
+            serialized["edges"] = []
+            if type(entry.node).__name__ == "MethodNode":
+                body = serialized.get("body")
+                if not export_implementation or not body:
+                    serialized.pop("body", None)
+
+            observations: dict[tuple[str, str], tuple[str, dict]] = {}
+            unresolved_edges: list[dict] = []
+
+            def add_edge(
+                relation_type: str,
+                target_key: str,
+                target_type: str,
+                attrs: dict | None = None,
+            ) -> None:
+                attrs = dict(attrs or {})
+                identity = (relation_type, target_key)
+                value = (target_type, attrs)
+                existing = observations.get(identity)
+                if existing is not None and existing != value:
+                    raise GraphDocumentError(
+                        "conflicting duplicate endpoint triple during flat "
+                        f"serialization: {key!r}, {identity!r}"
+                    )
+                observations[identity] = value
+
+            for relation_type, target_key, target_type in entry.references:
+                if relation_type in ("HAS_IMPLEMENTATION", "TEMPLATE_PARAM"):
+                    continue
+                attrs = dict(entry.edge_attrs.get((relation_type, target_key)) or {})
+                if target_key not in flat:
+                    if attrs.get("external") is True or target_key in self.known_keys:
+                        attrs["external"] = True
+                        attrs.pop("unresolved", None)
+                        attrs.pop("diagnostic", None)
+                    else:
+                        unresolved_edges.append({
+                            "relation_type": relation_type,
+                            "target_ref": target_key,
+                            "target_type": target_type,
+                            "unresolved": True,
+                            "diagnostic": (
+                                "canonical target is absent from the selected "
+                                "and complete graph"
+                            ),
+                        })
+                        continue
+                else:
+                    attrs.pop("external", None)
+                    attrs.pop("unresolved", None)
+                    attrs.pop("diagnostic", None)
+                add_edge(
+                    relation_type,
+                    target_key,
+                    target_type,
+                    attrs,
+                )
+            for child_type, children in entry.children.items():
+                for child_key, child_entry in children.items():
+                    add_edge("COMPOSES", child_key, child_type)
+
+            def edge_sort(item: tuple[tuple[str, str], tuple[str, dict]]) -> tuple:
+                (relation_type, target_key), (target_type, attrs) = item
+                target_entry = flat.get(target_key)
+                target_node = target_entry.node if target_entry else None
+                if relation_type == "COMPOSES":
+                    return (
+                        0,
+                        int(getattr(target_node, "start_line", 0) or
+                            getattr(target_node, "line_number", 0) or 0),
+                        int(getattr(target_node, "position", 0) or 0),
+                        target_key,
+                    )
+                return (
+                    1,
+                    relation_type,
+                    target_key,
+                    target_type,
+                    json.dumps(attrs, sort_keys=True, separators=(",", ":")),
+                )
+
+            serialized["edges"] = [
+                {
+                    "relation_type": relation_type,
+                    "target_key": target_key,
+                    "target_type": target_type,
+                    **attrs,
+                }
+                for (relation_type, target_key), (target_type, attrs)
+                in sorted(observations.items(), key=edge_sort)
+            ]
+            serialized["edges"].extend(
+                sorted(
+                    (dict(edge) for edge in unresolved_edges + entry.unresolved_edges),
+                    key=lambda edge: (
+                        edge.get("relation_type", ""),
+                        edge.get("target_ref", ""),
+                        edge.get("target_type", ""),
+                    ),
+                )
+            )
+            result.append(serialized)
+        return result
 
     def serialize(
         self,
@@ -1264,23 +1772,56 @@ class LayerGraph:
             (or the versioned envelope dict when *document* is True),
             suitable for passing to ``json.dumps()`` externally.
         """
+        if self._wire_layout == "flat":
+            entries = self._serialize_flat(
+                fields,
+                export_implementation=export_implementation,
+            )
+            if not document:
+                return entries
+            return {
+                "format_version": GRAPH_DOCUMENT_FORMAT_VERSION,
+                "identity_version": KEY_VERSION,
+                "entries": entries,
+            }
+
         # WP B: build the local-key → canonical-key map across the whole
         # tree so reference edges carry the target's canonical key.
         canonical_by_local: dict[str, str] = {}
-        for key, entry in self._flat_index().items():
+        flat = self._flat_index()
+        selected_keys = set(flat)
+        complete_keys = set(self.known_keys)
+        for key, entry in flat.items():
             canonical = getattr(entry.node, "canonical_key", "") or ""
             if canonical:
                 canonical_by_local[key] = canonical
                 qname = getattr(entry.node, "qualified_name", "") or ""
                 if qname:
                     canonical_by_local[qname] = canonical
+        def _entry_sort_key(item: tuple[str, CompositeEntry]) -> tuple[int, int, str]:
+            key, entry = item
+            node_tags = set(getattr(entry.node, "tags", None) or ())
+            # Preserve the primary provenance tag used by legacy bare-list
+            # readers, which infer graph tags from the first serialized node.
+            # Within that stable provenance bucket, canonical identity orders
+            # the document independently of backend row order.
+            priority = (
+                0 if "as-built" in node_tags
+                else 1 if "design" in node_tags
+                else 2
+            )
+            preferred = 0 if key == self._preferred_root_key else 1
+            return preferred, priority, key
+
         entries = [
             entry.serialize(
                 fields=fields,
                 export_implementation=export_implementation,
                 canonical_by_local=canonical_by_local,
+                selected_keys=selected_keys,
+                complete_keys=complete_keys,
             )
-            for entry in self.entries.values()
+            for key, entry in sorted(self.entries.items(), key=_entry_sort_key)
         ]
         if not document:
             return entries
@@ -1364,6 +1905,7 @@ class LayerGraph:
         actual_tags = frozenset(node.tags or []) or frozenset({"as-built"})
         key = cls._node_key(node)
         entry = CompositeEntry(node=node)
+        known_keys: set[str] = {key}
 
         for child in get_backend().get_composed_children(node):
             child_key = cls._node_key(child)
@@ -1378,8 +1920,16 @@ class LayerGraph:
             if not edge.is_outgoing:
                 continue
             entry.references.append((rt, edge.target_key, edge.target_type))
+            if edge.target_key:
+                known_keys.add(edge.target_key)
+            if getattr(edge, "attributes", None):
+                entry.edge_attrs[(rt, edge.target_key)] = dict(edge.attributes)
 
-        return cls(tags=actual_tags, entries={key: entry})
+        return cls(
+            tags=actual_tags,
+            entries={key: entry},
+            known_keys=frozenset(known_keys),
+        )
 
     # ── Lookups & mutation ────────────────────────────────────────────
 
@@ -1515,6 +2065,11 @@ class LayerGraph:
         Args:
             other: A LayerGraph whose entries will be merged in.
         """
+        self.known_keys = frozenset(
+            set(self.known_keys)
+            | set(other.known_keys)
+            | set(other._flat_index())
+        )
         # Pre-build index so it stays fresh as we mutate self.entries
         self_qnames = self._qname_index()
 
@@ -1554,6 +2109,11 @@ class LayerGraph:
                 if ref not in existing_refs:
                     existing.references.append(ref)
                     existing_refs.add(ref)
+
+            existing.edge_attrs.update(incoming.edge_attrs)
+            for edge in incoming.unresolved_edges:
+                if edge not in existing.unresolved_edges:
+                    existing.unresolved_edges.append(dict(edge))
 
             # Recursively merge children
             _merge_children(existing.children, incoming.children)
@@ -1632,6 +2192,8 @@ class LayerGraph:
                 node=entry.node,
                 children=dict(entry.children),
                 references=[],  # references rebuilt below
+                edge_attrs=dict(entry.edge_attrs),
+                unresolved_edges=[dict(edge) for edge in entry.unresolved_edges],
             )
             collected_entries[key] = new_entry
 
@@ -1654,6 +2216,12 @@ class LayerGraph:
                 if target_entry is not None:
                     collected_entries[target_key] = CompositeEntry(
                         node=target_entry.node,
+                        children=dict(target_entry.children),
+                        references=list(target_entry.references),
+                        edge_attrs=dict(target_entry.edge_attrs),
+                        unresolved_edges=[
+                            dict(edge) for edge in target_entry.unresolved_edges
+                        ],
                     )
                     # If the target is a member node, pull in its
                     # parent compound so it gets rendered as a member
@@ -1667,6 +2235,12 @@ class LayerGraph:
                                 collected_entries[parent_key] = CompositeEntry(
                                     node=parent_entry.node,
                                     children={},  # container only; members reparented below
+                                    references=list(parent_entry.references),
+                                    edge_attrs=dict(parent_entry.edge_attrs),
+                                    unresolved_edges=[
+                                        dict(edge)
+                                        for edge in parent_entry.unresolved_edges
+                                    ],
                                 )
 
         # 3. Reparent member nodes under their parent compound.
@@ -1696,7 +2270,12 @@ class LayerGraph:
             if key not in parent_of
         }
 
-        return LayerGraph(tags=self.tags, entries=root_entries)
+        return LayerGraph(
+            tags=self.tags,
+            entries=root_entries,
+            known_keys=frozenset(set(self.known_keys) | set(flat)),
+            _preferred_root_key=source_key,
+        )
 
     def __len__(self) -> int:
         """Number of nodes in the graph (including children)."""

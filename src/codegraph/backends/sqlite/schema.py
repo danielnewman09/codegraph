@@ -17,9 +17,9 @@ The storage model mirrors Neo4j's internal node-store + relationship-store:
 - ``node_embeddings`` stores canonical float32 BLOBs (the numpy search
   matrix is a derived in-process cache, not stored here).
 
-Schema versioning uses ``PRAGMA user_version`` — ``create_all()`` does not
-migrate; ``_migrate()`` applies incremental ``ALTER``s when the stored
-version is older than ``SCHEMA_VERSION``.
+Schema versioning uses ``PRAGMA user_version``. ``create_all()`` initializes a
+fresh canonical schema; legacy UID schemas are rejected without mutation and
+must be rebuilt by re-indexing authoritative sources.
 """
 
 from __future__ import annotations

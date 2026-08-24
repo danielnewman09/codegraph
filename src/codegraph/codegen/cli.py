@@ -1,4 +1,4 @@
-"""``codegraph-codegen`` CLI entry point (mirrors codegraph-html).
+"""``codegraph-codegen`` CLI entry point.
 
 Phase 1 usage:
 
@@ -71,9 +71,10 @@ def main(argv: list[str] | None = None) -> int:
              "design's stable compounds survive the round trip.",
     )
     parser.add_argument(
-        "--tier", type=int, default=1, choices=[1, 2],
+        "--tier", type=int, default=1, choices=[1, 2, 3],
         help="Verification tier: 1 = compound qname subset (default), "
-             "2 = canonical method uids (Phase 2).",
+             "2 = canonical method uids (Phase 2), "
+             "3 = full-graph identity (normalized bijection).",
     )
     args = parser.parse_args(argv)
 
@@ -82,7 +83,7 @@ def main(argv: list[str] | None = None) -> int:
             data = json.load(fh)
     elif args.project_dir != ".":
         # Config discovery: .codegraph.toml → .doxygen-index.toml →
-        # graph JSON at {output_dir}/{name}.json (mirrors codegraph-html).
+        # graph JSON at {output_dir}/{name}.json.
         from codegraph.codegen.cli_config import load_config
 
         config, _project = load_config(args.project_dir)
@@ -99,12 +100,32 @@ def main(argv: list[str] | None = None) -> int:
         data = json.load(sys.stdin)
 
     if args.as_built:
-        from codegraph.codegen.verify import verify
         from codegraph.graph import LayerGraph
 
         with open(args.as_built, encoding="utf-8") as fh:
             as_built = LayerGraph.deserialize(json.load(fh))
         design = LayerGraph.deserialize(data)
+        if args.tier == 3:
+            from codegraph.codegen.identity import identity
+
+            report = identity(design, as_built)
+            print(f"verify: {report.summarize()}")
+            for qn in report.missing:
+                print(f"  missing: {qn}")
+            for qn in report.extra:
+                print(f"  extra: {qn}")
+            for label in report.drift:
+                print(f"  drift: {label}")
+            if report.doc_drift:
+                print("  doc drift (informational):")
+                for label in report.doc_drift:
+                    print(f"    {label}")
+            if report.missing or report.extra:
+                return 1
+            return 0
+
+        from codegraph.codegen.verify import verify
+
         report = verify(design, as_built, tier=args.tier)
         print(f"verify: {report.summarize()}")
         for qn in report.missing:

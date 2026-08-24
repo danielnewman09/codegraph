@@ -66,14 +66,35 @@ def normalize_visibility(visibility: str | None) -> str:
 def ordered_children(entry) -> Iterator[tuple[str, str, object]]:
     """Iterate a CompositeEntry's composed children deterministically.
 
-    Yields ``(node_type, key, child_entry)`` triples.  Order is the
-    LayerGraph's insertion order (type-bucketed then key order), which
-    is stable across deserialization (R4).  True interleaved declaration
-    order across child types is a Phase 2 fidelity item.
+    Yields ``(node_type, key, child_entry)`` triples in declaration order.
+    ``CompositeEntry.children`` is type-bucketed, so iterating the buckets
+    directly would move (for example) attributes ahead of methods whenever
+    the backend returns those relationship types in a different order.  The
+    source spans are the semantic order for indexed code; insertion order is
+    preserved for nodes without source locations (such as enum values from
+    Doxygen XML and design-layer requirements).
     """
-    for node_type, type_children in entry.children.items():
-        for key, child_entry in type_children.items():
-            yield node_type, key, child_entry
+    children = [
+        (node_type, key, child_entry)
+        for node_type, type_children in entry.children.items()
+        for key, child_entry in type_children.items()
+    ]
+
+    def source_order(
+        indexed_item: tuple[int, tuple[str, str, object]],
+    ) -> tuple[int, int, int]:
+        index, (_node_type, _key, child_entry) = indexed_item
+        node = child_entry.node
+        start_line = int(getattr(node, "start_line", 0) or 0)
+        line_number = int(getattr(node, "line_number", 0) or 0)
+        return (
+            0 if start_line or line_number else 1,
+            start_line or line_number,
+            index,
+        )
+
+    for _index, item in sorted(enumerate(children), key=source_order):
+        yield item
 
 
 def bucket_by_visibility(

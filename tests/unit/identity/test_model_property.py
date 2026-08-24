@@ -1,13 +1,10 @@
 """Work Package 2.1 — the model ``canonical_key`` property.
 
-- ``canonical_key`` is a declared, immutable, indexed property on every
-  persistable node, kept beside the legacy ``uid``;
-- new nodes under an active identity scope compute both fields at save;
-- legacy/unscoped nodes keep an empty ``canonical_key`` — reading never
-  invents a scope or silently writes a key;
-- ``primary_key()`` returns the canonical key when present, else uid;
-- ``legacy_uid`` is the neutral name for the legacy identifier;
-- ``_uid_value()`` remains only as a compatibility shim;
+- ``canonical_key`` is the declared, immutable, indexed storage identity for
+  every persistable node;
+- new nodes under an active identity scope compute it at save;
+- unsaved/unscoped nodes keep an empty key and cannot be persisted;
+- ``primary_key()`` has one meaning and returns only the canonical key;
 - ``update()`` rejects ``canonical_key`` mutation;
 - the active scope is a ContextVar (concurrent indexing safety).
 """

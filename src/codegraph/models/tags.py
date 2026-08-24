@@ -150,13 +150,11 @@ class CodeGraphNode(metaclass=ABCMeta):
     )
 
     # ── Canonical identity (Priority 2, WP2.1) ─────────────────────────────
-    # The transparent ``cg:v1`` canonical key, kept *beside* the legacy
-    # ``uid`` during the compatibility window (fixed architectural
-    # decision 2: never store the canonical key in the field named
-    # ``uid``).  Computed at save time when an identity scope is active
-    # (see ``codegraph.identity.context``); empty when no scope was
-    # declared — reading an unscoped node never invents a scope or
-    # silently writes a key.  Immutable: ``update()`` rejects changes.
+    # The transparent ``cg:v1`` storage identity after the canonical-only
+    # cutover. Computed at save time when an identity scope is active (see
+    # ``codegraph.identity.context``); reading an unscoped node never invents
+    # a scope or silently writes a key. Immutable: ``update()`` rejects
+    # changes.
     canonical_key = Property(
         str,
         default="",

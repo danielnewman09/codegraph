@@ -23,9 +23,11 @@ Usage::
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import shutil
 import sys
+from collections import Counter
 from pathlib import Path
 
 from codegraph.identity import CanonicalIdentity
@@ -61,6 +63,14 @@ SISTER_IMPL = SISTER / "tests/unit_test_data/cpp_sqlite_one_hop_impl.json"
 IMPL_SRC = ROOT / "tests/unit_test_data/cpp_sqlite_impl_src"
 SISTER_FIXTURE_SRC = SISTER / "tests/fixtures/cpp-sqlite"
 
+# The canonical as-built projection is refreshed explicitly by
+# ``scripts/refresh_cpp_sqlite_as_built.py``.  It is checked here even though
+# it has no sister-repository copy: a sync gate must not bless a legacy
+# endpoint in the pipeline input.
+COMPLETE_GRAPH = (
+    ROOT / "tests" / "pipelines" / "data" / "cpp_sqlite"
+    / "codegraph_as_built.json"
+)
 #: The 14-file production manifest + the provenance record pinning the
 #: golden source-copy hashes (``check`` verifies, ``pull`` re-records).
 MANIFEST = ROOT / "tests/codegen/cpp_sqlite_roundtrip_manifest.txt"
@@ -79,6 +89,28 @@ _FORBIDDEN_NODE_FIELDS = frozenset({
 _FORBIDDEN_EDGE_FIELDS = frozenset({
     "uid", "target_uid", "refid", "from_refid", "to_refid",
 })
+
+# Endpoint policy is intentionally fixture-family specific.  All synchronized
+# fixtures must use canonical endpoints; a target omitted from a projection is
+# represented by a canonical key plus ``external: true``.
+_ENDPOINT_POLICY: dict[str, frozenset[str]] = {
+    "design_layergraph.json": frozenset({
+        "resolves in-document",
+        "canonical external target",
+    }),
+    "cpp_sqlite_one_hop.json": frozenset({
+        "resolves in-document",
+        "canonical external target",
+    }),
+    "cpp_sqlite_one_hop_impl.json": frozenset({
+        "resolves in-document",
+        "canonical external target",
+    }),
+    "codegraph_as_built.json": frozenset({
+        "resolves in-document",
+        "canonical external target",
+    }),
+}
 
 
 def _production_relpaths() -> list[str]:
@@ -184,6 +216,14 @@ def _same(a: Path, b: Path) -> bool:
     return a.read_bytes() == b.read_bytes()
 
 
+def _allowed_endpoint_classifications(path: Path) -> frozenset[str]:
+    """Return the explicit endpoint-state policy for one fixture family."""
+    return _ENDPOINT_POLICY.get(
+        path.name,
+        frozenset({"resolves in-document"}),
+    )
+
+
 def _validate_portable_json(path: Path) -> list[str]:
     """Validate a JSON graph without modifying it.
 
@@ -194,7 +234,6 @@ def _validate_portable_json(path: Path) -> list[str]:
     if not path.is_file() or path.suffix.lower() != ".json":
         return []
     try:
-        import json
         data = json.loads(path.read_text(encoding="utf-8"))
     except Exception as exc:
         return [f"{path}: cannot read JSON: {exc}"]
@@ -203,13 +242,12 @@ def _validate_portable_json(path: Path) -> list[str]:
 
     problems: list[str] = []
     nodes: dict[str, str] = {}
-    entries: list[dict] = []
+    edge_records: list[dict] = []
 
     def walk(entry: object) -> None:
         if not isinstance(entry, dict):
             problems.append(f"{path}: graph entry is not an object")
             return
-        entries.append(entry)
         bad = _FORBIDDEN_NODE_FIELDS & set(entry)
         if bad:
             problems.append(f"{path}: node has forbidden fields {sorted(bad)}")
@@ -233,6 +271,7 @@ def _validate_portable_json(path: Path) -> list[str]:
                     f"{path}: distinct nodes share canonical_key {key!r}"
                 )
             nodes.setdefault(key, fingerprint)
+        source_scope = entry.get("source") or "<unknown>"
         for edge in entry.get("edges", []):
             if not isinstance(edge, dict):
                 problems.append(f"{path}: edge is not an object")
@@ -240,29 +279,186 @@ def _validate_portable_json(path: Path) -> list[str]:
             bad_edge = _FORBIDDEN_EDGE_FIELDS & set(edge)
             if bad_edge:
                 problems.append(f"{path}: edge has forbidden fields {sorted(bad_edge)}")
+            relation_type = edge.get("relation_type")
+            target_type = edge.get("target_type")
+            if not isinstance(relation_type, str) or not relation_type:
+                # Keep recording the edge so the grouped report identifies
+                # it as malformed rather than silently dropping it.
+                relation_valid = False
+            else:
+                relation_valid = True
+            if not isinstance(target_type, str) or not target_type:
+                target_type_valid = False
+            else:
+                target_type_valid = True
+            if not isinstance(relation_type, str) or not relation_type:
+                problems.append(f"{path}: edge is missing relation_type")
+            if not isinstance(target_type, str) or not target_type:
+                problems.append(f"{path}: edge is missing target_type")
             target = edge.get("target_key")
-            if target:
-                try:
-                    CanonicalIdentity.from_key(target)
-                except ValueError as exc:
-                    problems.append(f"{path}: invalid edge target_key {target!r}: {exc}")
-            elif not edge.get("target_ref"):
+            target_ref = edge.get("target_ref")
+            valid_target = False
+            valid_shape = relation_valid and target_type_valid
+            strict_complete = path.name == "codegraph_as_built.json"
+            if target_ref and (strict_complete or path.name == "design_layergraph.json"):
+                valid_shape = False
+                if isinstance(target_ref, str) and re.fullmatch(
+                    r"[0-9a-f]{40}", target_ref
+                ):
+                    problems.append(
+                        f"{path}: UID-shaped target_ref is forbidden in a "
+                        "complete as-built fixture"
+                    )
+                else:
+                    problems.append(
+                        f"{path}: target_ref is forbidden in a complete "
+                        "as-built fixture"
+                    )
+            if strict_complete and edge.get("unresolved") is True:
+                valid_shape = False
+                problems.append(
+                    f"{path}: unresolved endpoints are forbidden in the "
+                    "complete as-built fixture"
+                )
+            if strict_complete and "diagnostic" in edge:
+                valid_shape = False
+                problems.append(
+                    f"{path}: migration diagnostics are forbidden in the "
+                    "complete as-built fixture"
+                )
+            if target is not None:
+                if not isinstance(target, str) or not target:
+                    valid_shape = False
+                    problems.append(f"{path}: edge target_key must be a non-empty string")
+                else:
+                    valid_target = True
+                    if target_ref:
+                        valid_shape = False
+                        problems.append(
+                            f"{path}: edge cannot carry both target_key and target_ref"
+                        )
+                    try:
+                        CanonicalIdentity.from_key(target)
+                    except ValueError as exc:
+                        valid_target = False
+                        valid_shape = False
+                        problems.append(f"{path}: invalid edge target_key {target!r}: {exc}")
+            elif target_ref:
+                if not isinstance(target_ref, str):
+                    valid_shape = False
+                    problems.append(f"{path}: edge target_ref must be a non-empty string")
+                if edge.get("external") is True:
+                    valid_shape = False
+                    problems.append(
+                        f"{path}: unresolved target_ref edge cannot be external"
+                    )
+                if edge.get("unresolved") is not True:
+                    valid_shape = False
+                    problems.append(
+                        f"{path}: target_ref edge must declare unresolved: true"
+                    )
+                if not isinstance(edge.get("diagnostic"), str) or not edge[
+                    "diagnostic"
+                ].strip():
+                    valid_shape = False
+                    problems.append(
+                        f"{path}: unresolved target_ref edge needs a diagnostic"
+                    )
+            else:
+                valid_shape = False
                 problems.append(f"{path}: edge has no target_key or explicit target_ref")
+
+            if "external" in edge and not isinstance(edge["external"], bool):
+                valid_shape = False
+                problems.append(f"{path}: edge external must be boolean")
+            if "unresolved" in edge and not isinstance(edge["unresolved"], bool):
+                valid_shape = False
+                problems.append(f"{path}: edge unresolved must be boolean")
+            if edge.get("unresolved") is True and target is not None:
+                valid_shape = False
+                problems.append(
+                    f"{path}: unresolved edge cannot carry target_key"
+                )
+            if edge.get("external") is True and not valid_target:
+                valid_shape = False
+                problems.append(
+                    f"{path}: external requires a valid canonical target_key"
+                )
+            edge_records.append({
+                "source_scope": source_scope,
+                "relation_type": relation_type or "<missing>",
+                "target_type": target_type or "<missing>",
+                "target": target,
+                "target_ref": target_ref,
+                "valid_target": valid_target,
+                "valid_shape": valid_shape,
+                "edge": edge,
+            })
         for child in entry.get("composes", []):
             walk(child)
 
     for entry in data:
         walk(entry)
-    for entry in entries:
-        for edge in entry.get("edges", []):
-            target = edge.get("target_key")
-            if target and target not in nodes and not (
-                edge.get("target_ref") or edge.get("external") is True
-            ):
+
+    classifications: Counter[tuple[str, str, str, str, str]] = Counter()
+    endpoint_sets: dict[tuple[str, str, str, str, str], set[str]] = {}
+    allowed_classifications = _allowed_endpoint_classifications(path)
+    for record in edge_records:
+        target = record["target"]
+        edge = record["edge"]
+        if not record["valid_shape"]:
+            classification = "malformed/ambiguous"
+        elif target and record["valid_target"] and target in nodes:
+            if edge.get("external") is True:
+                classification = "malformed/ambiguous"
                 problems.append(
-                    f"{path}: in-document endpoint does not resolve and is not "
-                    f"classified external: {target}"
+                    f"{path}: in-document endpoint is also external: {target}"
                 )
+            elif edge.get("unresolved") is True:
+                classification = "malformed/ambiguous"
+                problems.append(
+                    f"{path}: in-document endpoint is also unresolved: {target}"
+                )
+            else:
+                classification = "resolves in-document"
+        elif target and record["valid_target"] and edge.get("external") is True:
+            classification = "canonical external target"
+        elif record["target_ref"]:
+            classification = "genuinely missing"
+        elif target:
+            classification = "malformed/ambiguous"
+            problems.append(
+                f"{path}: endpoint does not resolve and is not classified external: {target}"
+            )
+        else:
+            classification = "malformed/ambiguous"
+        if classification not in allowed_classifications:
+            problems.append(
+                f"{path}: endpoint classification {classification!r} is not "
+                f"allowed for fixture family {path.name!r}"
+            )
+        group = (
+            path.name,
+            record["relation_type"],
+            record["source_scope"],
+            record["target_type"],
+        )
+        key = (*group, classification)
+        classifications[key] += 1
+        endpoint_sets.setdefault(key, set()).add(
+            target or record["target_ref"] or "<missing>"
+        )
+
+    if classifications:
+        print(f"portable endpoint inventory: {path.name}")
+        for key in sorted(classifications):
+            count = classifications[key]
+            unique = len(endpoint_sets[key])
+            _, relation, source, target_type, classification = key
+            print(
+                f"  {classification}: findings={count} unique_endpoints={unique} "
+                f"relation={relation} source={source} target_type={target_type}"
+            )
     return problems
 
 
@@ -300,6 +496,7 @@ def check() -> int:
     print(f"sister repo   : {SISTER_CANONICAL} {_sha(SISTER_CANONICAL)}")
     print(f"one-hop       : {ONE_HOP} {_sha(ONE_HOP)}")
     print(f"impl export   : {IMPL} {_sha(IMPL)}")
+    print(f"complete      : {COMPLETE_GRAPH} {_sha(COMPLETE_GRAPH)}")
     if SISTER.exists():
         if not _same(PIPELINE_COPY, SISTER_CANONICAL):
             print("DRIFT: pipeline copy != sister repo (generator output not pushed)")
@@ -334,7 +531,7 @@ def check() -> int:
         failures += 1
     if not source_problems:
         print("source copies: provenance hashes match")
-    artifacts = [GOLDEN, ONE_HOP, IMPL]
+    artifacts = [GOLDEN, ONE_HOP, IMPL, COMPLETE_GRAPH]
     if SISTER.exists():
         artifacts.extend((SISTER_CANONICAL, SISTER_ONE_HOP, SISTER_IMPL))
     for artifact in artifacts:
@@ -349,6 +546,12 @@ def push() -> int:
     if not PIPELINE_COPY.exists():
         print(f"generator output not found: {PIPELINE_COPY}")
         print("run tests/pipelines/test_design_migration_manager.py first")
+        return 1
+    producer_problems = _validate_portable_json(PIPELINE_COPY)
+    if producer_problems:
+        for problem in producer_problems:
+            print(problem)
+        print("producer output rejected; no fixture copies were updated")
         return 1
     sister_available = SISTER.exists()
     if sister_available:
