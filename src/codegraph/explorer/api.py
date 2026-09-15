@@ -65,7 +65,7 @@ class GraphSource(Protocol):
         Returns ``{node, files: [{path, language, text}], editable}``."""
 
     def reindex(self, files: list[dict], qname: str) -> dict:
-        """Write edited code files and re-index via doxygen-index."""
+        """Write edited code files and re-index via the in-process service."""
 
 
 # ── LayerGraph-backed source (fixture / live backend load) ─────────────────
@@ -84,7 +84,7 @@ class LayerGraphSource:
 
     Editing/re-indexing is opt-in: when ``project_dir`` is set the
     explorer can write code edits back to a source checkout and re-run
-    doxygen-index, then reload the graph via ``reload`` (a callable
+    the in-process index service, then reload the graph via ``reload`` (a callable
     returning a fresh :class:`LayerGraph`).
     """
 
@@ -440,7 +440,8 @@ class LayerGraphSource:
         """
         from pathlib import Path
 
-        if not self.project_dir:            return {
+        if not self.project_dir:
+            return {
                 "error": (
                     "re-indexing is disabled: start the explorer with "
                     "--project-dir <source checkout> to enable editing "
@@ -478,33 +479,53 @@ class LayerGraphSource:
         return {"written": written, "index": index, "reloaded": reloaded}
 
     def _run_index(self, root) -> dict:
-        """Invoke doxygen-index as a subprocess (``python -m …``)."""
-        import os
-        import subprocess
-        import sys
-
-        args = ["project", str(root), "--format", self.index_format]
-        env = {**os.environ}
-        if self.index_env:
-            env.update(self.index_env)
+        """Re-index through ``codegraph_index`` in the current process."""
         try:
-            cp = subprocess.run(
-                [sys.executable, "-m", "doxygen_index.cli", *args],
-                cwd=str(root), capture_output=True, text=True,
-                timeout=600, env=env, check=False,
+            from codegraph_index.config import request_from_project_config
+            from codegraph_index.contracts import IndexMode
+            from codegraph_index.project import load_config
+            from codegraph_index.service import IndexService
+
+            config, _ = load_config(root)
+            persistence = None
+            backend = None
+            if self.index_format in {"neo4j", "sqlite"}:
+                from codegraph.backends.sqlite import SqliteBackend, SqliteConfig
+                from codegraph_index.persistence import RepositoryPersistence
+
+                sqlite_path = None
+                for item in (self.index_env or {}).items():
+                    if item[0] == "SQLITE_PATH":
+                        sqlite_path = item[1]
+                        break
+                if sqlite_path:
+                    backend = SqliteBackend(SqliteConfig(path=sqlite_path))
+                    backend.initialize(SqliteConfig(path=sqlite_path))
+                    persistence = RepositoryPersistence(backend)
+            request = request_from_project_config(
+                root,
+                config,
+                source=config.name,
+                mode=IndexMode.INCREMENTAL,
+                adapter_options={"progress_interval": 0},
             )
+            result = IndexService(persistence=persistence).index(request)
+            if backend is not None:
+                backend.close()
             return {
-                "command": " ".join(cp.args),
-                "exit_code": cp.returncode,
-                "stdout": _tail(cp.stdout or ""),
-                "stderr": _tail(cp.stderr or ""),
+                "command": "codegraph_index.service.index",
+                "exit_code": 0 if result.success else 1,
+                "stdout": "",
+                "stderr": "\n".join(item.message for item in result.diagnostics),
+                "diagnostics": [
+                    {
+                        "code": item.code,
+                        "severity": item.severity.value,
+                        "message": item.message,
+                    }
+                    for item in result.diagnostics
+                ],
+                "delta": result.delta.summary(),
             }
-        except FileNotFoundError as exc:
-            return {"exit_code": -1,
-                    "error": f"doxygen_index not importable: {exc}"}
-        except subprocess.TimeoutExpired as exc:
-            return {"exit_code": -1, "error": "timed out",
-                    "stdout": _tail(exc.stdout or ""),
-                    "stderr": _tail(exc.stderr or "")}
         except Exception as exc:  # noqa: BLE001 — surface, don't crash
             return {"exit_code": -1, "error": str(exc)}

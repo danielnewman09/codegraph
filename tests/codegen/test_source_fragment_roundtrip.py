@@ -6,7 +6,7 @@ constructs that MUST survive as ``SourceFragmentNode`` residuals — a
 forward declaration, a namespace-level ``using`` alias, and their doc
 comments.  The loop:
 
-    fixture ──doxygen-index──▶ as-built sqlite ──serialize──▶ generate ──▶
+    fixture ──index(EXTRACT_ONLY)──▶ as-built graph ──serialize──▶ generate ──▶
         ▲                                                             │
         └──────────── canonical byte-compare (clang-format) ◀──────────┘
 
@@ -19,9 +19,8 @@ Asserts:
   (header and .cpp — the .cpp exercises the implementation-body path
   alongside fragments).
 
-Required ``doxygen-index``, ``doxygen``, and clang-format 17 are exercised
-directly; missing tools fail the integration suite.  Marked ``integration`` —
-full-stack (external tool + sqlite backend), ~1s.
+Requires ``doxygen`` and clang-format 17.  Marked ``integration`` — full-stack
+external-tool gate, ~1s.
 """
 
 from __future__ import annotations
@@ -33,7 +32,7 @@ from pathlib import Path
 
 import pytest
 
-from codegraph.codegen import generate
+from codegraph.codegen import generate, index_generated_tree
 from codegraph.codegen.fidelity import compare_manifest
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "source_fragments"
@@ -56,11 +55,6 @@ EXPECTED_FRAGMENTS = {
     ],
 }
 
-_LOCAL_DOXYGEN_INDEX = Path(__file__).resolve().parents[2] / ".venv" / "bin" / "doxygen-index"
-_DOXYGEN_INDEX = shutil.which("doxygen-index") or (
-    str(_LOCAL_DOXYGEN_INDEX) if _LOCAL_DOXYGEN_INDEX.is_file() else None
-)
-
 FORMAT_CONFIG = Path(__file__).with_name("cpp_sqlite.clang-format")
 CLANG_FORMAT_MAJOR = 17
 
@@ -82,6 +76,12 @@ def _find_clang_format() -> str | None:
 _CLANG_FORMAT = _find_clang_format()
 
 pytestmark = [pytest.mark.integration]
+
+
+@pytest.fixture(scope="module", autouse=True)
+def required_external_tools() -> None:
+    assert shutil.which("doxygen"), "doxygen is required; check PATH"
+    assert _CLANG_FORMAT, "clang-format is required; check CLANG_FORMAT or PATH"
 
 
 def _canonical_cpp(path: Path, content: bytes) -> bytes:
@@ -108,30 +108,18 @@ def _relative(path: str) -> str:
 @pytest.fixture(scope="module")
 def fragment_graph(tmp_path_factory):
     """Step 1 — index the compact fixture into a temp sqlite backend."""
-    db_path = tmp_path_factory.mktemp("frag-rt") / "frag.sqlite3"
     out_dir = tmp_path_factory.mktemp("frag-rt-out")
-    env = {**os.environ, "CODEGRAPH_BACKEND": "sqlite", "SQLITE_PATH": str(db_path)}
-    proc = subprocess.run(
-        [_DOXYGEN_INDEX, "codegraph",
-         "--project-dir", ".",
-         "--output-dir", str(out_dir),
-         "--neo4j", "--clear", "--yes"],
-        cwd=FIXTURE_DIR,
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=600,
+    indexed = index_generated_tree(
+        FIXTURE_DIR,
+        project_id="source-fragments",
+        repository_id="fixture",
+        source="source-fragments",
+        input_paths=(FIXTURE_DIR / "include", FIXTURE_DIR / "src"),
+        output_dir=out_dir,
     )
-    assert proc.returncode == 0, f"doxygen-index failed:\n{proc.stderr[-2000:]}"
-    assert db_path.exists()
-
-    from codegraph.backends import get_backend, set_backend
-    from codegraph.backends.sqlite import SqliteBackend, SqliteConfig
-
-    set_backend(SqliteBackend(SqliteConfig(path=str(db_path))))
-    from codegraph.graph import LayerGraph
-
-    return LayerGraph.from_backend(get_backend(), "as-built")
+    assert indexed.success, indexed.diagnostics
+    assert indexed.persisted is False
+    return indexed.graph
 
 
 class TestResidualInventory:

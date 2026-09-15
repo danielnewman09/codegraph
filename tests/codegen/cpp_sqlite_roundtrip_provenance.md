@@ -11,9 +11,9 @@ test run.
 
 - Repository: `https://github.com/danielnewman09/cpp-sqlite` (upstream)
 - Local checkout: `../cpp-sqlite`
-- Fixture sync source (sister repo): `../Doxygen-Dependency-Parser/tests/fixtures/cpp-sqlite`
-- `scripts/sync_codegen_fixtures.py pull` is the only supported refresh
-  entry point for the source copies and implementation-bearing exports.
+- Preservation fixture: `tests/indexing/preservation/fixtures/cpp-sqlite`
+- Codegraph's preservation integration suite is the producer for the
+  implementation-bearing export.
 
 ## Source revision
 
@@ -53,9 +53,8 @@ behavioral evidence.
 
 ## Golden source-copy hashes (SHA-256)
 
-Recorded 2026-08-16.  `sync_codegen_fixtures.py check` verifies the
-committed source copies against these hashes; a drift means the fixture was
-changed or re-synced without updating this file.
+Recorded 2026-08-16. These hashes document the reviewed source copies; a
+change requires an intentional Codegraph fixture update.
 
 ```
 7b10f133d7574b541f10226cb55e52e8e432c2a3c18abc6e9b2ef0d70458fcd4  tests/fixtures/cpp-sqlite/cpp_sqlite/src/cpp_sqlite/DBBaseTransferObject.hpp
@@ -76,10 +75,6 @@ b0162bf93fb3db2b8c43ae3ed636e5084d0864b88b8f33b5d80294dc89a471a0  tests/fixtures
 
 ## Refresh
 
-```bash
-python scripts/sync_codegen_fixtures.py pull    # adopt the sister repo's fixture
-python scripts/sync_codegen_fixtures.py check   # verify fixtures + provenance
-```
-
-`pull` prints every changed target and re-records the provenance hashes;
-`check` never modifies anything.
+Update the local preservation fixture and the reviewed source copies together,
+then run the Codegraph round-trip and preservation suites. No external
+repository is a fixture authority.

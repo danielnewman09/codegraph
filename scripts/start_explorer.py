@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Start the Codegraph Explorer against the cpp-sqlite integration database.
 
-Boots ``codegraph.explorer.server`` with the sister repo's live sqlite
-database (doxygen-index output, identical schema to the codegraph sqlite
-backend) and opens the interactive browser app: namespace tree → class →
+Boots ``codegraph.explorer.server`` with Codegraph's local cpp-sqlite
+inspection database and opens the interactive browser app: namespace tree → class →
 zoomable class-scoped diagram + requirements/tests narration.
 
 Usage::
@@ -15,7 +14,7 @@ Usage::
 
 Defaults::
 
-    db    ../Doxygen-Dependency-Parser/tests/unit_test_data/cpp_sqlite_integration.sqlite3
+    db    tests/unit_test_data/cpp_sqlite_preservation_integration.sqlite3
     tag   as-built
     host  127.0.0.1    port  8765
 
@@ -34,11 +33,10 @@ from codegraph.explorer.server import main as server_main
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DB = (
-    _REPO_ROOT.parent
-    / "Doxygen-Dependency-Parser"
+    _REPO_ROOT
     / "tests"
     / "unit_test_data"
-    / "cpp_sqlite_integration.sqlite3"
+    / "cpp_sqlite_preservation_integration.sqlite3"
 )
 
 

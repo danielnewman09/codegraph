@@ -1,0 +1,6 @@
+[project]
+name = "cpp-sqlite"
+input_paths = ["cpp_sqlite/src"]
+file_patterns = "*.h *.hpp *.cpp"
+exclude_patterns = "*/test/* */build/* */.git/*"
+test_paths = ["cpp_sqlite/test"]

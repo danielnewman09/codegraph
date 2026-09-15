@@ -32,12 +32,8 @@ from pathlib import Path
 
 import pytest
 
-from codegraph.codegen import generate
+from codegraph.codegen import generate, index_generated_tree
 from codegraph.graph import LayerGraph
-from tests.codegen.external_tools import (
-    ExternalToolError,
-    run_index,
-)
 
 
 def _deser(data):
@@ -51,12 +47,6 @@ PROJECT_DIR = "tests/fixtures/cpp-sqlite"
 MANIFEST_FILE = Path(__file__).with_name("cpp_sqlite_roundtrip_manifest.txt")
 FORMAT_CONFIG = Path(__file__).with_name("cpp_sqlite.clang-format")
 CLANG_FORMAT_MAJOR = 17
-
-_LOCAL_DOXYGEN_INDEX = Path(__file__).resolve().parents[2] / ".venv" / "bin" / "doxygen-index"
-_DOXYGEN_INDEX = shutil.which("doxygen-index") or (
-    str(_LOCAL_DOXYGEN_INDEX) if _LOCAL_DOXYGEN_INDEX.is_file() else None
-)
-
 
 def _find_clang_format() -> str | None:
     override = os.environ.get("CLANG_FORMAT")
@@ -75,6 +65,12 @@ def _find_clang_format() -> str | None:
 _CLANG_FORMAT = _find_clang_format()
 
 pytestmark = [pytest.mark.integration]
+
+
+@pytest.fixture(scope="module", autouse=True)
+def required_external_tools() -> None:
+    assert shutil.which("doxygen"), "doxygen is required; check PATH"
+    assert _CLANG_FORMAT, "clang-format is required; check CLANG_FORMAT or PATH"
 
 
 def _load_manifest() -> tuple[str, ...]:
@@ -112,25 +108,23 @@ def _index_tree(
     out_dir: Path,
     conan_env: dict[str, str],
 ) -> LayerGraph:
-    """Run doxygen-index against *tree_root* and return the as-built graph."""
-    env = {**conan_env, "CODEGRAPH_BACKEND": "sqlite", "SQLITE_PATH": str(db_path)}
-    try:
-        proc = run_index(
-            [_DOXYGEN_INDEX, "codegraph",
-             "--project-dir", PROJECT_DIR,
-             "--output-dir", str(out_dir),
-             "--neo4j", "--clear", "--yes"],
-            cwd=tree_root,
-            env=env,
-        )
-    except ExternalToolError as exc:
-        raise AssertionError(str(exc)) from exc
-    assert db_path.exists(), "doxygen-index did not write the sqlite backend"
-    from codegraph.backends import get_backend, set_backend
-    from codegraph.backends.sqlite import SqliteBackend, SqliteConfig
-
-    set_backend(SqliteBackend(SqliteConfig(path=str(db_path))))
-    return LayerGraph.from_backend(get_backend(), "as-built")
+    """Parse *tree_root* through the in-process EXTRACT_ONLY contract."""
+    del db_path, out_dir, conan_env
+    project_root = tree_root / PROJECT_DIR
+    indexed = index_generated_tree(
+        tree_root,
+        project_id="cpp-suite",
+        repository_id="cpp-sqlite",
+        source="cpp-sqlite",
+        input_paths=(project_root / "cpp_sqlite" / "src",),
+        test_paths=(project_root / "cpp_sqlite" / "test",),
+        file_patterns=("*.h", "*.hpp", "*.cpp"),
+        exclude_patterns=("*/test/*", "*/build/*", "*/.git/*"),
+        adapter_options={"layer": "dependency", "text_scan": False},
+    )
+    assert indexed.success, indexed.diagnostics
+    assert indexed.persisted is False
+    return indexed.graph
 
 
 def _manifest_paths() -> frozenset[str]:

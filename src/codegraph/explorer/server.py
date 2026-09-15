@@ -14,7 +14,7 @@ API (all JSON except static files):
                                        #   plantuml CLI and cached
     GET /api/node/<qname>/coverage
     GET /api/node/<qname>/code         # codegen-rendered source files
-    POST /api/node/<qname>/code        # write edits + doxygen-index reparse
+    POST /api/node/<qname>/code        # write edits + in-process reparse
 
 Sources: ``fixture:<path-to-layer-graph-json>`` (a serialized
 LayerGraph) is the demo source; a live-backend source is a later step.
@@ -47,9 +47,9 @@ def load_source(spec: str, project_dir: str | None = None) -> GraphSource:
 
     Specs: ``fixture:<path>`` (serialized LayerGraph JSON) or
     ``sqlite:<path>:<tag>`` (a live codegraph sqlite database, loaded
-    via the sqlite backend — e.g. a doxygen-index output).
+    via the sqlite backend — e.g. a codegraph_index output).
 
-    ``project_dir`` enables the edit → doxygen-index → reload loop: it is
+    ``project_dir`` enables the edit → in-process index → reload loop: it is
     the source checkout that generated files are written back into.
     """
     kind, _, value = spec.partition(":")
@@ -266,7 +266,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--project-dir", default=None,
         help="Source checkout the generated code maps to. Enables the "
-             "edit → doxygen-index → reload loop in the code view.",
+             "edit → in-process index → reload loop in the code view.",
     )
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--host", default="127.0.0.1")

@@ -1,0 +1,230 @@
+{
+    "version": "2.0.0",
+    "inputs": [
+        {
+            "id": "buildType",
+            "description": "Build Type",
+            "type": "pickString",
+            "options": [
+                "Debug",
+                "Release"
+            ],
+            "default": "Release"
+        },
+        {
+            "id": "conanBuildPolicy",
+            "description": "Conan Build Policy",
+            "type": "pickString",
+            "options": [
+                "missing",
+                "all"
+            ],
+            "default": "missing"
+        },
+        {
+            "id": "buildTesting",
+            "description": "Build with tests enabled",
+            "type": "pickString",
+            "options": [
+                "True",
+                "False"
+            ],
+            "default": "False"
+        }
+    ],
+    "tasks": [
+        {
+            "label": "Conan Build",
+            "type": "shell",
+            "command": "conan build . --build=missing -s build_type=${input:buildType} -o \"&:build_testing=${input:buildTesting}\"",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "Conan Install",
+            "type": "shell",
+            "command": "conan",
+            "args": [
+                "install",
+                ".",
+                "--build=missing",
+                "-s",
+                "build_type=${input:buildType}",
+                "-o",
+                "\"&:enable_coverage=${input:enableCoverage}\""
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "CMake Build",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "${command:cmake.buildDirectory}"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "Create Conan Dependencies",
+            "type": "shell",
+            "command": [
+                "echo '=== Building Conan Dependencies ===';",
+            ],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Conan: Export Package to Local Cache",
+            "type": "shell",
+            "command": "conan export . --name=cpp_sqlite --version=0.1.0",
+            "group": "none",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared",
+                "showReuseMessage": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Conan: Create Package (Build & Export)",
+            "type": "shell",
+            "command": "conan create . --name=cpp_sqlite --version=0.1.0 --build=missing -s build_type=${input:buildType}",
+            "group": "none",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared",
+                "showReuseMessage": false
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "Conan: List Local Packages",
+            "type": "shell",
+            "command": "conan list 'cpp_sqlite/*'",
+            "group": "none",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Conan: Remove Local Package",
+            "type": "shell",
+            "command": "conan remove 'cpp_sqlite/*' -c",
+            "group": "none",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Conan: Create Both Debug and Release Packages",
+            "type": "shell",
+            "command": "echo '=== Building Debug Package ===' && conan create . --name=cpp_sqlite --version=0.1.0 --build=missing -s build_type=Debug && echo '\n=== Building Release Package ===' && conan create . --name=cpp_sqlite --version=0.1.0 --build=missing -s build_type=Release && echo '\n=== Both packages created successfully ===' && conan list 'cpp_sqlite/*:*'",
+            "group": "none",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared",
+                "showReuseMessage": false
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "Run clang-tidy",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "${workspaceFolder}/analysis/scripts/run_clang_tidy.sh"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "Run clang-tidy (--fix)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "${workspaceFolder}/analysis/scripts/run_clang_tidy.sh",
+                "--fix"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        }
+    ]
+}

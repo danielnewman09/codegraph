@@ -1,32 +1,28 @@
-"""Round-trip tests — codegen → doxygen-index → parse → verify (D7).
+"""Round-trip tests — codegen → in-process index → parse → verify (D7).
 
 Two tiers of proof on the SPLIT golden (current generator output):
-codegen writes the tree to a temp project, ``doxygen-index codegraph``
-ingests it into a temp sqlite backend, ``LayerGraph.from_backend`` loads
-the as-built view.
+codegen writes the tree to a temp project and the public ``index()`` contract
+parses it in ``EXTRACT_ONLY`` mode into an as-built ``LayerGraph``.
 
 Tier 1 (``TestTier1Roundtrip``) — the Phase-1 sync proof (§3.3):
 
-    design LayerGraph ──codegen──▶ .hpp tree ──doxygen-index──▶ as-built
+    design LayerGraph ──codegen──▶ .hpp tree ──index(EXTRACT_ONLY)──▶ as-built
         ▲                                                        │
         └──────────── Tier-1 qname subset check ◀────────────────┘
 
-Required ``doxygen`` and ``doxygen-index`` tools are exercised directly;
-missing tools fail the integration suite.  Marked ``integration`` — full-stack
-(external tools + sqlite backend), ~1 min.
+Required ``doxygen`` is exercised through the adapter; missing tools fail the
+integration suite.  Marked ``integration`` — full-stack external-tool gate.
 """
 
 from __future__ import annotations
 
 import json
-import os
 import shutil
-import subprocess
 from pathlib import Path
 
 import pytest
 
-from codegraph.codegen import generate
+from codegraph.codegen import generate, index_generated_tree
 from codegraph.codegen.verify import verify
 from codegraph.graph import LayerGraph
 
@@ -37,25 +33,21 @@ def _deser(data):
 
 GOLDEN_SPLIT = Path(__file__).resolve().parent / "golden" / "design_layergraph.json"
 
-CONFIG = '[project]\nname = "codegen-rt"\ninput_paths = ["include"]\noutput_dir = "."\n'
-
-_DOXYGEN = shutil.which("doxygen")
-_LOCAL_DOXYGEN_INDEX = Path(__file__).resolve().parents[2] / ".venv" / "bin" / "doxygen-index"
-_DOXYGEN_INDEX = shutil.which("doxygen-index") or (
-    str(_LOCAL_DOXYGEN_INDEX) if _LOCAL_DOXYGEN_INDEX.is_file() else None
-)
-
 pytestmark = [pytest.mark.integration]
+
+
+@pytest.fixture(scope="module", autouse=True)
+def required_doxygen() -> None:
+    assert shutil.which("doxygen"), "doxygen is required; check PATH"
 
 
 @pytest.fixture(scope="module")
 def roundtrip_graph(tmp_path_factory):
-    """Full loop: codegen golden → tree → doxygen-index → sqlite → LayerGraph.
+    """Full loop: codegen golden → tree → in-process extraction → LayerGraph.
 
     Returns ``(as_built_graph, design_graph)``.
     """
     project_dir = tmp_path_factory.mktemp("rt-project")
-    db_path = project_dir.parent / "roundtrip.sqlite3"
 
     # 1. Codegen the SPLIT golden into a parseable project.
     data = json.loads(GOLDEN_SPLIT.read_text())
@@ -66,29 +58,19 @@ def roundtrip_graph(tmp_path_factory):
         dest = project_dir / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(text, encoding="utf-8")
-    (project_dir / ".doxygen-index.toml").write_text(CONFIG, encoding="utf-8")
-
-    # 2. Ingest via doxygen-index into a temp sqlite backend.
-    env = {**os.environ, "CODEGRAPH_BACKEND": "sqlite", "SQLITE_PATH": str(db_path)}
-    proc = subprocess.run(
-        [_DOXYGEN_INDEX, "codegraph",
-         "--project-dir", str(project_dir),
-         "--output-dir", str(project_dir / "out"),
-         "--neo4j"],
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=600,
+    # 2. Parse back through the in-process indexing contract. EXTRACT_ONLY
+    # keeps this verification isolated from any configured persistent graph.
+    indexed = index_generated_tree(
+        project_dir,
+        project_id="codegen-rt",
+        repository_id="generated",
+        source="codegen-rt",
+        input_paths=(project_dir / "include",),
+        output_dir=project_dir / "out",
     )
-    assert proc.returncode == 0, f"doxygen-index failed:\n{proc.stderr[-2000:]}"
-    assert db_path.exists(), "doxygen-index did not write the sqlite backend"
-
-    # 3. Load the as-built LayerGraph.
-    from codegraph.backends import get_backend, set_backend
-    from codegraph.backends.sqlite import SqliteBackend, SqliteConfig
-
-    set_backend(SqliteBackend(SqliteConfig(path=str(db_path))))
-    as_built = LayerGraph.from_backend(get_backend(), "as-built")
+    assert indexed.success, indexed.diagnostics
+    assert indexed.persisted is False
+    as_built = indexed.graph
     return as_built, design
 
 

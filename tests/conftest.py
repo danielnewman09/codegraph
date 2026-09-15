@@ -31,6 +31,18 @@ from dotenv import load_dotenv
 # override=False.
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
+# Desktop-launched pytest processes do not always inherit the interactive
+# shell's Homebrew/pipx paths.  The integration suites require these tools;
+# expose their standard local installation directories to Python and every
+# subprocess it launches.
+_tool_dirs = [Path("/opt/homebrew/bin"), Path.home() / ".local" / "bin"]
+_path_parts = os.environ.get("PATH", "").split(os.pathsep)
+for _tool_dir in reversed(_tool_dirs):
+    _text = str(_tool_dir)
+    if _tool_dir.is_dir() and _text not in _path_parts:
+        _path_parts.insert(0, _text)
+os.environ["PATH"] = os.pathsep.join(_path_parts)
+
 # Backend selection drives which plugin's fixtures are global.
 if os.environ.get("CODEGRAPH_BACKEND", "sqlite").lower() == "sqlite":
     pytest_plugins = ["tests.backends.sqlite.conftest"]

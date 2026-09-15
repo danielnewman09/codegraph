@@ -1,0 +1,34 @@
+# LLDB configuration for cpp_sqlite project
+# This file configures LLDB to handle heavy template metaprogramming better
+
+# Limit expression evaluation depth to prevent hanging
+settings set target.expr-prefix-max-function-calls 100
+
+# Disable automatic variable inspection on stop (prevents expensive evaluations)
+settings set target.process.stop-on-sharedlibrary-events false
+
+# Set reasonable timeouts
+settings set target.process.utility-expression-timeout 5
+settings set plugin.process.gdb-remote.packet-timeout 5
+
+# Limit template instantiation depth display
+settings set target.max-string-summary-length 1000
+settings set target.max-children-count 50
+
+# Print simpler type names
+settings set target.prefer-dynamic-value no-dynamic-values
+
+# Skip Boost library code when stepping (optional - comment out if you need to debug Boost)
+settings set target.process.thread.step-avoid-regexp "^boost::.*"
+
+# Custom type summaries for common types to avoid evaluating heavy templates
+type summary add -x "^boost::mp11::.*" --summary-string "boost::mp11 type"
+type summary add -x "^boost::describe::.*" --summary-string "boost::describe type"
+
+# Suppress verbose template output
+type category define cpp_sqlite_simplified
+type summary add -c cpp_sqlite_simplified "cpp_sqlite::BaseTransferObject" --summary-string "id=${var.id}"
+type category enable cpp_sqlite_simplified
+
+# Print message on load
+script print("LLDB configuration loaded for cpp_sqlite. Template evaluation limits applied.")

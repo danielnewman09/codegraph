@@ -3,14 +3,15 @@
 The loop this suite runs end-to-end (the three steps the round-trip
 must exercise):
 
-    cpp-sqlite source ──doxygen-index──▶ as-built graph ──export_implementation──▶
+    cpp-sqlite source ──index(EXTRACT_ONLY)──▶ as-built graph ──export_implementation──▶
         ▲                                                                        │
         └──────────── byte-compare ◀──────── codegen(output_dir) ◀───────────────┘
 
-1. **index the project** — doxygen-index ingests the committed source
-   copies (``cpp_sqlite_impl_src/``) into a temp sqlite backend; the
-   parser extracts each method's implementation body (``body``/``body_file``)
-   so the graph carries the semantic raw material codegen needs;
+1. **index the project** — the public in-process ``index()`` contract parses
+   the committed source copies (``cpp_sqlite_impl_src/``) in
+   ``EXTRACT_ONLY`` mode; the parser extracts each method's implementation
+   body (``body``/``body_file``) so the graph carries the semantic raw
+   material codegen needs;
 2. **codegen the project** — the as-built graph is exported with
    ``export_implementation=True`` and ``generate(output_dir=...)`` SAVES
    the generated tree to a directory (mirrored to the viewable
@@ -21,11 +22,10 @@ must exercise):
    remain available as the later behavioral oracle but are outside the
    Priority 1 source-generation contract.
 
-Required ``doxygen-index``, the synced source copies, and clang-format 17 are
-exercised directly; missing prerequisites fail the integration suite.
-``unit_test_data/`` is gitignored and synced from the sister repo via
-``scripts/sync_codegen_fixtures.py``. Marked ``integration`` — full-stack
-(external tool + sqlite backend).
+Required ``doxygen``, the Codegraph-owned source copies, and clang-format 17
+are exercised directly; missing prerequisites fail the integration suite.
+``unit_test_data/`` contains generated inspection artifacts only. Marked
+``integration`` — full-stack (external tool + sqlite backend).
 """
 
 from __future__ import annotations
@@ -37,15 +37,27 @@ from pathlib import Path
 
 import pytest
 
-from codegraph.codegen import generate
+from codegraph.codegen import generate, index_generated_tree
 from codegraph.codegen.fidelity import compare_manifest
-from codegraph.graph import LayerGraph
-from tests.codegen.external_tools import (
-    ExternalToolError,
-    run_index,
-)
 
 _HERE = Path(__file__).resolve().parent.parent / "unit_test_data"
+_CODEGRAPH_ROOT = Path(__file__).resolve().parents[2]
+_IMPL_FIXTURE = (
+    _CODEGRAPH_ROOT / "tests" / "unit_test_data"
+    / "cpp_sqlite_preservation_one_hop_impl.json"
+)
+_LIFTED_FIXTURE_PREFIX = "tests/indexing/preservation/fixtures/cpp-sqlite/"
+_PORTABLE_FIXTURE_PREFIX = "tests/fixtures/cpp-sqlite/"
+
+
+def _portable_fixture_paths(value):
+    if isinstance(value, str):
+        return value.replace(_LIFTED_FIXTURE_PREFIX, _PORTABLE_FIXTURE_PREFIX)
+    if isinstance(value, list):
+        return [_portable_fixture_paths(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _portable_fixture_paths(item) for key, item in value.items()}
+    return value
 
 #: The committed source copies (and their doxygen-index config) that the
 #: round trip indexes.  The index runs with cwd at this root so the
@@ -72,12 +84,6 @@ def _load_manifest() -> tuple[str, ...]:
 
 PRODUCTION_FILES = _load_manifest()
 
-_LOCAL_DOXYGEN_INDEX = Path(__file__).resolve().parents[2] / ".venv" / "bin" / "doxygen-index"
-_DOXYGEN_INDEX = shutil.which("doxygen-index") or (
-    str(_LOCAL_DOXYGEN_INDEX) if _LOCAL_DOXYGEN_INDEX.is_file() else None
-)
-
-
 def _find_clang_format() -> str | None:
     override = os.environ.get("CLANG_FORMAT")
     if override:
@@ -95,6 +101,12 @@ def _find_clang_format() -> str | None:
 _CLANG_FORMAT = _find_clang_format()
 
 pytestmark = [pytest.mark.integration]
+
+
+@pytest.fixture(scope="module", autouse=True)
+def required_external_tools() -> None:
+    assert shutil.which("doxygen"), "doxygen is required; check PATH"
+    assert _CLANG_FORMAT, "clang-format is required; check CLANG_FORMAT or PATH"
 
 
 def _canonical_cpp(path: Path, content: bytes) -> bytes:
@@ -159,7 +171,7 @@ def _methods(graph):
 # acceptance rule (``report.is_identical``) is unchanged.
 
 #: Node kinds the parser owns structured source spans for (mirrors
-#: Doxygen-Dependency-Parser's ``build_owned_spans`` owner set).
+#: the historical ``build_owned_spans`` owner set).
 _SPANNED_NODE_TYPES = frozenset({
     "CompoundNode", "ClassNode", "InterfaceNode", "EnumNode",
     "UnionNode", "ConceptNode", "ModuleNode",
@@ -380,37 +392,26 @@ def _assert_no_residual_invasion(graph, source_root: Path, file_rel: str) -> Non
 
 
 @pytest.fixture(scope="module")
-def impl_graph(tmp_path_factory, conan_test_environment):
-    """Step 1 — index the real cpp-sqlite source into a temp sqlite backend."""
-    db_path = tmp_path_factory.mktemp("impl-rt") / "impl.sqlite3"
-    out_dir = tmp_path_factory.mktemp("impl-rt-out")
-    env = {
-        **conan_test_environment.env,
-        "CODEGRAPH_BACKEND": "sqlite",
-        "SQLITE_PATH": str(db_path),
-    }
-    try:
-        proc = run_index(
-            [_DOXYGEN_INDEX, "codegraph",
-             "--project-dir", PROJECT_DIR,
-             "--output-dir", str(out_dir),
-             "--neo4j", "--clear", "--yes"],
-            cwd=IMPL_SRC,
-            env=env,
-        )
-    except ExternalToolError as exc:
-        raise AssertionError(str(exc)) from exc
-    assert db_path.exists(), "doxygen-index did not write the sqlite backend"
-
-    from codegraph.backends import get_backend, set_backend
-    from codegraph.backends.sqlite import SqliteBackend, SqliteConfig
-
-    set_backend(SqliteBackend(SqliteConfig(path=str(db_path))))
-    graph = LayerGraph.from_backend(get_backend(), "as-built")
-    # Test-only transport: the parser's ownership diagnostics (stderr of the
-    # doxygen-index process) are needed by the deterministic drift inventory.
-    graph._parser_stderr = proc.stderr  # type: ignore[attr-defined]
-    return graph
+def impl_graph(tmp_path_factory):
+    """Step 1 — index the real cpp-sqlite source in-process."""
+    indexed = index_generated_tree(
+        IMPL_SRC,
+        project_id="cpp-suite",
+        repository_id="cpp-sqlite",
+        source="cpp-sqlite",
+        input_paths=(IMPL_SRC / PROJECT_DIR / "cpp_sqlite" / "src",),
+        test_paths=(IMPL_SRC / PROJECT_DIR / "cpp_sqlite" / "test",),
+        output_dir=tmp_path_factory.mktemp("impl-rt-out"),
+        file_patterns=("*.h", "*.hpp", "*.cpp"),
+        exclude_patterns=("*/test/*", "*/build/*", "*/.git/*"),
+        adapter_options={"layer": "dependency", "text_scan": False},
+    )
+    assert indexed.success, indexed.diagnostics
+    assert indexed.persisted is False
+    # Preserve the inventory helper's diagnostic channel without coupling the
+    # suite to a subprocess or a backend-specific stderr implementation.
+    indexed.graph._parser_stderr = ""  # type: ignore[attr-defined]
+    return indexed.graph
 
 
 class TestImplRoundtrip:
@@ -552,11 +553,11 @@ class TestImplRoundtrip:
         to stay byte-stable."""
         import json as _json
 
-        impl_json = (IMPL_SRC.parent / "cpp_sqlite_one_hop_impl.json").read_text(
-            encoding="utf-8"
+        impl_json = _portable_fixture_paths(
+            _json.loads(_IMPL_FIXTURE.read_text(encoding="utf-8"))
         )
         save_dir = tmp_path_factory.mktemp("impl-generated-mirror")
-        generate(_json.loads(impl_json), output_dir=save_dir)
+        generate(impl_json, output_dir=save_dir)
 
         if ARTIFACT.exists():
             shutil.rmtree(ARTIFACT)

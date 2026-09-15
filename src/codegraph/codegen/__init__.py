@@ -164,4 +164,12 @@ def _write_tree(files: dict[str, str], output_dir) -> tuple[list[str], list[str]
     return written, skipped
 
 
-__all__ = ["CodegenResult", "generate", "generate_from_layer_graph"]
+from codegraph.codegen.indexing import index_generated_tree
+
+
+__all__ = [
+    "CodegenResult",
+    "generate",
+    "generate_from_layer_graph",
+    "index_generated_tree",
+]

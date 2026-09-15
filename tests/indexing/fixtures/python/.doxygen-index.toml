@@ -1,0 +1,6 @@
+[project]
+name = "samplepkg"
+language = "python"
+input_paths = ["samplepkg"]
+test_paths = ["samplepkg"]
+

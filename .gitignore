@@ -46,3 +46,4 @@ codegraph/logs/
 design_intent/*
 docs/specs/
 docs/plans
+tests/codegraph_output/cpp_sqlite_owner_g73n7im1/cpp-sqlite_unified/xml/

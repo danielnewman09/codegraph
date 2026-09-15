@@ -31,8 +31,8 @@ Tier 2 (Phase 2) — exact method uids
     asserts them empty.
 
 The ``verify`` CLI subcommand (``codegraph-codegen verify``) runs the
-loop: codegen a design graph → write tree → doxygen-index parse → load
-as-built → compare.
+loop: codegen a design graph → write tree → in-process ``index()`` parse →
+compare the resulting as-built graph.
 """
 
 from __future__ import annotations

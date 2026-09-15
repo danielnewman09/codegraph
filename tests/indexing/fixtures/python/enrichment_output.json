@@ -1,0 +1,131 @@
+{
+  "model": "deepseek-v4-flash",
+  "base_url": "https://api.deepseek.com/beta",
+  "summary": {
+    "total_enriched": 19,
+    "total_skipped": 0,
+    "total_errors": 0,
+    "total_nodes": 19
+  },
+  "fixtures": [
+    {
+      "qualified_name": "samplepkg.test_calculator.test_evaluator_step::evaluator",
+      "name": "evaluator",
+      "kind": "fixture",
+      "description": "An instance of the Evaluator class used to verify that it correctly accumulates results across multiple step calls."
+    },
+    {
+      "qualified_name": "samplepkg.test_calculator.test_evaluator_from_zero::evaluator",
+      "name": "evaluator",
+      "kind": "fixture",
+      "description": "An Evaluator instance created via the from_zero classmethod, starting at zero, to test initialization and subsequent step operations."
+    },
+    {
+      "qualified_name": "samplepkg.test_calculator.test_parser_parse::parser",
+      "name": "parser",
+      "kind": "fixture",
+      "description": "A Parser instance used to convert text expressions into operator/operand steps, enabling testing of the parsing logic."
+    },
+    {
+      "qualified_name": "samplepkg.test_calculator.test_error_division_by_zero::evaluator",
+      "name": "evaluator",
+      "kind": "fixture",
+      "description": "An Evaluator instance used to verify that performing a division by zero step raises a DivisionByZeroError."
+    },
+    {
+      "qualified_name": "samplepkg.test_calculator.TestCalculatorPipeline.test_full_pipeline::parser",
+      "name": "parser",
+      "kind": "fixture",
+      "description": "A Parser instance used to parse a multi-step expression into steps for end-to-end evaluation."
+    },
+    {
+      "qualified_name": "samplepkg.test_calculator.TestCalculatorPipeline.test_full_pipeline::evaluator",
+      "name": "evaluator",
+      "kind": "fixture",
+      "description": "An Evaluator instance that accumulates results from parsed steps to verify the full pipeline from parsing to evaluation."
+    }
+  ],
+  "steps": [
+    {
+      "qualified_name": "samplepkg.test_calculator.test_evaluator_step::step_0",
+      "name": "step_0",
+      "kind": "step",
+      "description": "Creates a new Evaluator instance to accumulate results from successive mathematical operations."
+    },
+    {
+      "qualified_name": "samplepkg.test_calculator.test_evaluator_from_zero::step_0",
+      "name": "step_0",
+      "kind": "step",
+      "description": "Calls the Evaluator.from_zero() classmethod to initialize an evaluator with a starting value of zero."
+    },
+    {
+      "qualified_name": "samplepkg.test_calculator.test_parser_parse::step_0",
+      "name": "step_0",
+      "kind": "step",
+      "description": "Instantiates a Parser object that will be used to convert a text expression into a sequence of operator and operand steps."
+    },
+    {
+      "qualified_name": "samplepkg.test_calculator.test_error_division_by_zero::step_0",
+      "name": "step_0",
+      "kind": "step",
+      "description": "Sets up an Evaluator that will be used to perform a division by zero operation to verify that the correct error is raised."
+    },
+    {
+      "qualified_name": "samplepkg.test_calculator.TestCalculatorPipeline.test_full_pipeline::step_0",
+      "name": "step_0",
+      "kind": "step",
+      "description": "Initializes the necessary components (Evaluator and Parser) for a full pipeline test that parses and evaluates a multi-step expression."
+    }
+  ],
+  "assertions": [
+    {
+      "qualified_name": "samplepkg.test_calculator.test_evaluator_step::post_0",
+      "name": "post_0",
+      "kind": "assertion",
+      "description": "Verify that after executing a sequence of steps, the evaluator's accumulated result equals the expected value, ensuring correct step-by-step accumulation."
+    },
+    {
+      "qualified_name": "samplepkg.test_calculator.test_evaluator_from_zero::post_0",
+      "name": "post_0",
+      "kind": "assertion",
+      "description": "Verify that the evaluator created by the from_zero classmethod starts with an initial result of zero, confirming the factory method works correctly."
+    },
+    {
+      "qualified_name": "samplepkg.test_calculator.test_parser_parse::post_0",
+      "name": "post_0",
+      "kind": "assertion",
+      "description": "Verify that the parser returns exactly three steps from the input expression, ensuring the parsing splits the text into the expected number of operations."
+    },
+    {
+      "qualified_name": "samplepkg.test_calculator.test_parser_parse::post_1",
+      "name": "post_1",
+      "kind": "assertion",
+      "description": "Verify that the first parsed step has an ADD operator, confirming the parser correctly extracts the operator type from the text."
+    },
+    {
+      "qualified_name": "samplepkg.test_calculator.test_parser_parse::post_2",
+      "name": "post_2",
+      "kind": "assertion",
+      "description": "Verify that the first parsed step has an operand value of 5.0, confirming the parser correctly extracts numeric operands."
+    },
+    {
+      "qualified_name": "samplepkg.test_calculator.test_error_division_by_zero::post_0",
+      "name": "post_0",
+      "kind": "assertion",
+      "description": "Verify that a division by zero causes the evaluator to raise a DivisionByZeroError; this assertion is reached only if the error was not raised, thus failing the test."
+    },
+    {
+      "qualified_name": "samplepkg.test_calculator.test_error_division_by_zero::post_1",
+      "name": "post_1",
+      "kind": "assertion",
+      "description": "Verify that the DivisionByZeroError was indeed raised, confirming the evaluator properly handles division by zero."
+    },
+    {
+      "qualified_name": "samplepkg.test_calculator.TestCalculatorPipeline.test_full_pipeline::post_0",
+      "name": "post_0",
+      "kind": "assertion",
+      "description": "Verify that the full pipeline (parsing and evaluation) produces the correct final result for a multi-step expression, ensuring integration of components."
+    }
+  ]
+}
+

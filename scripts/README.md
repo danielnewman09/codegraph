@@ -94,9 +94,8 @@ python scripts/evaluate_design_coverage.py --json codegraph/requirements/generat
 
 Starts the **Codegraph Explorer** web app — the interactive namespace →
 class → requirements/tests browser (`codegraph.explorer.server`).
-Defaults to the sister repo's live cpp-sqlite integration database
-(doxygen-index output, schema-identical to the codegraph sqlite
-backend); the `plantuml` CLI must be on PATH to render the zoomable
+Defaults to Codegraph's locally generated cpp-sqlite inspection database;
+the `plantuml` CLI must be on PATH to render the zoomable
 class-scoped SVGs (the puml text is served as a fallback).
 
 ```bash

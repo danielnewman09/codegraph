@@ -1,0 +1,1127 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package "parser" as codegraph_index_parser {
+  class "parse_xml_dir" as codegraph_index_parser_parse_xml_dir <<function>> {
+  }
+  class "parse_python_dir" as codegraph_index_parser_parse_python_dir <<function>> {
+  }
+  package "python" as codegraph_index_parser_python {
+    package "_ast_utils" as codegraph_index_parser_python__ast_utils {
+      class "qualified_name" as codegraph_index_parser_python__ast_utils_qualified_name <<function>> {
+      }
+      class "annotation_to_str" as codegraph_index_parser_python__ast_utils_annotation_to_str <<function>> {
+      }
+      class "is_interface" as codegraph_index_parser_python__ast_utils_is_interface <<function>> {
+      }
+      class "is_enum" as codegraph_index_parser_python__ast_utils_is_enum <<function>> {
+      }
+      class "decorator_names" as codegraph_index_parser_python__ast_utils_decorator_names <<function>> {
+      }
+      class "get_docstring" as codegraph_index_parser_python__ast_utils_get_docstring <<function>> {
+      }
+      class "is_private" as codegraph_index_parser_python__ast_utils_is_private <<function>> {
+      }
+      class "compare_op_to_str" as codegraph_index_parser_python__ast_utils_compare_op_to_str <<function>> {
+      }
+      class "collect_calls" as codegraph_index_parser_python__ast_utils_collect_calls <<function>> {
+      }
+      class "is_inside_assert" as codegraph_index_parser_python__ast_utils_is_inside_assert <<function>> {
+      }
+      class "_CallCollector" as codegraph_index_parser_python__ast_utils__CallCollector {
+  +__init__(self)
+  +visit_Call(self, node: ast.Call): None
+      }
+    }
+    package "_context" as codegraph_index_parser_python__context {
+      class "ParseContext" as codegraph_index_parser_python__context_ParseContext {
+  +current_class(self): tuple[(str, str)] | None
+  +module_name: str
+  +file_path: str
+  +source: str
+  +layer: str
+  +result: ParseResult
+  +class_stack: list[tuple[(str, str)]]
+  +checked_fixtures: set[str]
+  +test_comments: dict[(str, str)]
+      }
+    }
+    package "_parser" as codegraph_index_parser_python__parser {
+      class "PythonParser" as codegraph_index_parser_python__parser_PythonParser {
+  +parse_source_dir(self, source_dir: Path, source: str, result: ParseResult, layer: str = 'codebase', progress_interval: int = 0, exclude_dirs: Optional[set[str]] = None): None
+  +post_process(self, result: ParseResult): None
+  -_register_package(init_path: Path, package_name: str, source: str, result: ParseResult, layer: str): None
+  -_parse_python_file(self, file_path: Path, module_name: str, source: str, result: ParseResult, layer: str): None
+      }
+    }
+    package "_paths" as codegraph_index_parser_python__paths {
+      class "is_excluded" as codegraph_index_parser_python__paths_is_excluded <<function>> {
+      }
+      class "module_path" as codegraph_index_parser_python__paths_module_path <<function>> {
+      }
+    }
+    package "_visitor" as codegraph_index_parser_python__visitor {
+      class "_PythonVisitor" as codegraph_index_parser_python__visitor__PythonVisitor {
+  +__init__(self, ctx: ParseContext)
+  +visit_ClassDef(self, node: ast.ClassDef): None
+  +visit_FunctionDef(self, node: ast.FunctionDef): None
+  +visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef): None
+  +visit_AnnAssign(self, node: ast.AnnAssign): None
+  +visit_Assign(self, node: ast.Assign): None
+      }
+    }
+    package "attributes" as codegraph_index_parser_python_attributes {
+      class "visit_annassign" as codegraph_index_parser_python_attributes_visit_annassign <<function>> {
+      }
+      class "visit_assign" as codegraph_index_parser_python_attributes_visit_assign <<function>> {
+      }
+    }
+    package "classes" as codegraph_index_parser_python_classes {
+      class "visit_classdef" as codegraph_index_parser_python_classes_visit_classdef <<function>> {
+      }
+      class "_add_class" as codegraph_index_parser_python_classes__add_class <<function>> {
+      }
+      class "_add_interface" as codegraph_index_parser_python_classes__add_interface <<function>> {
+      }
+      class "_add_enum" as codegraph_index_parser_python_classes__add_enum <<function>> {
+      }
+    }
+    package "functions" as codegraph_index_parser_python_functions {
+      class "visit_function" as codegraph_index_parser_python_functions_visit_function <<function>> {
+      }
+      class "extract_args" as codegraph_index_parser_python_functions_extract_args <<function>> {
+      }
+    }
+    package "postprocess" as codegraph_index_parser_python_postprocess {
+      class "_parent_qualified_name" as codegraph_index_parser_python_postprocess__parent_qualified_name <<function>> {
+      }
+      class "derive_namespace_compositions" as codegraph_index_parser_python_postprocess_derive_namespace_compositions <<function>> {
+      }
+      class "derive_inheritance" as codegraph_index_parser_python_postprocess_derive_inheritance <<function>> {
+      }
+      class "_strip_generic_args" as codegraph_index_parser_python_postprocess__strip_generic_args <<function>> {
+      }
+      class "derive_type_dependencies" as codegraph_index_parser_python_postprocess_derive_type_dependencies <<function>> {
+      }
+      class "derive_invokes" as codegraph_index_parser_python_postprocess_derive_invokes <<function>> {
+      }
+      class "derive_namespace_imports" as codegraph_index_parser_python_postprocess_derive_namespace_imports <<function>> {
+      }
+      class "derive_test_compositions" as codegraph_index_parser_python_postprocess_derive_test_compositions <<function>> {
+      }
+      class "extract_implementations" as codegraph_index_parser_python_postprocess_extract_implementations <<function>> {
+      }
+    }
+    package "test_comments" as codegraph_index_parser_python_test_comments {
+      class "_is_placeholder_description" as codegraph_index_parser_python_test_comments__is_placeholder_description <<function>> {
+      }
+      class "read_test_comments" as codegraph_index_parser_python_test_comments_read_test_comments <<function>> {
+      }
+      class "_indent_of" as codegraph_index_parser_python_test_comments__indent_of <<function>> {
+      }
+      class "_docstring_briefs_and_anchors" as codegraph_index_parser_python_test_comments__docstring_briefs_and_anchors <<function>> {
+      }
+      class "_comment_block" as codegraph_index_parser_python_test_comments__comment_block <<function>> {
+      }
+      class "write_test_comments" as codegraph_index_parser_python_test_comments_write_test_comments <<function>> {
+      }
+      class "CommentWriteReport" as codegraph_index_parser_python_test_comments_CommentWriteReport {
+  +to_dict(self): dict
+  +files_changed: list[str]
+  +files_unchanged: list[str]
+  +nodes_written: int
+  +nodes_scaffolded: int
+  +nodes_skipped_placeholder: int
+  +nodes_skipped_docstring: int
+  +errors: list[str]
+      }
+    }
+    package "tests" as codegraph_index_parser_python_tests {
+      class "_apply_comment" as codegraph_index_parser_python_tests__apply_comment <<function>> {
+      }
+      class "visit_test_function" as codegraph_index_parser_python_tests_visit_test_function <<function>> {
+      }
+      class "_extract_test_instances" as codegraph_index_parser_python_tests__extract_test_instances <<function>> {
+      }
+      class "_resolve_assignment_type" as codegraph_index_parser_python_tests__resolve_assignment_type <<function>> {
+      }
+      class "_find_class_by_name" as codegraph_index_parser_python_tests__find_class_by_name <<function>> {
+      }
+      class "_find_class_by_refid" as codegraph_index_parser_python_tests__find_class_by_refid <<function>> {
+      }
+      class "_process_assert" as codegraph_index_parser_python_tests__process_assert <<function>> {
+      }
+      class "_process_operand" as codegraph_index_parser_python_tests__process_operand <<function>> {
+      }
+      class "_resolve_operand" as codegraph_index_parser_python_tests__resolve_operand <<function>> {
+      }
+      class "_create_literal" as codegraph_index_parser_python_tests__create_literal <<function>> {
+      }
+      class "_process_step_block" as codegraph_index_parser_python_tests__process_step_block <<function>> {
+      }
+      class "_read_source_block" as codegraph_index_parser_python_tests__read_source_block <<function>> {
+      }
+      class "_resolve_callee" as codegraph_index_parser_python_tests__resolve_callee <<function>> {
+      }
+    }
+  }
+  package "base" as codegraph_index_parser_base {
+    interface "LanguageParser" as codegraph_index_parser_base_LanguageParser {
+  +parse_source_dir(self, source_dir: Path, source: str, result: ParseResult, layer: str = 'dependency', progress_interval: int = 0): None
+  +post_process(self, result: ParseResult): None
+    }
+  }
+  package "cpp_parser" as codegraph_index_parser_cpp_parser {
+    class "extract_include_guard" as codegraph_index_parser_cpp_parser_extract_include_guard <<function>> {
+    }
+    class "extract_include_directives" as codegraph_index_parser_cpp_parser_extract_include_directives <<function>> {
+    }
+    class "extract_namespace_padding" as codegraph_index_parser_cpp_parser_extract_namespace_padding <<function>> {
+    }
+    class "extract_guard_padding" as codegraph_index_parser_cpp_parser_extract_guard_padding <<function>> {
+    }
+    class "_read_source_lines" as codegraph_index_parser_cpp_parser__read_source_lines <<function>> {
+    }
+    class "_strip_for_scan" as codegraph_index_parser_cpp_parser__strip_for_scan <<function>> {
+    }
+    class "_derive_span_end" as codegraph_index_parser_cpp_parser__derive_span_end <<function>> {
+    }
+    class "_doc_comment_span" as codegraph_index_parser_cpp_parser__doc_comment_span <<function>> {
+    }
+    class "_template_prefix_start" as codegraph_index_parser_cpp_parser__template_prefix_start <<function>> {
+    }
+    class "_source_span" as codegraph_index_parser_cpp_parser__source_span <<function>> {
+    }
+    class "_file_boilerplate_spans" as codegraph_index_parser_cpp_parser__file_boilerplate_spans <<function>> {
+    }
+    class "_namespace_open_lines" as codegraph_index_parser_cpp_parser__namespace_open_lines <<function>> {
+    }
+    class "_top_level_namespace_name" as codegraph_index_parser_cpp_parser__top_level_namespace_name <<function>> {
+    }
+    class "extract_leading_blank_lines" as codegraph_index_parser_cpp_parser_extract_leading_blank_lines <<function>> {
+    }
+    class "extract_namespace_regions" as codegraph_index_parser_cpp_parser_extract_namespace_regions <<function>> {
+    }
+    class "extract_include_directive_lines" as codegraph_index_parser_cpp_parser_extract_include_directive_lines <<function>> {
+    }
+    class "_namespace_close_line" as codegraph_index_parser_cpp_parser__namespace_close_line <<function>> {
+    }
+    class "_namespace_ranges" as codegraph_index_parser_cpp_parser__namespace_ranges <<function>> {
+    }
+    class "_placement_for" as codegraph_index_parser_cpp_parser__placement_for <<function>> {
+    }
+    class "_legacy_placement" as codegraph_index_parser_cpp_parser__legacy_placement <<function>> {
+    }
+    class "build_owned_spans" as codegraph_index_parser_cpp_parser_build_owned_spans <<function>> {
+    }
+    class "_normalize_ownership" as codegraph_index_parser_cpp_parser__normalize_ownership <<function>> {
+    }
+    class "extract_residual_source_fragments" as codegraph_index_parser_cpp_parser_extract_residual_source_fragments <<function>> {
+    }
+    class "extract_preceding_doc_comment" as codegraph_index_parser_cpp_parser_extract_preceding_doc_comment <<function>> {
+    }
+    class "normalize_argsstring" as codegraph_index_parser_cpp_parser_normalize_argsstring <<function>> {
+    }
+    class "_qualified_name_parent" as codegraph_index_parser_cpp_parser__qualified_name_parent <<function>> {
+    }
+    class "derive_module" as codegraph_index_parser_cpp_parser_derive_module <<function>> {
+    }
+    class "derive_source_type" as codegraph_index_parser_cpp_parser_derive_source_type <<function>> {
+    }
+    class "detect_template_specialization" as codegraph_index_parser_cpp_parser_detect_template_specialization <<function>> {
+    }
+    class "_read_body" as codegraph_index_parser_cpp_parser__read_body <<function>> {
+    }
+    class "_declaration_span" as codegraph_index_parser_cpp_parser__declaration_span <<function>> {
+    }
+    class "_source_base_specifiers" as codegraph_index_parser_cpp_parser__source_base_specifiers <<function>> {
+    }
+    class "_split_base_specifiers" as codegraph_index_parser_cpp_parser__split_base_specifiers <<function>> {
+    }
+    class "_source_initializer" as codegraph_index_parser_cpp_parser__source_initializer <<function>> {
+    }
+    class "_is_under_test_dir" as codegraph_index_parser_cpp_parser__is_under_test_dir <<function>> {
+    }
+    class "_extract_common_member_fields" as codegraph_index_parser_cpp_parser__extract_common_member_fields <<function>> {
+    }
+    class "_extract_common_compound_fields" as codegraph_index_parser_cpp_parser__extract_common_compound_fields <<function>> {
+    }
+    class "_add_template_param_refs" as codegraph_index_parser_cpp_parser__add_template_param_refs <<function>> {
+    }
+    class "_add_parameter_refs" as codegraph_index_parser_cpp_parser__add_parameter_refs <<function>> {
+    }
+    class "_add_invoke_refs" as codegraph_index_parser_cpp_parser__add_invoke_refs <<function>> {
+    }
+    class "_resolve_test_calls" as codegraph_index_parser_cpp_parser__resolve_test_calls <<function>> {
+    }
+    class "_resolve_concept_constraints" as codegraph_index_parser_cpp_parser__resolve_concept_constraints <<function>> {
+    }
+    class "_derive_namespace_compositions" as codegraph_index_parser_cpp_parser__derive_namespace_compositions <<function>> {
+    }
+    class "_strip_strings_comments" as codegraph_index_parser_cpp_parser__strip_strings_comments <<function>> {
+    }
+    class "_brace_delta" as codegraph_index_parser_cpp_parser__brace_delta <<function>> {
+    }
+    class "_scan_file_catch_clauses" as codegraph_index_parser_cpp_parser__scan_file_catch_clauses <<function>> {
+    }
+    class "_record_catch_clause" as codegraph_index_parser_cpp_parser__record_catch_clause <<function>> {
+    }
+    class "_catch_type_text" as codegraph_index_parser_cpp_parser__catch_type_text <<function>> {
+    }
+    class "_normalize_catch_type" as codegraph_index_parser_cpp_parser__normalize_catch_type <<function>> {
+    }
+    class "_resolve_catch_clauses" as codegraph_index_parser_cpp_parser__resolve_catch_clauses <<function>> {
+    }
+    class "extract_implementations" as codegraph_index_parser_cpp_parser_extract_implementations <<function>> {
+    }
+    class "OwnedSpan" as codegraph_index_parser_cpp_parser_OwnedSpan {
+  +__post_init__(self): None
+  +start: int
+  +end: int
+  +owner: str
+  +owner_type: str
+  +kind: str
+    }
+    class "CppParser" as codegraph_index_parser_cpp_parser_CppParser {
+  +parse_source_dir(self, source_dir: Path, source: str, result: ParseResult, layer: str = 'dependency', progress_interval: int = 0, test_source_dirs: list[Path] | None = None): None
+  -_extract_residual_fragments(result: ParseResult, source: str, layer: str): None
+  +parse_compound_file(self, xml_path: Path, source: str, result: ParseResult, layer: str = 'dependency', test_dirs: list[Path] | None = None): None
+  +parse_compound(self, compounddef: ET.Element, source: str, result: ParseResult, layer: str = 'dependency'): str | None
+  -_parse_class_compound(compounddef: ET.Element, fields: dict, source: str, result: ParseResult, layer: str): None
+  -_parse_concept_compound(compounddef: ET.Element, fields: dict, source: str, result: ParseResult, layer: str): None
+  -_parse_enum_compound(compounddef: ET.Element, fields: dict, source: str, result: ParseResult, layer: str): None
+  -_parse_union_compound(compounddef: ET.Element, fields: dict, source: str, result: ParseResult, layer: str): None
+  -_parse_interface_compound(compounddef: ET.Element, fields: dict, source: str, result: ParseResult, layer: str): None
+  +parse_member(self, memberdef: ET.Element, compound_refid: str, parent_qualified_name: str, source: str, result: ParseResult, layer: str = 'dependency'): None
+  -_parse_function_member(memberdef: ET.Element, fields: dict, compound_refid: str, parent_qualified_name: str, source: str, result: ParseResult, layer: str): None
+  -_parse_variable_member(memberdef: ET.Element, fields: dict, compound_refid: str, parent_qualified_name: str, source: str, result: ParseResult, layer: str): None
+  -_parse_file_function(memberdef: ET.Element, fields: dict, compound_refid: str, source: str, result: ParseResult, layer: str): None
+  -_parse_enum_member(memberdef: ET.Element, fields: dict, compound_refid: str, parent_qualified_name: str, source: str, result: ParseResult, layer: str): None
+  -_parse_enumvalue_member(memberdef: ET.Element, fields: dict, compound_refid: str, parent_qualified_name: str, source: str, result: ParseResult, layer: str): None
+  -_parse_define_member(memberdef: ET.Element, fields: dict, compound_refid: str, parent_qualified_name: str, source: str, result: ParseResult, layer: str): None
+  +post_process(self, result: ParseResult): None
+  -_COMPOUND_HANDLERS: dict[(str, str)]
+  -_MEMBER_HANDLERS: dict[(str, str)]
+    }
+  }
+  package "cpp_tests" as codegraph_index_parser_cpp_tests {
+    class "is_gtest_test_member" as codegraph_index_parser_cpp_tests_is_gtest_test_member <<function>> {
+    }
+    class "_test_params" as codegraph_index_parser_cpp_tests__test_params <<function>> {
+    }
+    class "_read_body" as codegraph_index_parser_cpp_tests__read_body <<function>> {
+    }
+    class "_split_test_body" as codegraph_index_parser_cpp_tests__split_test_body <<function>> {
+    }
+    class "_resolve_callee" as codegraph_index_parser_cpp_tests__resolve_callee <<function>> {
+    }
+    class "call_sites" as codegraph_index_parser_cpp_tests_call_sites <<function>> {
+    }
+    class "parse_gtest_test" as codegraph_index_parser_cpp_tests_parse_gtest_test <<function>> {
+    }
+    class "_emit_step" as codegraph_index_parser_cpp_tests__emit_step <<function>> {
+    }
+    class "_emit_assertion" as codegraph_index_parser_cpp_tests__emit_assertion <<function>> {
+    }
+  }
+  package "helpers" as codegraph_index_parser_helpers {
+    class "get_text" as codegraph_index_parser_helpers_get_text <<function>> {
+    }
+    class "parse_description" as codegraph_index_parser_helpers_parse_description <<function>> {
+    }
+    class "_render_block" as codegraph_index_parser_helpers__render_block <<function>> {
+    }
+    class "_render_para" as codegraph_index_parser_helpers__render_para <<function>> {
+    }
+    class "_render_parameterlist" as codegraph_index_parser_helpers__render_parameterlist <<function>> {
+    }
+    class "_render_simplesect" as codegraph_index_parser_helpers__render_simplesect <<function>> {
+    }
+    class "_render_xrefsect" as codegraph_index_parser_helpers__render_xrefsect <<function>> {
+    }
+    class "_render_programlisting" as codegraph_index_parser_helpers__render_programlisting <<function>> {
+    }
+    class "_render_verbatim" as codegraph_index_parser_helpers__render_verbatim <<function>> {
+    }
+    class "_render_section" as codegraph_index_parser_helpers__render_section <<function>> {
+    }
+    class "_render_list" as codegraph_index_parser_helpers__render_list <<function>> {
+    }
+    class "_render_variablelist" as codegraph_index_parser_helpers__render_variablelist <<function>> {
+    }
+    class "parse_location" as codegraph_index_parser_helpers_parse_location <<function>> {
+    }
+    class "parse_template_params" as codegraph_index_parser_helpers_parse_template_params <<function>> {
+    }
+    class "parse_index" as codegraph_index_parser_helpers_parse_index <<function>> {
+    }
+  }
+  package "model" as codegraph_index_parser_model {
+    class "IncludeEntry" as codegraph_index_parser_model_IncludeEntry {
+  +file_refid: str
+  +included_file: str
+  +included_refid: str
+  +is_local: bool
+    }
+    class "CompositionEntry" as codegraph_index_parser_model_CompositionEntry {
+  +parent_refid: str
+  +child_refid: str
+  +child_type: str
+    }
+    class "InheritsEntry" as codegraph_index_parser_model_InheritsEntry {
+  +from_refid: str
+  +to_refid: str
+  +to_name: str
+  +to_type: str
+    }
+    class "DependsOnEntry" as codegraph_index_parser_model_DependsOnEntry {
+  +from_refid: str
+  +to_refid: str
+  +to_type: str
+    }
+    class "CatchClauseEntry" as codegraph_index_parser_model_CatchClauseEntry {
+  +from_refid: str
+  +type_text: str
+  +to_refid: str
+  +to_type: str
+    }
+    class "ConceptConstraintEntry" as codegraph_index_parser_model_ConceptConstraintEntry {
+  +from_refid: str
+  +to_refid: str
+  +to_type: str
+    }
+    class "TemplateParamEntry" as codegraph_index_parser_model_TemplateParamEntry {
+  +type_constraint: str
+  +declname: str
+  +defname: str
+  +defval: str
+    }
+    class "TemplateParamRef" as codegraph_index_parser_model_TemplateParamRef {
+  +from_refid: str
+  +position: int
+  +type_constraint: str
+  +declname: str
+  +defname: str
+  +defval: str
+  +concept_qualified_name: str
+    }
+    class "SpecializesRef" as codegraph_index_parser_model_SpecializesRef {
+  +from_refid: str
+  +from_qualified_name: str
+  +primary_template_qualified_name: str
+    }
+    class "InvokeEntry" as codegraph_index_parser_model_InvokeEntry {
+  +from_refid: str
+  +to_refid: str
+  +to_name: str
+    }
+    class "ImplementationRef" as codegraph_index_parser_model_ImplementationRef {
+  +member_refid: str
+  +implementation: ImplementationNode
+    }
+    class "VerifiesEntry" as codegraph_index_parser_model_VerifiesEntry {
+  +from_refid: str
+  +to_refid: str
+  +to_type: str
+    }
+    class "OperandEntry" as codegraph_index_parser_model_OperandEntry {
+  +from_refid: str
+  +to_refid: str
+  +to_type: str
+  +side: str
+    }
+    class "CalleeEntry" as codegraph_index_parser_model_CalleeEntry {
+  +from_refid: str
+  +to_refid: str
+  +to_type: str
+    }
+    class "FixtureOfTypeEntry" as codegraph_index_parser_model_FixtureOfTypeEntry {
+  +from_refid: str
+  +to_refid: str
+  +to_type: str
+    }
+    class "FixtureCheckedByEntry" as codegraph_index_parser_model_FixtureCheckedByEntry {
+  +from_refid: str
+  +to_refid: str
+    }
+    class "FixtureDefinedInEntry" as codegraph_index_parser_model_FixtureDefinedInEntry {
+  +from_refid: str
+  +to_refid: str
+    }
+    class "PendingTestCall" as codegraph_index_parser_model_PendingTestCall {
+  +from_refid: str
+  +test_refid: str
+  +callee_text: str
+  +is_assert: bool
+    }
+    class "ParseResult" as codegraph_index_parser_model_ParseResult {
+  +compounds(self): list
+  +members(self): list
+  +files: list[FileNode]
+  +namespaces: list[NamespaceNode]
+  +classes: list[ClassNode]
+  +enums: list[EnumNode]
+  +unions: list[UnionNode]
+  +interfaces: list[InterfaceNode]
+  +concepts: list[ConceptNode]
+  +methods: list[MethodNode]
+  +attributes: list[AttributeNode]
+  +enum_values: list[EnumValueNode]
+  +defines: list[DefineNode]
+  +source_fragments: list[SourceFragmentNode]
+  +functions: list[FunctionNode]
+  +parameters: list[ParameterNode]
+  +includes: list[IncludeEntry]
+  +compositions: list[CompositionEntry]
+  +inherits: list[InheritsEntry]
+  +depends_on: list[DependsOnEntry]
+  +catch_clauses: list[CatchClauseEntry]
+  +concept_constraints: list[ConceptConstraintEntry]
+  +namespace_includes: list[IncludeEntry]
+  +invokes: list[InvokeEntry]
+  +invoked_by: list[InvokeEntry]
+  +template_param_refs: list[TemplateParamRef]
+  +specializes_refs: list[SpecializesRef]
+  +implementations: list[ImplementationNode]
+  +implementation_refs: list[ImplementationRef]
+  +tests: list
+  +assertions: list
+  +test_steps: list
+  +test_fixtures: list
+  +literals: list
+  +verifies: list[VerifiesEntry]
+  +operands: list[OperandEntry]
+  +callees: list[CalleeEntry]
+  +test_compositions: list[TestCompositionEntry]
+  +fixture_of_types: list[FixtureOfTypeEntry]
+  +fixture_checked_by: list[FixtureCheckedByEntry]
+  +fixture_defined_in: list[FixtureDefinedInEntry]
+  +pending_test_calls: list[PendingTestCall]
+  +pending_calls: list[tuple[(str, str, int)]]
+    }
+  }
+}
+package "compound" as codegraph_models_compound {
+  class "ClassNode" as codegraph_models_compound_ClassNode {
+  +kind
+  +module
+  +base_classes
+  +base_specifiers
+  +is_final
+  +is_abstract
+  -_llm_fields
+  -_markdown_keyword
+  +methods
+  +attributes
+  +base
+  +derived
+  +depends_on
+  +depended_on_by
+  +references
+  +referred_by
+  +realizes
+  +parent_namespace
+  }
+  class "ConceptNode" as codegraph_models_compound_ConceptNode {
+  +kind
+  +module
+  +initializer
+  -_llm_fields
+  +parent_namespace
+  +constrains
+  }
+  class "EnumNode" as codegraph_models_compound_EnumNode {
+  +markdown_body_type(self): str | None
+  +kind
+  +module
+  +underlying_type
+  +enum_class
+  -_llm_fields
+  +values
+  +parent_namespace
+  }
+  class "InterfaceNode" as codegraph_models_compound_InterfaceNode {
+  +kind
+  +module
+  +is_abstract
+  -_llm_fields
+  +methods
+  +inherits_from
+  +dependencies
+  +parent_namespace
+  }
+  class "UnionNode" as codegraph_models_compound_UnionNode {
+  +kind
+  +module
+  -_llm_fields
+  +parent_namespace
+  }
+}
+package "file" as codegraph_models_file {
+  class "FileNode" as codegraph_models_file_FileNode {
+  +markdown_is_heading(self): bool
+  -_compute_qualified_name(self): str
+  +refid
+  -_identity_fields: tuple[(str, Ellipsis)]
+  +qualified_name
+  +path
+  +language
+  +include_guard
+  +include_directives
+  +include_directive_lines
+  +leading_blank_lines
+  +namespace_regions
+  +namespace_leading_blank_lines
+  +namespace_trailing_blank_lines
+  +namespace_name
+  +guard_leading_blank_lines
+  +start_line
+  +end_line
+  +tags
+  +kind
+  -_llm_fields: set[str]
+  +includes
+  }
+}
+package "implementation" as codegraph_models_implementation {
+  class "ImplementationNode" as codegraph_models_implementation_ImplementationNode {
+  +qualified_name
+  +kind
+  -_identity_fields: tuple[(str, Ellipsis)]
+  +implementation
+  +impl_embedding
+  +tags
+  -_llm_fields: set[str]
+  }
+}
+package "literal" as codegraph_models_literal {
+  class "LiteralNode" as codegraph_models_literal_LiteralNode {
+  -_markdown_keyword
+  +qualified_name
+  +kind
+  -_identity_fields: tuple[(str, Ellipsis)]
+  +value
+  +value_type
+  +tags
+  +brief_description
+  +detailed_description
+  -_llm_fields: set[str]
+  }
+}
+package "member" as codegraph_models_member {
+  class "AttributeNode" as codegraph_models_member_AttributeNode {
+  -_markdown_keyword
+  +kind
+  +type_signature
+  +initializer
+  +declaration
+  +is_static
+  +is_const
+  +is_constexpr
+  +is_nodiscard
+  -_llm_fields
+  +parent_compound
+  +composes_attribute
+  }
+  class "DefineNode" as codegraph_models_member_DefineNode {
+  +kind
+  -_llm_fields
+  }
+  class "EnumValueNode" as codegraph_models_member_EnumValueNode {
+  +kind
+  +initializer
+  -_llm_fields
+  +parent_enum
+  }
+  class "FunctionNode" as codegraph_models_member_FunctionNode {
+  +kind
+  +type_signature
+  +argsstring
+  -_identity_fields
+  -_llm_fields
+  +parent_namespace
+  +invokes_method
+  +invokes_function
+  +invoked_by_method
+  +invoked_by_function
+  +has_parameters
+  }
+  class "MethodNode" as codegraph_models_member_MethodNode {
+  +kind
+  +type_signature
+  +argsstring
+  +is_static
+  +is_const
+  +is_constexpr
+  +is_virtual
+  +is_inline
+  +is_explicit
+  +is_nodiscard
+  +template_declarations
+  +body
+  +body_file
+  -_identity_fields
+  -_llm_fields
+  +parent_compound
+  +parent_interface
+  +invokes
+  +invokes_function
+  +invoked_by_function
+  +has_argument
+  +returns
+  +has_parameters
+  }
+}
+package "namespace" as codegraph_models_namespace {
+  class "NamespaceNode" as codegraph_models_namespace_NamespaceNode {
+  +qualified_name
+  +kind
+  +tags
+  +component_id
+  +description
+  +file_path
+  +start_line
+  +end_line
+  -_llm_fields: set[str]
+  -_identity_fields: tuple[(str, Ellipsis)]
+  +classes
+  +interfaces
+  +enums
+  +unions
+  +concepts
+  +modules
+  +functions
+  +defines
+  +namespaces
+  +parent_namespace
+  +tests
+  }
+}
+package "parameter" as codegraph_models_parameter {
+  class "ParameterNode" as codegraph_models_parameter_ParameterNode {
+  -_identity_fields: tuple[(str, Ellipsis)]
+  +qualified_name
+  +position
+  +type
+  +default_value
+  +member_refid
+  +tags
+  +kind
+  -_llm_fields: set[str]
+  }
+}
+package "source_fragment" as codegraph_models_source_fragment {
+  class "SourceFragmentNode" as codegraph_models_source_fragment_SourceFragmentNode {
+  +qualified_name
+  +kind
+  +file_path
+  +start_line
+  +end_line
+  +placement
+  +text
+  +source
+  +tags
+  -_identity_fields
+  -_llm_fields
+  }
+}
+package "test" as codegraph_models_test {
+  class "AssertionNode" as codegraph_models_test_AssertionNode {
+  +markdown_body_type(self): str | None
+  +qualified_name
+  +kind
+  -_identity_fields: tuple[(str, Ellipsis)]
+  +phase
+  +order
+  +operator
+  +description
+  +tags
+  +test
+  +defined_fixtures
+  +checked_by_fixtures
+  +left_operand_compound
+  +left_operand_attribute
+  +left_operand_method
+  +left_operand_function
+  +left_operand_literal
+  +right_operand_compound
+  +right_operand_attribute
+  +right_operand_method
+  +right_operand_function
+  +right_operand_literal
+  -_llm_fields: set[str]
+  -_markdown_keyword
+  }
+}
+class "VectorIndex" as codegraph_backends_sqlite_search_VectorIndex {
+  +search(self, embedding: list[float], node_ids: list[int] | None = None, limit: int = 10): list[tuple[(int, float)]]
+}
+class "CanonicalInventory" as codegraph_index_neo4j_backend_CanonicalInventory {
+  +add(self, key: str, node_type: str, source: str, fingerprint: str = '', allow_identical_duplicate: bool = False): None
+}
+package "constants" as codegraph_constants {
+  class "normalize_language" as codegraph_constants_normalize_language <<function>> {
+  }
+}
+class "CodeGraphNode" as codegraph_models_tags_CodeGraphNode {
+  +has_tag(self, tag: str): bool
+}
+
+' ── Relationships ─────────────────────
+codegraph_index_parser_base ..> codegraph_index_parser_model_ParseResult : includes
+codegraph_index_parser_base_LanguageParser ..> codegraph_index_parser_model_ParseResult : depends_on
+codegraph_index_parser_cpp_parser ..> codegraph_index_parser_base_LanguageParser : includes
+codegraph_index_parser_cpp_parser ..> codegraph_index_parser_model_CalleeEntry : includes
+codegraph_index_parser_cpp_parser ..> codegraph_index_parser_model_CatchClauseEntry : includes
+codegraph_index_parser_cpp_parser ..> codegraph_index_parser_model_CompositionEntry : includes
+codegraph_index_parser_cpp_parser ..> codegraph_index_parser_model_ConceptConstraintEntry : includes
+codegraph_index_parser_cpp_parser ..> codegraph_index_parser_model_DependsOnEntry : includes
+codegraph_index_parser_cpp_parser ..> codegraph_index_parser_model_ImplementationRef : includes
+codegraph_index_parser_cpp_parser ..> codegraph_index_parser_model_IncludeEntry : includes
+codegraph_index_parser_cpp_parser ..> codegraph_index_parser_model_InheritsEntry : includes
+codegraph_index_parser_cpp_parser ..> codegraph_index_parser_model_InvokeEntry : includes
+codegraph_index_parser_cpp_parser ..> codegraph_index_parser_model_ParseResult : includes
+codegraph_index_parser_cpp_parser ..> codegraph_index_parser_model_SpecializesRef : includes
+codegraph_index_parser_cpp_parser ..> codegraph_index_parser_model_TemplateParamRef : includes
+codegraph_index_parser_cpp_parser ..> codegraph_index_parser_model_VerifiesEntry : includes
+codegraph_index_parser_cpp_parser ..> codegraph_models_compound_ClassNode : includes
+codegraph_index_parser_cpp_parser ..> codegraph_models_compound_ConceptNode : includes
+codegraph_index_parser_cpp_parser ..> codegraph_models_compound_EnumNode : includes
+codegraph_index_parser_cpp_parser ..> codegraph_models_compound_InterfaceNode : includes
+codegraph_index_parser_cpp_parser ..> codegraph_models_compound_UnionNode : includes
+codegraph_index_parser_cpp_parser ..> codegraph_models_file_FileNode : includes
+codegraph_index_parser_cpp_parser ..> codegraph_models_implementation_ImplementationNode : includes
+codegraph_index_parser_cpp_parser ..> codegraph_models_member_AttributeNode : includes
+codegraph_index_parser_cpp_parser ..> codegraph_models_member_DefineNode : includes
+codegraph_index_parser_cpp_parser ..> codegraph_models_member_EnumValueNode : includes
+codegraph_index_parser_cpp_parser ..> codegraph_models_member_FunctionNode : includes
+codegraph_index_parser_cpp_parser ..> codegraph_models_member_MethodNode : includes
+codegraph_index_parser_cpp_parser ..> codegraph_models_namespace_NamespaceNode : includes
+codegraph_index_parser_cpp_parser ..> codegraph_models_parameter_ParameterNode : includes
+codegraph_index_parser_cpp_parser ..> codegraph_models_source_fragment_SourceFragmentNode : includes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_constants_normalize_language : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser__add_invoke_refs : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser__add_parameter_refs : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser__add_template_param_refs : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser__declaration_span : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser__derive_namespace_compositions : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser__extract_common_compound_fields : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser__extract_common_member_fields : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser__is_under_test_dir : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser__read_source_lines : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser__resolve_catch_clauses : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser__resolve_concept_constraints : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser__resolve_test_calls : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser__scan_file_catch_clauses : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser__source_base_specifiers : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser__source_initializer : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser__source_span : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser__top_level_namespace_name : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser_build_owned_spans : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser_derive_module : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser_detect_template_specialization : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser_extract_guard_padding : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser_extract_include_directive_lines : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser_extract_include_directives : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser_extract_include_guard : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser_extract_leading_blank_lines : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser_extract_namespace_padding : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser_extract_namespace_regions : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser_extract_preceding_doc_comment : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_parser_extract_residual_source_fragments : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_tests_is_gtest_test_member : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_cpp_tests_parse_gtest_test : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_helpers_get_text : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_helpers_parse_index : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_helpers_parse_template_params : invokes
+codegraph_index_parser_cpp_parser_CppParser ..> codegraph_index_parser_model_ParseResult : depends_on
+codegraph_index_parser_cpp_parser_CppParser <|-- codegraph_index_parser_base_LanguageParser : inherits_from
+codegraph_index_parser_cpp_parser__add_invoke_refs ..> codegraph_index_parser_model_ParseResult : depends_on
+codegraph_index_parser_cpp_parser__add_parameter_refs ..> codegraph_index_parser_helpers_get_text : invokes
+codegraph_index_parser_cpp_parser__add_parameter_refs ..> codegraph_index_parser_model_ParseResult : depends_on
+codegraph_index_parser_cpp_parser__add_template_param_refs ..> codegraph_index_parser_helpers_parse_template_params : invokes
+codegraph_index_parser_cpp_parser__add_template_param_refs ..> codegraph_index_parser_model_ParseResult : depends_on
+codegraph_index_parser_cpp_parser__catch_type_text ..> codegraph_backends_sqlite_search_VectorIndex : invokes
+codegraph_index_parser_cpp_parser__declaration_span ..> codegraph_index_parser_cpp_parser__read_source_lines : invokes
+codegraph_index_parser_cpp_parser__declaration_span ..> codegraph_index_parser_cpp_parser__strip_for_scan : invokes
+codegraph_index_parser_cpp_parser__derive_namespace_compositions ..> codegraph_index_neo4j_backend_CanonicalInventory : invokes
+codegraph_index_parser_cpp_parser__derive_namespace_compositions ..> codegraph_index_parser_cpp_parser_derive_module : invokes
+codegraph_index_parser_cpp_parser__derive_namespace_compositions ..> codegraph_index_parser_model_ParseResult : depends_on
+codegraph_index_parser_cpp_parser__derive_span_end ..> codegraph_index_parser_cpp_parser__strip_for_scan : invokes
+codegraph_index_parser_cpp_parser__extract_common_compound_fields ..> codegraph_index_parser_cpp_parser_derive_module : invokes
+codegraph_index_parser_cpp_parser__extract_common_compound_fields ..> codegraph_index_parser_cpp_parser_derive_source_type : invokes
+codegraph_index_parser_cpp_parser__extract_common_compound_fields ..> codegraph_index_parser_helpers_parse_description : invokes
+codegraph_index_parser_cpp_parser__extract_common_compound_fields ..> codegraph_index_parser_helpers_parse_location : invokes
+codegraph_index_parser_cpp_parser__extract_common_member_fields ..> codegraph_index_parser_cpp_parser__read_body : invokes
+codegraph_index_parser_cpp_parser__extract_common_member_fields ..> codegraph_index_parser_cpp_parser_derive_source_type : invokes
+codegraph_index_parser_cpp_parser__extract_common_member_fields ..> codegraph_index_parser_helpers_get_text : invokes
+codegraph_index_parser_cpp_parser__extract_common_member_fields ..> codegraph_index_parser_helpers_parse_description : invokes
+codegraph_index_parser_cpp_parser__extract_common_member_fields ..> codegraph_index_parser_helpers_parse_location : invokes
+codegraph_index_parser_cpp_parser__extract_common_member_fields ..> codegraph_index_parser_helpers_parse_template_params : invokes
+codegraph_index_parser_cpp_parser__file_boilerplate_spans ..> codegraph_index_parser_cpp_parser__namespace_close_line : invokes
+codegraph_index_parser_cpp_parser__file_boilerplate_spans ..> codegraph_index_parser_cpp_parser__namespace_open_lines : invokes
+codegraph_index_parser_cpp_parser__file_boilerplate_spans ..> codegraph_index_parser_cpp_parser_extract_include_guard : invokes
+codegraph_index_parser_cpp_parser__namespace_close_line ..> codegraph_index_parser_cpp_parser__strip_for_scan : invokes
+codegraph_index_parser_cpp_parser__record_catch_clause ..> codegraph_index_parser_cpp_parser__catch_type_text : invokes
+codegraph_index_parser_cpp_parser__record_catch_clause ..> codegraph_index_parser_model_ParseResult : depends_on
+codegraph_index_parser_cpp_parser__resolve_catch_clauses ..> codegraph_index_parser_cpp_parser__normalize_catch_type : invokes
+codegraph_index_parser_cpp_parser__resolve_catch_clauses ..> codegraph_index_parser_model_ParseResult : depends_on
+codegraph_index_parser_cpp_parser__resolve_concept_constraints ..> codegraph_backends_sqlite_search_VectorIndex : invokes
+codegraph_index_parser_cpp_parser__resolve_concept_constraints ..> codegraph_index_neo4j_backend_CanonicalInventory : invokes
+codegraph_index_parser_cpp_parser__resolve_concept_constraints ..> codegraph_index_parser_model_ParseResult : depends_on
+codegraph_index_parser_cpp_parser__resolve_test_calls ..> codegraph_index_parser_model_ParseResult : depends_on
+codegraph_index_parser_cpp_parser__scan_file_catch_clauses ..> codegraph_backends_sqlite_search_VectorIndex : invokes
+codegraph_index_parser_cpp_parser__scan_file_catch_clauses ..> codegraph_index_parser_cpp_parser__brace_delta : invokes
+codegraph_index_parser_cpp_parser__scan_file_catch_clauses ..> codegraph_index_parser_cpp_parser__record_catch_clause : invokes
+codegraph_index_parser_cpp_parser__scan_file_catch_clauses ..> codegraph_index_parser_cpp_parser__strip_strings_comments : invokes
+codegraph_index_parser_cpp_parser__scan_file_catch_clauses ..> codegraph_index_parser_model_ParseResult : depends_on
+codegraph_index_parser_cpp_parser__source_base_specifiers ..> codegraph_index_parser_cpp_parser__read_source_lines : invokes
+codegraph_index_parser_cpp_parser__source_base_specifiers ..> codegraph_index_parser_cpp_parser__split_base_specifiers : invokes
+codegraph_index_parser_cpp_parser__source_base_specifiers ..> codegraph_index_parser_cpp_parser__strip_for_scan : invokes
+codegraph_index_parser_cpp_parser__source_initializer ..> codegraph_index_parser_cpp_parser__read_source_lines : invokes
+codegraph_index_parser_cpp_parser__source_initializer ..> codegraph_index_parser_cpp_parser__strip_for_scan : invokes
+codegraph_index_parser_cpp_parser__source_span ..> codegraph_index_parser_cpp_parser__derive_span_end : invokes
+codegraph_index_parser_cpp_parser__source_span ..> codegraph_index_parser_cpp_parser__doc_comment_span : invokes
+codegraph_index_parser_cpp_parser__source_span ..> codegraph_index_parser_cpp_parser__read_source_lines : invokes
+codegraph_index_parser_cpp_parser__source_span ..> codegraph_index_parser_cpp_parser__template_prefix_start : invokes
+codegraph_index_parser_cpp_parser__top_level_namespace_name ..> codegraph_index_parser_cpp_parser__namespace_open_lines : invokes
+codegraph_index_parser_cpp_parser_build_owned_spans ..> codegraph_index_parser_cpp_parser__file_boilerplate_spans : invokes
+codegraph_index_parser_cpp_parser_build_owned_spans ..> codegraph_index_parser_cpp_parser__normalize_ownership : invokes
+codegraph_index_parser_cpp_parser_build_owned_spans ..> codegraph_index_parser_cpp_parser__read_source_lines : invokes
+codegraph_index_parser_cpp_parser_build_owned_spans ..> codegraph_index_parser_model_ParseResult : depends_on
+codegraph_index_parser_cpp_parser_derive_module ..> codegraph_index_parser_cpp_parser__qualified_name_parent : invokes
+codegraph_index_parser_cpp_parser_extract_implementations ..> codegraph_index_parser_model_ParseResult : depends_on
+codegraph_index_parser_cpp_parser_extract_namespace_regions ..> codegraph_index_parser_cpp_parser__namespace_close_line : invokes
+codegraph_index_parser_cpp_parser_extract_namespace_regions ..> codegraph_index_parser_cpp_parser__namespace_open_lines : invokes
+codegraph_index_parser_cpp_parser_extract_residual_source_fragments ..> codegraph_index_neo4j_backend_CanonicalInventory : invokes
+codegraph_index_parser_cpp_parser_extract_residual_source_fragments ..> codegraph_index_parser_cpp_parser__legacy_placement : invokes
+codegraph_index_parser_cpp_parser_extract_residual_source_fragments ..> codegraph_index_parser_cpp_parser__namespace_ranges : invokes
+codegraph_index_parser_cpp_parser_extract_residual_source_fragments ..> codegraph_index_parser_cpp_parser__placement_for : invokes
+codegraph_index_parser_cpp_parser_extract_residual_source_fragments ..> codegraph_index_parser_cpp_parser__read_source_lines : invokes
+codegraph_index_parser_cpp_tests ..> codegraph_index_parser_model_ImplementationRef : includes
+codegraph_index_parser_cpp_tests ..> codegraph_index_parser_model_PendingTestCall : includes
+codegraph_index_parser_cpp_tests ..> codegraph_models_implementation_ImplementationNode : includes
+codegraph_index_parser_cpp_tests ..> codegraph_models_test_AssertionNode : includes
+codegraph_index_parser_cpp_tests__emit_assertion ..> codegraph_index_parser_cpp_tests_call_sites : invokes
+codegraph_index_parser_cpp_tests__emit_step ..> codegraph_index_parser_cpp_tests_call_sites : invokes
+codegraph_index_parser_cpp_tests__test_params ..> codegraph_index_parser_helpers_get_text : invokes
+codegraph_index_parser_cpp_tests_call_sites ..> codegraph_index_neo4j_backend_CanonicalInventory : invokes
+codegraph_index_parser_cpp_tests_parse_gtest_test ..> codegraph_index_parser_cpp_tests__emit_assertion : invokes
+codegraph_index_parser_cpp_tests_parse_gtest_test ..> codegraph_index_parser_cpp_tests__emit_step : invokes
+codegraph_index_parser_cpp_tests_parse_gtest_test ..> codegraph_index_parser_cpp_tests__read_body : invokes
+codegraph_index_parser_cpp_tests_parse_gtest_test ..> codegraph_index_parser_cpp_tests__split_test_body : invokes
+codegraph_index_parser_cpp_tests_parse_gtest_test ..> codegraph_index_parser_cpp_tests__test_params : invokes
+codegraph_index_parser_helpers ..> codegraph_index_parser_model_TemplateParamEntry : includes
+codegraph_index_parser_helpers__render_block ..> codegraph_index_parser_helpers__render_list : invokes
+codegraph_index_parser_helpers__render_block ..> codegraph_index_parser_helpers__render_para : invokes
+codegraph_index_parser_helpers__render_block ..> codegraph_index_parser_helpers__render_parameterlist : invokes
+codegraph_index_parser_helpers__render_block ..> codegraph_index_parser_helpers__render_programlisting : invokes
+codegraph_index_parser_helpers__render_block ..> codegraph_index_parser_helpers__render_section : invokes
+codegraph_index_parser_helpers__render_block ..> codegraph_index_parser_helpers__render_simplesect : invokes
+codegraph_index_parser_helpers__render_block ..> codegraph_index_parser_helpers__render_variablelist : invokes
+codegraph_index_parser_helpers__render_block ..> codegraph_index_parser_helpers__render_verbatim : invokes
+codegraph_index_parser_helpers__render_block ..> codegraph_index_parser_helpers__render_xrefsect : invokes
+codegraph_index_parser_helpers__render_block ..> codegraph_index_parser_helpers_get_text : invokes
+codegraph_index_parser_helpers__render_list ..> codegraph_index_parser_helpers__render_para : invokes
+codegraph_index_parser_helpers__render_list ..> codegraph_index_parser_helpers_get_text : invokes
+codegraph_index_parser_helpers__render_para ..> codegraph_index_parser_helpers__render_block : invokes
+codegraph_index_parser_helpers__render_para ..> codegraph_index_parser_helpers_get_text : invokes
+codegraph_index_parser_helpers__render_parameterlist ..> codegraph_index_parser_helpers__render_para : invokes
+codegraph_index_parser_helpers__render_parameterlist ..> codegraph_index_parser_helpers_get_text : invokes
+codegraph_index_parser_helpers__render_programlisting ..> codegraph_index_parser_helpers_get_text : invokes
+codegraph_index_parser_helpers__render_section ..> codegraph_index_parser_helpers__render_block : invokes
+codegraph_index_parser_helpers__render_section ..> codegraph_index_parser_helpers_get_text : invokes
+codegraph_index_parser_helpers__render_simplesect ..> codegraph_index_parser_helpers__render_para : invokes
+codegraph_index_parser_helpers__render_simplesect ..> codegraph_index_parser_helpers_get_text : invokes
+codegraph_index_parser_helpers__render_variablelist ..> codegraph_index_parser_helpers__render_para : invokes
+codegraph_index_parser_helpers__render_variablelist ..> codegraph_index_parser_helpers_get_text : invokes
+codegraph_index_parser_helpers__render_xrefsect ..> codegraph_index_parser_helpers__render_para : invokes
+codegraph_index_parser_helpers__render_xrefsect ..> codegraph_index_parser_helpers_get_text : invokes
+codegraph_index_parser_helpers_parse_description ..> codegraph_index_parser_helpers__render_block : invokes
+codegraph_index_parser_helpers_parse_template_params ..> codegraph_index_parser_helpers_get_text : invokes
+codegraph_index_parser_model ..> codegraph_models_compound_ClassNode : includes
+codegraph_index_parser_model ..> codegraph_models_compound_ConceptNode : includes
+codegraph_index_parser_model ..> codegraph_models_compound_EnumNode : includes
+codegraph_index_parser_model ..> codegraph_models_compound_InterfaceNode : includes
+codegraph_index_parser_model ..> codegraph_models_compound_UnionNode : includes
+codegraph_index_parser_model ..> codegraph_models_file_FileNode : includes
+codegraph_index_parser_model ..> codegraph_models_implementation_ImplementationNode : includes
+codegraph_index_parser_model ..> codegraph_models_literal_LiteralNode : includes
+codegraph_index_parser_model ..> codegraph_models_member_AttributeNode : includes
+codegraph_index_parser_model ..> codegraph_models_member_DefineNode : includes
+codegraph_index_parser_model ..> codegraph_models_member_EnumValueNode : includes
+codegraph_index_parser_model ..> codegraph_models_member_FunctionNode : includes
+codegraph_index_parser_model ..> codegraph_models_member_MethodNode : includes
+codegraph_index_parser_model ..> codegraph_models_namespace_NamespaceNode : includes
+codegraph_index_parser_model ..> codegraph_models_parameter_ParameterNode : includes
+codegraph_index_parser_model ..> codegraph_models_source_fragment_SourceFragmentNode : includes
+codegraph_index_parser_model ..> codegraph_models_test_AssertionNode : includes
+codegraph_index_parser_parse_python_dir ..> codegraph_index_parser_model_ParseResult : depends_on
+codegraph_index_parser_parse_xml_dir ..> codegraph_index_parser_model_ParseResult : depends_on
+codegraph_index_parser_python__ast_utils__CallCollector ..> codegraph_index_parser_python__ast_utils_annotation_to_str : invokes
+codegraph_index_parser_python__ast_utils_decorator_names ..> codegraph_index_neo4j_backend_CanonicalInventory : invokes
+codegraph_index_parser_python__ast_utils_is_enum ..> codegraph_index_parser_python__ast_utils_annotation_to_str : invokes
+codegraph_index_parser_python__ast_utils_is_inside_assert ..> codegraph_index_neo4j_backend_CanonicalInventory : invokes
+codegraph_index_parser_python__ast_utils_is_interface ..> codegraph_index_parser_python__ast_utils_annotation_to_str : invokes
+codegraph_index_parser_python__context ..> codegraph_index_parser_model_ParseResult : includes
+codegraph_index_parser_python__parser ..> codegraph_index_parser_base_LanguageParser : includes
+codegraph_index_parser_python__parser ..> codegraph_index_parser_model_IncludeEntry : includes
+codegraph_index_parser_python__parser ..> codegraph_index_parser_model_ParseResult : includes
+codegraph_index_parser_python__parser ..> codegraph_index_parser_python__context_ParseContext : includes
+codegraph_index_parser_python__parser ..> codegraph_index_parser_python__visitor__PythonVisitor : includes
+codegraph_index_parser_python__parser ..> codegraph_models_file_FileNode : includes
+codegraph_index_parser_python__parser ..> codegraph_models_namespace_NamespaceNode : includes
+codegraph_index_parser_python__parser_PythonParser ..> codegraph_constants_normalize_language : invokes
+codegraph_index_parser_python__parser_PythonParser ..> codegraph_index_parser_model_ParseResult : depends_on
+codegraph_index_parser_python__parser_PythonParser ..> codegraph_index_parser_python__paths_is_excluded : invokes
+codegraph_index_parser_python__parser_PythonParser ..> codegraph_index_parser_python__paths_module_path : invokes
+codegraph_index_parser_python__parser_PythonParser ..> codegraph_index_parser_python_postprocess_derive_inheritance : invokes
+codegraph_index_parser_python__parser_PythonParser ..> codegraph_index_parser_python_postprocess_derive_invokes : invokes
+codegraph_index_parser_python__parser_PythonParser ..> codegraph_index_parser_python_postprocess_derive_namespace_compositions : invokes
+codegraph_index_parser_python__parser_PythonParser ..> codegraph_index_parser_python_postprocess_derive_namespace_imports : invokes
+codegraph_index_parser_python__parser_PythonParser ..> codegraph_index_parser_python_postprocess_derive_test_compositions : invokes
+codegraph_index_parser_python__parser_PythonParser ..> codegraph_index_parser_python_postprocess_derive_type_dependencies : invokes
+codegraph_index_parser_python__parser_PythonParser ..> codegraph_index_parser_python_test_comments_read_test_comments : invokes
+codegraph_index_parser_python__parser_PythonParser <|-- codegraph_index_parser_base_LanguageParser : inherits_from
+codegraph_index_parser_python__visitor ..> codegraph_index_parser_python__context_ParseContext : includes
+codegraph_index_parser_python__visitor__PythonVisitor ..> codegraph_index_parser_python__context_ParseContext : depends_on
+codegraph_index_parser_python__visitor__PythonVisitor ..> codegraph_index_parser_python_attributes_visit_annassign : invokes
+codegraph_index_parser_python__visitor__PythonVisitor ..> codegraph_index_parser_python_attributes_visit_assign : invokes
+codegraph_index_parser_python__visitor__PythonVisitor ..> codegraph_index_parser_python_classes_visit_classdef : invokes
+codegraph_index_parser_python__visitor__PythonVisitor ..> codegraph_index_parser_python_functions_visit_function : invokes
+codegraph_index_parser_python_attributes ..> codegraph_index_parser_python__context_ParseContext : includes
+codegraph_index_parser_python_attributes ..> codegraph_models_member_AttributeNode : includes
+codegraph_index_parser_python_attributes_visit_annassign ..> codegraph_index_parser_python__ast_utils_annotation_to_str : invokes
+codegraph_index_parser_python_attributes_visit_annassign ..> codegraph_index_parser_python__context_ParseContext : depends_on
+codegraph_index_parser_python_attributes_visit_assign ..> codegraph_index_parser_python__ast_utils_is_private : invokes
+codegraph_index_parser_python_attributes_visit_assign ..> codegraph_index_parser_python__context_ParseContext : depends_on
+codegraph_index_parser_python_classes ..> codegraph_index_parser_python__context_ParseContext : includes
+codegraph_index_parser_python_classes ..> codegraph_models_compound_ClassNode : includes
+codegraph_index_parser_python_classes ..> codegraph_models_compound_EnumNode : includes
+codegraph_index_parser_python_classes ..> codegraph_models_compound_InterfaceNode : includes
+codegraph_index_parser_python_classes ..> codegraph_models_member_EnumValueNode : includes
+codegraph_index_parser_python_classes__add_class ..> codegraph_index_parser_python__context_ParseContext : depends_on
+codegraph_index_parser_python_classes__add_enum ..> codegraph_index_parser_python__context_ParseContext : depends_on
+codegraph_index_parser_python_classes__add_interface ..> codegraph_index_parser_python__context_ParseContext : depends_on
+codegraph_index_parser_python_classes_visit_classdef ..> codegraph_index_parser_python__ast_utils_annotation_to_str : invokes
+codegraph_index_parser_python_classes_visit_classdef ..> codegraph_index_parser_python__ast_utils_decorator_names : invokes
+codegraph_index_parser_python_classes_visit_classdef ..> codegraph_index_parser_python__ast_utils_get_docstring : invokes
+codegraph_index_parser_python_classes_visit_classdef ..> codegraph_index_parser_python__ast_utils_is_enum : invokes
+codegraph_index_parser_python_classes_visit_classdef ..> codegraph_index_parser_python__ast_utils_is_interface : invokes
+codegraph_index_parser_python_classes_visit_classdef ..> codegraph_index_parser_python__ast_utils_qualified_name : invokes
+codegraph_index_parser_python_classes_visit_classdef ..> codegraph_index_parser_python__context_ParseContext : depends_on
+codegraph_index_parser_python_classes_visit_classdef ..> codegraph_index_parser_python_classes__add_class : invokes
+codegraph_index_parser_python_classes_visit_classdef ..> codegraph_index_parser_python_classes__add_enum : invokes
+codegraph_index_parser_python_classes_visit_classdef ..> codegraph_index_parser_python_classes__add_interface : invokes
+codegraph_index_parser_python_classes_visit_classdef ..> codegraph_index_parser_python_tests_visit_test_function : invokes
+codegraph_index_parser_python_functions ..> codegraph_index_parser_python__context_ParseContext : includes
+codegraph_index_parser_python_functions ..> codegraph_models_member_FunctionNode : includes
+codegraph_index_parser_python_functions ..> codegraph_models_member_MethodNode : includes
+codegraph_index_parser_python_functions ..> codegraph_models_parameter_ParameterNode : includes
+codegraph_index_parser_python_functions_extract_args ..> codegraph_index_parser_python__ast_utils_annotation_to_str : invokes
+codegraph_index_parser_python_functions_visit_function ..> codegraph_index_parser_python__ast_utils_annotation_to_str : invokes
+codegraph_index_parser_python_functions_visit_function ..> codegraph_index_parser_python__ast_utils_collect_calls : invokes
+codegraph_index_parser_python_functions_visit_function ..> codegraph_index_parser_python__ast_utils_decorator_names : invokes
+codegraph_index_parser_python_functions_visit_function ..> codegraph_index_parser_python__ast_utils_get_docstring : invokes
+codegraph_index_parser_python_functions_visit_function ..> codegraph_index_parser_python__ast_utils_is_private : invokes
+codegraph_index_parser_python_functions_visit_function ..> codegraph_index_parser_python__ast_utils_qualified_name : invokes
+codegraph_index_parser_python_functions_visit_function ..> codegraph_index_parser_python__context_ParseContext : depends_on
+codegraph_index_parser_python_functions_visit_function ..> codegraph_index_parser_python_functions_extract_args : invokes
+codegraph_index_parser_python_functions_visit_function ..> codegraph_index_parser_python_tests_visit_test_function : invokes
+codegraph_index_parser_python_postprocess ..> codegraph_index_parser_model_CompositionEntry : includes
+codegraph_index_parser_python_postprocess ..> codegraph_index_parser_model_DependsOnEntry : includes
+codegraph_index_parser_python_postprocess ..> codegraph_index_parser_model_ImplementationRef : includes
+codegraph_index_parser_python_postprocess ..> codegraph_index_parser_model_IncludeEntry : includes
+codegraph_index_parser_python_postprocess ..> codegraph_index_parser_model_InheritsEntry : includes
+codegraph_index_parser_python_postprocess ..> codegraph_index_parser_model_InvokeEntry : includes
+codegraph_index_parser_python_postprocess ..> codegraph_index_parser_model_ParseResult : includes
+codegraph_index_parser_python_postprocess ..> codegraph_models_implementation_ImplementationNode : includes
+codegraph_index_parser_python_postprocess_derive_inheritance ..> codegraph_index_parser_model_ParseResult : depends_on
+codegraph_index_parser_python_postprocess_derive_inheritance ..> codegraph_index_parser_python_postprocess__parent_qualified_name : invokes
+codegraph_index_parser_python_postprocess_derive_invokes ..> codegraph_index_neo4j_backend_CanonicalInventory : invokes
+codegraph_index_parser_python_postprocess_derive_invokes ..> codegraph_index_parser_model_ParseResult : depends_on
+codegraph_index_parser_python_postprocess_derive_invokes ..> codegraph_index_parser_python_postprocess__parent_qualified_name : invokes
+codegraph_index_parser_python_postprocess_derive_namespace_compositions ..> codegraph_index_parser_model_ParseResult : depends_on
+codegraph_index_parser_python_postprocess_derive_namespace_compositions ..> codegraph_index_parser_python_postprocess__parent_qualified_name : invokes
+codegraph_index_parser_python_postprocess_derive_namespace_compositions ..> codegraph_models_tags_CodeGraphNode : invokes
+codegraph_index_parser_python_postprocess_derive_namespace_imports ..> codegraph_index_neo4j_backend_CanonicalInventory : invokes
+codegraph_index_parser_python_postprocess_derive_namespace_imports ..> codegraph_index_parser_model_ParseResult : depends_on
+codegraph_index_parser_python_postprocess_derive_namespace_imports ..> codegraph_index_parser_python_postprocess__parent_qualified_name : invokes
+codegraph_index_parser_python_postprocess_derive_test_compositions ..> codegraph_index_parser_model_ParseResult : depends_on
+codegraph_index_parser_python_postprocess_derive_test_compositions ..> codegraph_index_parser_python_postprocess__parent_qualified_name : invokes
+codegraph_index_parser_python_postprocess_derive_type_dependencies ..> codegraph_index_neo4j_backend_CanonicalInventory : invokes
+codegraph_index_parser_python_postprocess_derive_type_dependencies ..> codegraph_index_parser_model_ParseResult : depends_on
+codegraph_index_parser_python_postprocess_derive_type_dependencies ..> codegraph_index_parser_python_postprocess__parent_qualified_name : invokes
+codegraph_index_parser_python_postprocess_derive_type_dependencies ..> codegraph_index_parser_python_postprocess__strip_generic_args : invokes
+codegraph_index_parser_python_postprocess_extract_implementations ..> codegraph_index_parser_model_ParseResult : depends_on
+codegraph_index_parser_python_test_comments ..> codegraph_index_parser_model_ParseResult : includes
+codegraph_index_parser_python_test_comments__docstring_briefs_and_anchors ..> codegraph_index_parser_python__ast_utils_get_docstring : invokes
+codegraph_index_parser_python_test_comments__docstring_briefs_and_anchors ..> codegraph_index_parser_python_test_comments__indent_of : invokes
+codegraph_index_parser_python_test_comments_write_test_comments ..> codegraph_index_neo4j_backend_CanonicalInventory : invokes
+codegraph_index_parser_python_test_comments_write_test_comments ..> codegraph_index_parser_python_test_comments_CommentWriteReport : depends_on
+codegraph_index_parser_python_test_comments_write_test_comments ..> codegraph_index_parser_python_test_comments__comment_block : invokes
+codegraph_index_parser_python_test_comments_write_test_comments ..> codegraph_index_parser_python_test_comments__docstring_briefs_and_anchors : invokes
+codegraph_index_parser_python_test_comments_write_test_comments ..> codegraph_index_parser_python_test_comments__indent_of : invokes
+codegraph_index_parser_python_test_comments_write_test_comments ..> codegraph_index_parser_python_test_comments__is_placeholder_description : invokes
+codegraph_index_parser_python_tests ..> codegraph_index_parser_model_CalleeEntry : includes
+codegraph_index_parser_python_tests ..> codegraph_index_parser_model_FixtureCheckedByEntry : includes
+codegraph_index_parser_python_tests ..> codegraph_index_parser_model_FixtureDefinedInEntry : includes
+codegraph_index_parser_python_tests ..> codegraph_index_parser_model_FixtureOfTypeEntry : includes
+codegraph_index_parser_python_tests ..> codegraph_index_parser_model_ImplementationRef : includes
+codegraph_index_parser_python_tests ..> codegraph_index_parser_model_OperandEntry : includes
+codegraph_index_parser_python_tests ..> codegraph_index_parser_model_VerifiesEntry : includes
+codegraph_index_parser_python_tests ..> codegraph_index_parser_python__context_ParseContext : includes
+codegraph_index_parser_python_tests ..> codegraph_models_compound_ClassNode : includes
+codegraph_index_parser_python_tests ..> codegraph_models_implementation_ImplementationNode : includes
+codegraph_index_parser_python_tests ..> codegraph_models_literal_LiteralNode : includes
+codegraph_index_parser_python_tests ..> codegraph_models_test_AssertionNode : includes
+codegraph_index_parser_python_tests__apply_comment ..> codegraph_index_parser_python__context_ParseContext : depends_on
+codegraph_index_parser_python_tests__create_literal ..> codegraph_index_parser_python__context_ParseContext : depends_on
+codegraph_index_parser_python_tests__extract_test_instances ..> codegraph_index_parser_python__context_ParseContext : depends_on
+codegraph_index_parser_python_tests__extract_test_instances ..> codegraph_index_parser_python_tests__apply_comment : invokes
+codegraph_index_parser_python_tests__extract_test_instances ..> codegraph_index_parser_python_tests__resolve_assignment_type : invokes
+codegraph_index_parser_python_tests__find_class_by_name ..> codegraph_index_parser_python__context_ParseContext : depends_on
+codegraph_index_parser_python_tests__find_class_by_refid ..> codegraph_index_parser_python__context_ParseContext : depends_on
+codegraph_index_parser_python_tests__process_assert ..> codegraph_index_parser_python__ast_utils_compare_op_to_str : invokes
+codegraph_index_parser_python_tests__process_assert ..> codegraph_index_parser_python__context_ParseContext : depends_on
+codegraph_index_parser_python_tests__process_assert ..> codegraph_index_parser_python_tests__apply_comment : invokes
+codegraph_index_parser_python_tests__process_assert ..> codegraph_index_parser_python_tests__process_operand : invokes
+codegraph_index_parser_python_tests__process_operand ..> codegraph_index_parser_python__context_ParseContext : depends_on
+codegraph_index_parser_python_tests__process_operand ..> codegraph_index_parser_python_tests__resolve_operand : invokes
+codegraph_index_parser_python_tests__process_step_block ..> codegraph_index_neo4j_backend_CanonicalInventory : invokes
+codegraph_index_parser_python_tests__process_step_block ..> codegraph_index_parser_python__context_ParseContext : depends_on
+codegraph_index_parser_python_tests__process_step_block ..> codegraph_index_parser_python_tests__apply_comment : invokes
+codegraph_index_parser_python_tests__process_step_block ..> codegraph_index_parser_python_tests__read_source_block : invokes
+codegraph_index_parser_python_tests__process_step_block ..> codegraph_index_parser_python_tests__resolve_callee : invokes
+codegraph_index_parser_python_tests__read_source_block ..> codegraph_index_parser_python__context_ParseContext : depends_on
+codegraph_index_parser_python_tests__resolve_assignment_type ..> codegraph_index_parser_python__context_ParseContext : depends_on
+codegraph_index_parser_python_tests__resolve_assignment_type ..> codegraph_index_parser_python_tests__find_class_by_name : invokes
+codegraph_index_parser_python_tests__resolve_callee ..> codegraph_index_parser_python__context_ParseContext : depends_on
+codegraph_index_parser_python_tests__resolve_operand ..> codegraph_index_neo4j_backend_CanonicalInventory : invokes
+codegraph_index_parser_python_tests__resolve_operand ..> codegraph_index_parser_python__context_ParseContext : depends_on
+codegraph_index_parser_python_tests__resolve_operand ..> codegraph_index_parser_python_tests__create_literal : invokes
+codegraph_index_parser_python_tests_visit_test_function ..> codegraph_index_parser_python__ast_utils_get_docstring : invokes
+codegraph_index_parser_python_tests_visit_test_function ..> codegraph_index_parser_python__ast_utils_qualified_name : invokes
+codegraph_index_parser_python_tests_visit_test_function ..> codegraph_index_parser_python__context_ParseContext : depends_on
+codegraph_index_parser_python_tests_visit_test_function ..> codegraph_index_parser_python_tests__apply_comment : invokes
+codegraph_index_parser_python_tests_visit_test_function ..> codegraph_index_parser_python_tests__extract_test_instances : invokes
+codegraph_index_parser_python_tests_visit_test_function ..> codegraph_index_parser_python_tests__process_assert : invokes
+codegraph_index_parser_python_tests_visit_test_function ..> codegraph_index_parser_python_tests__process_step_block : invokes
+codegraph_models_compound ..> codegraph_models_tags_CodeGraphNode : includes
+codegraph_models_file ..> codegraph_models_tags_CodeGraphNode : includes
+codegraph_models_file_FileNode <|-- codegraph_models_tags_CodeGraphNode : inherits_from
+codegraph_models_implementation ..> codegraph_models_tags_CodeGraphNode : includes
+codegraph_models_implementation_ImplementationNode <|-- codegraph_models_tags_CodeGraphNode : inherits_from
+codegraph_models_literal ..> codegraph_models_tags_CodeGraphNode : includes
+codegraph_models_literal_LiteralNode <|-- codegraph_models_tags_CodeGraphNode : inherits_from
+codegraph_models_member ..> codegraph_models_tags_CodeGraphNode : includes
+codegraph_models_namespace ..> codegraph_models_tags_CodeGraphNode : includes
+codegraph_models_namespace_NamespaceNode <|-- codegraph_models_tags_CodeGraphNode : inherits_from
+codegraph_models_parameter ..> codegraph_models_tags_CodeGraphNode : includes
+codegraph_models_parameter_ParameterNode <|-- codegraph_models_tags_CodeGraphNode : inherits_from
+codegraph_models_source_fragment ..> codegraph_models_tags_CodeGraphNode : includes
+codegraph_models_source_fragment_SourceFragmentNode <|-- codegraph_models_tags_CodeGraphNode : inherits_from
+codegraph_models_test ..> codegraph_models_tags_CodeGraphNode : includes
+codegraph_models_test_AssertionNode <|-- codegraph_models_tags_CodeGraphNode : inherits_from
+
+@enduml

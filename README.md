@@ -10,7 +10,7 @@ graph visualization containers (`CompoundGraph`, `NamespaceGraph`,
 `OntologyGraph`), and constants (kinds, tags, predicates, schema DDL).
 
 Used by:
-- [Doxygen Dependency Parser](https://github.com/danielnewman09/Doxygen-Dependency-Parser) — populates `as-built` and `dependency` tags
+- Codegraph Index — populates `as-built` and `dependency` tags
 - [Ticketing System](https://github.com/danielnewman09/ticketing-system) — adds the `design` tag
 
 ## Install
