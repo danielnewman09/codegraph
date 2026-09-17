@@ -9,11 +9,19 @@ backend once per session and returns ``(serialized, uid_map)``.
 Requirements: only the ``doxygen-index`` CLI on PATH (the Python parser
 uses ``ast`` — no doxygen, no Conan).
 
-Unlike the cpp-sqlite suite, the dogfood graph is single-source: every
-node is ``source="doxygen-index"`` and tagged ``as-built``, and there
-are no dependency packages.  That makes the graph *complete* — every
-edge target resolves (0 dangling edges), which is the marquee invariant
-asserted here.
+Unlike the cpp-sqlite suite, the dogfood graph is single-*source*: every
+node is ``source="codegraph"`` and there are no dependency packages.
+It is, however, two-*layer*: parser-owned ``as-built`` facts plus the
+repository-authored requirements overlay ingested from
+``requirements_dir`` (design_intent/14-prioritized-work-roadmap.md,
+Priority 4).
+
+The one-hop loader pulls in any overlay node that an as-built node
+points at, but deliberately does not pull the rest of the overlay — so
+an overlay node's own edges may end on overlay neighbours that are
+outside the as-built view.  Edge resolution is therefore asserted
+against the loaded graph *or* the known overlay, which is the marquee
+invariant checked here.
 """
 
 from __future__ import annotations
@@ -24,7 +32,7 @@ from collections import Counter
 
 import pytest
 
-from .artifacts import UNIT_TEST_DATA
+from .artifacts import REQUIREMENTS_TAG, UNIT_TEST_DATA, is_overlay
 
 
 def _file_identity(qn: str, name: str) -> str:
@@ -86,41 +94,70 @@ class TestFullGraphExport:
         print(f"  Node count: {len(uid_map)}")
 
     def test_all_edges_resolve_to_nodes(self, codegraph_graph):
-        """EVERY edge in the as-built graph resolves to a node.
+        """Every edge endpoint resolves to a loaded node or an overlay node.
 
         The marquee invariant: the dogfood graph is single-source (no
         dependency packages), so unlike cpp-sqlite's one-hop view (59%
-        dangling edges) there is nothing that can point outside the
-        loaded set.  Every edge target — INCLUDES, INVOKES, DEPENDS_ON,
-        DEFINED_IN, HAS_PARAMETER, INHERITS_FROM — must resolve, and
-        every COMPOSES child must be present in the flat map.
+        dangling edges) there is nothing outside the repository that an
+        edge can point at.  Every edge target — INCLUDES, INVOKES,
+        DEPENDS_ON, DEFINED_IN, HAS_PARAMETER, INHERITS_FROM — must
+        resolve, and every COMPOSES child must be present in the flat
+        map.
+
+        The two-layer wrinkle: the one-hop loader pulls in whichever
+        overlay nodes an as-built node points at, so an overlay node's
+        *own* edges can end on overlay nodes that were not pulled in.
+        Those endpoints must still exist in the repository overlay —
+        an endpoint in neither the loaded graph nor the overlay is a
+        genuine dangling reference and is reported below.
         """
         serialized, uid_map = codegraph_graph
+
+        from codegraph import get_backend
+
+        overlay_keys = set(
+            get_backend().graph.find_uids_by_tag(REQUIREMENTS_TAG)
+        )
+        loaded_keys = set(uid_map)
+        overlay_boundary = 0
 
         unresolved: list[dict] = []
         total_edges = 0
         for node in uid_map.values():
             for edge in node.get("edges", []):
                 total_edges += 1
-                if edge["target_key"] not in uid_map:
-                    unresolved.append(edge)
+                target_key = edge["target_key"]
+                if target_key in loaded_keys:
+                    continue
+                if target_key in overlay_keys:
+                    overlay_boundary += 1
+                    continue
+                unresolved.append(edge)
             for child in node.get("composes", []):
-                if child.get("canonical_key") not in uid_map:
+                child_key = child.get("canonical_key")
+                if child_key not in loaded_keys and child_key not in overlay_keys:
                     unresolved.append({
                         "relation_type": "COMPOSES",
-                    "target_key": child.get("canonical_key", ""),
+                        "target_key": child_key or "",
                         "target_type": child.get("kind", ""),
                     })
 
         assert not unresolved, (
-            f"{len(unresolved)} unresolved edges out of {total_edges}:\n"
+            f"{len(unresolved)} edge endpoint(s) outside both the loaded "
+            f"graph and the requirements overlay (of {total_edges} edges):\n"
             + "\n".join(
                 f"  {e['relation_type']}: {e['target_key']} ({e.get('target_type')})"
                 for e in unresolved[:10]
             )
         )
 
-        print(f"  Edge resolution: {total_edges}/{total_edges} (100%)")
+        resolved = total_edges - overlay_boundary
+        print(
+            f"  Edge resolution: {resolved}/{total_edges} in-graph "
+            f"({100 * resolved / max(total_edges, 1):.1f}%), "
+            f"{overlay_boundary} cross-layer endpoint(s) into the "
+            "requirements overlay"
+        )
 
     def test_namespace_tree(self, codegraph_graph):
         """The namespace hierarchy mirrors the package tree.
@@ -296,15 +333,19 @@ class TestFullGraphExport:
         print(f"  DEPENDS_ON: {len(depends_on)} unique edges")
 
     def test_single_source_tag_integrity(self, codegraph_graph):
-        """Every node is project source + as-built tagged; no dependency
-        tags anywhere (single-source dogfood graph)."""
+        """Every node is project source with a known provenance tag.
+
+        Single-source: nothing carries a dependency source or tag.  Two
+        layers: each node is either ``as-built`` or an overlay artifact.
+        """
         serialized, uid_map = codegraph_graph
 
         for node in uid_map.values():
             assert node.get("source") == "codegraph", node.get("qualified_name")
             tags = node.get("tags", [])
-            assert "as-built" in tags, (
-                f"node missing as-built tag: {node.get('qualified_name')}"
+            assert "as-built" in tags or is_overlay(node), (
+                f"node carries no provenance tag: "
+                f"{node.get('qualified_name')} tags={tags}"
             )
             assert "dependency" not in tags
 

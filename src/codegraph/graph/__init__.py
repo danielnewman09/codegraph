@@ -727,29 +727,6 @@ class LayerGraph:
         bare = qname.rsplit("::", 1)[-1] if "::" in qname else qname
         return bare in idx
 
-    def merge(self, other: "LayerGraph") -> None:
-        """Merge another LayerGraph's entries into this one.
-
-        Existing entries (matched by node_key) are NOT overwritten —
-        children and references are merged recursively.
-        """
-        for key, other_entry in other.entries.items():
-            if key in self.entries:
-                existing = self.entries[key]
-                for child_type, child_map in other_entry.children.items():
-                    existing.children.setdefault(child_type, {}).update(child_map)
-                existing_refs = set(existing.references)
-                for ref in other_entry.references:
-                    if ref not in existing_refs:
-                        existing.references.append(ref)
-                        # Carry edge metadata for newly-added references.
-                        existing.edge_attrs.update(
-                            (k, v) for k, v in other_entry.edge_attrs.items()
-                            if k[1] == ref[1] and k[0] == ref[0]
-                        )
-            else:
-                self.entries[key] = other_entry
-
     # ── Deserialization ──────────────────────────────────────────────
 
     @classmethod
@@ -2053,11 +2030,24 @@ class LayerGraph:
     def merge(self, other: "LayerGraph") -> None:
         """Merge another LayerGraph into this one (mutates self).
 
+        Nodes are matched by canonical identity (``canonical_key``), not by
+        bare ``qualified_name``.  A canonical key encodes the node's type,
+        so a ``ClassNode`` named ``R`` and an ``HLR`` named ``R`` are two
+        distinct identities that must both survive the merge.  Matching on
+        the qualified name alone silently discarded whichever side lost the
+        collision.
+
         For each root entry in *other*:
-        - If a node with the same ``qualified_name`` already exists in
+
+        - If a node with the same canonical identity already exists in
           *self*, recursively merges children and references into the
           existing entry.
-        - Otherwise, adds the entire subtree as a new root entry.
+        - Otherwise, adds the entire subtree as a new root entry under a
+          key that does not collide with an unrelated existing node.
+
+        Graphs whose nodes carry no canonical key fall back to a type-aware
+        ``(node type, qualified_name)`` match; a bare qualified-name match
+        with a different node type is never treated as the same node.
 
         Duplicate references are skipped; existing children take
         precedence over same-keyed incoming children.
@@ -2070,8 +2060,52 @@ class LayerGraph:
             | set(other.known_keys)
             | set(other._flat_index())
         )
-        # Pre-build index so it stays fresh as we mutate self.entries
-        self_qnames = self._qname_index()
+
+        # Canonical identity → entry (authoritative).  The key encodes the
+        # node type, so cross-type qualified-name collisions cannot occur.
+        self_canonical: dict[str, CompositeEntry] = {}
+        # Type-aware qualified-name → entry, for unkeyed graphs only.
+        self_typed_qnames: dict[tuple[str, str], CompositeEntry] = {}
+
+        def _remember(subtree: CompositeEntry) -> None:
+            """Index every entry in *subtree* for future identity matches."""
+            for e in self._walk_entries(subtree):
+                canonical = getattr(e.node, "canonical_key", "") or ""
+                if canonical:
+                    self_canonical[canonical] = e
+                qname = getattr(e.node, "qualified_name", None)
+                if qname:
+                    self_typed_qnames[
+                        (type(e.node).__name__, qname)
+                    ] = e
+
+        def _find_existing(incoming: CompositeEntry) -> CompositeEntry | None:
+            """Return the entry *incoming* maps onto, or ``None``."""
+            canonical = getattr(incoming.node, "canonical_key", "") or ""
+            if canonical and canonical in self_canonical:
+                return self_canonical[canonical]
+            qname = getattr(incoming.node, "qualified_name", None)
+            if qname:
+                return self_typed_qnames.get(
+                    (type(incoming.node).__name__, qname)
+                )
+            return None
+
+        def _unique_key(
+            bucket: dict,
+            incoming: CompositeEntry,
+            preferred: str,
+        ) -> str:
+            """Choose a bucket key that keeps *incoming* distinct."""
+            if preferred not in bucket:
+                return preferred
+            canonical = getattr(incoming.node, "canonical_key", "") or ""
+            if canonical and canonical not in bucket:
+                return canonical
+            suffix = 1
+            while f"{preferred}#{suffix}" in bucket:
+                suffix += 1
+            return f"{preferred}#{suffix}"
 
         def _merge_children(
             existing_children: dict,
@@ -2079,24 +2113,16 @@ class LayerGraph:
         ) -> None:
             """Recursively merge incoming children into existing."""
             for type_name, incoming_type_children in incoming_children.items():
-                if type_name not in existing_children:
-                    existing_children[type_name] = {}
+                bucket = existing_children.setdefault(type_name, {})
                 for child_key, child_entry in incoming_type_children.items():
-                    child_qname = getattr(
-                        child_entry.node, "qualified_name", None
-                    )
-                    if child_qname and child_qname in self_qnames:
-                        # Child already exists — merge deeper
-                        _merge_existing(
-                            self_qnames[child_qname], child_entry
-                        )
-                    elif child_key not in existing_children[type_name]:
-                        existing_children[type_name][child_key] = child_entry
-                        # Index all newly-added entries in the subtree
-                        for e in self._walk_entries(child_entry):
-                            eqn = getattr(e.node, "qualified_name", None)
-                            if eqn:
-                                self_qnames[eqn] = e
+                    existing = _find_existing(child_entry)
+                    if existing is not None:
+                        # Same canonical node — merge deeper.
+                        _merge_existing(existing, child_entry)
+                        continue
+                    new_key = _unique_key(bucket, child_entry, child_key)
+                    bucket[new_key] = child_entry
+                    _remember(child_entry)
 
         def _merge_existing(
             existing: CompositeEntry,
@@ -2118,20 +2144,20 @@ class LayerGraph:
             # Recursively merge children
             _merge_children(existing.children, incoming.children)
 
+        # Seed the identity indexes with everything already in self.
+        for entry in self.entries.values():
+            _remember(entry)
+
         # Walk other's root entries
         for key, entry in other.entries.items():
-            qname = getattr(entry.node, "qualified_name", None)
-            if qname and qname in self_qnames:
+            existing = _find_existing(entry)
+            if existing is not None:
                 # Merge into existing entry
-                _merge_existing(self_qnames[qname], entry)
-            elif key not in self.entries:
-                # Add as a new root entry
-                self.entries[key] = entry
-                # Index the entire new subtree
-                for e in self._walk_entries(entry):
-                    eqn = getattr(e.node, "qualified_name", None)
-                    if eqn:
-                        self_qnames[eqn] = e
+                _merge_existing(existing, entry)
+                continue
+            new_key = _unique_key(self.entries, entry, key)
+            self.entries[new_key] = entry
+            _remember(entry)
 
     def subgraph(self, qname: str) -> "LayerGraph":
         """Return a new LayerGraph scoped to a compound and its 1-hop neighbours.

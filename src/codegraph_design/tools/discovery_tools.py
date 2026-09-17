@@ -26,7 +26,7 @@ SEARCH_REQUIREMENTS_SCHEMA = {
     "name": "search_requirements",
     "description": (
         "Search HLRs and LLRs by a keyword or phrase in their description "
-        "field. Returns matching requirement summaries (uid, description, "
+        "field. Returns matching requirement summaries (canonical_key, description, "
         "layer, tags, component). Useful for discovering requirements by "
         "concept or feature area before designing a new feature."
     ),
@@ -56,16 +56,16 @@ GET_HLR_DEPENDENCIES_SCHEMA = {
     "name": "get_hlr_dependencies",
     "description": (
         "Traverse outgoing DEPENDS_ON edges from an HLR to discover other "
-        "HLRs it depends on. Returns dependent HLR uids, names, descriptions, "
+        "HLRs it depends on. Returns dependent HLR canonical keys, names, descriptions, "
         "and components. Use this to understand which requirements must be "
         "satisfied before designing this HLR."
     ),
     "input_schema": {
         "type": "object",
         "properties": {
-            "uid": {
+            "canonical_key": {
                 "type": "string",
-                "description": "The uid of the HLR whose dependencies to retrieve.",
+                "description": "The canonical key of the HLR whose dependencies to retrieve.",
             },
             "direction": {
                 "type": "string",
@@ -74,7 +74,7 @@ GET_HLR_DEPENDENCIES_SCHEMA = {
                 "description": "outgoing = what this HLR depends on; incoming = what depends on this HLR.",
             },
         },
-        "required": ["uid"],
+        "required": ["canonical_key"],
     },
 }
 
@@ -83,7 +83,7 @@ LIST_REQUIREMENTS_SCHEMA = {
     "name": "list_requirements",
     "description": (
         "List all high-level requirements (HLRs), optionally filtered by "
-        "component name and/or tag. Returns summary dicts with uid, name, "
+        "component name and/or tag. Returns summary dicts with canonical_key, name, "
         "description, and tags. Use this as a starting point to discover what "
         "HLRs exist before drilling into specific ones."
     ),
@@ -109,9 +109,12 @@ GET_REQUIREMENT_TRACES_SCHEMA = {
     "input_schema": {
         "type": "object",
         "properties": {
-            "uid": {"type": "string", "description": "The uid of the HLR or LLR."},
+            "canonical_key": {
+                "type": "string",
+                "description": "The canonical key of the HLR or LLR.",
+            },
         },
-        "required": ["uid"],
+        "required": ["canonical_key"],
     },
 }
 
@@ -150,7 +153,7 @@ BUILD_DESIGN_CONTEXT_SCHEMA = {
 
 def _serialize_hlr_brief(hlr) -> dict:
     return {
-        "uid": hlr.uid or "",
+        "canonical_key": hlr.canonical_key or "",
         "name": hlr.name or "",
         "description": hlr.description,
         "tags": list(hlr.tags) if hlr.tags else [],
@@ -159,7 +162,7 @@ def _serialize_hlr_brief(hlr) -> dict:
 
 def _serialize_llr_brief(llr) -> dict:
     return {
-        "uid": llr.uid or "",
+        "canonical_key": llr.canonical_key or "",
         "name": llr.name or "",
         "description": llr.description,
         "tags": list(llr.tags) if llr.tags else [],
@@ -238,20 +241,20 @@ def handle_get_hlr_dependencies(ctx: DesignDiscoveryDispatcher, tool_input: dict
     """Traverse DEPENDS_ON edges from an HLR."""
     from codegraph_requirements.models import HLR
 
-    target_uid = tool_input.get("uid", "")
+    target_key = tool_input.get("canonical_key", "")
     direction = tool_input.get("direction", "outgoing")
 
-    if not target_uid:
-        return json.dumps({"error": "uid is required"})
+    if not target_key:
+        return json.dumps({"error": "canonical_key is required"})
 
-    hlr = HLR.nodes.get_or_none(uid=target_uid)
-    if hlr is None:
-        return json.dumps({"error": f"HLR '{target_uid}' not found"})
+    hlr = ctx.repo.find_by_key(target_key)
+    if not isinstance(hlr, HLR):
+        return json.dumps({"error": f"HLR '{target_key}' not found"})
 
     def _serialize_dep(other_hlr, direction_label):
         comp_nodes = other_hlr.component.all()
         return {
-            "uid": other_hlr.uid or "",
+            "canonical_key": other_hlr.canonical_key or "",
             "name": other_hlr.name or "",
             "description": other_hlr.description,
             "component": comp_nodes[0].name if comp_nodes else "",
@@ -268,10 +271,14 @@ def handle_get_hlr_dependencies(ctx: DesignDiscoveryDispatcher, tool_input: dict
             for dep in hlr.depended_on_by_hlrs.all():
                 results.append(_serialize_dep(dep, "incoming"))
     except Exception as exc:
-        log.exception("Failed to get HLR dependencies for %s", target_uid)
+        log.exception("Failed to get HLR dependencies for %s", target_key)
         return json.dumps({"error": f"Traversal error: {exc}"})
 
-    return json.dumps({"uid": target_uid, "count": len(results), "dependencies": results})
+    return json.dumps({
+        "canonical_key": target_key,
+        "count": len(results),
+        "dependencies": results,
+    })
 
 
 def handle_list_requirements(ctx: DesignDiscoveryDispatcher, tool_input: dict) -> str:
@@ -306,26 +313,23 @@ def handle_get_requirement_traces(ctx: DesignDiscoveryDispatcher, tool_input: di
     """Retrieve all COMPOSES edges from an HLR or LLR to design nodes."""
     from codegraph_requirements.models import HLR, LLR
 
-    target_uid = tool_input.get("uid", "")
-    if not target_uid:
-        return json.dumps({"error": "uid is required"})
+    target_key = tool_input.get("canonical_key", "")
+    if not target_key:
+        return json.dumps({"error": "canonical_key is required"})
 
-    node = HLR.nodes.get_or_none(uid=target_uid)
-    req_type = "HLR"
-    if node is None:
-        node = LLR.nodes.get_or_none(uid=target_uid)
-        req_type = "LLR"
-    if node is None:
-        return json.dumps({"error": f"No HLR or LLR found with '{target_uid}'"})
+    node = ctx.repo.find_by_key(target_key)
+    if not isinstance(node, (HLR, LLR)):
+        return json.dumps({"error": f"No HLR or LLR found with '{target_key}'"})
+    req_type = type(node).__name__
 
     try:
         design_links = _serialize_design_links(node)
         return json.dumps({
-            "uid": target_uid, "type": req_type,
+            "canonical_key": target_key, "type": req_type,
             "description": node.description, "design_links": design_links,
         })
     except Exception as exc:
-        log.exception("Failed to serialize design links for uid '%s'", target_uid)
+        log.exception("Failed to serialize design links for canonical key '%s'", target_key)
         return json.dumps({"error": f"Serialization error: {exc}"})
 
 

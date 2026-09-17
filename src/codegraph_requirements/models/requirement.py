@@ -122,6 +122,11 @@ class HLR(CodeGraphNode):
         required=True,
         help_text="Full requirement text.",
     )
+    status = Property(
+        str,
+        default="",
+        help_text="Repository-authored lifecycle status for this requirement.",
+    )
 
     # --- Tags & provenance ----------------------------------------------------
     tags = Property(
@@ -178,7 +183,9 @@ class HLR(CodeGraphNode):
     depended_on_by_hlrs = Relationship("DEPENDS_ON", direction="INCOMING", target_class="HLR")
 
     # --- Serialization contract ---
-    _llm_fields: set[str] = {"qualified_name", "name", "description", "tags"}
+    _llm_fields: set[str] = {
+        "qualified_name", "name", "description", "status", "tags"
+    }
     kind = Property(str, default="hlr")
 
     _markdown_keyword = "HLR"
@@ -280,6 +287,11 @@ class LLR(CodeGraphNode):
         required=True,
         help_text="Full requirement text.",
     )
+    status = Property(
+        str,
+        default="",
+        help_text="Repository-authored lifecycle status for this requirement.",
+    )
 
     # --- Tags & provenance ----------------------------------------------------
     tags = Property(
@@ -305,7 +317,9 @@ class LLR(CodeGraphNode):
     design_compounds = Relationship("COMPOSES", direction="OUTGOING", target_class="CompoundNode")
 
     # --- Serialization contract ---
-    _llm_fields: set[str] = {"qualified_name", "name", "description", "tags"}
+    _llm_fields: set[str] = {
+        "qualified_name", "name", "description", "status", "tags"
+    }
     kind = Property(str, default="llr")
 
     _markdown_keyword = "LLR"

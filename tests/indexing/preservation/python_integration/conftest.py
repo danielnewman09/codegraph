@@ -17,6 +17,16 @@ INVOKES edges, and structured parameters.
 Requirements: the ``doxygen-index`` CLI on PATH (no doxygen, no Conan —
 the Python parser needs only ``ast``).
 
+Two provenance layers share the project ``source`` label: the
+parser-owned ``as-built`` extraction layer, and the repository-authored
+requirements overlay that the same index operation ingests from the
+``requirements_dir`` declared in ``.doxygen-index.toml``
+(``codegraph/requirements/``).  The overlay nodes are tagged
+``requirements`` (with ``design``/``scaffold`` where the documents
+carry placeholders) and are never tagged ``as-built`` — see
+``test_doxygen_index_tags.py`` for the invariant that keeps the two
+layers disjoint and exhaustive over the project.
+
 The generated backend database (sqlite backend only) is archived to
 ``tests/unit_test_data/python_integration.sqlite3`` alongside the
 serialized JSON so external tooling can validate against the exact
@@ -52,38 +62,6 @@ _TEST_PASSWORD = "doxygen-index-test"
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _refresh_fixture_report(
-    json_path: Path,
-    db_path: Path,
-    out_path: Path,
-    title: str,
-    test_cpp: Path | None = None,
-) -> None:
-    """Regenerate the markdown fixture report from the archived artifacts.
-
-    Loads ``scripts/export_fixture_report.py`` (repo-relative) and runs
-    it against the just-archived JSON + sqlite db.  Best-effort: a
-    failure prints a warning rather than failing the suite.
-    """
-    try:
-        import importlib.util
-
-        scripts_dir = _REPO_ROOT / "scripts"
-        spec = importlib.util.spec_from_file_location(
-            "export_fixture_report", scripts_dir / "export_fixture_report.py"
-        )
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        report = mod.build_report(
-            json_path, db_path, test_cpp, title,
-        )
-        out_path.write_text(report + "\n", encoding="utf-8")
-        print(f"  [report] {out_path.name} refreshed "
-              f"({out_path.stat().st_size:,} bytes)")
-    except Exception as e:  # noqa: BLE001 — best-effort artifact refresh
-        print(f"  [report] fixture report not refreshed: {e}")
 
 
 def _cli_command() -> list[str]:
@@ -336,17 +314,6 @@ def codegraph_graph():
         sqlite_output = _UNIT_TEST_DATA / "python_integration.sqlite3"
         _archive_sqlite(_SQLITE_PATH, sqlite_output)
         _dbg("sqlite reference artifact archived")
-
-        # ── Step 3c: Refresh the markdown fixture report ─────
-        # Keep the human-readable completeness report in sync with the
-        # archived artifacts.
-        _dbg("refreshing markdown fixture report...")
-        _refresh_fixture_report(
-            json_path=json_output,
-            db_path=sqlite_output,
-            out_path=_UNIT_TEST_DATA / "python_fixture_report.md",
-            title="doxygen-index (dogfood) as-built fixture report",
-        )
 
     # HTML export was removed from codegraph.  JSON remains the interchange
     # artifact; PlantUML is the supported visualization export.

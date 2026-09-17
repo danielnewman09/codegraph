@@ -118,12 +118,20 @@ class IndexService:
                 timings={"total": monotonic() - started},
                 success=False,
             )
+        graph = extraction.graph
+        requirement_diagnostics: tuple[IndexDiagnostic, ...] = ()
+        if request.requirements_dir is not None:
+            from codegraph_index.requirements import load_requirements
+
+            requirements = load_requirements(request, base_graph=graph)
+            graph = requirements.graph
+            requirement_diagnostics = requirements.diagnostics
         try:
-            delta = self._delta_for(request, extraction.graph)
+            delta = self._delta_for(request, graph)
             if self.persistence is not None:
                 from codegraph_index.inventory import delta_between, inventory_from_graph
 
-                incoming = inventory_from_graph(extraction.graph, source=request.source)
+                incoming = inventory_from_graph(graph, source=request.source)
                 persisted = self.persistence.inventory(request.source)
                 delta = delta_between(incoming, persisted)
         except Exception as exc:
@@ -143,16 +151,16 @@ class IndexService:
             )
             return IndexResult(
                 request=request,
-                graph=extraction.graph,
+                graph=graph,
                 delta=delta,
-                diagnostics=(*extraction.diagnostics, diagnostic),
+                diagnostics=(*extraction.diagnostics, *requirement_diagnostics, diagnostic),
                 artifacts=extraction.artifacts,
                 timings={**dict(extraction.timings), "total": monotonic() - started},
                 adapter_name=adapter.name,
                 adapter_version=getattr(adapter, "version", ""),
                 success=False,
             )
-        diagnostics = tuple(extraction.diagnostics)
+        diagnostics = (*extraction.diagnostics, *requirement_diagnostics)
         artifacts = tuple(extraction.artifacts)
         if request.emit_json and request.output_dir is not None:
             output_dir = Path(request.output_dir)
@@ -160,7 +168,7 @@ class IndexService:
             output_path = output_dir / f"{request.source}.json"
             output_path.write_text(
                 json.dumps(
-                    extraction.graph.serialize(document=True),
+                    graph.serialize(document=True),
                     indent=2,
                     sort_keys=True,
                     default=str,
@@ -174,7 +182,7 @@ class IndexService:
 
         if success and request.mode is not IndexMode.EXTRACT_ONLY and self.persistence is not None:
             try:
-                self.persistence.apply(extraction.graph, delta)
+                self.persistence.apply(graph, delta)
             except Exception as exc:
                 diagnostics += (
                     IndexDiagnostic(
@@ -190,7 +198,7 @@ class IndexService:
 
         return IndexResult(
             request=request,
-            graph=extraction.graph,
+            graph=graph,
             delta=delta,
             diagnostics=diagnostics,
             artifacts=artifacts,

@@ -9,9 +9,3 @@ name = "codegraph"
 path = "."
 source = "codegraph"
 index = true
-
-[[repositories]]
-name = "doxygen-dependency-parser"
-path = "../Doxygen-Dependency-Parser"
-source = "doxygen-index"
-index = true

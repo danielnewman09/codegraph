@@ -30,7 +30,6 @@ from .artifacts import (
 )
 
 _HERE = Path(__file__).resolve().parent
-_PARENT_TESTS = _HERE.parent
 # The cpp-sqlite source snapshot and its indexing configuration are lifted
 # inputs, owned by this migration suite.  The test must not depend on a live
 # DDP checkout after the lift has been audited.
@@ -82,38 +81,6 @@ _TEST_PASSWORD = "doxygen-index-test"
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _refresh_fixture_report(
-    json_path: Path,
-    db_path: Path,
-    out_path: Path,
-    title: str,
-    test_cpp: Path | None = None,
-) -> None:
-    """Regenerate the markdown fixture report from the archived artifacts.
-
-    Loads ``scripts/export_fixture_report.py`` (repo-relative) and runs
-    it against the just-archived JSON + sqlite db.  Best-effort: a
-    failure prints a warning rather than failing the suite.
-    """
-    try:
-        import importlib.util
-
-        scripts_dir = _PARENT_TESTS.parent / "scripts"
-        spec = importlib.util.spec_from_file_location(
-            "export_fixture_report", scripts_dir / "export_fixture_report.py"
-        )
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        report = mod.build_report(
-            json_path, db_path, test_cpp, title,
-        )
-        out_path.write_text(report + "\n", encoding="utf-8")
-        print(f"  [report] {out_path.name} refreshed "
-              f"({out_path.stat().st_size:,} bytes)")
-    except Exception as e:  # noqa: BLE001 — best-effort artifact refresh
-        print(f"  [report] fixture report not refreshed: {e}")
 
 
 def _doxygen_available() -> bool:
@@ -399,20 +366,6 @@ def codegraph_graph():
         sqlite_output = _UNIT_TEST_DATA / "cpp_sqlite_preservation_integration.sqlite3"
         _archive_sqlite(_SQLITE_PATH, sqlite_output)
         _dbg("sqlite reference artifact archived")
-
-        # ── Step 3c: Refresh the markdown fixture report ─────
-        # Keep the human-readable completeness report (tests,
-        # assertions, steps, VERIFIES) in sync with the archived
-        # artifacts.
-        _dbg("refreshing markdown fixture report...")
-        _refresh_fixture_report(
-            json_path=json_output,
-            db_path=sqlite_output,
-            test_cpp=(_FIXTURE_DIR
-                      / "cpp_sqlite" / "test" / "testDatabase.cpp"),
-            out_path=_UNIT_TEST_DATA / "cpp_sqlite_fixture_report.md",
-            title="cpp-sqlite as-built fixture report",
-        )
 
     # ── Step 4: Export PlantUML (full + collapsed + public-only) ───────
     from codegraph.export.plantuml import export_plantuml, GraphView

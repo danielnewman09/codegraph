@@ -34,11 +34,18 @@ def _fingerprint(node) -> str:
     from codegraph.models.descriptors import PropertyRegistry
 
     properties = PropertyRegistry.properties_of(type(node))
-    data = {
-        name: getattr(node, name, None)
-        for name in properties
-        if name not in {"uid", "canonical_key", "element_id", "tags"}
-    }
+    data = {}
+    for name, prop in properties.items():
+        if name in {"uid", "canonical_key", "element_id", "tags"}:
+            continue
+        value = getattr(node, name, None)
+        # Backends may represent an empty required string as NULL on load.
+        # The model contract materializes the same value as ``""`` before
+        # persistence, so normalize the storage representation here rather
+        # than reporting perpetual drift on an unchanged index.
+        if value is None and PropertyRegistry.is_required_string(prop):
+            value = ""
+        data[name] = value
     return json.dumps(data, sort_keys=True, default=str, separators=(",", ":"))
 
 

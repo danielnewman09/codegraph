@@ -159,6 +159,32 @@ _LAZY_IMPORTS: dict[str, str] = {
 }
 
 
+def _coerce_property_value(prop, value: str):
+    """Coerce a Markdown property string to the property's Python type.
+
+    Markdown stores every property as text; coercing back to the declared
+    type keeps a round trip faithful for non-string properties (``int``,
+    ``float``, ``bool``).  Unrecognised values or unsupported types are
+    returned unchanged so an unexpected document never raises here.
+    """
+    python_type = getattr(prop, "python_type", str)
+    try:
+        if python_type is bool:
+            lowered = value.strip().lower()
+            if lowered in ("true", "1", "yes"):
+                return True
+            if lowered in ("false", "0", "no"):
+                return False
+            return value
+        if python_type is int:
+            return int(value)
+        if python_type is float:
+            return float(value)
+    except (TypeError, ValueError):
+        return value
+    return value
+
+
 # ── Markdown Exporter ────────────────────────────────────────────────────
 
 
@@ -604,25 +630,33 @@ class MarkdownImporter:
 
             # ── Description / property line ─────────────────────────
             if stack and section is None:
-                # Plain text after heading = description
+                # Plain text after heading = description.  A description may
+                # span several physical lines; they are joined with newlines
+                # so the authored text survives import.  Property lines,
+                # sections, and headings belong to other constructs and are
+                # handled separately below (a property line closes the block
+                # by simply not being plain text).
                 if not stripped.startswith("- ") and not stripped.startswith("`"):
                     # Set description on current node — use brief_description
                     # for compound nodes, or description for requirement/
                     # component nodes that don't have brief_description.
                     node = stack[-1][2].node
                     props = PropertyRegistry.properties_of(type(node))
+                    field = ""
                     if "brief_description" in props:
-                        existing = getattr(node, "brief_description", "")
-                        if not existing:
+                        field = "brief_description"
+                    elif "description" in props:
+                        field = "description"
+                    if field:
+                        existing = getattr(node, field, "") or ""
+                        if existing:
                             try:
-                                setattr(node, "brief_description", stripped)
+                                setattr(node, field, existing + "\n" + stripped)
                             except AttributeError:
                                 pass
-                    elif "description" in props:
-                        existing = getattr(node, "description", "")
-                        if not existing:
+                        else:
                             try:
-                                setattr(node, "description", stripped)
+                                setattr(node, field, stripped)
                             except AttributeError:
                                 pass
                     continue
@@ -771,7 +805,10 @@ class MarkdownImporter:
         """Set property on node if it exists.
 
         For ``tags`` (an ArrayProperty), parses the comma-separated
-        string into a list before assignment.
+        string into a list before assignment.  Other values are coerced
+        to the property's declared Python type so a round trip through
+        Markdown preserves the authored property (a bare ``0`` becomes
+        the integer ``0``, not the string ``"0"``).
         """
         props = PropertyRegistry.properties_of(type(node))
         if key not in props:
@@ -779,8 +816,8 @@ class MarkdownImporter:
         if key == "tags":
             tag_list = [t.strip() for t in value.split(",") if t.strip()]
             setattr(node, key, tag_list)
-        else:
-            setattr(node, key, value)
+            return
+        setattr(node, key, _coerce_property_value(props[key], value))
 
     # ── Node creation ─────────────────────────────────────────────────
 

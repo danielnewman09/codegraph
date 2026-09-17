@@ -1145,3 +1145,77 @@ class TestDeserializeNested:
         # reference types, confirming that only non-COMPOSES edges are stored as
         # references as intended.
         assert "COMPOSES" not in ref_types
+
+
+class TestMergeCanonicalIdentity:
+    """``merge`` matches on canonical identity, not bare ``qualified_name``.
+
+    A ``ClassNode`` and an ``HLR`` may legitimately share a qualified name;
+    they are distinct canonical identities and both must survive a merge.
+    """
+
+    @staticmethod
+    def _keyed(node):
+        from codegraph.identity import IdentityScope, resolve_identity_for
+
+        scope = IdentityScope.repository("codegraph-suite", "merge-collision")
+        node.canonical_key = resolve_identity_for(node, scope).key()
+        return node
+
+    def test_cross_type_qualified_name_collision_preserves_both(self):
+        from codegraph_requirements.models.requirement import HLR
+
+        cls = self._keyed(ClassNode(name="R", qualified_name="R", source="test"))
+        hlr = self._keyed(HLR(name="R", qualified_name="R", source="test"))
+        assert cls.canonical_key != hlr.canonical_key
+
+        # Key both graphs by the shared (colliding) qualified name so the
+        # key-remapping path is exercised as well as the identity check.
+        base = LayerGraph(
+            tags=frozenset({"as-built"}),
+            entries={"R": CompositeEntry(node=cls)},
+        )
+        incoming = LayerGraph(
+            tags=frozenset({"requirements"}),
+            entries={"R": CompositeEntry(node=hlr)},
+        )
+
+        base.merge(incoming)
+
+        nodes = {
+            (type(entry.node).__name__, entry.node.qualified_name)
+            for entry in base._all_entries()
+        }
+        assert nodes == {("ClassNode", "R"), ("HLR", "R")}
+        keys = {LayerGraph._node_key(entry.node) for entry in base._all_entries()}
+        assert keys == {cls.canonical_key, hlr.canonical_key}
+
+    def test_same_identity_still_merges_without_duplicating(self):
+        """Over-correction guard: one canonical node is not duplicated."""
+        from codegraph.identity import IdentityScope, resolve_identity_for
+
+        scope = IdentityScope.repository("codegraph-suite", "merge-same")
+        first = ClassNode(name="Widget", qualified_name="ns::Widget", source="test")
+        first.canonical_key = resolve_identity_for(first, scope).key()
+        second = ClassNode(name="Widget", qualified_name="ns::Widget", source="test")
+        second.canonical_key = resolve_identity_for(second, scope).key()
+
+        base = LayerGraph(
+            tags=frozenset({"as-built"}),
+            entries={"ns::Widget": CompositeEntry(node=first)},
+        )
+        incoming = LayerGraph(
+            tags=frozenset({"as-built"}),
+            entries={
+                "ns::Widget": CompositeEntry(
+                    node=second,
+                    references=[("REFERENCES", "x", "ClassNode")],
+                )
+            },
+        )
+
+        base.merge(incoming)
+
+        entries = list(base._all_entries())
+        assert len(entries) == 1
+        assert entries[0].references == [("REFERENCES", "x", "ClassNode")]
