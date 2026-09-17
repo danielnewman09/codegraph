@@ -1190,6 +1190,39 @@ class TestMergeCanonicalIdentity:
         keys = {LayerGraph._node_key(entry.node) for entry in base._all_entries()}
         assert keys == {cls.canonical_key, hlr.canonical_key}
 
+    def test_same_type_and_name_in_distinct_scopes_is_not_folded(self):
+        """Distinct canonical identities must not collapse via the fallback.
+
+        The same ``ClassNode`` name extracted under two different repository
+        scopes has two canonical keys; a node that carries a canonical key is
+        matched by it alone, so neither is folded into the other.
+        """
+        from codegraph.identity import IdentityScope, resolve_identity_for
+
+        first = ClassNode(name="R", qualified_name="pkg::R", source="test")
+        first.canonical_key = resolve_identity_for(
+            first, IdentityScope.repository("scope-a", "repo-a")
+        ).key()
+        second = ClassNode(name="R", qualified_name="pkg::R", source="test")
+        second.canonical_key = resolve_identity_for(
+            second, IdentityScope.repository("scope-b", "repo-b")
+        ).key()
+        assert first.canonical_key != second.canonical_key
+
+        base = LayerGraph(
+            tags=frozenset({"as-built"}),
+            entries={first.canonical_key: CompositeEntry(node=first)},
+        )
+        incoming = LayerGraph(
+            tags=frozenset({"as-built"}),
+            entries={second.canonical_key: CompositeEntry(node=second)},
+        )
+
+        base.merge(incoming)
+
+        keys = {LayerGraph._node_key(entry.node) for entry in base._all_entries()}
+        assert keys == {first.canonical_key, second.canonical_key}
+
     def test_same_identity_still_merges_without_duplicating(self):
         """Over-correction guard: one canonical node is not duplicated."""
         from codegraph.identity import IdentityScope, resolve_identity_for

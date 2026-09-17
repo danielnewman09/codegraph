@@ -2080,10 +2080,17 @@ class LayerGraph:
                     ] = e
 
         def _find_existing(incoming: CompositeEntry) -> CompositeEntry | None:
-            """Return the entry *incoming* maps onto, or ``None``."""
+            """Return the entry *incoming* maps onto, or ``None``.
+
+            A node that carries a canonical key is matched by that identity
+            ONLY.  The typed qualified-name fallback is reserved for graphs
+            whose nodes have no canonical key; using it for keyed nodes would
+            fold distinct identities (e.g. the same name under two different
+            repository scopes, or a class and a requirement) into one.
+            """
             canonical = getattr(incoming.node, "canonical_key", "") or ""
-            if canonical and canonical in self_canonical:
-                return self_canonical[canonical]
+            if canonical:
+                return self_canonical.get(canonical)
             qname = getattr(incoming.node, "qualified_name", None)
             if qname:
                 return self_typed_qnames.get(
