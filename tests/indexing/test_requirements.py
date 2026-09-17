@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from codegraph.graph import CompositeEntry, LayerGraph
@@ -310,6 +311,42 @@ def test_legacy_sha1_target_is_dropped_with_structured_warning(tmp_path):
         diagnostic.code for diagnostic in result.diagnostics
     }
     assert result.delta.summary()["relationships_created"] == 1
+
+
+def test_repository_requirements_use_reviewable_names_and_resolve_without_warnings(
+    tmp_path,
+):
+    """The authoritative repository tree contains no legacy SHA-1 endpoints.
+
+    Human-readable relationship targets are resolved to canonical keys during
+    indexing.  Loading the complete tree is important because shared scaffold
+    literals may be declared in a sibling authoritative document.
+    """
+    requirements_dir = Path(__file__).parents[2] / "codegraph" / "requirements"
+    legacy_reference = re.compile(r"`[0-9a-f]{40}`")
+    legacy_lines = [
+        f"{path.relative_to(requirements_dir)}:{line_number}: {line}"
+        for path in sorted(requirements_dir.rglob("requirements.md"))
+        for line_number, line in enumerate(
+            path.read_text(encoding="utf-8").splitlines(), start=1
+        )
+        if legacy_reference.search(line)
+    ]
+    assert not legacy_lines, "\n".join(legacy_lines)
+
+    result = IndexService((EmptyAdapter(),)).index(
+        _request(tmp_path, requirements_dir)
+    )
+
+    assert result.success is True
+    assert result.diagnostics == ()
+    references = [
+        reference
+        for entry in result.graph._all_entries()
+        for reference in entry.references
+    ]
+    assert references
+    assert all(target.startswith("cg:v1:") for _, target, _ in references)
 
 
 def test_nonexistent_canonical_reference_is_unresolved_and_not_persisted(tmp_path):

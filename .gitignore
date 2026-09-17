@@ -24,7 +24,12 @@ demo_screenshot.png
 tests/data/design_graph.html
 
 build/
-/codegraph/
+# Runtime graph exports remain local, but repository-authored requirements are
+# reviewable source and must be eligible for version control.
+/codegraph/**
+!/codegraph/requirements/
+!/codegraph/requirements/**/
+!/codegraph/requirements/**/requirements.md
 
 # Neo4j Docker data (codegraph-db)
 /codegraph/neo4j/
@@ -44,6 +49,7 @@ codegraph/logs/
 *.sqlite3-shm
 *.sqlite3-wal
 design_intent/*
+!design_intent/14-prioritized-work-roadmap.md
 docs/specs/
 docs/plans
 tests/codegraph_output/
