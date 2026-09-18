@@ -1,5 +1,6 @@
 """Tests for LayerGraph: deserialize, serialize, to_neo4j, _node_key, from_neo4j."""
 
+import copy
 import json
 from pathlib import Path
 
@@ -1252,3 +1253,318 @@ class TestMergeCanonicalIdentity:
         entries = list(base._all_entries())
         assert len(entries) == 1
         assert entries[0].references == [("REFERENCES", "x", "ClassNode")]
+
+
+# ---------------------------------------------------------------------------
+# WP5.2 — flat portable layout: composition DAGs and cross-domain edges
+# ---------------------------------------------------------------------------
+
+from codegraph.identity import IdentityScope, resolve_identity_for
+from codegraph.models.test import TestNode
+from codegraph_requirements.models.requirement import LLR
+
+from collections import Counter
+
+_FLAT_SCOPE = IdentityScope.repository("demo-suite", "flat-layout")
+
+
+def _portable(node) -> dict:
+    """Serialized document entry for *node*, scrubbed of correlation fields."""
+    data = node.serialize(fields="all")
+    for field in (
+        "uid", "refid", "compound_refid", "member_refid", "parent_refid",
+        "child_refid", "from_refid", "to_refid",
+    ):
+        data.pop(field, None)
+    return data
+
+
+def _dag_entries() -> dict[str, dict]:
+    """A flat slice where one TestNode has a source-file parent *and* an LLR parent.
+
+    This is the shape a merged design + as-built graph produces: the source
+    ``FileNode`` composes the ``TestNode`` because it defines it, and the
+    ``LLR`` composes the same ``TestNode`` because the step is its verification
+    stub.  The ``TestNode`` also carries a cross-domain ``VERIFIES`` edge to
+    the ``MethodNode`` it exercises.  A tree cannot hold two placements of one
+    canonical node, so this slice is a composition DAG.
+    """
+    file_node = FileNode(
+        qualified_name="test/test_widget.cpp", name="test_widget.cpp",
+        path="test/test_widget.cpp", source="demo", tags=["as-built"],
+    )
+    file_node.canonical_key = resolve_identity_for(file_node, _FLAT_SCOPE).key()
+    method = MethodNode(
+        qualified_name="demo::Widget::run()", name="run", source="demo",
+        tags=["as-built"], argsstring="()",
+    )
+    method.canonical_key = resolve_identity_for(method, _FLAT_SCOPE).key()
+    test_node = TestNode(
+        qualified_name="WidgetTest::Works", name="Works", source="demo",
+        tags=["as-built"], test_name="Works",
+    )
+    test_node.canonical_key = resolve_identity_for(
+        test_node, _FLAT_SCOPE, parents={"parent_key": file_node.canonical_key}
+    ).key()
+    requirement = LLR(
+        qualified_name="REQ-1.1", name="REQ-1.1", source="demo",
+        tags=["requirements"],
+    )
+    requirement.canonical_key = resolve_identity_for(
+        requirement, _FLAT_SCOPE, parents={"parent_hlr_key": "cg:v1:root"}
+    ).key()
+
+    file_entry = _portable(file_node)
+    requirement_entry = _portable(requirement)
+    test_entry = _portable(test_node)
+    method_entry = _portable(method)
+    for entry, target in ((file_entry, test_node), (requirement_entry, test_node)):
+        entry["edges"] = [{
+            "relation_type": "COMPOSES",
+            "target_key": target.canonical_key,
+            "target_type": "TestNode",
+        }]
+    test_entry["edges"] = [{
+        "relation_type": "VERIFIES",
+        "target_key": method.canonical_key,
+        "target_type": "MethodNode",
+    }]
+
+    entries = [file_entry, requirement_entry, test_entry, method_entry]
+    return {entry["canonical_key"]: entry for entry in entries}
+
+
+def _compose_targets(entries: dict[str, dict]) -> dict[str, int]:
+    """Canonical COMPOSES target key → number of placements in *entries*."""
+    return dict(Counter(
+        edge["target_key"] for entry in entries.values()
+        for edge in entry["edges"]
+        if edge.get("relation_type") == "COMPOSES"
+    ))
+
+
+def _composing_parents(graph: LayerGraph, child_key: str) -> list[str]:
+    """Canonical keys of every parent that composes *child_key*."""
+    parents: list[str] = []
+    for entry in graph._all_entries():
+        for type_children in entry.children.values():
+            for child_key_seen in type_children:
+                if child_key_seen == child_key:
+                    parents.append(LayerGraph._node_key(entry.node))
+    return parents
+
+
+class TestFlatLayoutPortability:
+    """``layout="flat"`` keeps a composition DAG and its cross-domain edges."""
+
+    @pytest.fixture()
+    def dag(self):
+        """The synthetic DAG, built the only way a DAG can be built: flat."""
+        entries = _dag_entries()
+        graph = LayerGraph.deserialize(list(entries.values()))
+
+        targets = _compose_targets(entries)
+        shared = {key for key, count in targets.items() if count > 1}
+        assert len(shared) == 1, "the fixture is not a composition DAG"
+        assert len(_composing_parents(graph, shared.pop())) == 2
+        return entries, graph
+
+    def test_shared_composition_target_is_emitted_once(self, dag):
+        entries, graph = dag
+        test_key = next(
+            key for key, entry in entries.items() if entry["type"] == "TestNode"
+        )
+
+        document = graph.serialize(fields="all", document=True, layout="flat")
+        keys = [entry["canonical_key"] for entry in document["entries"]]
+
+        assert len(keys) == len(set(keys)), "a node record was duplicated"
+        assert sorted(keys) == sorted(entries)
+
+        parents = sorted(
+            entry["canonical_key"] for entry in document["entries"]
+            for edge in entry["edges"]
+            if edge["relation_type"] == "COMPOSES"
+            and edge["target_key"] == test_key
+        )
+        expected_parents = sorted(
+            entry["canonical_key"] for entry in entries.values()
+            for edge in entry["edges"]
+            if edge.get("relation_type") == "COMPOSES"
+            and edge.get("target_key") == test_key
+        )
+        assert len(expected_parents) == 2, "the fixture is not a DAG"
+        assert parents == expected_parents
+        # No `composes` nesting: every composition is an edge in this layout.
+        assert not [
+            entry for entry in document["entries"] if "composes" in entry
+        ]
+
+    def test_cross_domain_edge_survives(self, dag):
+        entries, graph = dag
+        test_key = next(
+            key for key, entry in entries.items() if entry["type"] == "TestNode"
+        )
+        method_key = next(
+            key for key, entry in entries.items() if entry["type"] == "MethodNode"
+        )
+
+        document = graph.serialize(fields="all", document=True, layout="flat")
+        test_entry = next(
+            entry for entry in document["entries"]
+            if entry["canonical_key"] == test_key
+        )
+
+        assert test_entry["edges"] == [{
+            "relation_type": "VERIFIES",
+            "target_key": method_key,
+            "target_type": "MethodNode",
+        }]
+
+    def test_flat_layout_is_a_strict_fixpoint_for_a_dag(self, dag):
+        _entries, graph = dag
+
+        document = graph.serialize(fields="all", document=True, layout="flat")
+        restored = LayerGraph.deserialize(document)
+        again = restored.serialize(fields="all", document=True, layout="flat")
+
+        assert again == document
+        assert len(_composing_parents(restored, next(
+            key for key, entry in _entries.items()
+            if entry["type"] == "TestNode"
+        ))) == 2
+
+    def test_flat_avoids_the_duplicate_records_the_nested_layout_emits(self, dag):
+        """Both layouts preserve a shared composition target; flat does it once.
+
+        The nested form writes the shared child as a full record under *each*
+        parent, so a shared subtree is duplicated in the document and its
+        identity survives only because deserialization folds identical copies.
+        The flat form writes the child once and one canonical ``COMPOSES``
+        edge per parent — the property a portable snapshot needs (and the one
+        the plan's "does not duplicate canonical nodes" condition is about).
+        """
+        entries, graph = dag
+        test_key = next(
+            key for key, entry in entries.items() if entry["type"] == "TestNode"
+        )
+        nested = graph.serialize(fields="all", document=True, layout="nested")
+        flat = graph.serialize(fields="all", document=True, layout="flat")
+
+        # Both round-trip with every parent intact.
+        for document in (flat, nested):
+            restored = LayerGraph.deserialize(copy.deepcopy(document))
+            assert len(_composing_parents(restored, test_key)) == 2
+
+        assert len([
+            entry for entry in flat["entries"]
+            if entry["canonical_key"] == test_key
+        ]) == 1
+        assert len([
+            entry for entry in _walk_fixture(nested["entries"])
+            if entry["canonical_key"] == test_key
+        ]) == 2, "the nested layout no longer duplicates a shared child"
+        assert sum(
+            1 for entry in flat["entries"] for edge in entry["edges"]
+            if edge["relation_type"] == "COMPOSES"
+            and edge["target_key"] == test_key
+        ) == 2
+        assert not [
+            entry for entry in _walk_fixture(nested["entries"])
+            for edge in entry.get("edges", [])
+            if edge["relation_type"] == "COMPOSES"
+        ], "the nested layout duplicates the record instead of writing an edge"
+
+    def test_flat_provenance_stays_flat_for_callers_that_do_not_ask(self, dag):
+        """A graph read from a flat document keeps exporting flat by default."""
+        _entries, graph = dag
+        assert graph.serialize(fields="all", document=True) == graph.serialize(
+            fields="all", document=True, layout="flat"
+        )
+
+    def test_edge_attributes_survive_the_flat_layout(self):
+        scope = IdentityScope.repository("demo-suite", "flat-attrs")
+        include = FileNode(
+            qualified_name="src/widget.hpp", name="widget.hpp",
+            path="src/widget.hpp", source="demo", tags=["as-built"],
+        )
+        source = FileNode(
+            qualified_name="src/widget.cpp", name="widget.cpp",
+            path="src/widget.cpp", source="demo", tags=["as-built"],
+        )
+        for node in (include, source):
+            node.canonical_key = resolve_identity_for(node, scope).key()
+
+        source_entry = _portable(source)
+        source_entry["edges"] = [{
+            "relation_type": "INCLUDES",
+            "target_key": include.canonical_key,
+            "target_type": "FileNode",
+            "include": "local",
+        }]
+        graph = LayerGraph.deserialize([source_entry, _portable(include)])
+
+        document = graph.serialize(fields="all", document=True, layout="flat")
+        entry = next(
+            e for e in document["entries"]
+            if e["canonical_key"] == source.canonical_key
+        )
+        assert entry["edges"] == [{
+            "relation_type": "INCLUDES",
+            "target_key": include.canonical_key,
+            "target_type": "FileNode",
+            "include": "local",
+        }]
+
+        # and the restored graph agrees, so the attribute is not write-only
+        restored = LayerGraph.deserialize(document)
+        restored_entry = next(
+            e for e in restored._all_entries()
+            if LayerGraph._node_key(e.node) == source.canonical_key
+        )
+        assert restored_entry.edge_attrs[("INCLUDES", include.canonical_key)] == {
+            "include": "local"
+        }
+
+    def test_explicit_external_and_unresolved_endpoints_are_preserved(self):
+        scope = IdentityScope.repository("demo-suite", "flat-external")
+        source = ClassNode(
+            name="Widget", qualified_name="demo::Widget", kind="class",
+            source="demo", tags=["as-built"],
+        )
+        source.canonical_key = resolve_identity_for(source, scope).key()
+
+        source_entry = _portable(source)
+        source_entry["edges"] = [
+            {
+                "relation_type": "DEPENDS_ON",
+                "target_key": "cg:v1:repository:demo-suite%2Fflat-external"
+                              ":class:qualified_name=Elsewhere",
+                "target_type": "ClassNode",
+                "external": True,
+            },
+            {
+                "relation_type": "CALLER",
+                "target_ref": "demo::Notional",
+                "target_type": "MethodNode",
+                "unresolved": True,
+                "diagnostic": "notional reference",
+            },
+        ]
+        graph = LayerGraph.deserialize([source_entry])
+
+        document = graph.serialize(fields="all", document=True, layout="flat")
+        entry = next(
+            e for e in document["entries"]
+            if e["canonical_key"] == source.canonical_key
+        )
+        by_type = {edge["relation_type"]: edge for edge in entry["edges"]}
+        assert by_type["DEPENDS_ON"]["external"] is True
+        assert by_type["CALLER"]["unresolved"] is True
+        assert by_type["CALLER"]["target_ref"] == "demo::Notional"
+
+        # A strict fixpoint: the endpoint states survive another lap.
+        restored = LayerGraph.deserialize(document)
+        assert restored.serialize(
+            fields="all", document=True, layout="flat"
+        ) == document

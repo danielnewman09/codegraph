@@ -67,6 +67,17 @@ from codegraph.models.descriptors import PropertyRegistry
 #: versions fail clearly instead of being inferred from field presence.
 GRAPH_DOCUMENT_FORMAT_VERSION = 1
 
+#: Wire layouts :meth:`LayerGraph.serialize` accepts (WP5.2).
+#:
+#: ``"auto"`` — the established default: the flat layout only for a graph
+#: read from a flat document, the nested layout otherwise.
+#: ``"flat"`` — the lossless portable form: each canonical node once, every
+#: ``COMPOSES`` relation as a canonical edge.
+#: ``"nested"`` — the legacy tree form.  A shared composition target is
+#: written as a full record under each parent (identity survives because
+#: deserialization folds identical copies), so a DAG is duplicated on the wire.
+WIRE_LAYOUTS: tuple[str, ...] = ("auto", "flat", "nested")
+
 _PORTABLE_NODE_FORBIDDEN_FIELDS = frozenset({
     "uid", "refid", "compound_refid", "member_refid", "parent_refid",
     "child_refid", "from_refid", "to_refid",
@@ -74,6 +85,9 @@ _PORTABLE_NODE_FORBIDDEN_FIELDS = frozenset({
 _PORTABLE_EDGE_FORBIDDEN_FIELDS = frozenset({
     "uid", "target_uid", "refid", "from_refid", "to_refid",
 })
+
+#: Node type whose leaves the flat layout inlines on the owning node.
+IMPLEMENTATION_NODE_TYPE = "ImplementationNode"
 
 
 def _validate_portable_edge_shape(edge: dict, *, context: str = "") -> None:
@@ -527,6 +541,27 @@ class LayerGraph:
     _wire_layout: str = field(default="nested", repr=False, compare=False)
 
     # ── Helpers ────────────────────────────────────────────────────────
+
+    def _resolve_wire_layout(self, layout: str) -> str:
+        """Resolve a requested wire layout to ``"flat"`` or ``"nested"``.
+
+        ``"auto"`` keeps the established behaviour exactly: a graph read from
+        a flat document serializes flat, everything else nested.  A caller who
+        wants the flat snapshot form asks for it explicitly.
+
+        ``"flat"`` exists because the nested form writes a shared composition
+        target as a full record under *each* parent — a composition DAG is
+        duplicated on the wire — while the flat form writes the child once and
+        one canonical ``COMPOSES`` edge per parent.
+        """
+        if layout not in WIRE_LAYOUTS:
+            raise ValueError(
+                f"unknown layout {layout!r}; expected one of "
+                f"{', '.join(WIRE_LAYOUTS)}"
+            )
+        if layout != "auto":
+            return layout
+        return "flat" if self._wire_layout == "flat" else "nested"
 
     @staticmethod
     def _register_identity_maps(
@@ -1041,6 +1076,18 @@ class LayerGraph:
                             source_entry.children[target_type] = {}
                         source_entry.children[target_type][target_key] = target_entry
                         child_keys.add(target_key)
+                    # Relationship-level metadata on a COMPOSES edge (a
+                    # composition qualifier, not a property of the child)
+                    # rides alongside so the flat layout can round-trip it.
+                    compose_attrs = {
+                        k: v for k, v in edge.items()
+                        if k not in ("relation_type", "target_key",
+                                     "target_local_id", "target_type")
+                    }
+                    if compose_attrs:
+                        source_entry.edge_attrs[
+                            (relation_type, target_key)
+                        ] = compose_attrs
                 else:
                     # Store as a reference
                     source_entry.references.append(
@@ -1577,6 +1624,51 @@ class LayerGraph:
 
     # ── Serialization ──────────────────────────────────────────────────
 
+    def _implementation_transport_exclusions(
+        self,
+        flat: dict[str, "CompositeEntry"],
+        *,
+        export_implementation: bool,
+    ) -> set[str]:
+        """Canonical keys of implementation leaves the flat layout omits.
+
+        The flat layout carries each implementation text on the node that owns
+        it.  With implementation content disabled the document carries no
+        source text at all, so every leaf is omitted (``body`` is stripped
+        too).
+
+        With it enabled, a leaf is omitted when its owner's node type exposes
+        the text as a ``body`` property *and* that property is populated —
+        ``MethodNode.body`` is the authoritative implementation text (it is
+        what codegen regenerates from), so the transport leaf adds nothing but
+        a second, competing copy.  A leaf whose owner has no such property (a
+        ``TestStepNode``: its source block *is* the leaf) is kept with its
+        ``HAS_IMPLEMENTATION`` edge, because dropping it would lose the text.
+
+        The rule is deliberately about the owning *type*, not about text
+        equality: the two texts can disagree (12 of the 43 ``MethodNode``
+        leaves in the cpp-sqlite fixture carry text unrelated to their
+        owner's ``body`` — recorded, not repaired, here), and a portable
+        snapshot must not ship two competing implementations of one member.
+        """
+        leaves = {
+            key: entry for key, entry in flat.items()
+            if type(entry.node).__name__ == IMPLEMENTATION_NODE_TYPE
+        }
+        if not export_implementation:
+            return set(leaves)
+
+        inlined: set[str] = set()
+        for entry in flat.values():
+            if not PropertyRegistry.has_property(type(entry.node), "body"):
+                continue
+            if not (getattr(entry.node, "body", "") or ""):
+                continue
+            for relation_type, target_key, _target_type in entry.references:
+                if relation_type == "HAS_IMPLEMENTATION" and target_key in leaves:
+                    inlined.add(target_key)
+        return inlined
+
     def _serialize_flat(
         self,
         fields: str,
@@ -1586,11 +1678,21 @@ class LayerGraph:
         """Serialize a canonical-key graph once per node.
 
         This is the lossless wire form for full backend exports.  The normal
-        nested serializer is intentionally retained for bounded/tree views;
-        this path only activates for documents read from flat input and
-        preserves shared COMPOSES targets without duplicate node records.
+        nested serializer is retained for bounded/tree views; this path
+        activates when the caller requests ``layout="flat"`` or when the graph
+        was read from a flat document, and it preserves shared ``COMPOSES``
+        targets without duplicate node records: every node is emitted once and
+        each ``COMPOSES`` relation is written as a canonical edge whose target
+        is the child's canonical key (the in-memory child bucket key is only a
+        placement local to its parent, and may be a qualified name).
+
+        Implementation leaves are handled by
+        :meth:`_implementation_transport_exclusions`.
         """
         flat = self._flat_index()
+        excluded = self._implementation_transport_exclusions(
+            flat, export_implementation=export_implementation
+        )
         result: list[dict] = []
         for key, entry in sorted(flat.items(), key=lambda item: (
             0 if "as-built" in (getattr(item[1].node, "tags", None) or [])
@@ -1598,6 +1700,8 @@ class LayerGraph:
             else 2,
             item[0],
         )):
+            if key in excluded:
+                continue
             serialized = entry.node.serialize(fields=fields)
             for field_name in _PORTABLE_NODE_FORBIDDEN_FIELDS:
                 serialized.pop(field_name, None)
@@ -1632,7 +1736,18 @@ class LayerGraph:
                 observations[identity] = value
 
             for relation_type, target_key, target_type in entry.references:
-                if relation_type in ("HAS_IMPLEMENTATION", "TEMPLATE_PARAM"):
+                if relation_type == "TEMPLATE_PARAM":
+                    continue
+                if target_key in excluded:
+                    # The leaf is inlined on this node (or omitted with the
+                    # implementation content), so its transport edge goes with
+                    # it.  Any other edge to an omitted node would dangle.
+                    if relation_type != "HAS_IMPLEMENTATION":
+                        raise GraphDocumentError(
+                            "flat serialization would emit an edge to an "
+                            f"omitted node: {key!r} -[{relation_type}]-> "
+                            f"{target_key!r}"
+                        )
                     continue
                 attrs = dict(entry.edge_attrs.get((relation_type, target_key)) or {})
                 if target_key not in flat:
@@ -1662,9 +1777,29 @@ class LayerGraph:
                     target_type,
                     attrs,
                 )
+            # Every COMPOSES relation is a canonical edge, keyed by the child's
+            # canonical identity — not by the bucket key it is placed under,
+            # which is a placement detail of this parent (the requirements
+            # importer keys children by qualified name).
+            composed_here: set[str] = set()
             for child_type, children in entry.children.items():
-                for child_key, child_entry in children.items():
-                    add_edge("COMPOSES", child_key, child_type)
+                for child_entry in children.values():
+                    child_key = LayerGraph._node_key(child_entry.node)
+                    if child_key in excluded:
+                        continue
+                    if child_key in composed_here:
+                        raise GraphDocumentError(
+                            "duplicate canonical composition child during "
+                            f"flat serialization: {key!r} composes "
+                            f"{child_key!r} twice"
+                        )
+                    composed_here.add(child_key)
+                    add_edge(
+                        "COMPOSES",
+                        child_key,
+                        child_type,
+                        entry.edge_attrs.get(("COMPOSES", child_key)),
+                    )
 
             def edge_sort(item: tuple[tuple[str, str], tuple[str, dict]]) -> tuple:
                 (relation_type, target_key), (target_type, attrs) = item
@@ -1715,6 +1850,7 @@ class LayerGraph:
         *,
         export_implementation: bool = False,
         document: bool = False,
+        layout: str = "auto",
     ) -> list[dict] | dict:
         """Serialize the graph as a nested list of dicts.
 
@@ -1743,13 +1879,25 @@ class LayerGraph:
                 "entries": [...]}`` so readers never infer the format
                 from field presence.  Default False — the bare nested
                 list, the documented legacy v1 form.
+            layout: Wire layout (WP5.2).  ``"auto"`` (default) keeps the
+                established behaviour: the flat layout for a graph read from
+                a flat document, the nested layout otherwise.  ``"flat"`` is
+                the lossless portable snapshot form: every canonical node is
+                emitted exactly once and every ``COMPOSES`` relation becomes a
+                canonical edge, so a composition DAG is represented by edges
+                alone rather than by duplicating the shared child under each
+                parent.  ``"nested"`` is the legacy tree form.
 
         Returns:
             A list of serialized node dicts with nested composition
             (or the versioned envelope dict when *document* is True),
             suitable for passing to ``json.dumps()`` externally.
+
+        Raises:
+            ValueError: If *layout* is not a known layout.
         """
-        if self._wire_layout == "flat":
+        resolved = self._resolve_wire_layout(layout)
+        if resolved == "flat":
             entries = self._serialize_flat(
                 fields,
                 export_implementation=export_implementation,

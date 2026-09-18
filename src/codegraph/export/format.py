@@ -41,6 +41,13 @@ def export_graph(graph: LayerGraph, format: str = "markdown",
         **kwargs: Format-specific options.
             ``public_only`` (bool) — Markdown only: hide non-public
             members (default ``True``).
+            ``layout`` (str) — JSON only: wire layout passed to
+            :meth:`LayerGraph.serialize` — ``"auto"`` (default),
+            ``"flat"`` (one record per canonical node, every
+            ``COMPOSES`` relation as an edge; the lossless portable
+            snapshot form) or ``"nested"`` (the legacy tree form).
+            ``export_implementation`` (bool) — JSON only: include
+            MethodNode implementation bodies.
 
     Returns:
         A string in the requested format.
@@ -72,8 +79,17 @@ def export_graph(graph: LayerGraph, format: str = "markdown",
 
     if fmt in ("json", "json_nested"):
         import json
-        return json.dumps(graph.serialize(fields=fields), indent=2,
-                          sort_keys=True)
+        return json.dumps(
+            graph.serialize(
+                fields=fields,
+                layout=str(kwargs.get("layout", "auto")),
+                export_implementation=bool(
+                    kwargs.get("export_implementation", False)
+                ),
+            ),
+            indent=2,
+            sort_keys=True,
+        )
 
     raise ValueError(
         f"Unknown export format {format!r}. "

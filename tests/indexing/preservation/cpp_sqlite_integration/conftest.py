@@ -183,6 +183,61 @@ def clear_db(request):
     yield
 
 
+# --------------------------------------------------------------------------
+# Session-scoped IndexService run over the Transaction requirements slice
+# --------------------------------------------------------------------------
+
+
+def _transaction_slice_index_request(project_root, output_dir, requirements_dir):
+    """The request the ``project`` command builds from the fixture config."""
+    import dataclasses
+
+    from codegraph_index.config import load_config_file, request_from_project_config
+    from codegraph_index.contracts import IndexMode
+
+    config = load_config_file(_FIXTURE_DIR)
+    request = request_from_project_config(
+        project_root,
+        config,
+        project_id="cpp-sqlite",
+        repository_id="cpp-sqlite",
+        source="cpp-sqlite",
+        mode=IndexMode.EXTRACT_ONLY,
+        # ``layer`` is the provenance tag the parser stamps on extracted
+        # nodes.  "as-built" is the tag the rest of the cpp-sqlite
+        # integration suite uses for this fixture's graph.
+        adapter_options={"progress_interval": 0, "layer": "as-built"},
+    )
+    return dataclasses.replace(
+        request, output_dir=output_dir, requirements_dir=requirements_dir
+    )
+
+
+@pytest.fixture(scope="session")
+def transaction_slice_index(tmp_path_factory):
+    """One ``IndexService`` C++ run over the fixture, requirements included.
+
+    Shared by ``test_transaction_requirements`` (WP5.1) and
+    ``test_transaction_snapshot`` (WP5.2) so the authored document is indexed
+    exactly once per session and both modules assert against the same graph.
+    """
+    from codegraph_index.service import IndexService
+
+    if not _doxygen_available():
+        pytest.skip("doxygen not found on PATH")
+    requirements_dir = _FIXTURE_DIR / "requirements"
+    document = requirements_dir / "transaction" / "requirements.md"
+    if not document.is_file():
+        pytest.fail(f"missing authored requirements document: {document}")
+
+    output_dir = tmp_path_factory.mktemp("transaction-slice") / "doxygen"
+    return IndexService().index(
+        _transaction_slice_index_request(
+            _FIXTURE_DIR, output_dir, requirements_dir
+        )
+    )
+
+
 # ---------------------------------------------------------------------------
 # Session-scoped fixture — runs ONCE for this directory
 # ---------------------------------------------------------------------------

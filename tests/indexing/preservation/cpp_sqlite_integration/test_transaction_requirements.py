@@ -225,20 +225,13 @@ def _index_request(project_root: Path, output_dir: Path, requirements_dir: Path)
 
 
 @pytest.fixture(scope="module")
-def indexed(tmp_path_factory):
-    """One ``IndexService`` C++ run over the fixture, requirements included."""
-    import shutil
+def indexed(transaction_slice_index):
+    """The shared session ``IndexService`` run for this fixture slice.
 
-    if shutil.which("doxygen") is None:
-        pytest.skip("doxygen not found on PATH")
-    if not _REQUIREMENTS_DOC.is_file():
-        pytest.fail(f"missing authored requirements document: {_REQUIREMENTS_DOC}")
-
-    tmp_path = tmp_path_factory.mktemp("transaction-requirements")
-    request = _index_request(
-        _FIXTURE_DIR, tmp_path / "doxygen", _FIXTURE_DIR / "requirements"
-    )
-    return IndexService().index(request)
+    One index run per session serves every module that asserts against the
+    Transaction slice; see ``conftest.transaction_slice_index``.
+    """
+    return transaction_slice_index
 
 
 @pytest.fixture(scope="module")
