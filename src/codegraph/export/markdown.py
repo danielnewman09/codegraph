@@ -627,46 +627,68 @@ class MarkdownImporter:
                 if r is not None:
                     pending_rels.append((*r, line_no))
                     continue
+                # A bullet carrying backticked names in the relationships
+                # section is an authored edge attempt.  If it does not parse,
+                # ignoring it silently drops a traceability edge, so report an
+                # error: a strict import fails instead of shipping a graph
+                # with a missing link.  Prose is left alone (the check is
+                # deliberately narrow) so a hand-written document can still
+                # carry notes under this heading.
+                if stripped.startswith("- ") and "`" in stripped:
+                    self._diag(
+                        line_no,
+                        "error",
+                        "unparseable relationship line, expected "
+                        "``- `source` → `target` **label** (TargetType)``: "
+                        f"{stripped!r}",
+                    )
+                continue
 
             # ── Description / property line ─────────────────────────
             if stack and section is None:
-                # Plain text after heading = description.  A description may
-                # span several physical lines; they are joined with newlines
-                # so the authored text survives import.  Property lines,
-                # sections, and headings belong to other constructs and are
-                # handled separately below (a property line closes the block
-                # by simply not being plain text).
-                if not stripped.startswith("- ") and not stripped.startswith("`"):
-                    # Set description on current node — use brief_description
-                    # for compound nodes, or description for requirement/
-                    # component nodes that don't have brief_description.
-                    node = stack[-1][2].node
-                    props = PropertyRegistry.properties_of(type(node))
-                    field = ""
-                    if "brief_description" in props:
-                        field = "brief_description"
-                    elif "description" in props:
-                        field = "description"
-                    if field:
-                        existing = getattr(node, field, "") or ""
-                        if existing:
-                            try:
-                                setattr(node, field, existing + "\n" + stripped)
-                            except AttributeError:
-                                pass
-                        else:
-                            try:
-                                setattr(node, field, stripped)
-                            except AttributeError:
-                                pass
+                node = stack[-1][2].node
+                # A property declaration is a ``- key: value`` line whose key
+                # the node type actually declares.  Every other non-empty
+                # line is description prose, including:
+                #   * an authored list bullet (``- either ... is applied``),
+                #   * a property-looking line for an undeclared key
+                #     (``- TODO: revisit``),
+                #   * prose opening with an inline code span
+                #     ("`commit()` called on an inactive ...").
+                # All of these were silently discarded before, truncating
+                # authored text on import and on the export/import round
+                # trip.  Only a fenced code-block marker is structural.
+                prop = (
+                    self._try_parse_property(stripped)
+                    if stripped.startswith("- ")
+                    else None
+                )
+                if prop is not None and self._apply_property(node, *prop):
                     continue
-
-                # Property line: - key: value
-                prop = self._try_parse_property(stripped)
-                if prop is not None:
-                    key, value = prop
-                    self._apply_property(stack[-1][2].node, key, value)
+                if stripped.startswith("```"):
                     continue
+                # Set description on current node — use brief_description
+                # for compound nodes, or description for requirement/
+                # component nodes that don't have brief_description.
+                props = PropertyRegistry.properties_of(type(node))
+                field = ""
+                if "brief_description" in props:
+                    field = "brief_description"
+                elif "description" in props:
+                    field = "description"
+                if field:
+                    existing = getattr(node, field, "") or ""
+                    if existing:
+                        try:
+                            setattr(node, field, existing + "\n" + stripped)
+                        except AttributeError:
+                            pass
+                    else:
+                        try:
+                            setattr(node, field, stripped)
+                        except AttributeError:
+                            pass
+                continue
 
         # ── Resolve relationships ────────────────────────────────────
         for src_qname, tgt_qname, rel_type, tgt_type, rel_line in pending_rels:
@@ -679,13 +701,18 @@ class MarkdownImporter:
                 continue
             if tgt_entry is None:
                 # Target not in this document — may be a cross-document
-                # reference (e.g. tests → design-layer LLRs/classes).
-                # Store the reference anyway; to_neo4j() will resolve
-                # it via Neo4j lookup at persist time.
+                # reference (e.g. requirements → code, or tests →
+                # design-layer LLRs/classes).  Store the reference
+                # together with the author-declared target type: the
+                # endpoint is a qualified name from another document, and
+                # that type is the only disambiguator when two graph nodes
+                # deliberately share a qualified name (a MethodNode and its
+                # ImplementationNode do exactly that).  Resolution against
+                # the merged graph happens in the unified index.
                 self._diag(rel_line, "warning",
                            f"Relationship target {tgt_qname!r} not found "
-                           f"in document — will attempt Neo4j lookup")
-                src_entry.references.append((rel_type, tgt_qname, ""))
+                           f"in document — resolved against the merged graph")
+                src_entry.references.append((rel_type, tgt_qname, tgt_type))
                 continue
 
             tgt_type = tgt_type or type(tgt_entry.node).__name__
@@ -773,9 +800,15 @@ class MarkdownImporter:
     def _try_parse_relationship_line(
         line: str,
     ) -> tuple[str, str, str, str] | None:
-        """Parse ``- `qname` → `qname` **label** (target_type)``."""
+        """Parse ``- `qname` → `qname` **label** (target_type)``.
+
+        The arrow may be the canonical ``→`` the exporter writes or the ASCII
+        spelling a hand-authored document commonly uses (``->`` / ``-->``).
+        Both must parse: a line this does not match loses a traceability edge.
+        """
         m = re.match(
-            r'^-\s*`([^`]+)`\s*→\s*`([^`]+)`\s*\*\*(\w+)\*\*\s*(?:\((\w+)\))?\s*$',
+            r'^-\s*`([^`]+)`\s*(?:→|-->|->)\s*`([^`]+)`\s*'
+            r'\*\*(\w+)\*\*\s*(?:\((\w+)\))?\s*$',
             line,
         )
         if m:
@@ -801,23 +834,30 @@ class MarkdownImporter:
         return None
 
     @staticmethod
-    def _apply_property(node: CodeGraphNode, key: str, value: str) -> None:
-        """Set property on node if it exists.
+    def _apply_property(node: CodeGraphNode, key: str, value: str) -> bool:
+        """Set a declared property on *node*; report whether it was applied.
 
         For ``tags`` (an ArrayProperty), parses the comma-separated
         string into a list before assignment.  Other values are coerced
         to the property's declared Python type so a round trip through
         Markdown preserves the authored property (a bare ``0`` becomes
         the integer ``0``, not the string ``"0"``).
+
+        Returns:
+            True when *key* is a property of this node type and the value
+            was set; False when the line only looks like a property (an
+            undeclared key).  The caller keeps a False result as
+            description prose instead of discarding the line.
         """
         props = PropertyRegistry.properties_of(type(node))
         if key not in props:
-            return
+            return False
         if key == "tags":
             tag_list = [t.strip() for t in value.split(",") if t.strip()]
             setattr(node, key, tag_list)
-            return
+            return True
         setattr(node, key, _coerce_property_value(props[key], value))
+        return True
 
     # ── Node creation ─────────────────────────────────────────────────
 

@@ -94,6 +94,330 @@ def _nodes(result, type_name: str):
     ]
 
 
+def test_cross_document_reference_keeps_its_declared_target_type():
+    """A reference to a node declared in another document keeps its target type.
+
+    The relationship line states the endpoint type (``(MethodNode)``) because
+    the target lives in the code graph, not in this document.  Dropping that
+    declaration makes the endpoint unresolvable whenever the code graph holds
+    a second node with the same qualified name — which is the normal case for
+    a ``MethodNode`` and its ``ImplementationNode`` (implementation nodes
+    deliberately reuse the parent's qualified name).  The declared type is
+    the author's disambiguator and must survive the import.
+    """
+    from codegraph.export.markdown import import_markdown
+    from codegraph.identity import IdentityScope, identity_scope
+
+    text = (
+        "# codegraph: requirements\n\n"
+        "## HLR: `REQ-001`\n"
+        "The system shall provide the operation.\n"
+        "- status: accepted\n"
+        "### LLR: `REQ-001.1`\n"
+        "The operation shall be implemented by the code under test.\n"
+        "- status: accepted\n"
+        "\n## Relationships\n"
+        "- `REQ-001.1` → `p::C::m()` **realized_by** (MethodNode)\n"
+    )
+    with identity_scope(IdentityScope.repository("requirements-tests", "fixture")):
+        graph = import_markdown(
+            text,
+            tags=frozenset({"requirements"}),
+            source="fixture",
+            strict=True,
+        )
+
+    llr = next(
+        entry for entry in graph._all_entries()
+        if type(entry.node).__name__ == "LLR"
+    )
+    assert llr.references == [("REALIZED_BY", "p::C::m()", "MethodNode")]
+
+
+def test_declared_target_type_disambiguates_a_shared_qualified_name(tmp_path):
+    """The declared type resolves a reference the qname alone cannot.
+
+    ``p::C::m()`` names both the ``MethodNode`` and its ``ImplementationNode``.
+    The requirements document says ``(MethodNode)``; resolution must honour
+    that instead of reporting an ambiguous reference and dropping the edge.
+    """
+    from codegraph.graph import CompositeEntry, LayerGraph
+    from codegraph.identity import (
+        IdentityScope,
+        identity_scope,
+        resolve_identity_for,
+    )
+    from codegraph.models import ClassNode, ImplementationNode, MethodNode
+
+    class SharedNameAdapter:
+        name = "shared-name"
+        version = "test"
+        languages = frozenset({"shared-name"})
+
+        def available(self, request):
+            return Availability(True)
+
+        def extract(self, request):
+            scope = IdentityScope.repository(
+                request.project_id, request.repository_id
+            )
+            with identity_scope(scope):
+                cls = ClassNode(
+                    name="C", qualified_name="p::C", source=request.source
+                )
+                cls.canonical_key = resolve_identity_for(cls, scope).key()
+                method = MethodNode(
+                    name="m", qualified_name="p::C::m()", source=request.source
+                )
+                method.canonical_key = resolve_identity_for(method, scope).key()
+                impl = ImplementationNode(
+                    name="m", qualified_name="p::C::m()", source=request.source
+                )
+                impl.canonical_key = resolve_identity_for(
+                    impl,
+                    scope,
+                    parents={"parent_callable_key": method.canonical_key},
+                ).key()
+            class_entry = CompositeEntry(node=cls)
+            class_entry.children.setdefault("MethodNode", {})[
+                method.canonical_key
+            ] = CompositeEntry(node=method)
+            return ExtractionResult(
+                LayerGraph(
+                    tags=frozenset({"as-built"}),
+                    entries={
+                        cls.canonical_key: class_entry,
+                        impl.canonical_key: CompositeEntry(node=impl),
+                    },
+                )
+            )
+
+    requirements_dir = tmp_path / "requirements"
+    path = requirements_dir / "feature" / "requirements.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "# codegraph: requirements\n\n"
+        "## HLR: `REQ-001`\n"
+        "The system shall provide the operation.\n"
+        "- status: accepted\n"
+        "### LLR: `REQ-001.1`\n"
+        "The operation shall be implemented by ``p::C::m()``.\n"
+        "- status: accepted\n"
+        "\n## Relationships\n"
+        "- `REQ-001.1` → `p::C::m()` **realized_by** (MethodNode)\n",
+        encoding="utf-8",
+    )
+
+    result = IndexService((SharedNameAdapter(),)).index(
+        IndexRequest(
+            project_root=tmp_path,
+            project_id="requirements-tests",
+            repository_id="fixture",
+            source="fixture",
+            language="shared-name",
+            input_paths=(tmp_path,),
+            requirements_dir=requirements_dir,
+        )
+    )
+
+    assert result.success is True, [
+        f"{d.code}: {d.message}" for d in result.diagnostics
+    ]
+    llr = next(
+        entry for entry in result.graph._all_entries()
+        if type(entry.node).__name__ == "LLR"
+    )
+    assert [rel for rel, _target, _type in llr.references] == ["REALIZED_BY"]
+    _rel, target, target_type = llr.references[0]
+    assert target.startswith("cg:v1:"), target
+    method = next(
+        entry for entry in result.graph._all_entries()
+        if type(entry.node).__name__ == "MethodNode"
+    )
+    assert target == method.node.canonical_key
+    assert target_type == "MethodNode"
+
+
+def test_description_line_starting_with_code_span_is_not_dropped():
+    """A description line beginning with an inline code span is prose.
+
+    The importer skipped every line starting with a backtick, so authored
+    requirement text such as "`commit()` called on an inactive Transaction
+    shall signal an error." silently vanished from the indexed description.
+    Only a fenced code-block marker (```` ``` ````) is structural.
+    """
+    from codegraph.export.markdown import import_markdown
+    from codegraph.identity import IdentityScope, identity_scope
+
+    description = (
+        "The operation shall be transactional.\n"
+        "`commit()` called on an inactive Transaction shall signal an error."
+    )
+    text = (
+        "# codegraph: requirements\n\n"
+        "## HLR: `REQ-001`\n"
+        f"{description}\n"
+        "- status: accepted\n"
+    )
+    with identity_scope(IdentityScope.repository("requirements-tests", "fixture")):
+        graph = import_markdown(
+            text,
+            tags=frozenset({"requirements"}),
+            source="fixture",
+            strict=True,
+        )
+
+    hlr = next(
+        entry.node for entry in graph._all_entries()
+        if type(entry.node).__name__ == "HLR"
+    )
+    assert hlr.description == description
+
+
+def test_description_bullets_that_are_not_properties_are_preserved():
+    """An authored description bullet is prose, not a dropped property.
+
+    A description may contain a Markdown list, and a property-looking line
+    whose key the node type does not declare (``- TODO: revisit``) is prose
+    too.  Both were silently discarded — the importer looked only for the
+    ``- key: value`` property form and dropped every other ``- `` line —
+    so authored text vanished on import and on the round trip.  A declared
+    property line must still set the property.
+    """
+    from codegraph.export.markdown import import_markdown
+    from codegraph.identity import IdentityScope, identity_scope
+
+    description = (
+        "The operation shall be atomic:\n"
+        "- either every statement is applied\n"
+        "- or none is.\n"
+        "- TODO: revisit under a concurrent writer"
+    )
+    text = (
+        "# codegraph: requirements\n\n"
+        "## HLR: `REQ-001`\n"
+        f"{description}\n"
+        "- status: accepted\n"
+    )
+    with identity_scope(IdentityScope.repository("requirements-tests", "fixture")):
+        graph = import_markdown(
+            text,
+            tags=frozenset({"requirements"}),
+            source="fixture",
+            strict=True,
+        )
+
+    hlr = next(
+        entry.node for entry in graph._all_entries()
+        if type(entry.node).__name__ == "HLR"
+    )
+    assert hlr.description == description
+    assert hlr.status == "accepted"
+
+
+def test_ascii_arrow_relationship_line_is_parsed():
+    """``->`` and ``-->`` are accepted wherever the canonical ``→`` is.
+
+    The exporter writes ``→``; hand-authored documents are frequently
+    written with an ASCII arrow.  A line the importer cannot parse is a
+    dropped traceability edge, so both spellings must produce the same
+    reference.  The canonical export spelling is unchanged.
+    """
+    from codegraph.export.markdown import import_markdown
+    from codegraph.identity import IdentityScope, identity_scope
+
+    template = (
+        "# codegraph: requirements\n\n"
+        "## HLR: `REQ-001`\n"
+        "The system shall provide the operation.\n"
+        "- status: accepted\n"
+        "### LLR: `REQ-001.1`\n"
+        "The operation shall be implemented by the code under test.\n"
+        "- status: accepted\n"
+        "\n## Relationships\n"
+        "- `REQ-001.1` {arrow} `p::C::m()` **realized_by** (MethodNode)\n"
+    )
+    references = {}
+    for arrow in ("→", "->", "-->"):
+        with identity_scope(
+            IdentityScope.repository("requirements-tests", "fixture")
+        ):
+            graph = import_markdown(
+                template.format(arrow=arrow),
+                tags=frozenset({"requirements"}),
+                source="fixture",
+                strict=True,
+            )
+        llr = next(
+            entry for entry in graph._all_entries()
+            if type(entry.node).__name__ == "LLR"
+        )
+        references[arrow] = llr.references
+
+    assert references["→"] == [("REALIZED_BY", "p::C::m()", "MethodNode")]
+    assert references["->"] == references["→"]
+    assert references["-->"] == references["→"]
+
+
+def test_unparseable_relationship_line_is_an_error_not_a_silent_drop(tmp_path):
+    """A bullet under ``## Relationships`` that cannot parse must not vanish.
+
+    Such a line is an authored traceability edge.  Ignoring it shipped a graph
+    with a missing requirement→code link and no diagnostic, so the importer
+    reports an error: a strict import fails instead of losing the edge.
+    """
+    requirements_dir = tmp_path / "requirements"
+    path = requirements_dir / "feature" / "requirements.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "# codegraph: requirements\n\n"
+        "## HLR: `REQ-001`\n"
+        "The system shall provide the operation.\n"
+        "- status: accepted\n"
+        "\n## Relationships\n"
+        "- `REQ-001` → `REQ-001`\n",
+        encoding="utf-8",
+    )
+
+    result = IndexService((EmptyAdapter(),)).index(
+        _request(tmp_path, requirements_dir)
+    )
+
+    assert result.success is False
+    assert "MALFORMED_REQUIREMENTS_DOCUMENT" in {
+        diagnostic.code for diagnostic in result.diagnostics
+    }
+
+
+def test_prose_under_a_relationships_heading_is_not_an_error(tmp_path):
+    """Only a relationship *attempt* is fatal; prose stays prose.
+
+    The check is deliberately narrow — a bullet carrying backticked names —
+    so documentation-style prose in a hand-written document does not fail
+    the index run.
+    """
+    requirements_dir = tmp_path / "requirements"
+    path = requirements_dir / "feature" / "requirements.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "# codegraph: requirements\n\n"
+        "## HLR: `REQ-001`\n"
+        "The system shall provide the operation.\n"
+        "- status: accepted\n"
+        "\n## Relationships\n"
+        "Relationships are listed here once implemented.\n",
+        encoding="utf-8",
+    )
+
+    result = IndexService((EmptyAdapter(),)).index(
+        _request(tmp_path, requirements_dir)
+    )
+
+    assert result.success is True, [
+        f"{d.code}: {d.message}" for d in result.diagnostics
+    ]
+
+
 def test_extracted_code_node_survives_qualified_name_collision_with_requirement(
     tmp_path,
 ):

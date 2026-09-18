@@ -316,6 +316,29 @@ class LLR(CodeGraphNode):
     verification_methods = Relationship("COMPOSES", direction="OUTGOING", target_class="TestNode")
     design_compounds = Relationship("COMPOSES", direction="OUTGOING", target_class="CompoundNode")
 
+    #  • REALIZED_BY (outgoing) — LLR → CompoundNode / MemberNode
+    #    The code entities that implement this requirement.  Requirement-
+    #    outgoing so the repository requirements importer can resolve the
+    #    endpoints after the requirements graph is merged with extracted
+    #    code.  Split across two descriptors because a target class match is
+    #    per-descriptor (see ``find_relationship_descriptor``): one for
+    #    compounds (classes, interfaces, enums) and one for members
+    #    (methods, attributes).
+    realized_by_compounds = Relationship(
+        "REALIZED_BY", direction="OUTGOING", target_class="CompoundNode"
+    )
+    realized_by_members = Relationship(
+        "REALIZED_BY", direction="OUTGOING", target_class="MemberNode"
+    )
+
+    #  • VERIFIED_BY (outgoing) — LLR → TestNode
+    #    The tests that verify this requirement.  Distinct from
+    #    ``verification_methods`` (COMPOSES), which is the design-time
+    #    composition of authored verification stubs.
+    verified_by = Relationship(
+        "VERIFIED_BY", direction="OUTGOING", target_class="TestNode"
+    )
+
     # --- Serialization contract ---
     _llm_fields: set[str] = {
         "qualified_name", "name", "description", "status", "tags"

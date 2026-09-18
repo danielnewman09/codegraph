@@ -4,3 +4,6 @@ input_paths = ["cpp_sqlite/src"]
 file_patterns = "*.h *.hpp *.cpp"
 exclude_patterns = "*/test/* */build/* */.git/*"
 test_paths = ["cpp_sqlite/test"]
+# Repository-authoritative requirements for the Transaction golden slice
+# (Priority 5).  Relative to this config file.
+requirements_dir = "requirements"
