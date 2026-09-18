@@ -3104,6 +3104,27 @@ def _resolve_catch_clauses(result: ParseResult) -> None:
         ))
 
 
+def _member_source_path(member: object) -> str:
+    """The file that holds *member*'s implementation body text.
+
+    Doxygen reports two locations for a member: ``file`` (where it is
+    declared) and ``bodyfile`` (where its body is, for an out-of-line
+    definition).  ``bodystart``/``bodyend`` are line numbers in the **body**
+    file, so the body file wins whenever it is present.
+
+    A member declared and defined in one place (in-class, ``template``,
+    ``constexpr`` or ``static inline`` — all of which C++ requires in the
+    header) reports the same path for both, and some in-class members report
+    no ``bodyfile`` at all; then the declaration file is the only source.
+    Reading the declaration file unconditionally is wrong for every out-of-line
+    definition: it yields the header's content at the definition's line
+    numbers, or nothing at all when the range runs past its end.
+    """
+    return (
+        getattr(member, "body_file", "") or getattr(member, "file_path", "")
+    )
+
+
 def extract_implementations(
     result: ParseResult,
     source_base: Path | str | None = None,
@@ -3115,7 +3136,10 @@ def extract_implementations(
     creates an ImplementationNode, and records the association.
 
     Members without implementation bodies (body_start == 0, body_end == 0,
-    or missing source file) are skipped.
+    or missing source file) are skipped.  The body text is read from the
+    member's ``body_file`` when doxygen reports one (an out-of-line
+    definition), falling back to ``file_path`` — see
+    :func:`_member_source_path`.
 
     Args:
         result: The ParseResult to augment with implementations.
@@ -3150,13 +3174,13 @@ def extract_implementations(
     # Collect all members that have body locations
     members_with_bodies: list[tuple[object, str]] = []
     for m in result.methods:
-        if m.body_start > 0 and m.body_end > 0 and m.file_path:
+        if m.body_start > 0 and m.body_end > 0 and _member_source_path(m):
             members_with_bodies.append((m, m.refid))
     for f in result.functions:
-        if f.body_start > 0 and f.body_end > 0 and f.file_path:
+        if f.body_start > 0 and f.body_end > 0 and _member_source_path(f):
             members_with_bodies.append((f, f.refid))
     for d in result.defines:
-        if d.body_start > 0 and d.body_end > 0 and d.file_path:
+        if d.body_start > 0 and d.body_end > 0 and _member_source_path(d):
             members_with_bodies.append((d, d.refid))
 
     if not members_with_bodies:
@@ -3180,7 +3204,7 @@ def extract_implementations(
     }
 
     for member, refid in members_with_bodies:
-        lines = _read_lines(member.file_path)
+        lines = _read_lines(_member_source_path(member))
         if lines is None:
             skip_count += 1
             continue

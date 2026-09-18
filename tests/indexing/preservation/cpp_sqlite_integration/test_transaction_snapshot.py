@@ -464,7 +464,7 @@ class TestImplementationContent:
         every_key = set(indexed.graph._flat_index())
 
         assert every_key - emitted == inlined_implementation_keys(indexed.graph)
-        assert len(every_key - emitted) == 43, (
+        assert len(every_key - emitted) == 48, (
             "the number of inlined method implementations changed"
         )
 
@@ -570,6 +570,45 @@ class TestImplementationContent:
             assert getattr(owner.node, "body", ""), (
                 f"{LayerGraph._node_key(owner.node)} inlines an implementation "
                 "leaf but carries no body"
+            )
+
+    def test_every_method_implementation_leaf_matches_its_body(self, indexed):
+        """The leaf and the member body are one text, and coverage agrees.
+
+        The parser reads a member's body from its ``body_file`` (an out-of-line
+        definition lives in the ``.cpp``; ``template``/in-class members live in
+        the header), so the two views cannot drift.  Every member with a body
+        has a leaf, and every leaf carries that body verbatim.
+        """
+        flat = indexed.graph._flat_index()
+        owner_of = {
+            target_key: entry for entry in flat.values()
+            for relation_type, target_key, _type in entry.references
+            if relation_type == "HAS_IMPLEMENTATION"
+        }
+        leaves = {
+            key: entry for key, entry in flat.items()
+            if type(entry.node).__name__ == IMPLEMENTATION_TYPE
+        }
+        method_leaves = {
+            key for key in leaves
+            if type(owner_of[key].node).__name__ == "MethodNode"
+        }
+        methods_with_body = {
+            key for key, entry in flat.items()
+            if type(entry.node).__name__ == "MethodNode"
+            and getattr(entry.node, "body", "")
+        }
+
+        assert len(method_leaves) == 48
+        assert len(method_leaves) == len(methods_with_body), (
+            "a method with a captured body has no implementation leaf, or vice "
+            "versa: the two implementation paths disagree"
+        )
+        for key in method_leaves:
+            owner = owner_of[key]
+            assert leaves[key].node.implementation == owner.node.body, (
+                f"{owner.node.qualified_name} leaf text is not its body"
             )
 
     def test_step_implementation_leaves_are_retained_as_carriers(self, snapshot, indexed):

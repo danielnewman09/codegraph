@@ -938,6 +938,298 @@ class TestExtractImplementations:
         assert len(result.implementations) == 0  # File not found, skipped
 
 
+class TestOutOfLineImplementationSource:
+    """A member's implementation text comes from the file that holds its body.
+
+    Doxygen reports two locations for a member: ``file`` (where it is declared)
+    and ``bodyfile`` (where its body lives, i.e. the definition file), with
+    ``bodystart``/``bodyend`` as line numbers in the **body** file.  Reading the
+    declaration file instead silently yields that file's content at those line
+    numbers, or no implementation at all when the range runs past its end.
+
+    Both placements are normal C++: in-class, ``template``, ``constexpr`` and
+    ``static inline`` members *must* be defined in the header, while plain
+    members are defined out of line in the ``.cpp``.  Neither may be assumed,
+    and ``bodyfile`` may be absent altogether — then the declaration file is
+    the only possible source.
+    """
+
+    #: The verbatim out-of-line definition written at ``draw``'s body range.
+    DEFINITION = (
+        "void Widget::draw() {\n"
+        "  canvas.begin();\n"
+        "  render();\n"
+        "  canvas.end();\n"
+        "}"
+    )
+
+    #: ``widget.h`` — line 5 declares ``draw``, line 6 defines ``width``
+    #: in-class (as real doxygen reports it: ``bodyfile`` == ``file``), line 7
+    #: defines ``tally`` in-class without a ``bodyfile`` attribute.
+    HEADER = """\
+        #pragma once
+
+        class Widget {
+         public:
+          void draw();
+          int width() const { return width_; }
+          int tally() const { return tally_; }
+         private:
+          int width_ = 0;
+        };
+    """
+
+    @staticmethod
+    def _member(result, name: str):
+        """The parsed member named *name* (qualified names carry the argsstring)."""
+        return next(m for m in result.methods if m.name == name)
+
+    @staticmethod
+    def _implementation(result, name: str):
+        """The implementation leaf for the member named *name*."""
+        return next(
+            i for i in result.implementations
+            if i.qualified_name.startswith(f"Widget::{name}(")
+        )
+
+    def _write_fixture(
+        self, tmp_path, *, source_lines: list[str], body_start: int, body_end: int,
+    ):
+        """Write a header/source pair plus the doxygen XML that describes them.
+
+        ``source_lines`` is the ``.cpp``; the caller places the definition so
+        that ``body_start``/``body_end`` are accurate and knows whether the
+        range fits inside the header (15 lines) or runs past its end.
+        """
+        src = tmp_path / "src"
+        src.mkdir()
+        header_path = src / "widget.h"
+        header_path.write_text(textwrap.dedent(self.HEADER))
+        source_path = src / "widget.cpp"
+        source_path.write_text("\n".join(source_lines) + "\n")
+
+        # No file compound is declared: the whole-file catch-clause fallback
+        # scans ``result.files``, so leaving it out isolates the per-member
+        # implementation path under test.
+        (tmp_path / "index.xml").write_text(textwrap.dedent("""\
+            <?xml version="1.0"?>
+            <doxygenindex>
+              <compound refid="classWidget" kind="class">
+                <name>Widget</name>
+              </compound>
+              <compound refid="classWidgetError" kind="class">
+                <name>WidgetError</name>
+              </compound>
+            </doxygenindex>
+        """))
+        (tmp_path / "classWidgetError.xml").write_text(textwrap.dedent("""\
+            <?xml version="1.0"?>
+            <doxygen>
+              <compounddef id="classWidgetError" kind="class" language="C++">
+                <compoundname>WidgetError</compoundname>
+                <location file="src/widget.h" line="12"/>
+              </compounddef>
+            </doxygen>
+        """))
+        (tmp_path / "classWidget.xml").write_text(textwrap.dedent(f"""\
+            <?xml version="1.0"?>
+            <doxygen>
+              <compounddef id="classWidget" kind="class" language="C++">
+                <compoundname>Widget</compoundname>
+                <briefdescription><para>A widget.</para></briefdescription>
+                <detaileddescription/>
+                <location file="{header_path}" line="3"/>
+                <sectiondef kind="public-func">
+                  <memberdef kind="function" id="classWidget_1adraw"
+                             prot="public" static="no" const="no">
+                    <name>draw</name>
+                    <qualifiedname>Widget::draw</qualifiedname>
+                    <type>void</type>
+                    <definition>void Widget::draw</definition>
+                    <argsstring>()</argsstring>
+                    <briefdescription><para>Draw the widget.</para></briefdescription>
+                    <detaileddescription/>
+                    <location file="{header_path}" line="5"
+                              bodyfile="{source_path}"
+                              bodystart="{body_start}" bodyend="{body_end}"/>
+                  </memberdef>
+                  <memberdef kind="function" id="classWidget_1awidth"
+                             prot="public" static="no" const="yes">
+                    <name>width</name>
+                    <qualifiedname>Widget::width</qualifiedname>
+                    <type>int</type>
+                    <definition>int Widget::width</definition>
+                    <argsstring>() const</argsstring>
+                    <briefdescription><para>The width.</para></briefdescription>
+                    <detaileddescription/>
+                    <location file="{header_path}" line="6"
+                              bodyfile="{header_path}" bodystart="6" bodyend="6"/>
+                  </memberdef>
+                  <memberdef kind="function" id="classWidget_1atally"
+                             prot="public" static="no" const="yes">
+                    <name>tally</name>
+                    <qualifiedname>Widget::tally</qualifiedname>
+                    <type>int</type>
+                    <definition>int Widget::tally</definition>
+                    <argsstring>() const</argsstring>
+                    <briefdescription><para>The tally.</para></briefdescription>
+                    <detaileddescription/>
+                    <location file="{header_path}" line="7"
+                              bodystart="7" bodyend="7"/>
+                  </memberdef>
+                </sectiondef>
+              </compounddef>
+            </doxygen>
+        """))
+        return tmp_path
+
+    @pytest.fixture
+    def out_of_line(self, tmp_path):
+        """Definition on lines 3-7 of a ``.cpp``; the range also fits the header.
+
+        That is the silent-corruption case: the range is in bounds for both
+        files, so reading the wrong one yields plausible-looking text rather
+        than an error.
+        """
+        return self._write_fixture(
+            tmp_path,
+            source_lines=[
+                '#include "widget.h"',
+                "",
+                "void Widget::draw() {",   # line 3
+                "  canvas.begin();",
+                "  render();",
+                "  canvas.end();",
+                "}",                      # line 7
+            ],
+            body_start=3,
+            body_end=7,
+        )
+
+    @pytest.fixture
+    def short_header(self, tmp_path):
+        """Definition on lines 7-11 of the ``.cpp``; the header has 10 lines.
+
+        Reading the declaration file cannot produce the text at all: the range
+        starts past its end, so the implementation was skipped entirely.
+        """
+        return self._write_fixture(
+            tmp_path,
+            source_lines=[
+                '#include "widget.h"',
+                "", "", "", "", "",
+                "void Widget::draw() {",   # line 7
+                "  canvas.begin();",
+                "  render();",
+                "  canvas.end();",
+                "}",                      # line 11
+            ],
+            body_start=7,
+            body_end=11,
+        )
+
+    def test_out_of_line_definition_is_read_from_the_bodyfile(self, out_of_line):
+        result = parse_xml_dir(out_of_line, source="test", progress_interval=0)
+
+        draw = self._member(result, "draw")
+        impl = self._implementation(result, "draw")
+
+        assert draw.body == self.DEFINITION
+        assert impl.implementation == self.DEFINITION, (
+            "the implementation leaf was read from the declaration file"
+        )
+        assert "class Widget" not in impl.implementation
+
+    def test_definition_beyond_the_declaration_file_is_still_extracted(
+        self, short_header
+    ):
+        result = parse_xml_dir(short_header, source="test", progress_interval=0)
+
+        draw = self._member(result, "draw")
+        header_lines = len(
+            (short_header / "src" / "widget.h").read_text().splitlines()
+        )
+        assert draw.body_end > header_lines, "fixture no longer exercises the skip"
+        assert draw.body == self.DEFINITION
+        assert draw.refid in {
+            ref.member_refid for ref in result.implementation_refs
+        }, "the implementation was skipped because the wrong file was read"
+        assert self._implementation(result, "draw").implementation == self.DEFINITION
+
+    def test_in_class_definition_is_read_from_its_body_file(self, out_of_line):
+        """A header-resident body: ``bodyfile`` and ``file`` are the same file."""
+        result = parse_xml_dir(out_of_line, source="test", progress_interval=0)
+
+        width = self._member(result, "width")
+        impl = self._implementation(result, "width")
+
+        assert impl.implementation == "  int width() const { return width_; }"
+        assert impl.implementation == width.body
+
+    def test_member_without_a_bodyfile_falls_back_to_the_declaration_file(
+        self, out_of_line
+    ):
+        """``bodyfile`` may be absent; the declaration file is then the source."""
+        result = parse_xml_dir(out_of_line, source="test", progress_interval=0)
+
+        tally = self._member(result, "tally")
+        impl = self._implementation(result, "tally")
+
+        assert tally.body_file == ""
+        assert tally.body == ""  # _read_body has no file to read
+        assert impl.implementation == "  int tally() const { return tally_; }"
+
+    def test_every_implementation_leaf_matches_its_member_body(self, out_of_line):
+        """Where doxygen reported a body file, the leaf and body are one text."""
+        result = parse_xml_dir(out_of_line, source="test", progress_interval=0)
+
+        by_refid = {m.refid: m for m in result.methods}
+        assert len(result.implementation_refs) == 3
+        for ref in result.implementation_refs:
+            member = by_refid[ref.member_refid]
+            if member.body:
+                assert (
+                    ref.implementation.implementation == member.body
+                ), member.qualified_name
+            else:
+                assert ref.implementation.implementation.strip(), (
+                    member.qualified_name
+                )
+
+    def test_catch_clause_dependency_uses_the_definition_text(self, tmp_path):
+        """Caught-exception edges are derived from the member's real body.
+
+        The per-member scan is the only candidate here: no file compound is
+        declared, so the whole-file fallback in ``extract_implementations``
+        has nothing to scan.
+        """
+        self._write_fixture(
+            tmp_path,
+            source_lines=[
+                '#include "widget.h"',
+                "",
+                "void Widget::draw() {",   # line 3
+                "  try {",
+                "    canvas.begin();",
+                "  } catch (WidgetError& e) {",
+                "    handle(e);",
+                "  }",
+                "}",                      # line 9
+            ],
+            body_start=3,
+            body_end=9,
+        )
+        result = parse_xml_dir(tmp_path, source="test", progress_interval=0)
+
+        draw = self._member(result, "draw")
+        error = next(c for c in result.compounds if c.qualified_name == "WidgetError")
+
+        edges = {(entry.from_refid, entry.to_refid) for entry in result.depends_on}
+        assert (draw.refid, error.refid) in edges, (
+            "no dependency was derived from the out-of-line definition"
+        )
+
+
 class TestProjectConfig:
     """Tests for .doxygen-index.toml loading (project.py)."""
 
