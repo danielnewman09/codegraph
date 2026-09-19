@@ -1646,10 +1646,12 @@ class LayerGraph:
         ``HAS_IMPLEMENTATION`` edge, because dropping it would lose the text.
 
         The rule is deliberately about the owning *type*, not about text
-        equality: the two texts can disagree (12 of the 43 ``MethodNode``
-        leaves in the cpp-sqlite fixture carry text unrelated to their
-        owner's ``body`` — recorded, not repaired, here), and a portable
-        snapshot must not ship two competing implementations of one member.
+        equality: it must not depend on the two texts agreeing.  A snapshot is
+        a transport format, not a validator of the parser's fidelity — and if
+        they ever disagree again (they did once: every out-of-line definition
+        had a leaf read from the declaration file, see
+        ``cpp_parser._member_source_path``), the snapshot must still carry the
+        authoritative ``body`` once rather than two competing texts.
         """
         leaves = {
             key: entry for key, entry in flat.items()

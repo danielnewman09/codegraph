@@ -19,5 +19,14 @@ Transaction golden slice (one HLR owning five LLRs bound to the real
 the lifted `cpp_sqlite/` sources must not overwrite it, and the requirement
 text must stay consistent with those sources.
 
+The `transaction_slice/` tree is Codegraph-authored too: it holds the reviewed
+memory input for the same slice (`memories.toml`) — the RAII ownership
+decision, the no-throw cleanup constraint, and the savepoint-nesting rationale
+— whose `links` name the real `cpp_sqlite::Transaction` class and its twelve
+frozen members.  Every construct a memory quotes is asserted to exist in
+`DBTransaction.hpp`/`DBTransaction.cpp`, so the rationale cannot drift from
+the sources it describes.  Re-syncing the lifted `cpp_sqlite/` sources must
+not overwrite this tree either.
+
 Generated `unit_test_data` and `codegraph_output` files are not inputs to
 this fixture and are intentionally excluded from version control.

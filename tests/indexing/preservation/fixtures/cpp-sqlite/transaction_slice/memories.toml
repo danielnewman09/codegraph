@@ -1,0 +1,130 @@
+# Transaction slice memories (Priority 5, WP5.3).
+#
+# Repository-reviewed design rationale for the `cpp_sqlite::Transaction`
+# implementation surface.  Every statement is grounded in the reviewed
+# sources (cpp_sqlite/src/cpp_sqlite/DBTransaction.hpp/.cpp) or in SQLite's
+# documented behaviour; nothing here is inferred from the graph.
+#
+# Fields (WP5.3 step 1): type, stable qualified name, content, confidence,
+# tags, source, and the qualified names of the linked code nodes.  The
+# relationship type follows from `type` (decision -> MOTIVATES, constraint ->
+# CONSTRAINS, rationale -> EXPLAINS) and the canonical key of every node and
+# target is computed by the identity framework — never authored here.
+#
+# `links` must name existing nodes of the indexed slice; the loader fails
+# loudly on an unresolvable name rather than dropping the edge.
+# `refines` / `supersedes` name another memory in this file (memory-to-memory).
+
+# ── 1. RAII ownership and move-only transfer of rollback responsibility ──
+[[memory]]
+type = "decision"
+qualified_name = "memory::cpp-sqlite-transaction-raii-ownership"
+confidence = 1.0
+tags = ["as-built"]
+source = "cpp-sqlite"
+links = [
+  # the class itself
+  "cpp_sqlite::Transaction",
+  # the single owner's lifecycle
+  "cpp_sqlite::Transaction::Transaction(Database &db)",
+  "cpp_sqlite::Transaction::~Transaction(())",
+  "cpp_sqlite::Transaction::isActive(() const)",
+  # transfer of ownership, and the deletions that forbid sharing
+  "cpp_sqlite::Transaction::Transaction((Transaction &&other))",
+  "cpp_sqlite::Transaction::operator=((Transaction &&other))",
+  "cpp_sqlite::Transaction::Transaction((const Transaction &)=delete)",
+  "cpp_sqlite::Transaction::operator=((const Transaction &)=delete)",
+]
+content = """
+The Transaction object owns the whole lifecycle of a SQLite transaction, and
+that ownership is always held by exactly one object. Construction opens the
+transaction (BEGIN, or a savepoint when one is already active), commit() and
+rollback() close it explicitly, and the destructor closes it if the caller did
+not. The header documents that contract: "RAII-style transaction management"
+with "Automatic rollback if the transaction is not explicitly committed".
+
+Ownership is transferred rather than shared. The copy constructor and copy
+assignment are declared `= delete`, so two objects can never both believe they
+own the same transaction, and the two move operations hand the Database
+pointer and the active/savepoint state to the target before disarming the
+source (`other.db_ = nullptr; other.isActive_ = false;`). isActive() exposes
+whether this object is still the one holding that responsibility.
+
+The consequence the design is buying: an abandoned Transaction rolls back
+instead of leaking an open transaction, and a moved-from Transaction is inert
+— it cannot roll back a transaction whose ownership it has already given away.
+Move assignment applies the same discipline to the target: it first ends its
+own active transaction before adopting the source's state.
+"""
+
+# ── 2. Destructor rollback safety and the no-throw boundary ──────────────
+[[memory]]
+type = "constraint"
+qualified_name = "memory::cpp-sqlite-transaction-no-throw-cleanup"
+confidence = 1.0
+tags = ["as-built"]
+source = "cpp-sqlite"
+links = [
+  "cpp_sqlite::Transaction",
+  "cpp_sqlite::Transaction::~Transaction(())",
+  "cpp_sqlite::Transaction::Transaction((Transaction &&other))",
+  "cpp_sqlite::Transaction::operator=((Transaction &&other))",
+]
+content = """
+The RAII special members are a no-throw boundary: the destructor is declared
+`noexcept`, and both move operations are declared `noexcept`. Because rollback()
+can throw (it reports a failed ROLLBACK or a lost savepoint as a
+TransactionError), every path that ends a transaction during destruction wraps
+the attempt in `try { rollback(); } catch (...) { }` with an empty handler.
+
+The destructor rolls back only when the transaction is still active, then
+swallows any failure: "Destructor must not throw - swallow any exceptions".
+Move assignment applies the same rule to the transaction it is about to
+abandon before adopting the source's state ("Swallow exceptions").
+
+This is a deliberate choice of failure mode, not an oversight: a destructor
+that cannot end its transaction cleanly must not terminate the process, and a
+rollback that failed during unwinding is not observable through the noexcept
+path it was called from. The observable cost is that cleanup failures are
+silent; the observable benefit is that stack unwinding, container teardown and
+move assignment can never throw because a transaction was in the way.
+"""
+
+# ── 3. Nested transaction implementation through SQLite savepoints ───────
+[[memory]]
+type = "rationale"
+qualified_name = "memory::cpp-sqlite-transaction-savepoint-nesting"
+confidence = 0.9  # the one inferred premise is SQLite's rejection of nested BEGIN
+tags = ["as-built"]
+source = "cpp-sqlite"
+refines = "memory::cpp-sqlite-transaction-raii-ownership"
+links = [
+  "cpp_sqlite::Transaction::Transaction(Database &db)",
+  "cpp_sqlite::Transaction::commit()",
+  "cpp_sqlite::Transaction::rollback()",
+  "cpp_sqlite::Transaction::executeSQL(const std::string &sql)",
+  "cpp_sqlite::Transaction::isSavepoint(() const)",
+  "cpp_sqlite::Transaction::getSavepointName(() const)",
+]
+content = """
+Nesting is implemented with SQLite savepoints rather than with a stack of
+BEGIN statements. SQLite has no nested BEGIN, so the constructor probes the
+connection first — `sqlite3_get_autocommit(&db_->getRawDB()) == 0` means a
+transaction is already open — and only then does it choose: a savepoint named
+"sp_" plus a static counter when it would be nesting, `BEGIN TRANSACTION`
+otherwise. The same two-way split is repeated wherever the transaction is
+ended: commit() issues `RELEASE SAVEPOINT` instead of `COMMIT`, and rollback()
+issues `ROLLBACK TO SAVEPOINT` followed by `RELEASE SAVEPOINT` (a savepoint
+must be released as well as rolled back to) instead of a plain `ROLLBACK`.
+
+All of those statements go through one place, executeSQL(), which turns a
+non-SQLITE_OK sqlite3_exec result into a TransactionError with SQLite's own
+message. Whether this object is a savepoint is part of its observable state —
+isSavepoint() and getSavepointName() exist so callers and tests can see which
+of the two behaviours is in force; the savepoint name is not just an internal
+implementation detail.
+
+This is the mechanism behind the ownership decision above: an inner Transaction
+can be created and abandoned inside an outer one without either object owning
+the other's transaction state.
+"""
