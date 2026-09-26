@@ -40,6 +40,10 @@ import pytest
 from codegraph.graph import LayerGraph
 
 from .test_transaction_requirements import SCOPE_PREFIX
+from .transaction_evidence import (
+    load_evidence_definitions,
+    slice_graph_with_evidence,
+)
 from .transaction_slice import build_transaction_slice
 
 # ---------------------------------------------------------------------------
@@ -65,8 +69,8 @@ EXCLUDED_RELATIONS: Mapping[str, str] = {
 #: about — fails this module instead of being ignored.
 PORTABLE_RELATIONS = frozenset({
     "CALLEE", "CONSTRAINS", "DEFINED_IN", "DEPENDS_ON", "ENFORCES_CONCEPT",
-    "HAS_PARAMETER", "INCLUDES", "INHERITS_FROM", "INVOKES", "REALIZED_BY",
-    "SPECIALIZES", "VERIFIED_BY", "VERIFIES",
+    "EVIDENCES", "HAS_PARAMETER", "INCLUDES", "INHERITS_FROM", "INVOKES",
+    "REALIZED_BY", "SPECIALIZES", "VERIFIED_BY", "VERIFIES",
 })
 
 #: Node type whose leaves are inlined on the owning node.
@@ -250,7 +254,29 @@ def _walk(entries):
 
 @pytest.fixture(scope="module")
 def indexed(transaction_slice_index):
-    return transaction_slice_index
+    """The slice graph plus the WP5.4 execution evidence (WP5.4 step 8).
+
+    ``slice_graph_with_evidence`` merges non-mutatingly: the session index
+    result stays exactly as indexed, and the evidence becomes an ordinary
+    entry of the graph — so every snapshot guarantee below (fixpoint, exact
+    model comparison, edge classification) applies to the evidence nodes and
+    their ``EVIDENCES``/``DEPENDS_ON`` edges too.
+    """
+    graph, _edges = slice_graph_with_evidence(
+        transaction_slice_index.graph, load_evidence_definitions()
+    )
+    return _ConnectedIndex(transaction_slice_index, graph)
+
+
+class _ConnectedIndex:
+    """The index result with its graph swapped for the connected slice."""
+
+    def __init__(self, result, graph):
+        self._result = result
+        self.graph = graph
+
+    def __getattr__(self, name):
+        return getattr(self._result, name)
 
 
 @pytest.fixture(scope="module")

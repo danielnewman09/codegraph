@@ -1,0 +1,24 @@
+usage: <index-cli> [-h] [--version]
+                     {project,list-deps,discover,generate,ingest,full,codegraph,cppreference}
+                     ...
+
+Index Doxygen XML and Conan C++ dependencies into graph databases
+
+positional arguments:
+  {project,list-deps,discover,generate,ingest,full,codegraph,cppreference}
+    project             Parse a project (requires .doxygen-index.toml in
+                        project dir)
+    list-deps           List discovered Conan dependencies
+    discover            Discover Conan dependency include paths
+    generate            Generate Doxygen XML for dependencies
+    ingest              Ingest existing XML into databases
+    full                Discover, generate, and ingest (all-in-one)
+    codegraph           Full codegraph ingestion: discover deps, generate XML,
+                        parse, and export CSV and/or Neo4j (optionally
+                        including cppreference)
+    cppreference        Download and ingest cppreference C++ standard library
+                        docs
+
+options:
+  -h, --help            show this help message and exit
+  --version             show program's version number and exit

@@ -4,3 +4,8 @@ CMakeUserPresets.json
 *.log
 include/*
 lib/*
+
+# The WP5.4 execution-evidence logs are reviewed evidence, retained for
+# digest validation by ordinary test runs — not build output.
+!transaction_slice/logs/
+!transaction_slice/logs/*.log

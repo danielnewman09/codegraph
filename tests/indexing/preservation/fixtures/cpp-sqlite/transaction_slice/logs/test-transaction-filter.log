@@ -1,0 +1,40 @@
+Running main() from /Users/danielnewman/.conan2/p/b/gtest22c3ae9326411/b/src/googletest/src/gtest_main.cc
+Note: Google Test filter = DatabaseTest.TransactionCommit:DatabaseTest.TransactionRollback:DatabaseTest.TransactionAutoRollbackOnDestruction:DatabaseTest.NestedTransactionWithSavepoints:DatabaseTest.NestedTransactionRollbackInner
+[==========] Running 5 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 5 tests from DatabaseTest
+[ RUN      ] DatabaseTest.TransactionCommit
+[2026-09-25 17:24:34.954] [test_cpp_sqlite] [debug] Creating database with url: test_transaction_commit.db
+[2026-09-25 17:24:34.956] [test_cpp_sqlite] [debug] INSERT INTO DocumentRecord (id, title, author, file_data) VALUES (?, ?, ?, ?);
+[2026-09-25 17:24:34.956] [test_cpp_sqlite] [debug] SELECT id, title, author, file_data FROM DocumentRecord;
+[2026-09-25 17:24:34.956] [test_cpp_sqlite] [debug] SELECT id, title, author, file_data FROM DocumentRecord WHERE id = ?;
+[       OK ] DatabaseTest.TransactionCommit (2 ms)
+[ RUN      ] DatabaseTest.TransactionRollback
+[2026-09-25 17:24:34.956] [test_cpp_sqlite] [debug] Creating database with url: test_transaction_rollback.db
+[2026-09-25 17:24:34.957] [test_cpp_sqlite] [debug] INSERT INTO DocumentRecord (id, title, author, file_data) VALUES (?, ?, ?, ?);
+[2026-09-25 17:24:34.957] [test_cpp_sqlite] [debug] SELECT id, title, author, file_data FROM DocumentRecord;
+[2026-09-25 17:24:34.957] [test_cpp_sqlite] [debug] SELECT id, title, author, file_data FROM DocumentRecord WHERE id = ?;
+[       OK ] DatabaseTest.TransactionRollback (0 ms)
+[ RUN      ] DatabaseTest.TransactionAutoRollbackOnDestruction
+[2026-09-25 17:24:34.957] [test_cpp_sqlite] [debug] Creating database with url: test_transaction_auto_rollback.db
+[2026-09-25 17:24:34.957] [test_cpp_sqlite] [debug] INSERT INTO DocumentRecord (id, title, author, file_data) VALUES (?, ?, ?, ?);
+[2026-09-25 17:24:34.957] [test_cpp_sqlite] [debug] SELECT id, title, author, file_data FROM DocumentRecord;
+[2026-09-25 17:24:34.957] [test_cpp_sqlite] [debug] SELECT id, title, author, file_data FROM DocumentRecord WHERE id = ?;
+[       OK ] DatabaseTest.TransactionAutoRollbackOnDestruction (0 ms)
+[ RUN      ] DatabaseTest.NestedTransactionWithSavepoints
+[2026-09-25 17:24:34.958] [test_cpp_sqlite] [debug] Creating database with url: test_nested_transaction.db
+[2026-09-25 17:24:34.958] [test_cpp_sqlite] [debug] INSERT INTO DocumentRecord (id, title, author, file_data) VALUES (?, ?, ?, ?);
+[2026-09-25 17:24:34.958] [test_cpp_sqlite] [debug] SELECT id, title, author, file_data FROM DocumentRecord;
+[2026-09-25 17:24:34.958] [test_cpp_sqlite] [debug] SELECT id, title, author, file_data FROM DocumentRecord WHERE id = ?;
+[       OK ] DatabaseTest.NestedTransactionWithSavepoints (0 ms)
+[ RUN      ] DatabaseTest.NestedTransactionRollbackInner
+[2026-09-25 17:24:34.958] [test_cpp_sqlite] [debug] Creating database with url: test_nested_rollback_inner.db
+[2026-09-25 17:24:34.958] [test_cpp_sqlite] [debug] INSERT INTO DocumentRecord (id, title, author, file_data) VALUES (?, ?, ?, ?);
+[2026-09-25 17:24:34.958] [test_cpp_sqlite] [debug] SELECT id, title, author, file_data FROM DocumentRecord;
+[2026-09-25 17:24:34.958] [test_cpp_sqlite] [debug] SELECT id, title, author, file_data FROM DocumentRecord WHERE id = ?;
+[       OK ] DatabaseTest.NestedTransactionRollbackInner (0 ms)
+[----------] 5 tests from DatabaseTest (5 ms total)
+
+[----------] Global test environment tear-down
+[==========] 5 tests from 1 test suite ran. (5 ms total)
+[  PASSED  ] 5 tests.

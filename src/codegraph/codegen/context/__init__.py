@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from codegraph.codegen.context import (
     base,
     compound,
+    evidence,
     file,
     implementation,
     literal,
@@ -48,7 +49,7 @@ SKIP_REASONS: dict[str, str] = {}
 
 _MODULES = (
     compound, member, file, namespace, parameter, implementation,
-    literal, test, requirements, project, source_fragment,
+    literal, evidence, test, requirements, project, source_fragment,
 )
 
 for _module in _MODULES:

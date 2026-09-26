@@ -352,6 +352,8 @@ _SPEC_ROWS: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
     ("TestFixtureNode", "test-fixture", REPOSITORY, ("parent_key", "qualified_name")),
     ("TestStepNode", "test-step", REPOSITORY, ("parent_key", "qualified_name")),
     ("AssertionNode", "assertion", REPOSITORY, ("parent_key", "qualified_name")),
+    # ── Execution evidence → repository scope (WP5.4) ──────────────
+    ("ExecutionEvidenceNode", "evidence", REPOSITORY, ("qualified_name",)),
     # ── Requirements (project scope) ──────────────────────────────
     ("HLR", "requirement-hlr", PROJECT, ("qualified_name",)),
     ("LLR", "requirement-llr", PROJECT, ("parent_hlr_key", "qualified_name")),

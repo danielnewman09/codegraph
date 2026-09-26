@@ -1,0 +1,165 @@
+
+
+======== Input profiles ========
+Profile host:
+[settings]
+arch=armv8
+build_type=Release
+compiler=clang
+compiler.cppstd=17
+compiler.libcxx=libc++
+compiler.version=15
+os=Macos
+[options]
+&:build_testing=True
+
+Profile build:
+[settings]
+arch=armv8
+compiler=clang
+compiler.cppstd=17
+compiler.libcxx=libc++
+compiler.version=15
+os=Macos
+
+
+======== Computing dependency graph ========
+Graph root
+    conanfile.py (cpp_sqlite/0.1.0): /Users/danielnewman/dev/cpp-sqlite/conanfile.py
+Requirements
+    boost/1.86.0#ba15175515249ce5dc1bbe10aa945dc9 - Cache
+    bzip2/1.0.8#c470882369c2d95c5c77e970c0c7e321 - Cache
+    fmt/10.2.1#658771bb858b77f380be2ebb22c338e9 - Cache
+    libbacktrace/cci.20210118#a7691bfccd8caaf66309df196790a5a1 - Cache
+    spdlog/1.14.1#4fd40d9cbc1978247443a10d2ace58fd - Cache
+    sqlite3/3.47.0-local#539286eb44fd086a53eb341feb909d34 - Cache
+    zlib/1.3.1#b8bc2603263cf7eccbd6e17e66b0ed76 - Cache
+Test requirements
+    gtest/1.14.0#f8f0757a574a8dd747d16af62d6eb1b7 - Cache
+Build requirements
+    b2/5.3.3#107c15377719889654eb9a162a673975 - Cache
+    cmake/3.22.6#32cced101c6df0fab43e8d00bd2483eb - Cache
+Resolved version ranges
+    b2/[>=5.2 <6]: b2/5.3.3
+    zlib/[>=1.2.11 <2]: zlib/1.3.1
+
+======== Computing necessary packages ========
+Requirements
+    boost/1.86.0#ba15175515249ce5dc1bbe10aa945dc9:808383d45f66ad55778f869786a2d41a6efe2f3f#d424d53c0c601788243eef8ee2864c01 - Cache
+    bzip2/1.0.8#c470882369c2d95c5c77e970c0c7e321:3d133da3f746c8c89e238ca6da91104e762281e7#89b887e6cbe0434f8d7d9bbaddb00a53 - Cache
+    fmt/10.2.1#658771bb858b77f380be2ebb22c338e9:4a19e70d6a86d27d9d7d01b91ef6bf08ac4b4611#1bb9c9711e53e02eb3440ec1adcc4d36 - Cache
+    libbacktrace/cci.20210118#a7691bfccd8caaf66309df196790a5a1:b352694bd7d6ddb80ff7ce3fce26f31191914867#423702e5c076861cc13af8070cd29541 - Cache
+    spdlog/1.14.1#4fd40d9cbc1978247443a10d2ace58fd:684e9ad5e55fbdcb85ffd0d885a19c2a53fdc1fe#2c505c38d6230286a23dd456ca4370b0 - Cache
+    sqlite3/3.47.0-local#539286eb44fd086a53eb341feb909d34:0c14a871f8c3759017c429c233e48a8564d102ca#74e638cb791b712798bb496f191b076e - Cache
+    zlib/1.3.1#b8bc2603263cf7eccbd6e17e66b0ed76:b352694bd7d6ddb80ff7ce3fce26f31191914867#53260bb3882e03c1f19ec3181540b0e1 - Cache
+Test requirements
+    gtest/1.14.0#f8f0757a574a8dd747d16af62d6eb1b7:d880ee942abddbd987971beafc7b466a30930226#5f252a03754d616bacf8e7904ae183e9 - Cache
+Build requirements
+    cmake/3.22.6#32cced101c6df0fab43e8d00bd2483eb:9e5323c65b94ae38c3c733fe12637776db0119a5#7b5af65c2e837696ee8227674734cedf - Cache
+Skipped binaries
+    b2/5.3.3
+
+======== Installing packages ========
+bzip2/1.0.8: Already installed! (1 of 9)
+cmake/3.22.6: Already installed! (2 of 9)
+cmake/3.22.6: Appending PATH environment variable: /Users/danielnewman/.conan2/p/cmakedf2c94b672dad/p/CMake.app/Contents/bin
+fmt/10.2.1: Already installed! (3 of 9)
+gtest/1.14.0: Already installed! (4 of 9)
+libbacktrace/cci.20210118: Already installed! (5 of 9)
+sqlite3/3.47.0-local: Already installed! (6 of 9)
+zlib/1.3.1: Already installed! (7 of 9)
+boost/1.86.0: Already installed! (8 of 9)
+spdlog/1.14.1: Already installed! (9 of 9)
+WARN: deprecated: Usage of deprecated Conan 1.X features that will be removed in Conan 2.X:
+WARN: deprecated:     'cpp_info.names' used in: zlib/1.3.1, bzip2/1.0.8, boost/1.86.0
+WARN: deprecated:     'cpp_info.build_modules' used in: bzip2/1.0.8
+WARN: deprecated:     'env_info' used in: cmake/3.22.6, bzip2/1.0.8, boost/1.86.0
+WARN: deprecated:     'cpp_info.filenames' used in: boost/1.86.0
+WARN: deprecated:     'user_info' used in: boost/1.86.0
+
+======== Finalizing install (deploy, generators) ========
+conanfile.py (cpp_sqlite/0.1.0): Calling generate()
+conanfile.py (cpp_sqlite/0.1.0): Generators folder: /Users/danielnewman/dev/cpp-sqlite/build/Release/generators
+conanfile.py (cpp_sqlite/0.1.0): CMakeDeps necessary find_package() and targets for your CMakeLists.txt
+    find_package(SQLite3)
+    find_package(Boost)
+    find_package(spdlog)
+    find_package(GTest)
+    target_link_libraries(... SQLite3::SQLite3 boost::boost spdlog::spdlog gtest::gtest)
+conanfile.py (cpp_sqlite/0.1.0): CMakeToolchain generated: conan_toolchain.cmake
+conanfile.py (cpp_sqlite/0.1.0): CMakeToolchain: Preset 'conan-release' added to CMakePresets.json.
+    (cmake>=3.23) cmake --preset conan-release
+    (cmake<3.23) cmake <path> -G "Unix Makefiles" -DCMAKE_TOOLCHAIN_FILE=generators/conan_toolchain.cmake  -DCMAKE_CXX_STANDARD=20 -DCMAKE_CXX_STANDARD_REQUIRED=ON -DCMAKE_CXX_FLAGS="-DFMT_USE_CONSTEVAL=0 -DFMT_CONSTEVAL=" -DCMAKE_PREFIX_PATH=/Users/danielnewman/dev/cpp-sqlite/build/Release/generators -DSQLite3_DIR=/Users/danielnewman/dev/cpp-sqlite/build/Release/generators -Dspdlog_DIR=/Users/danielnewman/dev/cpp-sqlite/build/Release/generators -DBoost_DIR=/Users/danielnewman/dev/cpp-sqlite/build/Release/generators -Dfmt_DIR=/Users/danielnewman/dev/cpp-sqlite/build/Release/generators -DCMAKE_POLICY_DEFAULT_CMP0091=NEW -DCMAKE_BUILD_TYPE=Release
+conanfile.py (cpp_sqlite/0.1.0): CMakeToolchain generated: /Users/danielnewman/dev/cpp-sqlite/build/Release/generators/CMakePresets.json
+conanfile.py (cpp_sqlite/0.1.0): CMakeToolchain generated: /Users/danielnewman/dev/cpp-sqlite/CMakeUserPresets.json
+conanfile.py (cpp_sqlite/0.1.0): Generating aggregated env files
+conanfile.py (cpp_sqlite/0.1.0): Generated aggregated env files: ['conanbuild.sh', 'conanrun.sh']
+
+======== Calling build() ========
+conanfile.py (cpp_sqlite/0.1.0): Calling build()
+conanfile.py (cpp_sqlite/0.1.0): Running CMake.configure()
+conanfile.py (cpp_sqlite/0.1.0): RUN: cmake -G "Unix Makefiles" -DCMAKE_TOOLCHAIN_FILE="generators/conan_toolchain.cmake" -DCMAKE_INSTALL_PREFIX="/Users/danielnewman/dev/cpp-sqlite" -DCMAKE_CXX_STANDARD="20" -DCMAKE_CXX_STANDARD_REQUIRED="ON" -DCMAKE_CXX_FLAGS="-DFMT_USE_CONSTEVAL=0 -DFMT_CONSTEVAL=" -DCMAKE_PREFIX_PATH="/Users/danielnewman/dev/cpp-sqlite/build/Release/generators" -DSQLite3_DIR="/Users/danielnewman/dev/cpp-sqlite/build/Release/generators" -Dspdlog_DIR="/Users/danielnewman/dev/cpp-sqlite/build/Release/generators" -DBoost_DIR="/Users/danielnewman/dev/cpp-sqlite/build/Release/generators" -Dfmt_DIR="/Users/danielnewman/dev/cpp-sqlite/build/Release/generators" -DCMAKE_POLICY_DEFAULT_CMP0091="NEW" -DCMAKE_BUILD_TYPE="Release" "/Users/danielnewman/dev/cpp-sqlite"
+-- Using Conan toolchain: /Users/danielnewman/dev/cpp-sqlite/build/Release/generators/conan_toolchain.cmake
+-- Conan toolchain: Setting CMAKE_POSITION_INDEPENDENT_CODE=ON (options.fPIC)
+-- Conan toolchain: Defining libcxx as C++ flags: -stdlib=libc++
+-- Conan toolchain: C++ Standard 17 with extensions OFF
+-- Conan toolchain: Setting BUILD_SHARED_LIBS = OFF
+-- Warning: Standard CMAKE_CXX_STANDARD value defined in conan_toolchain.cmake to 17 has been modified to 20 by /Users/danielnewman/dev/cpp-sqlite/CMakeLists.txt
+-- Conan: Target declared 'SQLite3::SQLite3'
+-- Conan: Component target declared 'Boost::diagnostic_definitions'
+-- Conan: Component target declared 'Boost::disable_autolinking'
+-- Conan: Component target declared 'Boost::dynamic_linking'
+-- Conan: Component target declared 'Boost::headers'
+-- Conan: Component target declared 'Boost::boost'
+-- Conan: Component target declared 'boost::_libboost'
+-- Conan: Component target declared 'Boost::charconv'
+-- Conan: Component target declared 'Boost::container'
+-- Conan: Component target declared 'Boost::context'
+-- Conan: Component target declared 'Boost::date_time'
+-- Conan: Component target declared 'Boost::exception'
+-- Conan: Component target declared 'Boost::math'
+-- Conan: Component target declared 'Boost::program_options'
+-- Conan: Component target declared 'Boost::regex'
+-- Conan: Component target declared 'Boost::serialization'
+-- Conan: Component target declared 'Boost::stacktrace'
+-- Conan: Component target declared 'Boost::system'
+-- Conan: Component target declared 'Boost::timer'
+-- Conan: Component target declared 'Boost::json'
+-- Conan: Component target declared 'Boost::math_c99'
+-- Conan: Component target declared 'Boost::math_c99f'
+-- Conan: Component target declared 'Boost::math_c99l'
+-- Conan: Component target declared 'Boost::math_tr1'
+-- Conan: Component target declared 'Boost::math_tr1f'
+-- Conan: Component target declared 'Boost::math_tr1l'
+-- Conan: Component target declared 'Boost::random'
+-- Conan: Component target declared 'Boost::stacktrace_addr2line'
+-- Conan: Component target declared 'Boost::stacktrace_backtrace'
+-- Conan: Component target declared 'Boost::stacktrace_basic'
+-- Conan: Component target declared 'Boost::stacktrace_noop'
+-- Conan: Component target declared 'Boost::url'
+-- Conan: Component target declared 'Boost::wserialization'
+-- Conan: Component target declared 'Boost::graph'
+-- Conan: Component target declared 'Boost::iostreams'
+-- Conan: Target declared 'boost::boost'
+-- Conan: Target declared 'ZLIB::ZLIB'
+-- Conan: Target declared 'BZip2::BZip2'
+-- Conan: Including build module from '/Users/danielnewman/.conan2/p/b/bzip23d19bb71d758c/p/lib/cmake/conan-official-bzip2-variables.cmake'
+-- Conan: Target declared 'libbacktrace::libbacktrace'
+-- Conan: Component target declared 'spdlog::spdlog'
+-- Conan: Component target declared 'fmt::fmt'
+-- Conan: Component target declared 'GTest::gtest'
+-- Conan: Component target declared 'GTest::gtest_main'
+-- Conan: Component target declared 'GTest::gmock'
+-- Conan: Component target declared 'GTest::gmock_main'
+-- Conan: Target declared 'gtest::gtest'
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /Users/danielnewman/dev/cpp-sqlite/build/Release
+
+conanfile.py (cpp_sqlite/0.1.0): Running CMake.build()
+conanfile.py (cpp_sqlite/0.1.0): RUN: cmake --build "/Users/danielnewman/dev/cpp-sqlite/build/Release" -- -j12
+Consolidate compiler generated dependencies of target cpp_sqlite
+[ 71%] Built target cpp_sqlite
+Consolidate compiler generated dependencies of target cpp_sqlite_test
+[100%] Built target cpp_sqlite_test
+

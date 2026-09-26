@@ -27,6 +27,7 @@ from codegraph.codegen.context import (
     SKIP_REASONS,
     base,
     compound,
+    evidence,
     file,
     implementation,
     literal,
@@ -43,7 +44,7 @@ from codegraph.models.tags import CodeGraphNode
 
 BUILDER_MODULES = (
     compound, member, file, namespace, parameter, implementation,
-    literal, test, requirements, project, source_fragment,
+    literal, evidence, test, requirements, project, source_fragment,
 )
 
 

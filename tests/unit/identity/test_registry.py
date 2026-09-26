@@ -4,7 +4,7 @@ resolution, and canonical signatures.
 - the audit passes: every concrete registered type has exactly one
   identity spec, categories are unique, fields are declared, and
   intermediate types are exempt;
-- the v1 identity matrix covers all 36 registered entries;
+- the v1 identity matrix covers all 37 registered entries;
 - keys are deterministic, transparent, versioned, reversible, strictly
   canonical, and collision-safe;
 - canonical callable signatures keep overload sets distinct.
@@ -48,7 +48,7 @@ class TestRegistryAudit:
         problems = audit_registry()
         assert problems == [], "\n".join(problems)
 
-    def test_all_36_registered_entries_covered(self) -> None:
+    def test_all_37_registered_entries_covered(self) -> None:
         from codegraph.models.tags import CodeGraphNode
 
         # Import every model package (the audit does, but be explicit).
@@ -62,7 +62,7 @@ class TestRegistryAudit:
             for name, cls in CodeGraphNode._registry.items()
             if cls.__module__.startswith("codegraph")
         }
-        assert len(registered) == 36, sorted(registered)
+        assert len(registered) == 37, sorted(registered)
 
         specs = _build_specs()
         concrete = set(registered) - set(EXEMPT_ABSTRACT)
@@ -129,6 +129,7 @@ class TestIdentityMatrix:
             "TestFixtureNode": ("repository", ("parent_key", "qualified_name")),
             "TestStepNode": ("repository", ("parent_key", "qualified_name")),
             "AssertionNode": ("repository", ("parent_key", "qualified_name")),
+            "ExecutionEvidenceNode": ("repository", ("qualified_name",)),
             "HLR": ("project", ("qualified_name",)),
             "LLR": ("project", ("parent_hlr_key", "qualified_name")),
             "DecisionNode": ("project", ("qualified_name",)),

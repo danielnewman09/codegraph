@@ -59,6 +59,7 @@ PACK_SKIPPED: frozenset[str] = frozenset({
     "LiteralNode",
     "TestFixtureNode",
     "HLR", "LLR",
+    "ExecutionEvidenceNode",
     "Component", "Dependency", "Language", "ProjectMeta",
     # abstract bases — resolved by concrete subclass directory
     "CompoundNode", "MemberNode",

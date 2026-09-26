@@ -7,10 +7,10 @@ demo implementation wraps any :class:`LayerGraph`
 (``bulk_load_by_tag`` / repository queries) can be added later without
 touching the API layer.
 
-Reuses the exact same test→class matching as the PlantUML and Markdown
-exporters (:mod:`codegraph.export.verification`) and the condition
-renderer (:mod:`codegraph.export.coverage`) — the tree badges, the
-scoped SVG, and the coverage narration can never disagree.
+Reuses the exact same test→class matching as the PlantUML scoped view
+plus the shared condition renderer (:mod:`codegraph.export.verification`)
+— the tree badges, the scoped SVG, and the requirements/tests narration
+can never disagree.
 """
 
 from __future__ import annotations
@@ -19,8 +19,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
 
-from codegraph.export.coverage import _render_condition, _truncate
-from codegraph.export.verification import compute_verification_scope
+from codegraph.export.verification import (
+    compute_verification_scope,
+    render_condition,
+    truncate,
+)
 from codegraph.graph import LayerGraph
 
 # Node kinds surfaced in the tree (strictly: namespaces, classes,
@@ -172,7 +175,7 @@ class LayerGraphSource:
                     "qname": req_qname,
                     "name": getattr(node, "name", "") or req_qname,
                     "kind": type(node).__name__,
-                    "description": _truncate(
+                    "description": truncate(
                         getattr(node, "description", "") or "", 160
                     ),
                     "test_count": sum(
@@ -376,7 +379,7 @@ class LayerGraphSource:
         ):
             assertions.append({
                 "name": a.node.name,
-                "condition": _render_condition(self.graph, a),
+                "condition": render_condition(self.graph, a),
             })
         return {
             "qname": getattr(node, "qualified_name", None) or node.name,

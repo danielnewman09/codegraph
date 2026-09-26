@@ -14,6 +14,7 @@ from codegraph.models.file import FileNode
 from codegraph.models.parameter import ParameterNode
 from codegraph.models.literal import LiteralNode
 from codegraph.models.test import TestNode, AssertionNode, TestStepNode, TestFixtureNode
+from codegraph.models.evidence import ExecutionEvidenceNode
 
 __all__ = [
     # Base
@@ -39,6 +40,8 @@ __all__ = [
     "AssertionNode",
     "TestStepNode",
     "TestFixtureNode",
+    # Evidence
+    "ExecutionEvidenceNode",
     # Other
     "NamespaceNode",
     "FileNode",

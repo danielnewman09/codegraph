@@ -28,5 +28,15 @@ frozen members.  Every construct a memory quotes is asserted to exist in
 the sources it describes.  Re-syncing the lifted `cpp_sqlite/` sources must
 not overwrite this tree either.
 
+It also holds the reviewed execution evidence (WP5.4): `evidence.toml` and
+the retained `logs/` of the successful Release build and the filtered
+GoogleTest run over the five slice tests.  The only supported author is
+`scripts/capture_transaction_slice_evidence.py` at the repository root; it
+refuses to capture unless the worktree's `cpp_sqlite/` tree is digest-
+identical to this fixture's copy, and each record's `revision` carries the
+worktree git revision, that tree digest, and the golden gitlink above.
+Ordinary test runs validate `evidence.toml` against the retained log bytes
+and never rebuild or rewrite it.
+
 Generated `unit_test_data` and `codegraph_output` files are not inputs to
 this fixture and are intentionally excluded from version control.
