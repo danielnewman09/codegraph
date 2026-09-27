@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import sqlalchemy as sa
@@ -109,7 +109,12 @@ def _inflate_props(node_type: type, raw_props: dict[str, Any]) -> dict[str, Any]
     """Convert raw JSON property values to Python values.
 
     Unix timestamps stored by ``_deflate_value`` come back as
-    ``datetime`` for ``DateTimeProperty`` fields.
+    ``datetime`` for ``DateTimeProperty`` fields.  A Unix timestamp is an
+    instant, so it inflates as a timezone-aware UTC ``datetime``: the
+    naive form (``fromtimestamp(val)``) rendered the same instant as
+    local wall-clock time, so a stored ``22:24:34+00:00`` read back as
+    ``17:24:34`` west of UTC and compared unequal to the value that was
+    written.
     """
     if not raw_props:
         return {}
@@ -120,7 +125,7 @@ def _inflate_props(node_type: type, raw_props: dict[str, Any]) -> dict[str, Any]
             val = props[name]
             if isinstance(val, (int, float)) and not isinstance(val, bool):
                 try:
-                    props[name] = datetime.fromtimestamp(val)
+                    props[name] = datetime.fromtimestamp(val, tz=timezone.utc)
                 except (OverflowError, OSError, ValueError):
                     pass
     return props

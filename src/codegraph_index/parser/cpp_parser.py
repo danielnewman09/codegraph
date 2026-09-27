@@ -2368,7 +2368,14 @@ class CppParser(LanguageParser):
             result.enum_values.append(EnumValueNode(
                 refid=value_fields["refid"],
                 compound_refid=refid,
-                kind=value_fields["kind"],
+                # Doxygen's ``<enumvalue>`` element carries only ``id`` and
+                # ``prot`` — unlike ``<memberdef>`` it has no ``kind``
+                # attribute — so ``value_fields["kind"]`` is always empty
+                # here.  An empty string is indistinguishable from "unset"
+                # in stored properties (backends skip empty values), so the
+                # enumerator's kind has to be stated by the parser that knows
+                # it: this node class is an enum value.
+                kind=value_fields["kind"] or "enumvalue",
                 name=value_name,
                 qualified_name=f"{qname}::{value_name}",
                 file_path=value_fields["file_path"] or "",

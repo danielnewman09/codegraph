@@ -7,7 +7,7 @@ supporting both neomodel and the new ``Property``/``Relationship`` descriptors.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from neomodel import db
@@ -91,8 +91,11 @@ def _inflate_props(node_type: type, raw_props: dict[str, Any]) -> dict[str, Any]
     """Convert raw Neo4j property values to Python values for a node type.
 
     Handles our ``DateTimeProperty`` (timestamps stored by
-    ``_deflate_value`` must come back as ``datetime``).  Neomodel
-    properties are handled by neomodel's own inflate path.
+    ``_deflate_value`` must come back as ``datetime``) as a timezone-aware
+    UTC datetime, matching the instant the timestamp names — the naive
+    form rendered it as local wall-clock time and compared unequal to the
+    written value.  Neomodel properties are handled by neomodel's own
+    inflate path.
     """
     if not raw_props:
         return {}
@@ -103,7 +106,7 @@ def _inflate_props(node_type: type, raw_props: dict[str, Any]) -> dict[str, Any]
             val = props[name]
             if isinstance(val, (int, float)) and not isinstance(val, bool):
                 try:
-                    props[name] = datetime.fromtimestamp(val)
+                    props[name] = datetime.fromtimestamp(val, tz=timezone.utc)
                 except (OverflowError, OSError, ValueError):
                     pass
     return props

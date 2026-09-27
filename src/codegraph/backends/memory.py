@@ -87,8 +87,20 @@ class InMemoryBackend(Backend):
 
     # ── Node CRUD ────────────────────────────────────────────────────
 
-    def save(self, node: "CodeGraphNode") -> "CodeGraphNode":
+    def save(
+        self, node: "CodeGraphNode", *, derive_qualified_name: bool = True
+    ) -> "CodeGraphNode":
         """Store the node in memory, computing uid if needed.
+
+        ``derive_qualified_name`` separates the interactive write path from the
+        bulk transport path.  ``qualified_name`` is a declared property that some
+        node classes compute from their own fields (a ``FileNode`` uses its
+        ``path``); ``save()`` fills it in for a node being written by hand, while
+        ``bulk_save()`` writes a serialized document *verbatim* — a document that
+        states an empty ``qualified_name`` must be stored with an empty
+        ``qualified_name``, because unlike the SQL backends this backend keeps the
+        live object, so a value derived here would become the stored value and the
+        store would hold a property the document never carried.
 
         Raises ValueError if source or identity fields are empty.
         """
@@ -96,7 +108,8 @@ class InMemoryBackend(Backend):
 
         # Ensure qualified_name is set before keying.
         if (
-            PropertyRegistry.has_property(type(node), "qualified_name")
+            derive_qualified_name
+            and PropertyRegistry.has_property(type(node), "qualified_name")
             and not getattr(node, "qualified_name", "")
         ):
             node.qualified_name = node._compute_qualified_name()
@@ -242,6 +255,10 @@ class InMemoryBackend(Backend):
         the in-memory adjacency lists.  *attributes* is optional
         relationship-level metadata (e.g. the include spelling on
         INCLUDES edges).
+
+        The declaration check is this method's contract; the bulk path
+        (:meth:`bulk_save`) is transport and does not re-check it — see
+        :meth:`bulk_save`.
         """
         from codegraph.models.descriptors import find_relationship_descriptor
 
@@ -253,27 +270,47 @@ class InMemoryBackend(Backend):
                 f"No '{rel_type}' relationship from "
                 f"{type(source).__name__} to {type(target).__name__}"
             )
+        self._record_edge(source, rel_type, target, attributes)
 
-        # Track in our in-memory adjacency list (keyed by canonical key)
+    def _record_edge(
+        self,
+        source: "CodeGraphNode",
+        rel_type: str,
+        target: "CodeGraphNode",
+        attributes: dict | None = None,
+    ) -> None:
+        """Adjacency bookkeeping shared by :meth:`connect` and :meth:`bulk_save`.
+
+        MERGE semantics, like every other backend: the relationship
+        ``(source, rel_type, target)`` exists at most once, so saving the same
+        graph twice cannot grow the edge set.  An identical re-record is a
+        no-op; the first recorded attribute map wins, matching the SQLite bulk
+        save's first-observation rule.
+        """
         src_key = getattr(source, "canonical_key", "") or ""
         tgt_key = getattr(target, "canonical_key", "") or ""
-        if src_key and tgt_key:
-            edge = EdgeDescriptor(
-                relation_type=rel_type,
-                target_key=tgt_key,
-                target_type=type(target).__name__,
-                is_outgoing=True,
-                attributes=dict(attributes or {}),
-            )
-            self._edges_out.setdefault(src_key, []).append(edge)
-            in_edge = EdgeDescriptor(
-                relation_type=rel_type,
-                target_key=src_key,
-                target_type=type(source).__name__,
-                is_outgoing=False,
-                attributes=dict(attributes or {}),
-            )
-            self._edges_in.setdefault(tgt_key, []).append(in_edge)
+        if not (src_key and tgt_key):
+            return
+        existing = self._edges_out.get(src_key, [])
+        if any(
+            edge.relation_type == rel_type and edge.target_key == tgt_key
+            for edge in existing
+        ):
+            return
+        self._edges_out.setdefault(src_key, []).append(EdgeDescriptor(
+            relation_type=rel_type,
+            target_key=tgt_key,
+            target_type=type(target).__name__,
+            is_outgoing=True,
+            attributes=dict(attributes or {}),
+        ))
+        self._edges_in.setdefault(tgt_key, []).append(EdgeDescriptor(
+            relation_type=rel_type,
+            target_key=src_key,
+            target_type=type(source).__name__,
+            is_outgoing=False,
+            attributes=dict(attributes or {}),
+        ))
 
     def disconnect(
         self,
@@ -332,34 +369,60 @@ class InMemoryBackend(Backend):
     # ── Bulk operations ──────────────────────────────────────────────
 
     def bulk_save(self, layer_graph: "LayerGraph") -> None:
-        """Save all nodes and relationships from a LayerGraph."""
-        from codegraph.graph import CompositeEntry
+        """Persist every node and relationship the LayerGraph carries.
 
-        def _connect_refs(entry: CompositeEntry, graph) -> None:
+        This is the bulk transport path and mirrors the SQLite/Neo4j bulk
+        saves: it stores the graph as its producer assembled it, without the
+        per-edge declaration check :meth:`connect` performs.  The pure-Python
+        model treats ``Relationship`` descriptors as advisory metadata (see
+        ``Neo4jRelOps.connect``), and an indexed graph legitimately carries
+        compositions the descriptor table has not caught up with — a class
+        nesting an ``enum`` is the everyday case.  Refusing them here would
+        make this the only backend that cannot hold an indexed graph, which is
+        a harness limitation rather than a model guarantee.
+
+        Reference targets resolve through the *flat* index, not the root-entry
+        map: an edge to a composed node (a test step calling a method nested
+        under its class) is not a root, and looking it up in
+        ``layer_graph.entries`` alone dropped the edge silently.
+        """
+        from codegraph.graph import CompositeEntry, LayerGraph
+
+        flat = layer_graph._flat_index()
+
+        def _connect_refs(entry: CompositeEntry) -> None:
             for rel_type, target_key, _target_type in entry.references:
-                target_entry = graph.entries.get(target_key)
+                target_entry = flat.get(target_key)
                 if target_entry is not None:
-                    self.connect(
+                    self._record_edge(
                         entry.node, rel_type, target_entry.node,
                         attributes=entry.edge_attrs.get((rel_type, target_key)),
                     )
             for children in entry.children.values():
                 for child_entry in children.values():
-                    _connect_refs(child_entry, graph)
+                    _connect_refs(child_entry)
 
         def _save_entry(entry: CompositeEntry) -> None:
-            self.save(entry.node)
+            # Transport, not interactive authoring: the document's property
+            # values are stored as written (see ``save`` for why).
+            self.save(entry.node, derive_qualified_name=False)
             for children in entry.children.values():
                 for child_entry in children.values():
                     _save_entry(child_entry)
-                    self.connect(entry.node, "COMPOSES", child_entry.node)
+                    self._record_edge(
+                        entry.node, "COMPOSES", child_entry.node,
+                        attributes=entry.edge_attrs.get(
+                            ("COMPOSES",
+                             LayerGraph._node_key(child_entry.node)),
+                        ),
+                    )
 
         for entry in layer_graph.entries.values():
             _save_entry(entry)
 
         # Connect reference edges
         for entry in layer_graph.entries.values():
-            _connect_refs(entry, layer_graph)
+            _connect_refs(entry)
 
     def bulk_load_by_tag(self, tag: str) -> list["CodeGraphNode"]:
         """Load all nodes with *tag* plus 1-hop neighbors."""
@@ -843,12 +906,53 @@ class InMemoryGraphRepository:
     def save_layer_graph(self, graph: "LayerGraph") -> None:
         self._backend.bulk_save(graph)
 
-    def count_relationships(self, rel_type: str | None = None) -> int:
+    def count_relationships(
+        self,
+        rel_types: list[str],
+        *,
+        source_labels: list[str] | None = None,
+        target_labels: list[str] | None = None,
+        target_tag: str | None = None,
+    ) -> int:
+        """Count stored relationships whose type is in *rel_types*.
+
+        Signature parity with the abstract ``GraphRepository`` contract: the
+        SQLite and Neo4j implementations take a *list* of relationship types
+        plus optional source-label / target-label / target-tag filters, and a
+        backend-neutral caller has to be able to ask that one question of
+        every backend.  A node's labels are its inherited label chain, its tag
+        set the ``tags`` property; a filter matches when any listed label/tag
+        is present, as the SQL ``IN`` filters do.
+        """
+        if not rel_types:
+            return 0
+        wanted = set(rel_types)
+        nodes = self._backend._nodes
+
+        def _labels(key: str) -> set[str]:
+            node = nodes.get(key)
+            if node is None:
+                return set()
+            return set(node.inherited_labels())
+
+        def _tags(key: str) -> list:
+            node = nodes.get(key)
+            return list(getattr(node, "tags", None) or []) if node else []
+
         total = 0
-        for edges in self._backend._edges_out.values():
-            for e in edges:
-                if rel_type is None or e.relation_type == rel_type:
-                    total += 1
+        for src_key, edges in self._backend._edges_out.items():
+            for edge in edges:
+                if edge.relation_type not in wanted:
+                    continue
+                if source_labels and not set(source_labels) & _labels(src_key):
+                    continue
+                if target_labels and not set(target_labels) & _labels(
+                    edge.target_key
+                ):
+                    continue
+                if target_tag and target_tag not in _tags(edge.target_key):
+                    continue
+                total += 1
         return total
 
     def find_nodes_with_labels_and_count(

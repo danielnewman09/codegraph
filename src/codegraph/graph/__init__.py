@@ -1068,9 +1068,22 @@ class LayerGraph:
                         "flat deserialize: an in-document target cannot also be external"
                     )
 
+                # The declared target type is kept exactly as written.  Replacing
+                # it with the class of the entry this document happens to carry
+                # would reconcile a document that contradicts itself about one
+                # endpoint — two target types for the same
+                # ``(relation, target)`` pair — and that contradiction has to stay
+                # visible until it is reconciled on purpose: see
+                # ``tests/unit/test_portable_contract.py
+                # ::TestFlatLayoutOption::test_conflicting_duplicate_endpoint_triples_are_rejected``.
+                # A consumer that needs the class the document actually carries
+                # derives it from the entry itself: that is what
+                # :meth:`_serialize_flat` does when it emits the edge, and what
+                # the WP5.5 model comparison does when it reads a backend back.
+                target_entry = key_to_entry.get(target_key)
+
                 if relation_type == "COMPOSES":
                     # Nest target as a child under the source entry
-                    target_entry = key_to_entry.get(target_key)
                     if target_entry is not None:
                         if target_type not in source_entry.children:
                             source_entry.children[target_type] = {}
@@ -1407,8 +1420,6 @@ class LayerGraph:
         (COMPOSES nesting, duplicate merging, namespace pruning) is
         pure Python in this method.
         """
-        matched_nodes = backend.bulk_load_by_tag(tag)
-
         nodes: dict[str, CodeGraphNode] = {}
         key_to_key: dict[str, str] = {}
         known_keys: set[str] = set()
@@ -1718,6 +1729,7 @@ class LayerGraph:
                     serialized.pop("body", None)
 
             observations: dict[tuple[str, str], tuple[str, dict]] = {}
+            claims: dict[tuple[str, str], tuple[str, dict]] = {}
             unresolved_edges: list[dict] = []
 
             def add_edge(
@@ -1728,14 +1740,30 @@ class LayerGraph:
             ) -> None:
                 attrs = dict(attrs or {})
                 identity = (relation_type, target_key)
-                value = (target_type, attrs)
-                existing = observations.get(identity)
-                if existing is not None and existing != value:
+                # What the model asserts is checked *before* anything is
+                # derived.  Two copies of one endpoint that disagree about the
+                # target type contradict each other, and deriving the type from
+                # the document (below) would reconcile the contradiction and
+                # serialize a self-conflicting document as if it were clean.
+                claim = (target_type, attrs)
+                seen = claims.get(identity)
+                if seen is not None and seen != claim:
                     raise GraphDocumentError(
                         "conflicting duplicate endpoint triple during flat "
                         f"serialization: {key!r}, {identity!r}"
                     )
-                observations[identity] = value
+                claims[identity] = claim
+                # For a target the document carries, its emitted type is a fact
+                # about the document rather than a caller claim: the parser
+                # records generic labels (``"compound"``, ``"member"``,
+                # ``"CompoundNode"``) while every backend reports the concrete
+                # class it stored for that key.  Deriving the type here keeps
+                # the document, the in-memory model and a backend read in exact
+                # agreement instead of letting a stale label decide.
+                target_entry = flat.get(target_key)
+                if target_entry is not None:
+                    target_type = type(target_entry.node).__name__
+                observations[identity] = (target_type, attrs)
 
             for relation_type, target_key, target_type in entry.references:
                 if relation_type == "TEMPLATE_PARAM":

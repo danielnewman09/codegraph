@@ -20,6 +20,16 @@ This module proves the slice can be exported without a backend:
 5. a changed property, a removed edge and a missing node are each reported
    precisely.
 
+and, under WP5.5, that the same document survives an empty backend:
+
+6. persisted into a brand-new backend and read back through backend-neutral
+   repository APIs, the slice is an exact normalized bijection with the source
+   graph and with the deserialized graph;
+7. a second load is a no-op — no duplicate node, no duplicate relationship, no
+   changed property;
+8. a reversed edge and an unexpected extra edge are each reported precisely,
+   at the document boundary and at the backend boundary.
+
 The flat document carries the canonical ``cg:v1:`` key of every target.  That
 includes the composing parents of a shared child and the ``COMPOSES`` children
 of the HLR, whose in-memory bucket keys are the importer's local qualified
@@ -40,9 +50,24 @@ import pytest
 from codegraph.graph import LayerGraph
 
 from .test_transaction_requirements import SCOPE_PREFIX
+from .transaction_backend_roundtrip import (
+    BACKEND_KINDS,
+    NEO4J_KIND,
+    SLICE_TAGS,
+    create_backend,
+    edge_report,
+    graph_from_backend,
+    relationship_counts,
+    require_contract,
+    stored_keys,
+)
 from .transaction_evidence import (
     load_evidence_definitions,
     slice_graph_with_evidence,
+)
+from .transaction_memories import (
+    load_memory_definitions,
+    slice_graph_with_memories,
 )
 from .transaction_slice import build_transaction_slice
 
@@ -66,11 +91,14 @@ EXCLUDED_RELATIONS: Mapping[str, str] = {
 
 #: Relation types observed on the indexed slice.  Frozen so that a *new*
 #: relation type — which the comparison below would otherwise have to guess
-#: about — fails this module instead of being ignored.
+#: about — fails this module instead of being ignored.  ``SUPERSEDES`` is
+#: deliberately absent: the reviewed memories carry a ``refines`` link and no
+#: supersession, so a superseding memory has to be classified here first.
 PORTABLE_RELATIONS = frozenset({
     "CALLEE", "CONSTRAINS", "DEFINED_IN", "DEPENDS_ON", "ENFORCES_CONCEPT",
-    "EVIDENCES", "HAS_PARAMETER", "INCLUDES", "INHERITS_FROM", "INVOKES",
-    "REALIZED_BY", "SPECIALIZES", "VERIFIED_BY", "VERIFIES",
+    "EVIDENCES", "EXPLAINS", "HAS_PARAMETER", "INCLUDES", "INHERITS_FROM",
+    "INVOKES", "MOTIVATES", "REALIZED_BY", "REFINES", "SPECIALIZES",
+    "VERIFIED_BY", "VERIFIES",
 })
 
 #: Node type whose leaves are inlined on the owning node.
@@ -129,6 +157,32 @@ def inlined_implementation_keys(graph: LayerGraph) -> set[str]:
     return inlined
 
 
+def durable_properties(node) -> dict:
+    """Every declared property of *node*, without asking a backend for edges.
+
+    ``CodeGraphNode.serialize(fields="all")`` is the document's property form,
+    but it also walks the *globally registered* backend for outgoing edges —
+    which a persistence test has to discard, and which would otherwise make the
+    comparison depend on whichever backend happens to be registered rather than
+    on the node itself.  This is the same property set minus ``edges``:
+    ``TestNormalizationCoverage.test_durable_properties_matches_serialize_for_every_node``
+    pins that equality for every node of the slice, so the shortcut cannot hide
+    a property.
+    """
+    from codegraph.models.descriptors import PropertyRegistry
+
+    declared = PropertyRegistry.properties_of(type(node))
+    values = dict(sorted(PropertyRegistry.values_of(node).items()))
+    values.pop("edges", None)
+    # The node-kind discriminator lives under ``node_type`` when the class
+    # declares its own ``type`` property (ParameterNode), as serialize() does.
+    discriminator = "node_type" if "type" in declared else "type"
+    values[discriminator] = type(node).__name__
+    if "canonical_key" in declared and getattr(node, "canonical_key", ""):
+        values["canonical_key"] = node.canonical_key
+    return values
+
+
 def normalized_model(graph: LayerGraph) -> dict[str, dict]:
     """The durable, layout-independent model of *graph*.
 
@@ -139,6 +193,7 @@ def normalized_model(graph: LayerGraph) -> dict[str, dict]:
     filtered — every remaining property of every remaining node participates.
     """
     inlined = inlined_implementation_keys(graph)
+    flat = graph._flat_index()
 
     composed_by: dict[str, list[str]] = {}
     for entry in graph._all_entries():
@@ -154,8 +209,7 @@ def normalized_model(graph: LayerGraph) -> dict[str, dict]:
         key = LayerGraph._node_key(entry.node)
         if key in inlined:
             continue
-        properties = entry.node.serialize(fields="all")
-        properties.pop("edges", None)
+        properties = durable_properties(entry.node)
         edges: dict[tuple[str, str, str], dict] = {}
         for relation_type, target_key, target_type in entry.references:
             if relation_type in EXCLUDED_RELATIONS:
@@ -164,7 +218,17 @@ def normalized_model(graph: LayerGraph) -> dict[str, dict]:
                 f"{key} has unclassified relation {relation_type!r}: classify "
                 "it as portable, or record why the flat layout drops it"
             )
-            edges[(relation_type, target_key, target_type)] = dict(
+            # A reference names its far end by canonical key; the target's class
+            # is a fact about the graph rather than about whoever wrote the edge.
+            # The indexing path records the label the parser declared
+            # (``"member"``, ``"CompoundNode"``) where a backend reports the
+            # class it stored under that key, so both sides of every comparison
+            # read the class off the graph they are already looking at.
+            target = flat.get(target_key)
+            stored_type = (
+                type(target.node).__name__ if target is not None else target_type
+            )
+            edges[(relation_type, target_key, stored_type)] = dict(
                 entry.edge_attrs.get((relation_type, target_key)) or {}
             )
         model[key] = {
@@ -233,6 +297,51 @@ def _document_bytes(document: Mapping) -> str:
     return json.dumps(document, indent=2, sort_keys=True, default=str)
 
 
+def document_entry_type(entry: Mapping) -> str:
+    """The node-kind discriminator of a serialized entry.
+
+    ``serialize()`` writes it under ``node_type`` when the class declares a
+    real ``type`` property — ``ParameterNode`` does, holding the C++ type string
+    — so reading ``type`` blindly would compare a C++ type against a class name.
+    """
+    return entry["node_type"] if "node_type" in entry else entry["type"]
+
+
+def _edge_attributes(edge: Mapping) -> dict:
+    """Everything on a wire edge that is not part of its identity."""
+    return {
+        key: value for key, value in edge.items()
+        if key not in ("relation_type", "target_key", "target_type",
+                       "target_local_id")
+    }
+
+
+def document_edges(document: Mapping) -> dict[str, dict[tuple, dict]]:
+    """``{source_key: {(relation, endpoint, target_type, field): attributes}}``.
+
+    Every edge the document states, including ``COMPOSES`` and
+    ``HAS_IMPLEMENTATION`` — the two relations the normalized model treats as
+    transport.  ``field`` records *how* the document names the far end:
+    ``target_key`` for a node the document itself holds, ``target_ref`` for an
+    endpoint outside the graph (an ``#include`` path with ``local: false``).
+    A backend holds relationships between nodes it stores, so the two kinds are
+    kept apart instead of being quietly equated — see
+    ``test_the_backend_reports_every_document_edge_verbatim``.
+    """
+    return {
+        entry["canonical_key"]: {
+            (
+                edge["relation_type"],
+                edge.get("target_key") or edge.get("target_ref") or "",
+                edge.get("target_type") or "",
+                "target_key" if edge.get("target_key") else "target_ref",
+            ): _edge_attributes(edge)
+            for edge in entry["edges"]
+        }
+        for entry in document["entries"]
+    }
+
+
 def _flat_document(graph: LayerGraph, *, implementation: bool = True) -> dict:
     """The versioned flat document for *graph*."""
     return graph.serialize(
@@ -254,16 +363,22 @@ def _walk(entries):
 
 @pytest.fixture(scope="module")
 def indexed(transaction_slice_index):
-    """The slice graph plus the WP5.4 execution evidence (WP5.4 step 8).
+    """The slice graph plus the WP5.3 memories and the WP5.4 execution evidence.
 
-    ``slice_graph_with_evidence`` merges non-mutatingly: the session index
-    result stays exactly as indexed, and the evidence becomes an ordinary
-    entry of the graph — so every snapshot guarantee below (fixpoint, exact
-    model comparison, edge classification) applies to the evidence nodes and
-    their ``EVIDENCES``/``DEPENDS_ON`` edges too.
+    WP5.5 step 1 names the bounded slice: requirements, memories, code, method
+    bodies, the five real tests with all their children, and two evidence
+    records.  Both overlays merge non-mutatingly, so the session index result
+    stays exactly as indexed and the memories and evidence become ordinary
+    entries of the graph — which means every guarantee below (fixpoint, exact
+    model comparison, edge classification, empty-backend bijection) applies to
+    ``MOTIVATES``/``CONSTRAINS``/``EXPLAINS``/``REFINES``/``SUPERSEDES`` and
+    ``EVIDENCES``/``DEPENDS_ON`` edges too.
     """
+    with_memories = slice_graph_with_memories(
+        transaction_slice_index.graph, load_memory_definitions()
+    )
     graph, _edges = slice_graph_with_evidence(
-        transaction_slice_index.graph, load_evidence_definitions()
+        with_memories, load_evidence_definitions()
     )
     return _ConnectedIndex(transaction_slice_index, graph)
 
@@ -761,3 +876,684 @@ class TestNegativeMutations:
             (drift.kind, drift.location, drift.expected, drift.actual)
             for drift in drifts
         ], [drift.describe() for drift in drifts]
+
+    def test_reversed_edge_is_reported_precisely(self, snapshot, indexed, slice_):
+        """Flipping one edge's direction is two precise reports, not a wash.
+
+        Same pair of nodes, same attributes, only the direction differs: a
+        comparison that treated a relationship as an unordered pair of keys — or
+        counted edges per pair — would call this unchanged.
+        """
+        test_key = slice_.test_key("TransactionCommit")
+        method_key = next(
+            key
+            for key in sorted(slice_.verifies_targets["TransactionCommit"])
+            if key in set(slice_.method_keys.values())
+        )
+        assert not any(
+            edge["relation_type"] == "VERIFIES"
+            and edge.get("target_key") == test_key
+            for entry in snapshot["document"]["entries"]
+            if entry["canonical_key"] == method_key
+            for edge in entry["edges"]
+        ), "the reversed edge already exists, so the mutation proves nothing"
+
+        def mutate(document: dict) -> None:
+            for entry in document["entries"]:
+                if entry["canonical_key"] == test_key:
+                    entry["edges"] = [
+                        edge for edge in entry["edges"]
+                        if not (edge["relation_type"] == "VERIFIES"
+                                and edge.get("target_key") == method_key)
+                    ]
+                elif entry["canonical_key"] == method_key:
+                    entry["edges"] = list(entry["edges"]) + [{
+                        "relation_type": "VERIFIES",
+                        "target_key": test_key,
+                        "target_type": "TestNode",
+                    }]
+
+        drifts = self._drifts(snapshot, mutate)
+
+        assert {drift.kind for drift in drifts} == {"missing_edge", "extra_edge"}, [
+            drift.describe() for drift in drifts
+        ]
+        assert {drift.location for drift in drifts} == {test_key, method_key}
+        lost = [d for d in drifts if d.kind == "missing_edge"]
+        gained = [d for d in drifts if d.kind == "extra_edge"]
+        assert len(lost) == len(gained) == 1
+        assert lost[0].expected[:2] == ("VERIFIES", method_key)
+        assert gained[0].actual[:2] == ("VERIFIES", test_key)
+
+    def test_unexpected_extra_edge_is_reported_precisely(self, snapshot, indexed, slice_):
+        """An edge nobody asked for shows up at its own source, once."""
+        test_key = slice_.test_key("TransactionRollback")
+        method_key = next(
+            key
+            for key in sorted(slice_.method_keys.values())
+            if key not in slice_.verifies_targets["TransactionRollback"]
+        )
+
+        def mutate(document: dict) -> None:
+            for entry in document["entries"]:
+                if entry["canonical_key"] == test_key:
+                    entry["edges"] = list(entry["edges"]) + [{
+                        "relation_type": "VERIFIES",
+                        "target_key": method_key,
+                        "target_type": "MethodNode",
+                    }]
+
+        drifts = self._drifts(snapshot, mutate)
+
+        assert [drift.kind for drift in drifts] == ["extra_edge"], [
+            drift.describe() for drift in drifts
+        ]
+        assert drifts[0].location == test_key
+        assert drifts[0].actual == ("VERIFIES", method_key, "MethodNode")
+        assert drifts[0].expected is None
+
+
+# ---------------------------------------------------------------------------
+# 6. Empty-backend persistence — WP5.5 steps 5-7
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module", params=BACKEND_KINDS)
+def persisted(request, tmp_path_factory, snapshot):
+    """A brand-new backend of each kind, holding exactly the slice document.
+
+    The database is created here and written once, so every assertion below is
+    about a backend that was empty until the flat document was loaded into it,
+    and is afterwards reached only through repository APIs.
+    """
+    kind = request.param
+    backend = create_backend(
+        kind, tmp_path=tmp_path_factory.mktemp(f"wp55-{kind}")
+    )
+    require_contract(backend)
+    request.addfinalizer(backend.close)
+    empty_before = backend.graph.count_all_nodes()
+
+    backend.bulk_save(snapshot["restored"])
+
+    keys = [entry["canonical_key"] for entry in snapshot["document"]["entries"]]
+    loaded = graph_from_backend(backend, keys)
+    return {
+        "kind": kind,
+        "backend": backend,
+        "keys": keys,
+        "empty_before": empty_before,
+        "loaded": loaded,
+        "model": normalized_model(loaded),
+        "edges": edge_report(backend, keys),
+    }
+
+
+def carried_edges(document: Mapping) -> dict[str, dict[tuple, dict]]:
+    """The subset of :func:`document_edges` a backend is able to hold.
+
+    A relationship needs two stored endpoints, so an edge whose far end is named
+    by a bare ``target_ref`` — an ``#include`` path outside this graph, marked
+    ``local: false`` — has no edge in any backend.  Callers compare against this
+    map and then account for what it excludes, instead of letting "no such edge"
+    pass for a relationship that really was dropped.
+    """
+    return {
+        key: {
+            edge: attrs for edge, attrs in edges.items() if edge[3] == "target_key"
+        }
+        for key, edges in document_edges(document).items()
+    }
+
+
+def outside_endpoints(document: Mapping) -> dict[str, list[str]]:
+    """``{source_key: [drift line, ...]}`` for edges with a ``target_ref`` only.
+
+    The lines are formatted exactly as :func:`_edge_drifts` formats a
+    ``missing_edge``, so a test can assert that the endpoints outside the graph
+    are *precisely* the ones a backend does not report.
+    """
+    stated = document_edges(document)
+    return {
+        key: sorted(f"missing_edge: {key} {edge}" for edge in edges)
+        for key, edges in (
+            (k, {e for e, _attrs in v.items() if e[3] == "target_ref"})
+            for k, v in stated.items()
+        )
+        if edges
+    }
+
+
+def _edge_drifts(expected, actual) -> list[str]:
+    """Precise edge-set differences between two ``edge_report``-shaped maps."""
+    drifts: list[str] = []
+    for key in sorted(set(expected) | set(actual)):
+        want = expected.get(key, {})
+        got = actual.get(key, {})
+        for edge in sorted(set(want) - set(got)):
+            drifts.append(f"missing_edge: {key} {edge}")
+        for edge in sorted(set(got) - set(want)):
+            drifts.append(f"extra_edge: {key} {edge}")
+        for edge in sorted(set(want) & set(got)):
+            if want[edge] != got[edge]:
+                drifts.append(
+                    f"changed_edge_attributes: {key} {edge}: "
+                    f"{want[edge]!r} -> {got[edge]!r}"
+                )
+    return drifts
+
+
+class TestEmptyBackendPersistence:
+    """The document persisted into an empty backend reads back identical."""
+
+    def test_the_persistence_target_started_empty(self, persisted):
+        assert persisted["empty_before"] == 0, (
+            "the WP5.5 gate has to write into a backend that was empty first"
+        )
+
+    def test_every_document_node_is_fetched_by_canonical_key(self, persisted):
+        backend = persisted["backend"]
+        missing = [
+            key for key in persisted["keys"]
+            if backend.graph.find_by_key(key) is None
+        ]
+        assert missing == []
+
+    def test_the_backend_holds_exactly_the_document_nodes(self, persisted):
+        document = set(persisted["keys"])
+        stored = stored_keys(persisted["backend"])
+
+        assert sorted(document - stored) == []
+        assert sorted(stored - document) == []
+        # Nothing hides outside the tags the slice is spread over.
+        assert persisted["backend"].graph.count_all_nodes() == len(stored)
+
+    def test_every_node_keeps_its_canonical_key_and_class(self, persisted, snapshot):
+        backend = persisted["backend"]
+        drifts = []
+        for entry in snapshot["document"]["entries"]:
+            key = entry["canonical_key"]
+            node = backend.graph.find_by_key(key)
+            if node is None:  # pragma: no cover - covered by the test above
+                drifts.append(f"missing_node: {key}")
+                continue
+            if node.canonical_key != key:
+                drifts.append(f"changed_canonical_key: {key} -> {node.canonical_key}")
+            if type(node).__name__ != document_entry_type(entry):
+                drifts.append(
+                    f"changed_node_type: {key}: "
+                    f"{document_entry_type(entry)} -> {type(node).__name__}"
+                )
+        assert drifts == []
+
+    def test_the_backend_reports_every_document_edge_verbatim(
+        self, persisted, snapshot
+    ):
+        """Every relationship, with its attributes, including the transport ones.
+
+        The normalized model deliberately reads ``COMPOSES`` as nesting and
+        ``HAS_IMPLEMENTATION`` as inlining; this comparison asks the backend for
+        its outgoing edges exactly as it stored them, so a relationship cannot
+        survive normalization and still be missing from the database.
+        """
+        stated = document_edges(snapshot["document"])
+        # Two endpoint kinds, classified from the document rather than guessed
+        # from what the backend happens to return: see ``carried_edges``.  A
+        # ``target_key`` names a node the document holds; a bare ``target_ref``
+        # names something outside it that no node of this graph denotes.
+        drifts = _edge_drifts(
+            carried_edges(snapshot["document"]), persisted["edges"]
+        )
+        assert drifts == [], "\n".join(drifts[:40])
+
+        # Read against the *whole* document, the only differences left are the
+        # outside endpoints — the backend lacks exactly those and nothing else.
+        outside = outside_endpoints(snapshot["document"])
+        whole = _edge_drifts(stated, persisted["edges"])
+        assert sorted(whole) == sorted(
+            line for value in outside.values() for line in value
+        ), "\n".join(sorted(whole)[:40])
+
+    def test_bulk_save_stores_no_property_the_document_did_not_state(
+        self, persisted, snapshot
+    ):
+        """Transport must not invent values for derived properties.
+
+        ``qualified_name`` is computed from a node's own fields by the
+        interactive ``save()`` path (a ``FileNode`` uses its ``path``, a
+        ``ParameterNode`` its name).  The bulk path writes a document, so the
+        value the document states is the value that gets stored — otherwise a
+        backend would hold a property no document carried, and the same document
+        would land differently depending on which backend received it.
+        """
+        stated = {
+            entry["canonical_key"]: entry.get("qualified_name", "<absent>")
+            for entry in snapshot["document"]["entries"]
+        }
+        derived = sorted(
+            key for key, value in stated.items()
+            if persisted["model"].get(key, {}).get("properties", {}).get(
+                "qualified_name", "<absent>"
+            ) != value
+        )
+        assert derived == [], derived[:10]
+
+    def test_the_backend_model_matches_the_deserialized_model(self, persisted, snapshot):
+        drifts = compare_models(
+            normalized_model(snapshot["restored"]), persisted["model"]
+        )
+        assert drifts == [], "\n".join(drift.describe() for drift in drifts[:40])
+
+    def test_the_backend_model_matches_the_source_graph(self, persisted, indexed):
+        """The whole chain in one comparison: indexed ≡ document ≡ backend."""
+        drifts = compare_models(normalized_model(indexed.graph), persisted["model"])
+        assert drifts == [], "\n".join(drift.describe() for drift in drifts[:40])
+
+    def test_the_backend_graph_has_no_unresolved_internal_edge(self, persisted):
+        """The gate may not pass with an edge that points at nothing."""
+        flat = persisted["loaded"]._flat_index()
+        unresolved = [
+            f"{LayerGraph._node_key(entry.node)} -[{relation}]-> {target_key}"
+            for entry in persisted["loaded"]._all_entries()
+            for relation, target_key, _type in entry.references
+            if target_key not in flat
+        ]
+        assert unresolved == []
+
+
+class TestPersistenceCoverageIsNotVacuous:
+    """The comparison has to be shown to cover what it claims to cover."""
+
+    def test_durable_properties_matches_serialize_for_every_node(self, persisted, indexed):
+        """``durable_properties`` may not quietly drop what ``serialize`` emits."""
+        nodes = [
+            entry.node for entry in indexed.graph._all_entries()
+        ] + [
+            entry.node for entry in persisted["loaded"]._all_entries()
+        ]
+        assert nodes
+        drifts = [
+            (
+                LayerGraph._node_key(node),
+                sorted(set(via_serialize) - set(via_helper)),
+                sorted(set(via_helper) - set(via_serialize)),
+            )
+            for node in nodes
+            for via_serialize in [
+                {
+                    name: value
+                    for name, value in node.serialize(fields="all").items()
+                    if name != "edges"
+                }
+            ]
+            for via_helper in [durable_properties(node)]
+            if via_serialize != via_helper
+        ]
+        assert drifts == [], drifts[:10]
+
+    def test_the_backend_model_covers_every_declared_property(self, persisted):
+        """Per node class, the compared property set is the declared property set."""
+        from codegraph.models.descriptors import PropertyRegistry
+
+        declared: dict[str, set[str]] = {}
+        compared: dict[str, set[str]] = {}
+        for key, entry in persisted["model"].items():
+            node_type = entry["type"]
+            node = persisted["loaded"]._flat_index()[key].node
+            discriminator = (
+                "node_type" if "type" in PropertyRegistry.properties_of(type(node))
+                else "type"
+            )
+            declared.setdefault(node_type, set()).update(
+                PropertyRegistry.properties_of(type(node))
+            )
+            declared[node_type] |= {discriminator, "canonical_key"}
+            compared.setdefault(node_type, set()).update(entry["properties"])
+
+        assert compared.keys() == declared.keys()
+        missing = {
+            node_type: sorted(declared[node_type] - compared[node_type])
+            for node_type in declared
+            if declared[node_type] - compared[node_type]
+        }
+        assert missing == {}, missing
+
+    def test_no_node_is_normalized_away_on_either_side(self, persisted, snapshot):
+        """A bijection over 560-odd nodes must not start by dropping nodes."""
+        assert inlined_implementation_keys(snapshot["restored"]) == set(), (
+            "the deserialized document no longer carries every implementation "
+            "leaf, so the backend comparison would be comparing less than the "
+            "document holds"
+        )
+        assert inlined_implementation_keys(persisted["loaded"]) == set()
+        assert len(persisted["model"]) == len(snapshot["document"]["entries"])
+
+
+# ---------------------------------------------------------------------------
+# 7. A second load is a no-op — WP5.5 step 9
+# ---------------------------------------------------------------------------
+
+
+class TestSecondLoadIdempotence:
+    """Loading the same document twice must not double anything."""
+
+    @pytest.fixture(params=BACKEND_KINDS)
+    def twice(self, request, tmp_path_factory, snapshot):
+        kind = request.param
+        backend = create_backend(
+            kind, tmp_path=tmp_path_factory.mktemp(f"wp55-twice-{kind}")
+        )
+        require_contract(backend)
+        keys = [
+            entry["canonical_key"] for entry in snapshot["document"]["entries"]
+        ]
+        rel_types = sorted(PORTABLE_RELATIONS | {"COMPOSES", "HAS_IMPLEMENTATION"})
+
+        def read() -> dict:
+            return {
+                "nodes": backend.graph.count_all_nodes(),
+                "keys": sorted(stored_keys(backend)),
+                "counts": relationship_counts(backend, rel_types),
+                "model": normalized_model(
+                    graph_from_backend(backend, keys)
+                ),
+                "edges": edge_report(backend, keys),
+            }
+
+        backend.bulk_save(snapshot["restored"])
+        first = read()
+        backend.bulk_save(snapshot["restored"])
+        second = read()
+        yield {"backend": backend, "first": first, "second": second, "kind": kind}
+        backend.close()
+
+    def test_the_second_load_adds_no_nodes(self, twice):
+        assert twice["second"]["nodes"] == twice["first"]["nodes"]
+        assert twice["second"]["keys"] == twice["first"]["keys"]
+
+    def test_the_second_load_adds_no_relationships(self, twice):
+        grew = {
+            rel_type: (twice["first"]["counts"][rel_type], twice["second"]["counts"][rel_type])
+            for rel_type in twice["first"]["counts"]
+            if twice["second"]["counts"][rel_type] != twice["first"]["counts"][rel_type]
+        }
+        assert grew == {}, grew
+        assert sum(twice["second"]["counts"].values()) == sum(
+            twice["first"]["counts"].values()
+        )
+
+    def test_the_second_load_changes_no_property(self, twice):
+        drifts = compare_models(twice["first"]["model"], twice["second"]["model"])
+        assert drifts == [], "\n".join(drift.describe() for drift in drifts[:40])
+
+    def test_the_second_load_changes_no_edge_or_its_attributes(self, twice):
+        assert _edge_drifts(twice["first"]["edges"], twice["second"]["edges"]) == []
+
+
+# ---------------------------------------------------------------------------
+# 8. Mutations are caught at the backend boundary — WP5.5 step 10
+# ---------------------------------------------------------------------------
+
+
+class TestBackendNegativeMutations:
+    """A backend read has to notice a wrong document, not average it away."""
+
+    @pytest.fixture(params=BACKEND_KINDS)
+    def backend_(self, request, tmp_path_factory, snapshot):
+        backend = create_backend(
+            request.param,
+            tmp_path=tmp_path_factory.mktemp(f"wp55-negative-{request.param}"),
+        )
+        require_contract(backend)
+        yield backend
+        backend.close()
+
+    @pytest.fixture()
+    def slice_(self, indexed):
+        return build_transaction_slice(
+            indexed.graph.serialize(fields="all", export_implementation=True)
+        )
+
+    def _persist(self, backend, snapshot, mutate=None) -> dict:
+        document = copy.deepcopy(snapshot["document"])
+        if mutate is not None:
+            mutate(document)
+        backend.bulk_save(LayerGraph.deserialize(document))
+        keys = [entry["canonical_key"] for entry in document["entries"]]
+        return {
+            "document": document,
+            "keys": keys,
+            "expected": carried_edges(document),
+            "actual": edge_report(backend, keys),
+            "stored": stored_keys(backend),
+        }
+
+    def test_a_reversed_edge_is_reported_at_the_backend_boundary(
+        self, backend_, snapshot, slice_
+    ):
+        """A flipped edge must still be flipped after it has been stored.
+
+        The backend is compared with the pristine slice, not with the mutated
+        document it was handed: persisting a wrong document faithfully proves
+        nothing, and the difference is what the gate has to catch.
+        """
+        test_key = slice_.test_key("NestedTransactionWithSavepoints")
+        method_key = next(
+            key
+            for key in sorted(slice_.verifies_targets["NestedTransactionWithSavepoints"])
+            if key in set(slice_.method_keys.values())
+        )
+
+        def mutate(document: dict) -> None:
+            for entry in document["entries"]:
+                if entry["canonical_key"] == test_key:
+                    entry["edges"] = [
+                        edge for edge in entry["edges"]
+                        if not (edge["relation_type"] == "VERIFIES"
+                                and edge.get("target_key") == method_key)
+                    ]
+                elif entry["canonical_key"] == method_key:
+                    entry["edges"] = list(entry["edges"]) + [{
+                        "relation_type": "VERIFIES",
+                        "target_key": test_key,
+                        "target_type": "TestNode",
+                    }]
+
+        state = self._persist(backend_, snapshot, mutate)
+
+        # The backend faithfully stored the mutated document, so the flip is
+        # only visible against the pristine slice — which is the point: a
+        # reversed edge has to survive as a *difference*, not as a pair of edges
+        # that a lenient comparison reads as the same thing.
+        drifts = _edge_drifts(
+            carried_edges(snapshot["document"]), state["actual"]
+        )
+
+        missing = [line for line in drifts if line.startswith("missing_edge:")]
+        extra = [line for line in drifts if line.startswith("extra_edge:")]
+        assert len(drifts) == 2 and len(missing) == len(extra) == 1, drifts
+        assert test_key in missing[0] and f"{method_key!r}" in missing[0]
+        assert method_key in extra[0] and f"{test_key!r}" in extra[0]
+        # Direction is the only difference: same two nodes, same relation.
+        assert "'VERIFIES'" in missing[0] and "'VERIFIES'" in extra[0]
+
+    def test_an_unexpected_extra_edge_is_reported_at_the_backend_boundary(
+        self, backend_, snapshot, slice_
+    ):
+        """An edge nobody authored is reported once, at its own source node."""
+        test_key = slice_.test_key("TransactionAutoRollbackOnDestruction")
+        method_key = next(
+            key for key in sorted(slice_.method_keys.values())
+            if key not in slice_.verifies_targets["TransactionAutoRollbackOnDestruction"]
+        )
+
+        def mutate(document: dict) -> None:
+            for entry in document["entries"]:
+                if entry["canonical_key"] == test_key:
+                    entry["edges"] = list(entry["edges"]) + [{
+                        "relation_type": "VERIFIES",
+                        "target_key": method_key,
+                        "target_type": "MethodNode",
+                    }]
+
+        result = self._persist(backend_, snapshot, mutate)
+        drifts = _edge_drifts(result["expected"], result["actual"])
+
+        assert drifts == [], drifts  # the backend kept what the document said …
+        # … so the difference has to be against the *unmutated* slice.
+        honest = _edge_drifts(
+            carried_edges(snapshot["document"]), result["actual"]
+        )
+        assert len(honest) == 1, honest
+        assert honest[0].startswith("extra_edge:") and test_key in honest[0]
+        assert f"{method_key}" in honest[0]
+
+    def test_an_extra_edge_written_straight_into_the_backend_is_detected(
+        self, backend_, snapshot, slice_
+    ):
+        """The read path itself must notice an edge no document carried."""
+        state = self._persist(backend_, snapshot)
+        test_key = slice_.test_key("TransactionRollback")
+        method_key = next(
+            key for key in sorted(slice_.method_keys.values())
+            if key not in slice_.verifies_targets["TransactionRollback"]
+        )
+        source = backend_.graph.find_by_key(test_key)
+        target = backend_.graph.find_by_key(method_key)
+        assert source is not None and target is not None
+        assert ("VERIFIES", method_key, "MethodNode", "target_key") not in (
+            state["expected"][test_key]
+        )
+
+        backend_.connect(source, "VERIFIES", target)
+
+        drifts = _edge_drifts(
+            state["expected"], edge_report(backend_, state["keys"])
+        )
+        assert len(drifts) == 1, drifts
+        assert drifts[0].startswith("extra_edge:") and test_key in drifts[0]
+
+    def test_a_missing_node_is_reported_at_the_backend_boundary(
+        self, backend_, snapshot, slice_
+    ):
+        """A dropped node is reported as the node, with its edges accounted."""
+        method_key = slice_.method_key("commit")
+
+        def mutate(document: dict) -> None:
+            document["entries"] = [
+                entry for entry in document["entries"]
+                if entry["canonical_key"] != method_key
+            ]
+
+        state = self._persist(backend_, snapshot, mutate)
+        document_keys = {
+            entry["canonical_key"] for entry in snapshot["document"]["entries"]
+        }
+
+        # The backend holds exactly the (shorter) document it was given, and the
+        # node that vanished from the document is the one it is missing relative
+        # to the slice.
+        assert state["stored"] == set(state["keys"])
+        assert document_keys - state["stored"] == {method_key}
+        assert state["stored"] - document_keys == set()
+
+        # What the backend does not report is fully explained by the mutation:
+        # the endpoints outside the graph, plus the edges that named the node
+        # that was removed.  Anything else missing would be an unaccounted loss.
+        stated = document_edges(state["document"])
+        unexplained = _edge_drifts(stated, state["actual"])
+        accounted = sorted(
+            f"missing_edge: {key} {edge}"
+            for key, edges in stated.items()
+            for edge in edges
+            if edge[3] == "target_ref" or edge[1] == method_key
+        )
+        assert sorted(unexplained) == accounted, "\n".join(
+            sorted(set(unexplained) - set(accounted))[:20]
+        )
+        assert any("COMPOSES" in line for line in accounted), (
+            "removing the node should have left its composition edge dangling; "
+            "if it did not, the mutation did not touch a composed member"
+        )
+        # … and against the real slice the loss is reported at the node.
+        model = normalized_model(
+            graph_from_backend(backend_, state["keys"])
+        )
+        drifts = compare_models(normalized_model(snapshot["restored"]), model)
+        missing = [d for d in drifts if d.kind == "missing_node"]
+        assert [d.location for d in missing] == [method_key], drifts
+
+    def test_a_changed_property_is_reported_at_the_backend_boundary(
+        self, backend_, snapshot, slice_
+    ):
+        """A property rewritten on the way in is reported at node.property."""
+        method_key = slice_.method_key("rollback")
+
+        def mutate(document: dict) -> None:
+            for entry in document["entries"]:
+                if entry["canonical_key"] == method_key:
+                    entry["brief_description"] = "mutated after review"
+
+        state = self._persist(backend_, snapshot, mutate)
+        model = normalized_model(graph_from_backend(backend_, state["keys"]))
+
+        drifts = compare_models(normalized_model(snapshot["restored"]), model)
+        assert [drift.kind for drift in drifts] == ["changed_property"], drifts
+        assert drifts[0].location == f"{method_key}.brief_description"
+        assert drifts[0].actual == "mutated after review"
+
+
+# ---------------------------------------------------------------------------
+# 9. Neo4j parity — opt-in and separately marked (WP5.5 step 8)
+# ---------------------------------------------------------------------------
+
+#: Explicit opt-in.  The parity leg writes to a database, so it never runs
+#: implicitly against whatever backend the developer has configured.
+NEO4J_PARITY_ENV = "CODEGRAPH_NEO4J_PARITY"
+
+
+def _neo4j_parity_backend():
+    """A reachable, empty Neo4j to compare against, or a skip with instructions."""
+    import os
+
+    if os.environ.get(NEO4J_PARITY_ENV) != "1":
+        pytest.skip(
+            f"Neo4j parity is opt-in: set {NEO4J_PARITY_ENV}=1 with a fresh "
+            "test container (tests/docker-compose.yml) running"
+        )
+    backend = create_backend(NEO4J_KIND)
+    require_contract(backend)
+    if backend.graph.count_all_nodes() != 0:
+        pytest.fail(
+            "the Neo4j parity target is not empty. This package never clears a "
+            "persistent graph, so start a throwaway container "
+            "(tests/docker-compose.yml) and point CODEGRAPH_NEO4J_* at it."
+        )
+    return backend
+
+
+@pytest.mark.neo4j
+class TestNeo4jParity:
+    """The same bijection against Neo4j.  Opt-in, never run by the default gate."""
+
+    def test_neo4j_holds_the_slice_exactly(self, snapshot, indexed):
+        backend = _neo4j_parity_backend()
+        try:
+            keys = [
+                entry["canonical_key"]
+                for entry in snapshot["document"]["entries"]
+            ]
+            backend.bulk_save(snapshot["restored"])
+
+            assert stored_keys(backend) == set(keys)
+            model = normalized_model(graph_from_backend(backend, keys))
+            drifts = compare_models(normalized_model(snapshot["restored"]), model)
+            assert drifts == [], "\n".join(d.describe() for d in drifts[:40])
+
+            # Idempotence, as on every other backend.
+            backend.bulk_save(snapshot["restored"])
+            again = normalized_model(graph_from_backend(backend, keys))
+            assert compare_models(model, again) == []
+        finally:
+            backend.close()
+
